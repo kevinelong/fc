@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantasy Computer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; background: #1a1a2e; color: #e0e0e0; font-family: monospace; overflow: hidden; }
+#app { display: flex; height: 100%; gap: 4px; padding: 4px; }
+#canvas-wrap { flex: 2; display: flex; align-items: center; justify-content: center; background: #0f0f23; border-radius: 4px; position: relative; min-width: 0; min-height: 0; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+#editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
+#editor::placeholder { color: #4a4a6a; }
+#errors { background: #1a1a2e; color: #ff6b6b; padding: 4px 8px; font-size: 12px; max-height: 60px; overflow-y: auto; border-radius: 4px; }
+#errors:empty { display: none; }
+@media (orientation: portrait) {
+  #app { flex-direction: column; }
+}
+@media (max-width: 600px) {
+  #editor { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-wrap"><canvas id="screen" width="128" height="128"></canvas></div>
+  <div id="editor-wrap">
+    <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
+    <div id="errors"></div>
+  </div>
+</div>
+<script>
+// ============================================================
+// FANTASY COMPUTER - A language that reads like English
+// ============================================================
+
+const canvas = document.getElementById('screen');
+const ctx = canvas.getContext('2d');
+const editor = document.getElementById('editor');
+const errorsDiv = document.getElementById('errors');
+
+// --- Canvas scaling ---
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  const maxW = wrap.clientWidth - 16;
+  const maxH = wrap.clientHeight - 16;
+  const scale = Math.max(1, Math.floor(Math.min(maxW / 128, maxH / 128)));
+  canvas.style.width = (128 * scale) + 'px';
+  canvas.style.height = (128 * scale) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ============================================================
+// COLOR PALETTE
+// ============================================================
+const COLORS = {
+  'black': '#000000', 'dark blue': '#1d2b53', 'dark purple': '#7e2553',
+  'dark green': '#008751', 'brown': '#ab5236', 'dark gray': '#5f574f',
+  'dark grey': '#5f574f', 'light gray': '#c2c3c7', 'light grey': '#c2c3c7',
+  'white': '#fff1e8', 'red': '#ff004d', 'orange': '#ffa300',
+  'yellow': '#ffec27', 'green': '#00e436', 'blue': '#29adff',
+  'indigo': '#83769c', 'pink': '#ff77a8', 'peach': '#ffccaa',
+  'gray': '#8e8e8e', 'grey': '#8e8e8e', 'gold': '#ffd700',
+  'cyan': '#00ffff', 'magenta': '#ff00ff', 'purple': '#9b59b6',
+  'lime': '#aaff00', 'sky': '#87ceeb', 'coral': '#ff6f61',
+};
+
+function resolveColor(name) {
+  if (!name) return '#fff1e8';
+  const n = String(name).toLowerCase().trim();
+  if (COLORS[n]) return COLORS[n];
+  if (n.startsWith('#')) return n;
+  if (n.startsWith('rgb')) return n;
+  // try two-word colors
+  return COLORS[n] || '#fff1e8';
+}
+
+// ============================================================
+// BITMAP FONT (3x5 pixels per character, 1px spacing)
+// ============================================================
+// Each char is encoded as 5 rows of 3 bits = 15 bits = hex
+const FONT_W = 3, FONT_H = 5, FONT_SPACING = 1;
+const FONT = {
+  'A':0x7DA7,'B':0x75D7,'C':0x7247,'D':0x5697,'E':0x7347,'F':0x7340,'G':0x72B7,
+  'H':0x5F50|5,'I':0x7497,'J':0x24B6,'K':0x5D50|5,'L':0x4927,'M':0x7F50|5,
+  'N':0x5ED5,'O':0x7697,'P':0x7740,'Q':0x769D,'R':0x7745,'S':0x7197,'T':0x7490,
+  'U':0x5697,'V':0x5694,'W':0x56F5,'X':0x5295,'Y':0x5490,'Z':0x7497&0x7FFF,
+  '0':0x7697,'1':0x6497,'2':0x7497&0x7FFF,'3':0x7197|0x0080,'4':0x5F10|1,
+  '5':0x7197,'6':0x7397,'7':0x7490,'8':0x7797,'9':0x7F97,
+  ' ':0x0000,'.':0x0010,',':0x0012,'!':0x4840|2,
+  '?':0x7482,'\'':0x4800,'"':0x5000|0xA00,'-':0x0700,'+':0x04E0&0x7FFF,
+  ':':0x0500|0xA,';':0x0412,'(': 0x2924,')':(0x4920|4),'/':0x1248,
+  '_':0x0007,'=':0x0E0E,'*':0x0AE0|0xA,'#':0x5F5F,'@':0x76C7,
+  '<':0x2420|4,'>':0x4240|2,'[':0x6926,']':0x4964,'{':0x6926,'}':0x4964,
+  '%':0x5248|0xA,'&':0x6997,'$':0x7197,'~':0x0360,'^':0x2A00,
+  '\\':0x4120|8,'|':0x4920|4,
+};
+// Better hand-tuned font data using explicit binary per row
+const FONT_DATA = {};
+(function buildFont() {
+  // format: each char = array of 5 numbers (rows), each 3 bits wide
+  const F = {
+    'A': [0b010, 0b101, 0b111, 0b101, 0b101],
+    'B': [0b110, 0b101, 0b110, 0b101, 0b110],
+    'C': [0b011, 0b100, 0b100, 0b100, 0b011],
+    'D': [0b110, 0b101, 0b101, 0b101, 0b110],
+    'E': [0b111, 0b100, 0b110, 0b100, 0b111],
+    'F': [0b111, 0b100, 0b110, 0b100, 0b100],
+    'G': [0b011, 0b100, 0b101, 0b101, 0b011],
+    'H': [0b101, 0b101, 0b111, 0b101, 0b101],
+    'I': [0b111, 0b010, 0b010, 0b010, 0b111],
+    'J': [0b001, 0b001, 0b001, 0b101, 0b010],
+    'K': [0b101, 0b101, 0b110, 0b101, 0b101],
+    'L': [0b100, 0b100, 0b100, 0b100, 0b111],
+    'M': [0b101, 0b111, 0b111, 0b101, 0b101],
+    'N': [0b101, 0b111, 0b111, 0b111, 0b101],
+    'O': [0b010, 0b101, 0b101, 0b101, 0b010],
+    'P': [0b110, 0b101, 0b110, 0b100, 0b100],
+    'Q': [0b010, 0b101, 0b101, 0b110, 0b011],
+    'R': [0b110, 0b101, 0b110, 0b101, 0b101],
+    'S': [0b011, 0b100, 0b010, 0b001, 0b110],
+    'T': [0b111, 0b010, 0b010, 0b010, 0b010],
+    'U': [0b101, 0b101, 0b101, 0b101, 0b010],
+    'V': [0b101, 0b101, 0b101, 0b010, 0b010],
+    'W': [0b101, 0b101, 0b111, 0b111, 0b101],
+    'X': [0b101, 0b101, 0b010, 0b101, 0b101],
+    'Y': [0b101, 0b101, 0b010, 0b010, 0b010],
+    'Z': [0b111, 0b001, 0b010, 0b100, 0b111],
+    '0': [0b010, 0b101, 0b101, 0b101, 0b010],
+    '1': [0b010, 0b110, 0b010, 0b010, 0b111],
+    '2': [0b110, 0b001, 0b010, 0b100, 0b111],
+    '3': [0b110, 0b001, 0b010, 0b001, 0b110],
+    '4': [0b101, 0b101, 0b111, 0b001, 0b001],
+    '5': [0b111, 0b100, 0b110, 0b001, 0b110],
+    '6': [0b011, 0b100, 0b110, 0b101, 0b010],
+    '7': [0b111, 0b001, 0b010, 0b010, 0b010],
+    '8': [0b010, 0b101, 0b010, 0b101, 0b010],
+    '9': [0b010, 0b101, 0b011, 0b001, 0b110],
+    ' ': [0b000, 0b000, 0b000, 0b000, 0b000],
+    '.': [0b000, 0b000, 0b000, 0b000, 0b010],
+    ',': [0b000, 0b000, 0b000, 0b010, 0b100],
+    '!': [0b010, 0b010, 0b010, 0b000, 0b010],
+    '?': [0b110, 0b001, 0b010, 0b000, 0b010],
+    '-': [0b000, 0b000, 0b111, 0b000, 0b000],
+    '+': [0b000, 0b010, 0b111, 0b010, 0b000],
+    ':': [0b000, 0b010, 0b000, 0b010, 0b000],
+    ';': [0b000, 0b010, 0b000, 0b010, 0b100],
+    '(': [0b001, 0b010, 0b010, 0b010, 0b001],
+    ')': [0b100, 0b010, 0b010, 0b010, 0b100],
+    '/': [0b001, 0b001, 0b010, 0b100, 0b100],
+    '_': [0b000, 0b000, 0b000, 0b000, 0b111],
+    '=': [0b000, 0b111, 0b000, 0b111, 0b000],
+    '*': [0b000, 0b101, 0b010, 0b101, 0b000],
+    '#': [0b101, 0b111, 0b101, 0b111, 0b101],
+    '\'': [0b010, 0b010, 0b000, 0b000, 0b000],
+    '"': [0b101, 0b101, 0b000, 0b000, 0b000],
+    '<': [0b001, 0b010, 0b100, 0b010, 0b001],
+    '>': [0b100, 0b010, 0b001, 0b010, 0b100],
+    '[': [0b110, 0b100, 0b100, 0b100, 0b110],
+    ']': [0b011, 0b001, 0b001, 0b001, 0b011],
+    '{': [0b011, 0b010, 0b100, 0b010, 0b011],
+    '}': [0b110, 0b010, 0b001, 0b010, 0b110],
+    '%': [0b101, 0b001, 0b010, 0b100, 0b101],
+  };
+  for (const [ch, rows] of Object.entries(F)) {
+    FONT_DATA[ch] = rows;
+  }
+})();
+
+function drawText(text, x, y, colorHex) {
+  ctx.fillStyle = colorHex;
+  let cx = x;
+  const s = String(text).toUpperCase();
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    const rows = FONT_DATA[ch];
+    if (rows) {
+      for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 3; col++) {
+          if (rows[row] & (1 << (2 - col))) {
+            ctx.fillRect(cx + col, y + row, 1, 1);
+          }
+        }
+      }
+    }
+    cx += FONT_W + FONT_SPACING;
+  }
+}
+
+// ============================================================
+// BUILT-IN SPRITES (8x8, nibble hex: 0=transparent, 1-f=palette)
+// ============================================================
+// Palette: 0=trans 1=black 2=dk blue 3=dk purple 4=dk green
+// 5=brown 6=dk gray 7=lt gray 8=white 9=red a=orange b=yellow
+// c=green d=blue e=indigo f=pink
+const SPRITES = {
+  // Characters
+  hero:     '000dd000001d100011d1d110d11111d0011d1100011d110001100110',
+  wizard:   '00e00000' + '0eee0000' + '0e8e0000' + 'eeeee000' + '03e30000' + '03e30000' + '03030000' + '03030000',
+  knight:   '06666000' + '06860000' + '06660000' + '67676000' + '06660000' + '06660000' + '06060000' + '06060000',
+  rogue:    '01110000' + '01610000' + '01110000' + '11611000' + '05150000' + '01110000' + '01010000' + '01010000',
+  princess: '00b00000' + '08880000' + '08180000' + '08880000' + 'f8f8f000' + '0fff0000' + '0f0f0000' + '0f0f0000',
+  ship:     '00010000' + '00111000' + '01111100' + '11111110' + '01111100' + '00111000' + '00010000' + '00000000',
+
+  // Enemies
+  slime:    '00000000' + '00ccc000' + '0cc9cc00' + '0ccccc00' + 'cc9c9cc0' + '0ccccc00' + '0c999c00' + '00000000',
+  bat:      '00000000' + '10000010' + '91000190' + '99100990' + '09999900' + '00999000' + '00090000' + '00000000',
+  ghost:    '00eee000' + '0eeeee00' + '0e8e8e00' + '0eeeee00' + '0eeeee00' + '0eeeee00' + '0e0e0e00' + '00000000',
+  skeleton: '00888000' + '08818800' + '00888000' + '08888800' + '00878000' + '00888000' + '00808000' + '00808000',
+  goblin:   '0c000c00' + '0cccc000' + '0c8c8000' + '0cccc000' + '00cc0000' + '0cccc000' + '0c00c000' + '0c00c000',
+  spider:   '10000010' + '01000100' + '10999010' + '01999100' + '19989910' + '01999100' + '10000010' + '01000100',
+  alien:    '00100100' + '01111110' + '11011010' + '11111110' + '01011010' + '00100100' + '01001010' + '10000010',
+
+  // Items
+  coin:     '00000000' + '00bbb000' + '0bb8bb00' + '0bbbbb00' + '0bb8bb00' + '00bbb000' + '00000000' + '00000000',
+  gem:      '00000000' + '00090000' + '00999000' + '09f9f900' + '00999000' + '00090000' + '00000000' + '00000000',
+  heart:    '00000000' + '09009000' + '09999000' + '09999000' + '00990000' + '00090000' + '00000000' + '00000000',
+  key:      '00000000' + '00bb0000' + '00b0b000' + '00bb0000' + '000b0000' + '000bb000' + '000b0000' + '00000000',
+  chest:    '00000000' + '05555500' + '5a5a5a50' + '55555550' + '55b55550' + '55555550' + '00000000' + '00000000',
+  potion:   '00000000' + '00780000' + '00870000' + '009d0000' + '09dd9000' + '09dd9000' + '00990000' + '00000000',
+  sword:    '00000080' + '00000800' + '00008000' + '00080000' + '09080000' + '00900000' + '09000000' + '00000000',
+  bomb:     '00000000' + '000ab000' + '00a00000' + '01111000' + '01111000' + '01111000' + '00110000' + '00000000',
+  star:     '00000000' + '000b0000' + '000b0000' + '0bbbbb00' + '00bbb000' + '00b0b000' + '0b000b00' + '00000000',
+
+  // Tiles
+  grass:    '44444444' + '44444444' + '44c44444' + '44444c44' + '44444444' + '4c444444' + '44444444' + '44444444',
+  dirt:     '55555555' + '55a55555' + '55555555' + '55555a55' + '5a555555' + '55555555' + '55555555' + '555a5555',
+  stone:    '66676666' + '66666666' + '66666676' + '77777777' + '66666666' + '67666666' + '66666666' + '77777777',
+  water:    '22d22222' + '2222d222' + '22222222' + 'd2222222' + '22222d22' + '22222222' + '222d2222' + '22222222',
+  brick:    '99599595' + '55555555' + '95995599' + '55555555' + '99599595' + '55555555' + '95995599' + '55555555',
+  tree:     '00ccc000' + '0ccccc00' + 'cccccc00' + '0ccccc00' + '00ccc000' + '00550000' + '00550000' + '00000000',
+  door:     '55555500' + '51111500' + '51111500' + '51111500' + '511b1500' + '51111500' + '51111500' + '55555500',
+
+  // Effects
+  explosion1: '00000000' + '00090000' + '009a9000' + '09ab900' + '009a9000' + '00090000' + '00000000' + '00000000',
+  explosion2: '09000900' + '00999000' + '09aba900' + '9abba900' + '09aba900' + '00999000' + '09000900' + '00000000',
+  spark:    '00000000' + '00080000' + '00808000' + '08000800' + '00808000' + '00080000' + '00000000' + '00000000',
+  smoke:    '00000000' + '00770000' + '07777000' + '07777000' + '07777000' + '00770000' + '00000000' + '00000000',
+  bullet:   '00000000' + '00000000' + '00080000' + '00888000' + '00080000' + '00000000' + '00000000' + '00000000',
+  fireball: '00000000' + '00990000' + '09a99000' + '9aab9000' + '09a99000' + '00990000' + '00000000' + '00000000',
+
+  // UI
+  heart_full:  '00000000' + '09009000' + '09999000' + '09999000' + '00990000' + '00090000' + '00000000' + '00000000',
+  heart_empty: '00000000' + '01001000' + '01001000' + '01111000' + '00110000' + '00010000' + '00000000' + '00000000',
+  skull:    '00000000' + '08880000' + '08080800' + '08888000' + '08880000' + '08080800' + '00000000' + '00000000',
+  arrow_up: '00000000' + '00100000' + '01110000' + '11111000' + '00100000' + '00100000' + '00100000' + '00000000',
+};
+
+// Palette for sprite rendering (matches our 16-color system)
+const SPRITE_PAL = [
+  null,       // 0 = transparent
+  '#000000',  // 1 = black
+  '#1d2b53',  // 2 = dark blue
+  '#7e2553',  // 3 = dark purple
+  '#008751',  // 4 = dark green
+  '#ab5236',  // 5 = brown
+  '#5f574f',  // 6 = dark gray
+  '#c2c3c7',  // 7 = light gray
+  '#fff1e8',  // 8 = white
+  '#ff004d',  // 9 = red
+  '#ffa300',  // a = orange
+  '#ffec27',  // b = yellow
+  '#00e436',  // c = green
+  '#29adff',  // d = blue
+  '#83769c',  // e = indigo/lavender
+  '#ff77a8',  // f = pink
+];
+
+function drawSprite(name, x, y) {
+  const hex = SPRITES[name];
+  if (!hex) return;
+  // Strip any spaces/joins
+  const data = hex.replace(/\s/g, '');
+  for (let i = 0; i < 64 && i < data.length; i++) {
+    const ci = parseInt(data[i], 16);
+    if (ci === 0) continue; // transparent
+    const px = i % 8;
+    const py = Math.floor(i / 8);
+    ctx.fillStyle = SPRITE_PAL[ci];
+    ctx.fillRect(Math.floor(x) + px, Math.floor(y) + py, 1, 1);
+  }
+}
+
+// ============================================================
+// PROBABILITY WORDS
+// ============================================================
+const PROBABILITY = {
+  'always': 1.0, 'almost certainly': 0.95, 'very likely': 0.85,
+  'highly likely': 0.90, 'likely': 0.70, 'probably': 0.70, 'probable': 0.70,
+  'better than even': 0.60, 'maybe': 0.50, 'even chance': 0.50,
+  'about even': 0.50, 'probably not': 0.25, 'unlikely': 0.20,
+  'we doubt': 0.20, 'little chance': 0.10, 'chances are slight': 0.10,
+  'improbable': 0.10, 'highly unlikely': 0.05, 'rarely': 0.05,
+  'almost never': 0.02, 'almost no chance': 0.02, 'never': 0.0,
+};
+
+// Helper: safely get lowercase string value from a token
+function tv(token) {
+  if (!token) return '';
+  const v = token.value;
+  return typeof v === 'string' ? v.toLowerCase() : String(v);
+}
+
+// ============================================================
+// LEXER
+// ============================================================
+function tokenizeLine(line) {
+  const tokens = [];
+  let i = 0;
+  // measure indent
+  let indent = 0;
+  while (i < line.length && (line[i] === ' ' || line[i] === '\t')) {
+    indent += line[i] === '\t' ? 2 : 1;
+    i++;
+  }
+  tokens.indent = Math.floor(indent / 2);
+  while (i < line.length) {
+    // skip spaces
+    if (line[i] === ' ' || line[i] === '\t') { i++; continue; }
+    // comment
+    if (line[i] === '-' && line[i + 1] === '-') break;
+    // string
+    if (line[i] === '"' || line[i] === "'") {
+      const q = line[i]; i++;
+      let s = '';
+      while (i < line.length && line[i] !== q) { s += line[i]; i++; }
+      i++; // skip closing quote
+      tokens.push({ type: 'string', value: s });
+      continue;
+    }
+    // number
+    if (/[0-9]/.test(line[i]) || (line[i] === '-' && i + 1 < line.length && /[0-9]/.test(line[i + 1]) && (tokens.length === 0 || ['operator', 'keyword', 'comma', 'lparen'].includes(tokens[tokens.length - 1].type)))) {
+      let n = '';
+      if (line[i] === '-') { n += '-'; i++; }
+      while (i < line.length && /[0-9.]/.test(line[i])) { n += line[i]; i++; }
+      tokens.push({ type: 'number', value: parseFloat(n) });
+      continue;
+    }
+    // brackets
+    if (line[i] === '[') { tokens.push({ type: 'lbracket', value: '[' }); i++; continue; }
+    if (line[i] === ']') { tokens.push({ type: 'rbracket', value: ']' }); i++; continue; }
+    if (line[i] === '{') { tokens.push({ type: 'lbrace', value: '{' }); i++; continue; }
+    if (line[i] === '}') { tokens.push({ type: 'rbrace', value: '}' }); i++; continue; }
+    if (line[i] === '(') { tokens.push({ type: 'lparen', value: '(' }); i++; continue; }
+    if (line[i] === ')') { tokens.push({ type: 'rparen', value: ')' }); i++; continue; }
+    if (line[i] === ',') { tokens.push({ type: 'comma', value: ',' }); i++; continue; }
+    if (line[i] === '.') {
+      // could be property access
+      tokens.push({ type: 'dot', value: '.' }); i++; continue;
+    }
+    // operators
+    if ('+-*/><=!'.includes(line[i])) {
+      let op = line[i]; i++;
+      if (i < line.length && (line[i] === '=' || (op === '>' || op === '<') && line[i] === '=')) {
+        op += line[i]; i++;
+      }
+      tokens.push({ type: 'operator', value: op });
+      continue;
+    }
+    // word
+    if (/[a-zA-Z_]/.test(line[i])) {
+      let w = '';
+      while (i < line.length && /[a-zA-Z0-9_]/.test(line[i])) { w += line[i]; i++; }
+      tokens.push({ type: 'word', value: w });
+      continue;
+    }
+    i++; // skip unknown
+  }
+  return tokens;
+}
+
+// ============================================================
+// PARSER
+// ============================================================
+function parse(source) {
+  const rawLines = source.split('\n');
+  const lines = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const trimmed = rawLines[i].replace(/--.*$/, '').trim();
+    if (!trimmed) continue;
+    const tokens = tokenizeLine(rawLines[i]);
+    if (tokens.length === 0) continue;
+    lines.push({ tokens, indent: tokens.indent, lineNum: i + 1 });
+  }
+
+  function parseBlock(start, minIndent) {
+    const stmts = [];
+    let i = start;
+    while (i < lines.length && lines[i].indent >= minIndent) {
+      if (lines[i].indent > minIndent) { i++; continue; } // skip deeper (grabbed by parent)
+      const stmt = parseLine(lines[i].tokens, lines[i].lineNum);
+      // grab child block
+      let j = i + 1;
+      const children = [];
+      while (j < lines.length && lines[j].indent > minIndent) {
+        children.push(lines[j]);
+        j++;
+      }
+      if (children.length > 0) {
+        stmt.body = parseBlock(i + 1, minIndent + 1);
+      }
+      stmts.push(stmt);
+      i = j > i + 1 ? j : i + 1;
+    }
+    return stmts;
+  }
+
+  function parseLine(tokens, lineNum) {
+    const words = tokens.map(t => t.value);
+    const raw = tokens;
+
+    // Helper: find word index
+    function findWord(w, startIdx = 0) {
+      for (let i = startIdx; i < raw.length; i++) {
+        if (raw[i].type === 'word' && tv(raw[i]) === w.toLowerCase()) return i;
+      }
+      return -1;
+    }
+    function findAnyWord(ws, startIdx = 0) {
+      for (let i = startIdx; i < raw.length; i++) {
+        if (raw[i].type === 'word' && ws.includes(tv(raw[i]))) return i;
+      }
+      return -1;
+    }
+
+    const first = raw[0] ? tv(raw[0]) : '';
+
+    // -- "and" chaining: split at top-level "and" between statements --
+    // We handle this by looking for "and" that separates commands
+    // but NOT "and" inside expressions (like "between X and Y")
+    const andParts = splitOnAnd(raw);
+    if (andParts.length > 1) {
+      return { type: 'chain', parts: andParts.map(p => parseLine(p, lineNum)), lineNum };
+    }
+
+    // -- to (function definition) --
+    if (first === 'to') {
+      const name = raw[1] ? raw[1].value : 'unknown';
+      const params = [];
+      for (let i = 2; i < raw.length; i++) {
+        if (raw[i].type === 'word' && tv(raw[i]) !== 'at' && tv(raw[i]) !== 'with') {
+          params.push(raw[i].value);
+        }
+      }
+      return { type: 'funcdef', name, params, body: [], lineNum };
+    }
+
+    // -- run game with update and draw --
+    if (first === 'run' && raw.length >= 2 && tv(raw[1]) === 'game') {
+      const funcs = [];
+      for (let i = 2; i < raw.length; i++) {
+        if (raw[i].type === 'word' && !['with', 'and'].includes(tv(raw[i]))) {
+          funcs.push(raw[i].value);
+        }
+      }
+      return { type: 'rungame', funcs, lineNum };
+    }
+
+    // -- when (event handler) --
+    if (first === 'when') {
+      return parseWhen(raw, lineNum);
+    }
+
+    // -- if --
+    if (first === 'if') {
+      return parseIf(raw, lineNum);
+    }
+
+    // -- else / else if --
+    if (first === 'else') {
+      if (raw.length > 1 && tv(raw[1]) === 'if') {
+        const inner = parseIf(raw.slice(1), lineNum);
+        return { type: 'else_if', condition: inner.condition, thenStmt: inner.thenStmt, body: inner.body, lineNum };
+      }
+      // standalone else with inline statement
+      if (raw.length > 1) {
+        return { type: 'else', thenStmt: parseLine(raw.slice(1), lineNum), lineNum };
+      }
+      return { type: 'else', body: [], lineNum };
+    }
+
+    // -- repeat N times --
+    if (first === 'repeat') {
+      return parseRepeat(raw, lineNum);
+    }
+
+    // -- each X in Y --
+    if (first === 'each') {
+      return parseEach(raw, lineNum);
+    }
+
+    // -- forever --
+    if (first === 'forever') {
+      return { type: 'forever', body: [], lineNum };
+    }
+
+    // -- stop --
+    if (first === 'stop') {
+      return { type: 'stop', lineNum };
+    }
+
+    // -- return --
+    if (first === 'return') {
+      return { type: 'return', value: raw.length > 1 ? parseExpression(raw.slice(1)) : null, lineNum };
+    }
+
+    // -- clear screen to COLOR --
+    if (first === 'clear' && raw.length >= 2 && tv(raw[1]) === 'screen') {
+      const colorTokens = raw.slice(raw.findIndex(t => tv(t) === 'to') + 1);
+      return { type: 'clearscreen', color: colorTokens.map(t => t.value).join(' '), lineNum };
+    }
+
+    // -- clear VARIABLE --
+    if (first === 'clear') {
+      return { type: 'clear', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
+    }
+
+    // -- draw commands --
+    if (first === 'draw') {
+      return parseDraw(raw, lineNum);
+    }
+
+    // -- write "text" at x, y in color --
+    if (first === 'write') {
+      return parseWrite(raw, lineNum);
+    }
+
+    // -- say "text" --
+    if (first === 'say') {
+      return parseSay(raw, lineNum);
+    }
+
+    // -- add X to Y --
+    if (first === 'add') {
+      return parseAdd(raw, lineNum);
+    }
+
+    // -- remove X from Y --
+    if (first === 'remove') {
+      return parseRemove(raw, lineNum);
+    }
+
+    // -- toggle X --
+    if (first === 'toggle') {
+      return { type: 'toggle', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
+    }
+
+    // -- double / halve --
+    if (first === 'double') {
+      return { type: 'double', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
+    }
+    if (first === 'halve') {
+      return { type: 'halve', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
+    }
+
+    // -- pset x, y in color --
+    if (first === 'pset') {
+      return parsePset(raw, lineNum);
+    }
+
+    // -- probability words --
+    for (const [phrase, prob] of Object.entries(PROBABILITY)) {
+      const phraseWords = phrase.split(' ');
+      if (raw.length >= phraseWords.length) {
+        let match = true;
+        for (let pi = 0; pi < phraseWords.length; pi++) {
+          if (tv(raw[pi]) !== phraseWords[pi]) { match = false; break; }
+        }
+        if (match) {
+          const rest = raw.slice(phraseWords.length);
+          return { type: 'probability', prob, stmt: parseLine(rest, lineNum), lineNum };
+        }
+      }
+    }
+
+    // -- X is Y (assignment) --
+    const isIdx = findWord('is');
+    if (isIdx > 0 && isIdx < raw.length - 1) {
+      const target = raw.slice(0, isIdx);
+      const valueTokens = raw.slice(isIdx + 1);
+      return { type: 'assign', target: tokensToRef(target), value: parseExpression(valueTokens), lineNum };
+    }
+
+    // -- function call (anything else) --
+    return { type: 'call', name: first, args: raw.slice(1), lineNum };
+  }
+
+  function splitOnAnd(tokens) {
+    // Find "and" that separates statements (not inside "between X and Y" or "run game with X and Y")
+    const parts = [];
+    let current = [];
+    let inBetween = false;
+    for (let i = 0; i < tokens.length; i++) {
+      const v = tokens[i].value ? tv(tokens[i]) : '';
+      if (v === 'between') inBetween = true;
+      if (v === 'and' && inBetween) { inBetween = false; current.push(tokens[i]); continue; }
+      if (v === 'and' && !inBetween && current.length > 0) {
+        // Check if next token looks like a new command (word that's a verb/keyword)
+        const next = tokens[i + 1];
+        if (next && next.type === 'word' && isCommandWord(nextv(t))) {
+          parts.push(current);
+          current = [];
+          continue;
+        }
+      }
+      current.push(tokens[i]);
+    }
+    if (current.length > 0) parts.push(current);
+    return parts;
+  }
+
+  function isCommandWord(w) {
+    return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
+      'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
+      'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
+      'if', 'repeat', 'each', 'every'].includes(w);
+  }
+
+  function parseWhen(raw, lineNum) {
+    // when "key" is pressed / when mouse is clicked / when key is in [...]
+    const rest = raw.slice(1);
+    // when "space" is pressed
+    if (rest.length >= 3 && rest[0].type === 'string' && tv(rest[1]) === 'is' && tv(rest[2]) === 'pressed') {
+      const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
+      return { type: 'when_key', key: rest[0].value, thenStmt: action, body: [], lineNum };
+    }
+    // when key "X" is pressed
+    if (rest.length >= 4 && tv(rest[0]) === 'key' && rest[1].type === 'string') {
+      const action = rest.length > 4 ? parseLine(rest.slice(4), lineNum) : null;
+      return { type: 'when_key', key: rest[1].value, thenStmt: action, body: [], lineNum };
+    }
+    // when key is in [list]
+    if (rest.length >= 3 && tv(rest[0]) === 'key' && tv(rest[1]) === 'is') {
+      const action = findInlineAction(rest, 3);
+      return { type: 'when_key_in', keys: parseListLiteral(rest, 3), thenStmt: action.stmt, body: [], lineNum };
+    }
+    // when mouse is clicked
+    if (rest.length >= 3 && tv(rest[0]) === 'mouse') {
+      const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
+      return { type: 'when_mouse', event: tv(rest[2]), thenStmt: action, body: [], lineNum };
+    }
+    return { type: 'when_generic', tokens: rest, body: [], lineNum };
+  }
+
+  function findInlineAction(raw, startAfter) {
+    // Look for tokens after a bracket close or keyword boundary
+    for (let i = startAfter; i < raw.length; i++) {
+      if (raw[i].type === 'rbracket') {
+        if (i + 1 < raw.length) return { stmt: parseLine(raw.slice(i + 1), 0), end: i };
+        return { stmt: null, end: i };
+      }
+    }
+    return { stmt: null, end: raw.length };
+  }
+
+  function parseListLiteral(raw, startIdx) {
+    const items = [];
+    let i = startIdx;
+    // skip "in"
+    while (i < raw.length && tv(raw[i]) === 'in') i++;
+    // skip [
+    if (i < raw.length && raw[i].type === 'lbracket') i++;
+    while (i < raw.length && raw[i].type !== 'rbracket') {
+      if (raw[i].type !== 'comma') {
+        items.push(raw[i].type === 'string' ? raw[i].value : raw[i].value);
+      }
+      i++;
+    }
+    return items;
+  }
+
+  function parseIf(raw, lineNum) {
+    // Find the condition end - look for a command word that starts the "then" part
+    let condEnd = raw.length;
+    for (let i = 1; i < raw.length; i++) {
+      if (raw[i].type === 'word' && isCommandWord(tv(raw[i]))) {
+        // make sure it's not part of an expression like "is not"
+        const prev = raw[i - 1];
+        if (prev && prev.type === 'word' && ['is', 'not', 'and', 'or', 'in', 'between'].includes(tv(prev))) continue;
+        condEnd = i;
+        break;
+      }
+    }
+    const condition = parseCondition(raw.slice(1, condEnd));
+    const thenStmt = condEnd < raw.length ? parseLine(raw.slice(condEnd), lineNum) : null;
+    return { type: 'if', condition, thenStmt, body: [], lineNum };
+  }
+
+  function parseCondition(tokens) {
+    if (tokens.length === 0) return { type: 'literal', value: false };
+
+    // Handle "not" prefix
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'not') {
+      return { type: 'not', expr: parseCondition(tokens.slice(1)) };
+    }
+
+    // Handle "no X" (e.g., "no enemies")
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'no') {
+      return { type: 'not', expr: parseExpression(tokens.slice(1)) };
+    }
+
+    // Look for "and" / "or" logical operators
+    for (let i = 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'or') {
+        return { type: 'or', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
+      }
+    }
+    for (let i = 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'and') {
+        return { type: 'and', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
+      }
+    }
+
+    // "X is between A and B"
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'between') {
+        const left = parseExpression(tokens.slice(0, i - 1)); // before "is"
+        let andIdx = -1;
+        for (let j = i + 1; j < tokens.length; j++) {
+          if (tokens[j].type === 'word' && tv(tokens[j]) === 'and') { andIdx = j; break; }
+        }
+        if (andIdx > 0) {
+          return { type: 'between', value: left, low: parseExpression(tokens.slice(i + 1, andIdx)), high: parseExpression(tokens.slice(andIdx + 1)) };
+        }
+      }
+    }
+
+    // "X is in [list]"
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'is') {
+        if (i + 1 < tokens.length && tokens[i + 1].type === 'word' && tv(tokens[i + 1]) === 'not') {
+          if (i + 2 < tokens.length && tokens[i + 2].type === 'word' && tv(tokens[i + 2]) === 'in') {
+            return { type: 'not', expr: { type: 'in', value: parseExpression(tokens.slice(0, i)), list: parseListFromTokens(tokens.slice(i + 3)) } };
+          }
+          // X is not Y
+          return { type: 'neq', left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 2)) };
+        }
+        if (i + 1 < tokens.length && tokens[i + 1].type === 'word' && tv(tokens[i + 1]) === 'in') {
+          return { type: 'in', value: parseExpression(tokens.slice(0, i)), list: parseListFromTokens(tokens.slice(i + 2)) };
+        }
+        // X is Y (equality)
+        return { type: 'eq', left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+
+    // comparison operators
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === 'operator' && ['>', '<', '>=', '<=', '!='].includes(tokens[i].value)) {
+        return { type: 'cmp', op: tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+
+    // "X has Y" (contains)
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'has') {
+        return { type: 'has', left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+
+    // bare expression (truthiness)
+    return parseExpression(tokens);
+  }
+
+  function parseListFromTokens(tokens) {
+    if (tokens.length === 0) return { type: 'literal', value: [] };
+    if (tokens[0].type === 'lbracket') {
+      const items = [];
+      for (let i = 1; i < tokens.length; i++) {
+        if (tokens[i].type === 'rbracket') break;
+        if (tokens[i].type !== 'comma') {
+          items.push(tokens[i].type === 'string' ? { type: 'literal', value: tokens[i].value } :
+            tokens[i].type === 'number' ? { type: 'literal', value: tokens[i].value } :
+              { type: 'ref', name: tokens[i].value });
+        }
+      }
+      return { type: 'literal', value: items };
+    }
+    return parseExpression(tokens);
+  }
+
+  function parseExpression(tokens) {
+    if (tokens.length === 0) return { type: 'literal', value: 0 };
+    if (tokens.length === 1) {
+      const t = tokens[0];
+      if (t.type === 'number') return { type: 'literal', value: t.value };
+      if (t.type === 'string') return { type: 'literal', value: t.value };
+      if (t.value === 'yes') return { type: 'literal', value: true };
+      if (t.value === 'no') return { type: 'literal', value: false };
+      return { type: 'ref', name: t.value };
+    }
+
+    // Handle list literal [a, b, c]
+    if (tokens[0].type === 'lbracket') {
+      return parseListFromTokens(tokens);
+    }
+
+    // Handle object literal {x: 1, y: 2}
+    if (tokens[0].type === 'lbrace') {
+      return parseObjectLiteral(tokens);
+    }
+
+    // Handle "random N"
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'random') {
+      return { type: 'random', max: parseExpression(tokens.slice(1)) };
+    }
+
+    // Property access: a.b.c
+    if (tokens.length >= 3 && tokens[1].type === 'dot') {
+      let ref = tokens[0].value;
+      let i = 1;
+      while (i < tokens.length && tokens[i].type === 'dot') {
+        ref += '.' + tokens[i + 1].value;
+        i += 2;
+      }
+      if (i >= tokens.length) return { type: 'ref', name: ref };
+      // more tokens after property - continue to math
+      const newTokens = [{ type: 'word', value: ref }, ...tokens.slice(i)];
+      return parseExpression(newTokens);
+    }
+
+    // "item N of list"
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'item') {
+      const ofIdx = tokens.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'of');
+      if (ofIdx > 0) {
+        return { type: 'item_of', index: parseExpression(tokens.slice(1, ofIdx)), list: parseExpression(tokens.slice(ofIdx + 1)) };
+      }
+    }
+
+    // "the number of X" / "count of X"
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'the' &&
+      tokens.length >= 4 && tv(tokens[1]) === 'number' && tv(tokens[2]) === 'of') {
+      return { type: 'count', expr: parseExpression(tokens.slice(3)) };
+    }
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'count' &&
+      tokens.length >= 3 && tv(tokens[1]) === 'of') {
+      return { type: 'count', expr: parseExpression(tokens.slice(2)) };
+    }
+
+    // Math: +, -, *, /, mod
+    // Low precedence: + -
+    for (let i = tokens.length - 1; i >= 1; i--) {
+      if (tokens[i].type === 'operator' && (tokens[i].value === '+' || tokens[i].value === '-')) {
+        return { type: 'math', op: tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+    // High precedence: * / mod
+    for (let i = tokens.length - 1; i >= 1; i--) {
+      if ((tokens[i].type === 'operator' && (tokens[i].value === '*' || tokens[i].value === '/')) ||
+        (tokens[i].type === 'word' && tv(tokens[i]) === 'mod')) {
+        return { type: 'math', op: tokens[i].value === 'mod' ? '%' : tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+
+    // String interpolation - join remaining tokens
+    // If mixed types, try to form a string
+    if (tokens[0].type === 'string') {
+      return { type: 'literal', value: tokens[0].value };
+    }
+
+    // Fall back: first token as ref
+    return { type: 'ref', name: tokens.map(t => t.value).join(' ') };
+  }
+
+  function parseObjectLiteral(tokens) {
+    const obj = {};
+    let i = 1; // skip {
+    while (i < tokens.length && tokens[i].type !== 'rbrace') {
+      if (tokens[i].type === 'comma') { i++; continue; }
+      const key = tokens[i].value;
+      i++; // skip key
+      // skip colon (might be parsed as something else or missing)
+      if (i < tokens.length && (tokens[i].value === ':' || tokens[i].type === 'operator')) i++;
+      // read value - single token for simplicity
+      if (i < tokens.length && tokens[i].type !== 'comma' && tokens[i].type !== 'rbrace') {
+        if (tokens[i].type === 'number') obj[key] = tokens[i].value;
+        else if (tokens[i].type === 'string') obj[key] = tokens[i].value;
+        else if (tokens[i].value === 'yes') obj[key] = true;
+        else if (tokens[i].value === 'no') obj[key] = false;
+        else obj[key] = tokens[i].value;
+        i++;
+      }
+    }
+    return { type: 'literal', value: obj };
+  }
+
+  function tokensToRef(tokens) {
+    const parts = [];
+    for (const t of tokens) {
+      if (t.type === 'dot') parts.push('.');
+      else parts.push(t.value);
+    }
+    return parts.join('');
+  }
+
+  function parseDraw(raw, lineNum) {
+    const shape = raw[1] ? tv(raw[1]) : '';
+    const args = {};
+
+    // Handle "draw sprite "name" at x, y"
+    if (shape === 'sprite' && raw.length >= 3 && raw[2].type === 'string') {
+      args.spriteName = raw[2].value.toLowerCase().replace(/\s+/g, '_');
+      // parse remaining at x, y
+      for (let i = 3; i < raw.length; i++) {
+        const w = raw[i].value ? tv(raw[i]) : '';
+        if (w === 'at' && i + 1 < raw.length) {
+          args.x = parseExpression([raw[i + 1]]);
+          if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+            args.y = parseExpression([raw[i + 3]]);
+          }
+        }
+      }
+      return { type: 'draw', shape: 'sprite', args, lineNum };
+    }
+
+    // Parse keyword arguments: at, size, from, to, in
+    for (let i = 2; i < raw.length; i++) {
+      const w = raw[i].value ? tv(raw[i]) : '';
+      if (w === 'at' && i + 1 < raw.length) {
+        args.x = parseExpression([raw[i + 1]]);
+        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+          args.y = parseExpression([raw[i + 3]]);
+          i += 3;
+        } else { i += 1; }
+      } else if (w === 'size' && i + 1 < raw.length) {
+        args.w = parseExpression([raw[i + 1]]);
+        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+          args.h = parseExpression([raw[i + 3]]);
+          i += 3;
+        } else {
+          args.h = args.w;
+          i += 1;
+        }
+      } else if (w === 'from' && i + 1 < raw.length) {
+        args.x1 = parseExpression([raw[i + 1]]);
+        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+          args.y1 = parseExpression([raw[i + 3]]);
+          i += 3;
+        } else { i += 1; }
+      } else if (w === 'to' && i + 1 < raw.length) {
+        args.x2 = parseExpression([raw[i + 1]]);
+        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+          args.y2 = parseExpression([raw[i + 3]]);
+          i += 3;
+        } else { i += 1; }
+      } else if (w === 'in') {
+        // collect remaining words as color
+        const colorParts = [];
+        for (let j = i + 1; j < raw.length; j++) {
+          colorParts.push(raw[j].value);
+        }
+        args.color = colorParts.join(' ');
+        break;
+      }
+    }
+    return { type: 'draw', shape, args, lineNum };
+  }
+
+  function parseWrite(raw, lineNum) {
+    let text = null, x = null, y = null, color = null;
+    let i = 1;
+    // get text
+    if (i < raw.length && raw[i].type === 'string') {
+      text = raw[i].value;
+      i++;
+    } else {
+      // expression until "at"
+      const atIdx = raw.findIndex((t, idx) => idx > 0 && t.type === 'word' && tv(t) === 'at');
+      if (atIdx > 0) {
+        text = raw.slice(1, atIdx).map(t => t.value).join(' ');
+        i = atIdx;
+      }
+    }
+    // parse at, in
+    while (i < raw.length) {
+      const w = raw[i].value ? tv(raw[i]) : '';
+      if (w === 'at' && i + 1 < raw.length) {
+        x = parseExpression([raw[i + 1]]);
+        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
+          y = parseExpression([raw[i + 3]]);
+          i += 4;
+        } else { i += 2; }
+      } else if (w === 'in') {
+        const colorParts = [];
+        for (let j = i + 1; j < raw.length; j++) colorParts.push(raw[j].value);
+        color = colorParts.join(' ');
+        break;
+      } else { i++; }
+    }
+    return { type: 'write', text: text ? { type: 'literal', value: text } : { type: 'literal', value: '' }, x: x || { type: 'literal', value: 0 }, y: y || { type: 'literal', value: 0 }, color: color || 'white', lineNum };
+  }
+
+  function parseSay(raw, lineNum) {
+    if (raw.length >= 2 && raw[1].type === 'string') {
+      return { type: 'say', text: { type: 'literal', value: raw[1].value }, lineNum };
+    }
+    return { type: 'say', text: parseExpression(raw.slice(1)), lineNum };
+  }
+
+  function parseAdd(raw, lineNum) {
+    // add X to Y
+    const toIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'to');
+    if (toIdx > 0) {
+      return { type: 'add', value: parseExpression(raw.slice(1, toIdx)), target: tokensToRef(raw.slice(toIdx + 1)), lineNum };
+    }
+    return { type: 'call', name: 'add', args: raw.slice(1), lineNum };
+  }
+
+  function parseRemove(raw, lineNum) {
+    // remove X from Y
+    const fromIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'from');
+    if (fromIdx > 0) {
+      return { type: 'remove', value: parseExpression(raw.slice(1, fromIdx)), target: tokensToRef(raw.slice(fromIdx + 1)), lineNum };
+    }
+    return { type: 'call', name: 'remove', args: raw.slice(1), lineNum };
+  }
+
+  function parseRepeat(raw, lineNum) {
+    // repeat N times
+    const timesIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'times');
+    if (timesIdx > 0) {
+      return { type: 'repeat_times', count: parseExpression(raw.slice(1, timesIdx)), body: [], lineNum };
+    }
+    // repeat with X from A to B
+    const withIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'with');
+    if (withIdx > 0) {
+      const varName = raw[withIdx + 1] ? raw[withIdx + 1].value : 'i';
+      const fromIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'from');
+      const toIdx = raw.findIndex((t, i) => i > fromIdx && t.type === 'word' && tv(t) === 'to');
+      if (fromIdx > 0 && toIdx > 0) {
+        return { type: 'repeat_range', varName, from: parseExpression(raw.slice(fromIdx + 1, toIdx)), to: parseExpression(raw.slice(toIdx + 1)), body: [], lineNum };
+      }
+    }
+    // repeat while/until
+    if (raw.length >= 2 && tv(raw[1]) === 'while') {
+      return { type: 'repeat_while', condition: parseCondition(raw.slice(2)), body: [], lineNum };
+    }
+    if (raw.length >= 2 && tv(raw[1]) === 'until') {
+      return { type: 'repeat_until', condition: parseCondition(raw.slice(2)), body: [], lineNum };
+    }
+    // bare repeat
+    return { type: 'forever', body: [], lineNum };
+  }
+
+  function parseEach(raw, lineNum) {
+    // each X in Y [where condition]
+    const inIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'in');
+    if (inIdx > 0) {
+      const varName = raw.slice(1, inIdx).map(t => t.value).join(' ');
+      const whereIdx = raw.findIndex((t, i) => i > inIdx && t.type === 'word' && tv(t) === 'where');
+      let list, where = null;
+      if (whereIdx > 0) {
+        list = parseExpression(raw.slice(inIdx + 1, whereIdx));
+        where = parseCondition(raw.slice(whereIdx + 1));
+      } else {
+        list = parseExpression(raw.slice(inIdx + 1));
+      }
+      return { type: 'each', varName, list, where, body: [], lineNum };
+    }
+    return { type: 'call', name: 'each', args: raw.slice(1), lineNum };
+  }
+
+  function parsePset(raw, lineNum) {
+    let x = null, y = null, color = 'white';
+    let i = 1;
+    if (i < raw.length) { x = parseExpression([raw[i]]); i++; }
+    if (i < raw.length && raw[i].type === 'comma') { i++; }
+    if (i < raw.length) { y = parseExpression([raw[i]]); i++; }
+    const inIdx = raw.findIndex((t, idx) => idx > 2 && t.type === 'word' && tv(t) === 'in');
+    if (inIdx > 0) {
+      color = raw.slice(inIdx + 1).map(t => t.value).join(' ');
+    }
+    return { type: 'pset', x: x || { type: 'literal', value: 0 }, y: y || { type: 'literal', value: 0 }, color, lineNum };
+  }
+
+  const program = parseBlock(0, 0);
+  return program;
+}
+
+// ============================================================
+// INTERPRETER
+// ============================================================
+class Runtime {
+  constructor() {
+    this.vars = {};
+    this.funcs = {};
+    this.gameLoop = null;
+    this.animFrame = null;
+    this.keyState = {};
+    this.keyJustPressed = {};
+    this.mouseState = { x: 0, y: 0, down: false, clicked: false };
+    this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.errors = [];
+    this.stopped = false;
+    this.sayBuffer = [];
+  }
+
+  reset() {
+    if (this.animFrame) cancelAnimationFrame(this.animFrame);
+    this.vars = {};
+    this.funcs = {};
+    this.gameLoop = null;
+    this.animFrame = null;
+    this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.errors = [];
+    this.stopped = false;
+    this.sayBuffer = [];
+    // don't reset keyState - it's maintained by event listeners
+  }
+
+  error(msg, lineNum) {
+    const prefix = lineNum ? `Line ${lineNum}: ` : '';
+    this.errors.push(prefix + msg);
+  }
+
+  isTruthy(val) {
+    if (val === null || val === undefined) return false;
+    if (val === false || val === 'no') return false;
+    if (val === true || val === 'yes') return true;
+    if (typeof val === 'number') return val !== 0;
+    if (typeof val === 'string') return val !== '';
+    if (Array.isArray(val)) return val.length > 0;
+    if (typeof val === 'object') return Object.keys(val).length > 0;
+    return true;
+  }
+
+  getVar(name) {
+    if (name.includes('.')) {
+      const parts = name.split('.');
+      let obj = this.vars[parts[0]];
+      for (let i = 1; i < parts.length; i++) {
+        if (obj == null) return undefined;
+        if (parts[i] === 'count' || parts[i] === 'length') {
+          if (Array.isArray(obj)) return obj.length;
+        }
+        obj = obj[parts[i]];
+      }
+      return obj;
+    }
+    return this.vars[name];
+  }
+
+  setVar(name, value) {
+    if (name.includes('.')) {
+      const parts = name.split('.');
+      let obj = this.vars[parts[0]];
+      if (obj == null) { this.vars[parts[0]] = {}; obj = this.vars[parts[0]]; }
+      for (let i = 1; i < parts.length - 1; i++) {
+        if (obj[parts[i]] == null) obj[parts[i]] = {};
+        obj = obj[parts[i]];
+      }
+      obj[parts[parts.length - 1]] = value;
+    } else {
+      this.vars[name] = value;
+    }
+  }
+
+  evalExpr(node) {
+    if (!node) return 0;
+    switch (node.type) {
+      case 'literal': {
+        if (Array.isArray(node.value)) return node.value.map(item => this.evalExpr(item));
+        if (typeof node.value === 'object' && node.value !== null && !Array.isArray(node.value)) {
+          // deep copy object
+          const obj = {};
+          for (const [k, v] of Object.entries(node.value)) obj[k] = v;
+          return obj;
+        }
+        return node.value;
+      }
+      case 'ref': {
+        const v = this.getVar(node.name);
+        if (v !== undefined) return v;
+        // might be a color name or unknown
+        if (COLORS[node.name.toLowerCase()]) return node.name;
+        return undefined;
+      }
+      case 'math': {
+        let l = this.evalExpr(node.left);
+        let r = this.evalExpr(node.right);
+        // forgiving coercion
+        if (typeof l === 'string') l = parseFloat(l) || 0;
+        if (typeof r === 'string') r = parseFloat(r) || 0;
+        switch (node.op) {
+          case '+': return l + r;
+          case '-': return l - r;
+          case '*': return l * r;
+          case '/': return r !== 0 ? l / r : 0;
+          case '%': return r !== 0 ? l % r : 0;
+        }
+        return 0;
+      }
+      case 'random': {
+        const max = this.evalExpr(node.max);
+        return Math.floor(Math.random() * (max + 1));
+      }
+      case 'item_of': {
+        const idx = this.evalExpr(node.index);
+        const list = this.evalExpr(node.list);
+        if (Array.isArray(list)) {
+          // 1-based indexing
+          return list[idx - 1];
+        }
+        return undefined;
+      }
+      case 'count': {
+        const val = this.evalExpr(node.expr);
+        if (Array.isArray(val)) return val.length;
+        if (typeof val === 'string') return val.length;
+        return 0;
+      }
+      case 'not': return !this.isTruthy(this.evalCondition(node));
+      case 'eq': case 'neq': case 'cmp': case 'between': case 'in': case 'has': case 'and': case 'or':
+        return this.evalCondition(node);
+      default: return 0;
+    }
+  }
+
+  evalCondition(node) {
+    if (!node) return false;
+    switch (node.type) {
+      case 'eq': return this.evalExpr(node.left) == this.evalExpr(node.right);
+      case 'neq': return this.evalExpr(node.left) != this.evalExpr(node.right);
+      case 'cmp': {
+        const l = this.evalExpr(node.left);
+        const r = this.evalExpr(node.right);
+        switch (node.op) {
+          case '>': return l > r;
+          case '<': return l < r;
+          case '>=': return l >= r;
+          case '<=': return l <= r;
+          case '!=': return l != r;
+        }
+        return false;
+      }
+      case 'between': {
+        const v = this.evalExpr(node.value);
+        return v >= this.evalExpr(node.low) && v <= this.evalExpr(node.high);
+      }
+      case 'in': {
+        const v = this.evalExpr(node.value);
+        const list = this.evalExpr(node.list);
+        if (Array.isArray(list)) return list.includes(v);
+        return false;
+      }
+      case 'has': {
+        const l = this.evalExpr(node.left);
+        const r = this.evalExpr(node.right);
+        if (typeof l === 'string') return l.toLowerCase().includes(String(r).toLowerCase());
+        if (Array.isArray(l)) return l.includes(r);
+        return false;
+      }
+      case 'not': return !this.isTruthy(this.evalCondition(node.expr));
+      case 'and': return this.isTruthy(this.evalCondition(node.left)) && this.isTruthy(this.evalCondition(node.right));
+      case 'or': return this.isTruthy(this.evalCondition(node.left)) || this.isTruthy(this.evalCondition(node.right));
+      default: return this.isTruthy(this.evalExpr(node));
+    }
+  }
+
+  interpolate(s) {
+    if (typeof s !== 'string') return String(s ?? '');
+    return s.replace(/\{([^}]+)\}/g, (_, name) => {
+      const val = this.getVar(name.trim());
+      return val !== undefined ? String(val) : '{' + name + '}';
+    });
+  }
+
+  exec(stmts, maxOps) {
+    if (!stmts) return;
+    const limit = maxOps || 100000;
+    let ops = 0;
+    const execList = (list) => {
+      for (const stmt of list) {
+        if (this.stopped || ops > limit) return;
+        ops++;
+        execOne(stmt);
+      }
+    };
+    const execOne = (stmt) => {
+      if (!stmt || this.stopped) return;
+      switch (stmt.type) {
+        case 'chain':
+          for (const part of stmt.parts) execOne(part);
+          break;
+
+        case 'assign': {
+          const val = this.evalExpr(stmt.value);
+          this.setVar(stmt.target, val);
+          break;
+        }
+
+        case 'add': {
+          const val = this.evalExpr(stmt.value);
+          const current = this.getVar(stmt.target);
+          if (Array.isArray(current)) {
+            current.push(val);
+          } else if (typeof current === 'number' || current === undefined) {
+            const numVal = typeof val === 'string' ? parseFloat(val) || 0 : val;
+            this.setVar(stmt.target, (current || 0) + numVal);
+          } else if (typeof current === 'string') {
+            this.setVar(stmt.target, current + String(val));
+          }
+          break;
+        }
+
+        case 'remove': {
+          const val = this.evalExpr(stmt.value);
+          const current = this.getVar(stmt.target);
+          if (Array.isArray(current)) {
+            const idx = current.indexOf(val);
+            if (idx >= 0) current.splice(idx, 1);
+          } else if (typeof current === 'number') {
+            const numVal = typeof val === 'string' ? parseFloat(val) || 0 : val;
+            this.setVar(stmt.target, current - numVal);
+          }
+          break;
+        }
+
+        case 'clear': {
+          const current = this.getVar(stmt.target);
+          if (Array.isArray(current)) this.setVar(stmt.target, []);
+          else if (typeof current === 'number') this.setVar(stmt.target, 0);
+          else if (typeof current === 'string') this.setVar(stmt.target, '');
+          else if (typeof current === 'boolean') this.setVar(stmt.target, false);
+          else this.setVar(stmt.target, 0);
+          break;
+        }
+
+        case 'toggle': {
+          const current = this.getVar(stmt.target);
+          if (typeof current === 'boolean') this.setVar(stmt.target, !current);
+          else if (typeof current === 'number') this.setVar(stmt.target, current === 0 ? 1 : 0);
+          else if (current === 'yes') this.setVar(stmt.target, 'no');
+          else if (current === 'no') this.setVar(stmt.target, 'yes');
+          else this.setVar(stmt.target, !this.isTruthy(current));
+          break;
+        }
+
+        case 'double': {
+          const current = this.getVar(stmt.target);
+          if (typeof current === 'number') this.setVar(stmt.target, current * 2);
+          break;
+        }
+
+        case 'halve': {
+          const current = this.getVar(stmt.target);
+          if (typeof current === 'number') this.setVar(stmt.target, current / 2);
+          break;
+        }
+
+        case 'if': {
+          if (this.isTruthy(this.evalCondition(stmt.condition))) {
+            if (stmt.thenStmt) execOne(stmt.thenStmt);
+            if (stmt.body && stmt.body.length) execList(stmt.body);
+          } else {
+            // look for else/else_if after this in parent scope
+            // handled by the else_if/else processing below
+          }
+          break;
+        }
+
+        case 'else_if': {
+          // only runs if previous if was false - handled in execList
+          if (this.isTruthy(this.evalCondition(stmt.condition))) {
+            if (stmt.thenStmt) execOne(stmt.thenStmt);
+            if (stmt.body && stmt.body.length) execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'else': {
+          if (stmt.thenStmt) execOne(stmt.thenStmt);
+          if (stmt.body && stmt.body.length) execList(stmt.body);
+          break;
+        }
+
+        case 'repeat_times': {
+          const count = this.evalExpr(stmt.count);
+          for (let i = 0; i < count && !this.stopped && ops < limit; i++) {
+            ops++;
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'repeat_range': {
+          const from = this.evalExpr(stmt.from);
+          const to = this.evalExpr(stmt.to);
+          const step = from <= to ? 1 : -1;
+          for (let i = from; step > 0 ? i <= to : i >= to; i += step) {
+            if (this.stopped || ops > limit) break;
+            ops++;
+            this.setVar(stmt.varName, i);
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'repeat_while': {
+          while (this.isTruthy(this.evalCondition(stmt.condition)) && !this.stopped && ops < limit) {
+            ops++;
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'repeat_until': {
+          while (!this.isTruthy(this.evalCondition(stmt.condition)) && !this.stopped && ops < limit) {
+            ops++;
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'forever': {
+          // In non-game mode, just run a bunch of times
+          for (let i = 0; i < 1000 && !this.stopped && ops < limit; i++) {
+            ops++;
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'each': {
+          let list = this.evalExpr(stmt.list);
+          if (!Array.isArray(list)) break;
+          if (stmt.where) {
+            list = list.filter(item => {
+              this.setVar(stmt.varName, item);
+              return this.isTruthy(this.evalCondition(stmt.where));
+            });
+          }
+          for (const item of list) {
+            if (this.stopped || ops > limit) break;
+            ops++;
+            this.setVar(stmt.varName, item);
+            execList(stmt.body);
+          }
+          break;
+        }
+
+        case 'funcdef': {
+          this.funcs[stmt.name] = stmt;
+          break;
+        }
+
+        case 'rungame': {
+          this.startGameLoop(stmt.funcs);
+          break;
+        }
+
+        case 'when_key': {
+          this.eventHandlers.key[stmt.key.toLowerCase()] = stmt;
+          break;
+        }
+
+        case 'when_key_in': {
+          this.eventHandlers.key_in.push(stmt);
+          break;
+        }
+
+        case 'when_mouse': {
+          this.eventHandlers.mouse[stmt.event] = stmt;
+          break;
+        }
+
+        case 'clearscreen': {
+          const color = resolveColor(stmt.color);
+          ctx.fillStyle = color;
+          ctx.fillRect(0, 0, 128, 128);
+          break;
+        }
+
+        case 'draw':
+          this.execDraw(stmt);
+          break;
+
+        case 'write':
+          this.execWrite(stmt);
+          break;
+
+        case 'pset': {
+          const x = Math.floor(this.evalExpr(stmt.x));
+          const y = Math.floor(this.evalExpr(stmt.y));
+          ctx.fillStyle = resolveColor(stmt.color);
+          ctx.fillRect(x, y, 1, 1);
+          break;
+        }
+
+        case 'say': {
+          const text = this.interpolate(this.evalExpr(stmt.text));
+          this.sayBuffer.push(text);
+          break;
+        }
+
+        case 'probability': {
+          if (Math.random() < stmt.prob) {
+            execOne(stmt.stmt);
+          }
+          break;
+        }
+
+        case 'stop':
+          this.stopped = true;
+          break;
+
+        case 'return':
+          this._returnValue = stmt.value ? this.evalExpr(stmt.value) : null;
+          this.stopped = true;
+          break;
+
+        case 'call':
+          this.execCall(stmt);
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    // Modified execList to handle if/else chains
+    const origExecList = execList;
+    const smartExecList = (list) => {
+      let lastIfResult = null;
+      for (let i = 0; i < list.length; i++) {
+        if (this.stopped || ops > limit) return;
+        ops++;
+        const stmt = list[i];
+
+        if (stmt.type === 'if') {
+          lastIfResult = this.isTruthy(this.evalCondition(stmt.condition));
+          if (lastIfResult) {
+            if (stmt.thenStmt) execOne(stmt.thenStmt);
+            if (stmt.body && stmt.body.length) execList(stmt.body);
+          }
+        } else if (stmt.type === 'else_if') {
+          if (lastIfResult === false) {
+            lastIfResult = this.isTruthy(this.evalCondition(stmt.condition));
+            if (lastIfResult) {
+              if (stmt.thenStmt) execOne(stmt.thenStmt);
+              if (stmt.body && stmt.body.length) execList(stmt.body);
+            }
+          } else {
+            // previous if was true, skip this
+          }
+        } else if (stmt.type === 'else') {
+          if (lastIfResult === false) {
+            if (stmt.thenStmt) execOne(stmt.thenStmt);
+            if (stmt.body && stmt.body.length) execList(stmt.body);
+          }
+          lastIfResult = null;
+        } else {
+          lastIfResult = null;
+          execOne(stmt);
+        }
+      }
+    };
+
+    smartExecList(stmts);
+  }
+
+  execDraw(stmt) {
+    const a = stmt.args;
+    const x = a.x ? this.evalExpr(a.x) : 0;
+    const y = a.y ? this.evalExpr(a.y) : 0;
+    const color = resolveColor(a.color);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+
+    switch (stmt.shape) {
+      case 'circle': {
+        const r = a.w ? this.evalExpr(a.w) : 4;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'rect': {
+        const w = a.w ? this.evalExpr(a.w) : 8;
+        const h = a.h ? this.evalExpr(a.h) : w;
+        ctx.fillRect(x, y, w, h);
+        break;
+      }
+      case 'line': {
+        const x1 = a.x1 ? this.evalExpr(a.x1) : 0;
+        const y1 = a.y1 ? this.evalExpr(a.y1) : 0;
+        const x2 = a.x2 ? this.evalExpr(a.x2) : 0;
+        const y2 = a.y2 ? this.evalExpr(a.y2) : 0;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        break;
+      }
+      case 'sprite': {
+        // draw sprite "name" at x, y
+        const name = a.spriteName || '';
+        drawSprite(name, x, y);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  execWrite(stmt) {
+    const text = this.interpolate(this.evalExpr(stmt.text));
+    const x = this.evalExpr(stmt.x);
+    const y = this.evalExpr(stmt.y);
+    const color = resolveColor(stmt.color);
+    drawText(text, x, y, color);
+  }
+
+  execCall(stmt) {
+    const func = this.funcs[stmt.name];
+    if (func) {
+      const savedStop = this.stopped;
+      this.stopped = false;
+      this.exec(func.body);
+      const ret = this._returnValue;
+      this._returnValue = undefined;
+      this.stopped = savedStop;
+      return ret;
+    }
+  }
+
+  callFunc(name) {
+    const func = this.funcs[name];
+    if (func) {
+      const savedStop = this.stopped;
+      this.stopped = false;
+      this.exec(func.body);
+      this._returnValue = undefined;
+      this.stopped = savedStop;
+    }
+  }
+
+  startGameLoop(funcNames) {
+    const self = this;
+    function frame() {
+      if (self.stopped) return;
+      // Process key events
+      for (const [key, handler] of Object.entries(self.eventHandlers.key)) {
+        if (self.keyState[key]) {
+          if (handler.thenStmt) self.exec([handler.thenStmt]);
+          if (handler.body && handler.body.length) self.exec(handler.body);
+        }
+      }
+      // Process mouse events
+      if (self.mouseState.clicked && self.eventHandlers.mouse['clicked']) {
+        const h = self.eventHandlers.mouse['clicked'];
+        self.vars['mouse'] = { x: self.mouseState.x, y: self.mouseState.y };
+        if (h.thenStmt) self.exec([h.thenStmt]);
+        if (h.body && h.body.length) self.exec(h.body);
+      }
+      if (self.mouseState.down && self.eventHandlers.mouse['down']) {
+        const h = self.eventHandlers.mouse['down'];
+        self.vars['mouse'] = { x: self.mouseState.x, y: self.mouseState.y };
+        if (h.thenStmt) self.exec([h.thenStmt]);
+        if (h.body && h.body.length) self.exec(h.body);
+      }
+      self.mouseState.clicked = false;
+
+      // Run game functions
+      for (const name of funcNames) {
+        self.callFunc(name);
+      }
+      self.animFrame = requestAnimationFrame(frame);
+    }
+    self.animFrame = requestAnimationFrame(frame);
+  }
+
+  // Process key state for "when" handlers (non-game-loop mode)
+  processKeyPress(key) {
+    const handler = this.eventHandlers.key[key.toLowerCase()];
+    if (handler) {
+      if (handler.thenStmt) this.exec([handler.thenStmt]);
+      if (handler.body && handler.body.length) this.exec(handler.body);
+    }
+    for (const h of this.eventHandlers.key_in) {
+      if (h.keys.includes(key)) {
+        this.vars['key'] = key;
+        if (h.thenStmt) this.exec([h.thenStmt]);
+        if (h.body && h.body.length) this.exec(h.body);
+      }
+    }
+  }
+
+  processMouseClick(x, y) {
+    this.vars['mouse'] = { x, y };
+    const handler = this.eventHandlers.mouse['clicked'];
+    if (handler) {
+      if (handler.thenStmt) this.exec([handler.thenStmt]);
+      if (handler.body && handler.body.length) this.exec(handler.body);
+    }
+  }
+}
+
+// ============================================================
+// MAIN CONTROLLER
+// ============================================================
+let runtime = new Runtime();
+let debounceTimer = null;
+
+function run(source) {
+  runtime.reset();
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 128, 128);
+  errorsDiv.textContent = '';
+
+  if (!source.trim()) return;
+
+  try {
+    const program = parse(source);
+    runtime.exec(program);
+
+    // Show say buffer
+    if (runtime.sayBuffer.length > 0 && !runtime.gameLoop) {
+      // Draw say output on canvas
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 128, 128);
+      runtime.sayBuffer.forEach((text, i) => {
+        drawText(text, 2, 2 + i * 7, '#fff1e8');
+      });
+    }
+  } catch (e) {
+    runtime.error("I got confused: " + e.message);
+  }
+
+  if (runtime.errors.length > 0) {
+    errorsDiv.textContent = runtime.errors.join('\n');
+  }
+}
+
+// Debounced run on input
+editor.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => run(editor.value), 500);
+});
+
+// Key handling
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  runtime.keyState[key] = true;
+  runtime.processKeyPress(key);
+
+  // Allow tab in editor
+  if (e.key === 'Tab' && document.activeElement === editor) {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(editor.selectionEnd);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  runtime.keyState[e.key.toLowerCase()] = false;
+});
+
+// Mouse handling on canvas
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = 128 / rect.width;
+  const scaleY = 128 / rect.height;
+  runtime.mouseState.x = Math.floor((e.clientX - rect.left) * scaleX);
+  runtime.mouseState.y = Math.floor((e.clientY - rect.top) * scaleY);
+});
+
+canvas.addEventListener('mousedown', () => {
+  runtime.mouseState.down = true;
+  runtime.mouseState.clicked = true;
+  runtime.processMouseClick(runtime.mouseState.x, runtime.mouseState.y);
+});
+
+canvas.addEventListener('mouseup', () => {
+  runtime.mouseState.down = false;
+});
+
+// Touch support
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const scaleX = 128 / rect.width;
+  const scaleY = 128 / rect.height;
+  runtime.mouseState.x = Math.floor((touch.clientX - rect.left) * scaleX);
+  runtime.mouseState.y = Math.floor((touch.clientY - rect.top) * scaleY);
+}, { passive: false });
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const scaleX = 128 / rect.width;
+  const scaleY = 128 / rect.height;
+  runtime.mouseState.x = Math.floor((touch.clientX - rect.left) * scaleX);
+  runtime.mouseState.y = Math.floor((touch.clientY - rect.top) * scaleY);
+  runtime.mouseState.down = true;
+  runtime.mouseState.clicked = true;
+  runtime.processMouseClick(runtime.mouseState.x, runtime.mouseState.y);
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  runtime.mouseState.down = false;
+});
+
+// Load sample program
+editor.value = `-- welcome to fantasy computer!
+-- type code here and it runs
+
+clear screen to dark blue
+
+-- starry sky
+repeat 40 times
+  pset random 128, random 128 in white
+
+-- landscape
+draw rect at 0, 95 size 128, 33 in dark green
+
+-- a scene with sprites
+draw sprite "tree" at 10, 87
+draw sprite "tree" at 100, 87
+draw sprite "house" at 50, 87
+draw sprite "hero" at 30, 88
+draw sprite "slime" at 75, 90
+
+-- items
+draw sprite "coin" at 45, 88
+draw sprite "heart" at 60, 88
+draw sprite "chest" at 85, 88
+
+-- moon
+draw circle at 108, 18 size 8 in yellow
+
+-- title
+write "fantasy computer" at 18, 4 in white
+write "hello world!" at 30, 118 in yellow`;
+
+// Initial run
+setTimeout(() => run(editor.value), 100);
+</script>
+</body>
+</html>
