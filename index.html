@@ -600,7 +600,7 @@ function parse(source) {
       if (v === 'and' && !inBetween && current.length > 0) {
         // Check if next token looks like a new command (word that's a verb/keyword)
         const next = tokens[i + 1];
-        if (next && next.type === 'word' && isCommandWord(nextv(t))) {
+        if (next && next.type === 'word' && isCommandWord(tv(next))) {
           parts.push(current);
           current = [];
           continue;
@@ -691,6 +691,11 @@ function parse(source) {
 
   function parseCondition(tokens) {
     if (tokens.length === 0) return { type: 'literal', value: false };
+
+    // Handle "key "X"" or "key "X" is pressed" — check live key state
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'key' && tokens.length >= 2 && tokens[1].type === 'string') {
+      return { type: 'key_pressed', key: tokens[1].value.toLowerCase() };
+    }
 
     // Handle "not" prefix
     if (tokens[0].type === 'word' && tv(tokens[0]) === 'not') {
@@ -1098,7 +1103,7 @@ class Runtime {
   }
 
   reset() {
-    if (this.animFrame) cancelAnimationFrame(this.animFrame);
+    if (this.animFrame) clearInterval(this.animFrame);
     this.vars = {};
     this.funcs = {};
     this.gameLoop = null;
@@ -1221,6 +1226,7 @@ class Runtime {
   evalCondition(node) {
     if (!node) return false;
     switch (node.type) {
+      case 'key_pressed': return !!this.keyState[node.key];
       case 'eq': return this.evalExpr(node.left) == this.evalExpr(node.right);
       case 'neq': return this.evalExpr(node.left) != this.evalExpr(node.right);
       case 'cmp': {
@@ -1639,10 +1645,11 @@ class Runtime {
   }
 
   startGameLoop(funcNames) {
+    this.gameLoop = true;
     const self = this;
     function frame() {
       if (self.stopped) return;
-      // Process key events
+      // Process "when key" event handlers
       for (const [key, handler] of Object.entries(self.eventHandlers.key)) {
         if (self.keyState[key]) {
           if (handler.thenStmt) self.exec([handler.thenStmt]);
@@ -1668,9 +1675,9 @@ class Runtime {
       for (const name of funcNames) {
         self.callFunc(name);
       }
-      self.animFrame = requestAnimationFrame(frame);
     }
-    self.animFrame = requestAnimationFrame(frame);
+    // Use setInterval for reliable 60fps (rAF pauses in background tabs)
+    self.animFrame = setInterval(frame, 1000 / 60);
   }
 
   // Process key state for "when" handlers (non-game-loop mode)
@@ -1741,11 +1748,31 @@ editor.addEventListener('input', () => {
   debounceTimer = setTimeout(() => run(editor.value), 500);
 });
 
+// Key name normalization: "ArrowUp" -> "up", "ArrowLeft" -> "left", " " -> "space"
+function normalizeKey(k) {
+  const key = k.toLowerCase();
+  if (key === 'arrowup') return 'up';
+  if (key === 'arrowdown') return 'down';
+  if (key === 'arrowleft') return 'left';
+  if (key === 'arrowright') return 'right';
+  if (key === ' ') return 'space';
+  if (key === 'escape') return 'esc';
+  if (key === 'enter') return 'enter';
+  return key;
+}
+
 // Key handling
 document.addEventListener('keydown', (e) => {
-  const key = e.key.toLowerCase();
+  const key = normalizeKey(e.key);
   runtime.keyState[key] = true;
   runtime.processKeyPress(key);
+
+  // Prevent arrow keys / space from scrolling when game is running
+  if (runtime.gameLoop !== null || runtime.animFrame) {
+    if (['up','down','left','right','space'].includes(key) && document.activeElement !== editor) {
+      e.preventDefault();
+    }
+  }
 
   // Allow tab in editor
   if (e.key === 'Tab' && document.activeElement === editor) {
@@ -1757,8 +1784,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
-  runtime.keyState[e.key.toLowerCase()] = false;
+  runtime.keyState[normalizeKey(e.key)] = false;
 });
+
+// Click canvas to focus it for key input (away from editor)
+canvas.setAttribute('tabindex', '0');
+canvas.addEventListener('click', () => canvas.focus());
 
 // Mouse handling on canvas
 canvas.addEventListener('mousemove', (e) => {
@@ -1808,36 +1839,34 @@ canvas.addEventListener('touchend', () => {
 });
 
 // Load sample program
-editor.value = `-- welcome to fantasy computer!
--- type code here and it runs
+editor.value = `-- click the canvas then use arrow keys!
+player is {x: 60, y: 60}
+speed is 1
+score is 0
 
-clear screen to dark blue
+coin is {x: 30, y: 40}
 
--- starry sky
-repeat 40 times
-  pset random 128, random 128 in white
+to update
+  if key "up" remove speed from player.y
+  if key "down" add speed to player.y
+  if key "left" remove speed from player.x
+  if key "right" add speed to player.x
 
--- landscape
-draw rect at 0, 95 size 128, 33 in dark green
+to draw
+  clear screen to dark green
+  -- trees
+  draw sprite "tree" at 10, 20
+  draw sprite "tree" at 100, 70
+  draw sprite "tree" at 50, 10
+  -- coin
+  draw sprite "coin" at coin.x, coin.y
+  -- player
+  draw sprite "hero" at player.x, player.y
+  -- hud
+  write "arrows to move" at 2, 2 in white
+  write "score: {score}" at 2, 120 in yellow
 
--- a scene with sprites
-draw sprite "tree" at 10, 87
-draw sprite "tree" at 100, 87
-draw sprite "house" at 50, 87
-draw sprite "hero" at 30, 88
-draw sprite "slime" at 75, 90
-
--- items
-draw sprite "coin" at 45, 88
-draw sprite "heart" at 60, 88
-draw sprite "chest" at 85, 88
-
--- moon
-draw circle at 108, 18 size 8 in yellow
-
--- title
-write "fantasy computer" at 18, 4 in white
-write "hello world!" at 30, 118 in yellow`;
+run game with update and draw`;
 
 // Initial run
 setTimeout(() => run(editor.value), 100);
