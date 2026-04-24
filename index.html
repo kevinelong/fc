@@ -1342,6 +1342,42 @@ function parse(source) {
       return { type: 'random', max: parseExpression(tokens.slice(1)) };
     }
 
+    // "list of N <noun> [{props}]" - auto-placed sprite list
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'list' &&
+        tokens.length >= 3 && tv(tokens[1]) === 'of') {
+      let propsStart = tokens.length;
+      for (let i = 2; i < tokens.length; i++) {
+        if (tokens[i].type === 'lbrace') { propsStart = i; break; }
+      }
+      // Count is tokens[2] (single number/ref - multi-token count support later)
+      const count = parseExpression([tokens[2]]);
+      let props = null;
+      if (propsStart < tokens.length) {
+        props = parseObjectLiteral(tokens.slice(propsStart));
+      }
+      return { type: 'list_of_sprites', count, props };
+    }
+
+    // "centered sprite [{...}]"
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'centered' &&
+        tokens.length >= 2 && tv(tokens[1]) === 'sprite') {
+      let props = null;
+      if (tokens.length >= 3 && tokens[2].type === 'lbrace') {
+        props = parseObjectLiteral(tokens.slice(2));
+      }
+      return { type: 'sprite_expr', position: 'centered', props };
+    }
+
+    // "sprite [{...}]"
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'sprite' &&
+        (tokens.length === 1 || tokens[1].type === 'lbrace')) {
+      let props = null;
+      if (tokens.length >= 2 && tokens[1].type === 'lbrace') {
+        props = parseObjectLiteral(tokens.slice(1));
+      }
+      return { type: 'sprite_expr', position: 'zero', props };
+    }
+
     // Property access: a.b.c
     if (tokens.length >= 3 && tokens[1].type === 'dot') {
       let ref = tokens[0].value;
@@ -1448,11 +1484,17 @@ function parse(source) {
     const shape = raw[1] ? tv(raw[1]) : '';
     const args = {};
 
-    // Handle "draw sprite "name" at x, y"
-    if (shape === 'sprite' && raw.length >= 3 && raw[2].type === 'string') {
-      args.spriteName = raw[2].value.toLowerCase().replace(/\s+/g, '_');
-      // Find "at" keyword, then split remaining at comma for x, y expressions
+    // Handle "draw sprite <name-or-expr> at x, y"
+    if (shape === 'sprite' && raw.length >= 3) {
       const atIdx = raw.findIndex((t, i) => i >= 3 && t.type === 'word' && tv(t) === 'at');
+      const nameEnd = atIdx > 0 ? atIdx : raw.length;
+      const nameTokens = raw.slice(2, nameEnd);
+      // Literal-string shortcut keeps the simple case fast
+      if (nameTokens.length === 1 && nameTokens[0].type === 'string') {
+        args.spriteName = nameTokens[0].value.toLowerCase().replace(/\s+/g, '_');
+      } else if (nameTokens.length > 0) {
+        args.spriteNameExpr = parseExpression(nameTokens);
+      }
       if (atIdx > 0) {
         const afterAt = raw.slice(atIdx + 1);
         const commaIdx = afterAt.findIndex(t => t.type === 'comma');
@@ -1798,6 +1840,38 @@ class Runtime {
       case 'random': {
         const max = this.evalExpr(node.max);
         return Math.floor(Math.random() * (max + 1));
+      }
+      case 'sprite_expr': {
+        // Ensure world is in sync before placement
+        if (this.vars.world && typeof this.vars.world.width === 'number') {
+          this.world = this.vars.world;
+        }
+        const base = { x: 0, y: 0 };
+        if (node.position === 'centered') {
+          base.x = Math.floor((this.world.width - 8) / 2);
+          base.y = Math.floor((this.world.height - 8) / 2);
+        }
+        if (node.props) {
+          const props = this.evalExpr(node.props);
+          Object.assign(base, props);
+        }
+        return base;
+      }
+      case 'list_of_sprites': {
+        if (this.vars.world && typeof this.vars.world.width === 'number') {
+          this.world = this.vars.world;
+        }
+        const count = this.evalExpr(node.count);
+        const items = [];
+        const existing = this._collectAllSprites();
+        for (let i = 0; i < count; i++) {
+          const props = node.props ? this.evalExpr(node.props) : {};
+          const pos = this._findEmptySpot(existing);
+          const item = Object.assign({ x: pos.x, y: pos.y }, props);
+          items.push(item);
+          existing.push({ x: pos.x, y: pos.y });
+        }
+        return items;
       }
       case 'item_of': {
         const idx = this.evalExpr(node.index);
@@ -2313,7 +2387,12 @@ class Runtime {
       }
       case 'sprite': {
         // draw sprite "name" at x, y
-        const name = a.spriteName || '';
+        let name = a.spriteName;
+        if (!name && a.spriteNameExpr) {
+          const resolved = this.evalExpr(a.spriteNameExpr);
+          if (typeof resolved === 'string') name = resolved.toLowerCase().replace(/\s+/g, '_');
+        }
+        name = name || '';
         drawSprite(name, x, y);
         break;
       }
@@ -2467,6 +2546,35 @@ class Runtime {
     frame();
     // Then loop at 60fps
     self.animFrame = setInterval(frame, 1000 / 60);
+  }
+
+  _collectAllSprites() {
+    // Gather every {x, y} object currently in vars (including list items)
+    const sprites = [];
+    const walk = (val) => {
+      if (!val || typeof val !== 'object') return;
+      if (Array.isArray(val)) { for (const item of val) walk(item); return; }
+      if (typeof val.x === 'number' && typeof val.y === 'number') sprites.push(val);
+    };
+    for (const v of Object.values(this.vars)) walk(v);
+    return sprites;
+  }
+
+  _findEmptySpot(existing) {
+    const SIZE = 12; // min center-to-center distance (8px sprites + 4px gap)
+    const maxW = Math.max(16, this.world.width - 16);
+    const maxH = Math.max(16, this.world.height - 16);
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const x = 4 + Math.floor(Math.random() * maxW);
+      const y = 4 + Math.floor(Math.random() * maxH);
+      let ok = true;
+      for (const other of existing) {
+        if (Math.abs(x - other.x) < SIZE && Math.abs(y - other.y) < SIZE) { ok = false; break; }
+      }
+      if (ok) return { x, y };
+    }
+    // Fallback: random without avoidance
+    return { x: 4 + Math.floor(Math.random() * maxW), y: 4 + Math.floor(Math.random() * maxH) };
   }
 
   checkCollisions() {
@@ -2733,11 +2841,12 @@ music is yes
 lives is 3
 score is 0
 speed is 1
-player is {x: 60, y: 60, hp: 3, invuln: 0}
 
-trees is [{x: 40, y: 40}, {x: 120, y: 60}, {x: 180, y: 30}, {x: 60, y: 120}, {x: 200, y: 130}]
-coins is [{x: 90, y: 40}, {x: 150, y: 100}, {x: 30, y: 150}, {x: 220, y: 80}, {x: 180, y: 160}]
-enemies is [{x: 100, y: 80}, {x: 200, y: 100}]
+-- one-liner sprite setup!
+player is centered sprite {hp: 3, invuln: 0, image: "hero"}
+trees is list of 12 sprites {image: "tree"}
+coins is list of 8 sprites {image: "coin"}
+enemies is list of 3 sprites {image: "slime"}
 
 trees are solid
 coins are pickups
@@ -2773,11 +2882,11 @@ to screen credits
 
 to screen play
   clear screen to dark green
-  each tree in trees draw sprite "tree" at tree.x, tree.y
-  each coin in coins draw sprite "coin" at coin.x, coin.y
-  each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
+  each tree in trees draw sprite tree.image at tree.x, tree.y
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
   if player.invuln is 0 or player.invuln mod 6 > 2
-    draw sprite "hero" at player.x, player.y
+    draw sprite player.image at player.x, player.y
   write "score {score}" at 2, 2 in white on hud
   repeat with i from 1 to lives
     draw sprite "heart" at i * 10, 14 on hud
@@ -2842,18 +2951,18 @@ when button "normal" is clicked
 when button "hard" is clicked
   difficulty is "hard"
   speed is 1
-  -- harder: add a 3rd enemy
-  add {x: 150, y: 150} to enemies
+  -- harder: more enemies next run
+  enemies is list of 6 sprites {image: "slime"}
 when button "toggle music" is clicked toggle music
 
 to restart game
   lives is 3
   score is 0
-  player.x is 60
-  player.y is 60
+  player.x is 128
+  player.y is 96
   player.hp is 3
   player.invuln is 0
-  coins is [{x: 90, y: 40}, {x: 150, y: 100}, {x: 30, y: 150}, {x: 220, y: 80}, {x: 180, y: 160}]
+  coins is list of 8 sprites {image: "coin"}
 
 run game with update`;
 
