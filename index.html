@@ -9,13 +9,23 @@
 html, body { height: 100%; background: #1a1a2e; color: #e0e0e0; font-family: monospace; overflow: hidden; }
 #app { display: flex; height: 100%; gap: 4px; padding: 4px; }
 #canvas-wrap { flex: 2; display: flex; align-items: center; justify-content: center; background: #0f0f23; border-radius: 4px; position: relative; min-width: 0; min-height: 0; }
-#screen-frame { position: relative; line-height: 0; box-shadow: 0 0 30px rgba(80, 150, 200, 0.15); }
+#screen-frame {
+  position: relative;
+  line-height: 0;
+  /* Outer glow + subtle halation ring simulating tube bloom */
+  box-shadow: 0 0 40px rgba(120, 180, 240, 0.25),
+              0 0 80px rgba(80, 140, 200, 0.1);
+  background: #000;
+  border-radius: 2px;
+}
 canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   display: block;
-  /* CRT phosphor bleed: subtle glow + saturation */
-  filter: blur(0.4px) brightness(1.08) contrast(1.05) saturate(1.1);
+  /* CRT phosphor bleed: the blur happens at the logical res so it reaches
+     across the scanline gaps when upscaled. We compensate the dimming
+     with brightness/saturation so hot pixels look like they glow. */
+  filter: blur(0.7px) brightness(1.18) contrast(1.12) saturate(1.25);
 }
 #subpixels {
   position: absolute;
@@ -40,20 +50,22 @@ canvas {
   inset: 0;
   pointer-events: none;
   --scale: 4px;
+  /* Dimmer mask lets pixel color bleed through the gaps - colors feel like
+     they're glowing beyond their cell, not trapped inside */
   background:
     repeating-linear-gradient(
       to bottom,
       transparent 0,
       transparent calc(var(--scale) - 2px),
-      rgba(0,0,0,0.55) calc(var(--scale) - 2px),
-      rgba(0,0,0,0.55) var(--scale)
+      rgba(0,0,0,0.35) calc(var(--scale) - 2px),
+      rgba(0,0,0,0.35) var(--scale)
     ),
     repeating-linear-gradient(
       to right,
       transparent 0,
       transparent calc(var(--scale) - 1px),
-      rgba(0,0,0,0.45) calc(var(--scale) - 1px),
-      rgba(0,0,0,0.45) var(--scale)
+      rgba(0,0,0,0.25) calc(var(--scale) - 1px),
+      rgba(0,0,0,0.25) var(--scale)
     );
   mix-blend-mode: multiply;
 }
@@ -830,6 +842,10 @@ function parse(source) {
 
     // -- to (function definition) --
     if (first === 'to') {
+      // "to screen X" -> function named "screen_<X>" auto-dispatched when mode is X
+      if (raw.length >= 3 && tv(raw[1]) === 'screen') {
+        return { type: 'funcdef', name: 'screen_' + raw[2].value, params: [], body: [], lineNum };
+      }
       const name = raw[1] ? raw[1].value : 'unknown';
       const params = [];
       for (let i = 2; i < raw.length; i++) {
@@ -838,6 +854,14 @@ function parse(source) {
         }
       }
       return { type: 'funcdef', name, params, body: [], lineNum };
+    }
+
+    // -- go to X / go back --
+    if (first === 'go' && raw.length >= 2) {
+      if (tv(raw[1]) === 'back') return { type: 'goback', lineNum };
+      if (tv(raw[1]) === 'to' && raw.length >= 3) {
+        return { type: 'goto', target: raw[2].value, lineNum };
+      }
     }
 
     // -- follow X with camera --
@@ -1071,7 +1095,7 @@ function parse(source) {
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
-      'when', 'else', 'to'].includes(w);
+      'when', 'else', 'to', 'go'].includes(w);
   }
 
   function parseWhen(raw, lineNum) {
@@ -1659,6 +1683,7 @@ class Runtime {
     this.camera = { x: 0, y: 0 };
     this.followTarget = null;
     this.world = { width: 128, height: 128 };
+    this._screenStack = [];
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -1680,6 +1705,7 @@ class Runtime {
     this.camera = { x: 0, y: 0 };
     this.followTarget = null;
     this.world = { width: 128, height: 128 };
+    this._screenStack = [];
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -2042,6 +2068,23 @@ class Runtime {
           // Also sync world size now in case user set it before follow
           if (this.vars.world && typeof this.vars.world.width === 'number') {
             this.world = this.vars.world;
+          }
+          break;
+        }
+
+        case 'goto': {
+          // Navigate to a screen, remember previous for `go back`
+          if (this.vars.mode) this._screenStack.push(this.vars.mode);
+          this.vars.mode = stmt.target;
+          // Clear buttons immediately so old buttons don't catch stale clicks
+          this.buttons = [];
+          break;
+        }
+
+        case 'goback': {
+          if (this._screenStack.length > 0) {
+            this.vars.mode = this._screenStack.pop();
+            this.buttons = [];
           }
           break;
         }
@@ -2413,6 +2456,12 @@ class Runtime {
       for (let i = 1; i < funcNames.length; i++) {
         self.callFunc(funcNames[i]);
       }
+
+      // Auto-dispatch to a screen function matching current mode
+      const mode = self.vars.mode;
+      if (mode && self.funcs['screen_' + mode]) {
+        self.callFunc('screen_' + mode);
+      }
     }
     // Draw one frame immediately so canvas isn't blank
     frame();
@@ -2676,11 +2725,14 @@ canvas.addEventListener('touchend', () => {
 });
 
 // Load sample program
-editor.value = `-- click canvas to start!
+editor.value = `-- COIN QUEST: click canvas, use arrows!
 world is {width: 256, height: 192}
 mode is "title"
+difficulty is "normal"
+music is yes
 lives is 3
 score is 0
+speed is 1
 player is {x: 60, y: 60, hp: 3, invuln: 0}
 
 trees is [{x: 40, y: 40}, {x: 120, y: 60}, {x: 180, y: 30}, {x: 60, y: 120}, {x: 200, y: 130}]
@@ -2693,13 +2745,65 @@ enemies are hostile
 
 follow player with camera
 
+-- screens auto-run when "mode" matches
+to screen title
+  clear screen to dark blue
+  write "COIN QUEST" at 24, 18 in yellow on hud
+  show button "play" at 44, 40
+  show button "options" at 40, 58
+  show button "credits" at 40, 76
+
+to screen options
+  clear screen to dark gray
+  write "OPTIONS" at 36, 14 in white on hud
+  write "difficulty {difficulty}" at 8, 34 in white on hud
+  show button "easy" at 6, 48
+  show button "normal" at 40, 48
+  show button "hard" at 80, 48
+  write "music {music}" at 8, 74 in white on hud
+  show button "toggle music" at 20, 88
+  show button "back" at 48, 108
+
+to screen credits
+  clear screen to dark purple
+  write "CREDITS" at 36, 20 in white on hud
+  write "made with" at 30, 50 in white on hud
+  write "fantasy computer" at 14, 62 in yellow on hud
+  show button "back" at 48, 100
+
+to screen play
+  clear screen to dark green
+  each tree in trees draw sprite "tree" at tree.x, tree.y
+  each coin in coins draw sprite "coin" at coin.x, coin.y
+  each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
+  if player.invuln is 0 or player.invuln mod 6 > 2
+    draw sprite "hero" at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+  repeat with i from 1 to lives
+    draw sprite "heart" at i * 10, 14 on hud
+
+to screen win
+  clear screen to dark green
+  write "YOU WIN!" at 36, 30 in yellow on hud
+  write "score {score}" at 38, 50 in white on hud
+  show button "play again" at 30, 80
+  show button "menu" at 46, 100
+
+to screen lose
+  clear screen to dark purple
+  write "GAME OVER" at 34, 30 in red on hud
+  write "score {score}" at 38, 50 in white on hud
+  show button "retry" at 46, 80
+  show button "menu" at 46, 100
+
+-- gameplay (only runs while mode is "play")
 to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
-  if key "up" remove 1 from player.y
-  if key "down" add 1 to player.y
-  if key "left" remove 1 from player.x
-  if key "right" add 1 to player.x
+  if key "up" remove speed from player.y
+  if key "down" add speed to player.y
+  if key "left" remove speed from player.x
+  if key "right" add speed to player.x
 
 when player picks up any coin
   add 1 to score
@@ -2712,54 +2816,46 @@ when player hits any enemy
   player.invuln is 45
   if lives is 0 mode is "lose"
 
-when button "start" is clicked
-  mode is "play"
+-- navigation
+when button "play" is clicked
+  restart game
+  go to play
 
+when button "options" is clicked go to options
+when button "credits" is clicked go to credits
+when button "back" is clicked go back
+when button "menu" is clicked go to title
 when button "retry" is clicked
   restart game
+  go to play
+when button "play again" is clicked
+  restart game
+  go to play
+
+-- settings actions
+when button "easy" is clicked
+  difficulty is "easy"
+  speed is 2
+when button "normal" is clicked
+  difficulty is "normal"
+  speed is 1
+when button "hard" is clicked
+  difficulty is "hard"
+  speed is 1
+  -- harder: add a 3rd enemy
+  add {x: 150, y: 150} to enemies
+when button "toggle music" is clicked toggle music
 
 to restart game
-  mode is "play"
   lives is 3
   score is 0
   player.x is 60
   player.y is 60
   player.hp is 3
   player.invuln is 0
+  coins is [{x: 90, y: 40}, {x: 150, y: 100}, {x: 30, y: 150}, {x: 220, y: 80}, {x: 180, y: 160}]
 
-to draw
-  if mode is "title"
-    clear screen to dark blue
-    write "COIN QUEST" at 24, 30 in yellow on hud
-    write "arrows to move" at 18, 60 in white on hud
-    write "grab all coins!" at 16, 72 in white on hud
-    show button "start" at 46, 92
-    return
-  if mode is "win"
-    clear screen to dark green
-    write "YOU WIN!" at 36, 40 in yellow on hud
-    write "score {score}" at 38, 60 in white on hud
-    show button "retry" at 46, 90
-    return
-  if mode is "lose"
-    clear screen to dark purple
-    write "GAME OVER" at 34, 40 in red on hud
-    write "score {score}" at 38, 60 in white on hud
-    show button "retry" at 46, 90
-    return
-  -- playing
-  clear screen to dark green
-  each tree in trees draw sprite "tree" at tree.x, tree.y
-  each coin in coins draw sprite "coin" at coin.x, coin.y
-  each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
-  if player.invuln is 0 or player.invuln mod 6 > 2
-    draw sprite "hero" at player.x, player.y
-  -- HUD
-  write "score {score}" at 2, 2 in white on hud
-  repeat with i from 1 to lives
-    draw sprite "heart" at i * 10, 14 on hud
-
-run game with update and draw`;
+run game with update`;
 
 // Initial run
 setTimeout(() => run(editor.value), 100);
