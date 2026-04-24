@@ -626,6 +626,16 @@ function tv(token) {
   return typeof v === 'string' ? v.toLowerCase() : String(v);
 }
 
+// Helper: convert plural to singular for collision binding
+function singularize(plural) {
+  const s = String(plural).toLowerCase();
+  if (s.endsWith('ies')) return s.slice(0, -3) + 'y';
+  if (s.endsWith('ses')) return s.slice(0, -2);
+  if (s.endsWith('es') && (s.endsWith('xes') || s.endsWith('shes') || s.endsWith('ches'))) return s.slice(0, -2);
+  if (s.endsWith('s') && s.length > 1) return s.slice(0, -1);
+  return s;
+}
+
 // ============================================================
 // LEXER
 // ============================================================
@@ -898,6 +908,40 @@ function parse(source) {
       }
     }
 
+    // -- X are Y (tag declaration) --
+    // e.g. "trees are solid", "coins are pickups"
+    const areIdx = findWord('are');
+    if (areIdx > 0 && areIdx < raw.length - 1) {
+      const subject = raw.slice(0, areIdx).map(t => t.value).join('');
+      const tag = raw.slice(areIdx + 1).map(t => t.value).join(' ').toLowerCase().trim();
+      return { type: 'tag', subject, tag, lineNum };
+    }
+
+    // -- restore/block player position --
+    if (first === 'restore' || first === 'block') {
+      const target = raw.slice(1).filter(t => t.type === 'word' && tv(t) !== 'position').map(t => t.value).join('.');
+      return { type: 'restore', target: target || 'player', lineNum };
+    }
+
+    // -- knock X away from Y [distance N] --
+    if (first === 'knock') {
+      return parseKnock(raw, lineNum);
+    }
+
+    // -- damage X [N] --
+    if (first === 'damage') {
+      const target = raw[1] ? raw[1].value : 'player';
+      const amt = raw.length > 2 ? parseExpression(raw.slice(2)) : { type: 'literal', value: 1 };
+      return { type: 'damage', target, amount: amt, lineNum };
+    }
+
+    // -- heal X [N] --
+    if (first === 'heal') {
+      const target = raw[1] ? raw[1].value : 'player';
+      const amt = raw.length > 2 ? parseExpression(raw.slice(2)) : { type: 'literal', value: 1 };
+      return { type: 'heal', target, amount: amt, lineNum };
+    }
+
     // -- X is Y (assignment) --
     const isIdx = findWord('is');
     if (isIdx > 0 && isIdx < raw.length - 1) {
@@ -908,6 +952,19 @@ function parse(source) {
 
     // -- function call (anything else) --
     return { type: 'call', name: first, args: raw.slice(1), lineNum };
+  }
+
+  function parseKnock(raw, lineNum) {
+    // knock X away from Y [distance N]
+    const awayIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'away');
+    const fromIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'from');
+    const distIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'distance');
+    const target = raw[1] ? raw[1].value : 'player';
+    let source = 'enemy';
+    if (fromIdx > 0 && fromIdx + 1 < raw.length) source = raw[fromIdx + 1].value;
+    let distance = { type: 'literal', value: 4 };
+    if (distIdx > 0) distance = parseExpression(raw.slice(distIdx + 1));
+    return { type: 'knock', target, source, distance, lineNum };
   }
 
   function splitOnAnd(tokens) {
@@ -969,6 +1026,28 @@ function parse(source) {
       const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
       return { type: 'when_mouse', event: tv(rest[2]), thenStmt: action, body: [], lineNum };
     }
+
+    // when player picks up any coin [inline action]
+    const picksUpIdx = rest.findIndex((t, i) => i > 0 && tv(t) === 'picks' && i + 1 < rest.length && tv(rest[i + 1]) === 'up');
+    if (picksUpIdx > 0) {
+      // find item name (after "any")
+      let itemIdx = picksUpIdx + 2;
+      if (itemIdx < rest.length && tv(rest[itemIdx]) === 'any') itemIdx++;
+      const itemVar = rest[itemIdx] ? rest[itemIdx].value : 'item';
+      const action = rest.length > itemIdx + 1 ? parseLine(rest.slice(itemIdx + 1), lineNum) : null;
+      return { type: 'when_pickup', itemVar, thenStmt: action, body: [], lineNum };
+    }
+
+    // when player hits any X
+    const hitsIdx = rest.findIndex((t, i) => i > 0 && tv(t) === 'hits');
+    if (hitsIdx > 0) {
+      let itemIdx = hitsIdx + 1;
+      if (itemIdx < rest.length && tv(rest[itemIdx]) === 'any') itemIdx++;
+      const itemVar = rest[itemIdx] ? rest[itemIdx].value : 'item';
+      const action = rest.length > itemIdx + 1 ? parseLine(rest.slice(itemIdx + 1), lineNum) : null;
+      return { type: 'when_hit', itemVar, thenStmt: action, body: [], lineNum };
+    }
+
     return { type: 'when_generic', tokens: rest, body: [], lineNum };
   }
 
@@ -1099,16 +1178,26 @@ function parse(source) {
   function parseListFromTokens(tokens) {
     if (tokens.length === 0) return { type: 'literal', value: [] };
     if (tokens[0].type === 'lbracket') {
+      // Depth-aware split on commas
       const items = [];
+      let depth = 0;
+      let current = [];
       for (let i = 1; i < tokens.length; i++) {
-        if (tokens[i].type === 'rbracket') break;
-        if (tokens[i].type !== 'comma') {
-          items.push(tokens[i].type === 'string' ? { type: 'literal', value: tokens[i].value } :
-            tokens[i].type === 'number' ? { type: 'literal', value: tokens[i].value } :
-              { type: 'ref', name: tokens[i].value });
+        const t = tokens[i];
+        if (t.type === 'rbracket' && depth === 0) {
+          if (current.length) items.push(parseExpression(current));
+          break;
         }
+        if (t.type === 'lbracket' || t.type === 'lbrace') depth++;
+        if (t.type === 'rbracket' || t.type === 'rbrace') { depth--; current.push(t); continue; }
+        if (t.type === 'comma' && depth === 0) {
+          if (current.length) items.push(parseExpression(current));
+          current = [];
+          continue;
+        }
+        current.push(t);
       }
-      return { type: 'literal', value: items };
+      return { type: 'listliteral', items };
     }
     return parseExpression(tokens);
   }
@@ -1376,19 +1465,27 @@ function parse(source) {
   }
 
   function parseEach(raw, lineNum) {
-    // each X in Y [where condition]
+    // each X in Y [where condition] [inline action]
     const inIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'in');
     if (inIdx > 0) {
       const varName = raw.slice(1, inIdx).map(t => t.value).join(' ');
-      const whereIdx = raw.findIndex((t, i) => i > inIdx && t.type === 'word' && tv(t) === 'where');
-      let list, where = null;
-      if (whereIdx > 0) {
-        list = parseExpression(raw.slice(inIdx + 1, whereIdx));
-        where = parseCondition(raw.slice(whereIdx + 1));
-      } else {
-        list = parseExpression(raw.slice(inIdx + 1));
+      // Find: list-end = first command word after the first token past "in"
+      let listEnd = raw.length;
+      for (let i = inIdx + 2; i < raw.length; i++) {
+        if (raw[i].type === 'word' && isCommandWord(tv(raw[i]))) {
+          listEnd = i;
+          break;
+        }
       }
-      return { type: 'each', varName, list, where, body: [], lineNum };
+      const whereIdx = raw.findIndex((t, i) => i > inIdx && i < listEnd && t.type === 'word' && tv(t) === 'where');
+      let list, where = null;
+      const listUpper = whereIdx > 0 ? whereIdx : listEnd;
+      list = parseExpression(raw.slice(inIdx + 1, listUpper));
+      if (whereIdx > 0) {
+        where = parseCondition(raw.slice(whereIdx + 1, listEnd));
+      }
+      const thenStmt = listEnd < raw.length ? parseLine(raw.slice(listEnd), lineNum) : null;
+      return { type: 'each', varName, list, where, thenStmt, body: [], lineNum };
     }
     return { type: 'call', name: 'each', args: raw.slice(1), lineNum };
   }
@@ -1428,6 +1525,10 @@ class Runtime {
     this.keyJustPressed = {};
     this.mouseState = { x: 0, y: 0, down: false, clicked: false };
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.pickupHandlers = {};
+    this.hitHandlers = {};
+    this._prevPositions = {};
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -1440,6 +1541,10 @@ class Runtime {
     this.gameLoop = null;
     this.animFrame = null;
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.pickupHandlers = {};
+    this.hitHandlers = {};
+    this._prevPositions = {};
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -1506,6 +1611,7 @@ class Runtime {
         }
         return node.value;
       }
+      case 'listliteral': return node.items.map(item => this.evalExpr(item));
       case 'ref': {
         const v = this.getVar(node.name);
         if (v !== undefined) return v;
@@ -1773,7 +1879,8 @@ class Runtime {
             if (this.stopped || ops > limit) break;
             ops++;
             this.setVar(stmt.varName, item);
-            execList(stmt.body);
+            if (stmt.thenStmt) execOne(stmt.thenStmt);
+            if (stmt.body && stmt.body.length) execList(stmt.body);
           }
           break;
         }
@@ -1800,6 +1907,68 @@ class Runtime {
 
         case 'when_mouse': {
           this.eventHandlers.mouse[stmt.event] = stmt;
+          break;
+        }
+
+        case 'when_pickup': {
+          this.pickupHandlers[stmt.itemVar] = stmt;
+          break;
+        }
+
+        case 'when_hit': {
+          this.hitHandlers[stmt.itemVar] = stmt;
+          break;
+        }
+
+        case 'tag': {
+          // Register subject under tag
+          if (!this.tags[stmt.tag]) this.tags[stmt.tag] = [];
+          if (!this.tags[stmt.tag].includes(stmt.subject)) {
+            this.tags[stmt.tag].push(stmt.subject);
+          }
+          break;
+        }
+
+        case 'restore': {
+          const prev = this._prevPositions[stmt.target];
+          const obj = this.getVar(stmt.target);
+          if (prev && obj) {
+            obj.x = prev.x;
+            obj.y = prev.y;
+          }
+          break;
+        }
+
+        case 'knock': {
+          const target = this.getVar(stmt.target);
+          const source = this.getVar(stmt.source);
+          const dist = this.evalExpr(stmt.distance);
+          if (target && source && typeof target.x === 'number' && typeof source.x === 'number') {
+            const dx = target.x - source.x;
+            const dy = target.y - source.y;
+            const len = Math.sqrt(dx*dx + dy*dy) || 1;
+            target.x += (dx / len) * dist;
+            target.y += (dy / len) * dist;
+          }
+          break;
+        }
+
+        case 'damage': {
+          const obj = this.getVar(stmt.target);
+          const amt = this.evalExpr(stmt.amount);
+          if (obj && typeof obj.hp === 'number') {
+            obj.hp -= amt;
+          }
+          break;
+        }
+
+        case 'heal': {
+          const obj = this.getVar(stmt.target);
+          const amt = this.evalExpr(stmt.amount);
+          if (obj && typeof obj.hp === 'number') {
+            obj.hp += amt;
+            if (typeof obj.max_hp === 'number' && obj.hp > obj.max_hp) obj.hp = obj.max_hp;
+          }
           break;
         }
 
@@ -2002,15 +2171,111 @@ class Runtime {
       }
       self.mouseState.clicked = false;
 
-      // Run game functions
-      for (const name of funcNames) {
-        self.callFunc(name);
+      // Save player's previous position for collision rollback
+      const player = self.vars.player;
+      if (player && typeof player.x === 'number') {
+        self._prevPositions.player = { x: player.x, y: player.y };
+      }
+
+      // Run update function first (movement, input)
+      if (funcNames.length > 0) self.callFunc(funcNames[0]);
+
+      // Check collisions after movement
+      self.checkCollisions();
+
+      // Run remaining functions (draw, etc)
+      for (let i = 1; i < funcNames.length; i++) {
+        self.callFunc(funcNames[i]);
       }
     }
     // Draw one frame immediately so canvas isn't blank
     frame();
     // Then loop at 60fps
     self.animFrame = setInterval(frame, 1000 / 60);
+  }
+
+  checkCollisions() {
+    const player = this.vars.player;
+    if (!player || typeof player.x !== 'number') return;
+    const SIZE = 8;
+    const overlaps = (a, b) => Math.abs(a.x - b.x) < SIZE && Math.abs(a.y - b.y) < SIZE;
+
+    // 1. Solid: restore player to prev position if overlapping any solid
+    for (const listName of this.tags.solid || []) {
+      const list = this.vars[listName];
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        if (item && typeof item.x === 'number' && overlaps(player, item)) {
+          const prev = this._prevPositions.player;
+          if (prev) { player.x = prev.x; player.y = prev.y; }
+          // Also fire hit handler if defined
+          const singular = singularize(listName);
+          const hh = this.hitHandlers[singular];
+          if (hh) {
+            this.vars[singular] = item;
+            if (hh.thenStmt) this.exec([hh.thenStmt]);
+            if (hh.body && hh.body.length) this.exec(hh.body);
+          }
+          break;
+        }
+      }
+    }
+
+    // 2. Pickups: remove item + fire handler
+    for (const listName of this.tags.pickups || []) {
+      const list = this.vars[listName];
+      if (!Array.isArray(list)) continue;
+      for (let i = list.length - 1; i >= 0; i--) {
+        const item = list[i];
+        if (item && typeof item.x === 'number' && overlaps(player, item)) {
+          list.splice(i, 1);
+          const singular = singularize(listName);
+          const ph = this.pickupHandlers[singular];
+          if (ph) {
+            this.vars[singular] = item;
+            if (ph.thenStmt) this.exec([ph.thenStmt]);
+            if (ph.body && ph.body.length) this.exec(ph.body);
+          }
+        }
+      }
+    }
+
+    // 3. Hostile: fire hit handler (user handles consequences)
+    for (const listName of this.tags.hostile || []) {
+      const list = this.vars[listName];
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        if (item && typeof item.x === 'number' && overlaps(player, item)) {
+          const singular = singularize(listName);
+          const hh = this.hitHandlers[singular];
+          if (hh) {
+            this.vars[singular] = item;
+            if (hh.thenStmt) this.exec([hh.thenStmt]);
+            if (hh.body && hh.body.length) this.exec(hh.body);
+          }
+          break;
+        }
+      }
+    }
+
+    // 4. Deadly: auto-damage + fire handler
+    for (const listName of this.tags.deadly || []) {
+      const list = this.vars[listName];
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        if (item && typeof item.x === 'number' && overlaps(player, item)) {
+          if (typeof player.hp === 'number') player.hp -= 1;
+          const singular = singularize(listName);
+          const hh = this.hitHandlers[singular];
+          if (hh) {
+            this.vars[singular] = item;
+            if (hh.thenStmt) this.exec([hh.thenStmt]);
+            if (hh.body && hh.body.length) this.exec(hh.body);
+          }
+          break;
+        }
+      }
+    }
   }
 
   // Process key state for "when" handlers (non-game-loop mode)
@@ -2172,32 +2437,42 @@ canvas.addEventListener('touchend', () => {
 });
 
 // Load sample program
-editor.value = `-- click the canvas then use arrow keys!
-player is {x: 60, y: 60}
-speed is 1
+editor.value = `-- click canvas, arrow keys to move!
+player is {x: 60, y: 60, hp: 3}
 score is 0
 
-coin is {x: 30, y: 40}
+trees is [{x: 20, y: 30}, {x: 90, y: 50}, {x: 40, y: 90}]
+coins is [{x: 30, y: 70}, {x: 100, y: 20}, {x: 70, y: 100}]
+enemies is [{x: 100, y: 90}]
 
+-- declare behaviors
+trees are solid
+coins are pickups
+enemies are hostile
+
+-- movement
 to update
-  if key "up" remove speed from player.y
-  if key "down" add speed to player.y
-  if key "left" remove speed from player.x
-  if key "right" add speed to player.x
+  if key "up" remove 1 from player.y
+  if key "down" add 1 to player.y
+  if key "left" remove 1 from player.x
+  if key "right" add 1 to player.x
+
+-- reactions
+when player picks up any coin
+  add 1 to score
+
+when player hits any enemy
+  damage player 1
+  knock player away from enemy distance 6
 
 to draw
   clear screen to dark green
-  -- trees
-  draw sprite "tree" at 10, 20
-  draw sprite "tree" at 100, 70
-  draw sprite "tree" at 50, 10
-  -- coin
-  draw sprite "coin" at coin.x, coin.y
-  -- player
+  each tree in trees draw sprite "tree" at tree.x, tree.y
+  each coin in coins draw sprite "coin" at coin.x, coin.y
+  each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
   draw sprite "hero" at player.x, player.y
-  -- hud
-  write "arrows to move" at 2, 2 in white
-  write "score: {score}" at 2, 120 in yellow
+  write "score: {score}" at 2, 2 in white
+  write "hp: {player.hp}" at 90, 2 in red
 
 run game with update and draw`;
 
