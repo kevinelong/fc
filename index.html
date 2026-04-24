@@ -1157,11 +1157,23 @@ function parse(source) {
   }
 
   function parseIf(raw, lineNum) {
-    // Find the condition end - look for a command word that starts the "then" part
+    // Find the condition end - look for a command word, OR a second "is" that
+    // implies a new assignment statement: `if X is Y foo is bar` -> cond=X is Y, then=foo is bar
     let condEnd = raw.length;
+    let seenIs = false;
     for (let i = 1; i < raw.length; i++) {
+      if (raw[i].type === 'word' && tv(raw[i]) === 'is') {
+        if (seenIs) {
+          // Walk back to find start of the assignment target (handles dotted refs)
+          let j = i - 1;
+          while (j - 1 >= 2 && raw[j - 1].type === 'dot') j -= 2;
+          condEnd = j;
+          break;
+        }
+        seenIs = true;
+        continue;
+      }
       if (raw[i].type === 'word' && isCommandWord(tv(raw[i]))) {
-        // make sure it's not part of an expression like "is not"
         const prev = raw[i - 1];
         if (prev && prev.type === 'word' && ['is', 'not', 'and', 'or', 'in', 'between'].includes(tv(prev))) continue;
         condEnd = i;
@@ -1837,15 +1849,18 @@ class Runtime {
     if (!stmts) return;
     const limit = maxOps || 100000;
     let ops = 0;
+    // Isolate return within this exec context (return exits function, not whole runtime)
+    const priorReturning = this._returning || false;
+    this._returning = false;
     const execList = (list) => {
       for (const stmt of list) {
-        if (this.stopped || ops > limit) return;
+        if (this.stopped || this._returning || ops > limit) return;
         ops++;
         execOne(stmt);
       }
     };
     const execOne = (stmt) => {
-      if (!stmt || this.stopped) return;
+      if (!stmt || this.stopped || this._returning) return;
       switch (stmt.type) {
         case 'chain':
           for (const part of stmt.parts) execOne(part);
@@ -2161,7 +2176,7 @@ class Runtime {
 
         case 'return':
           this._returnValue = stmt.value ? this.evalExpr(stmt.value) : null;
-          this.stopped = true;
+          this._returning = true;
           break;
 
         case 'call':
@@ -2178,7 +2193,7 @@ class Runtime {
     const smartExecList = (list) => {
       let lastIfResult = null;
       for (let i = 0; i < list.length; i++) {
-        if (this.stopped || ops > limit) return;
+        if (this.stopped || this._returning || ops > limit) return;
         ops++;
         const stmt = list[i];
 
@@ -2212,6 +2227,8 @@ class Runtime {
     };
 
     smartExecList(stmts);
+    // Consume any in-flight return so it doesn't leak to callers of exec
+    this._returning = priorReturning;
   }
 
   execDraw(stmt) {
@@ -2365,6 +2382,17 @@ class Runtime {
 
       // Run update function first (movement, input)
       if (funcNames.length > 0) self.callFunc(funcNames[0]);
+
+      // Clamp player to world edges (8px sprite, world is the map bounds)
+      const p = self.vars.player;
+      if (p && typeof p.x === 'number') {
+        const maxX = self.world.width - 8;
+        const maxY = self.world.height - 8;
+        if (p.x < 0) p.x = 0;
+        if (p.y < 0) p.y = 0;
+        if (p.x > maxX) p.x = maxX;
+        if (p.y > maxY) p.y = maxY;
+      }
 
       // Check collisions after movement
       self.checkCollisions();
@@ -2559,13 +2587,26 @@ function normalizeKey(k) {
 
 // Key handling
 document.addEventListener('keydown', (e) => {
+  if (document.activeElement === editor) return; // don't intercept while editing code
   const key = normalizeKey(e.key);
+  const wasPressed = runtime.keyState[key];
   runtime.keyState[key] = true;
   runtime.processKeyPress(key);
 
+  // Space / Enter activates the first visible button (like a focused default action)
+  if (!wasPressed && (key === 'space' || key === 'enter') && runtime.buttons && runtime.buttons.length > 0) {
+    const btn = runtime.buttons[0];
+    const h = runtime.buttonHandlers[btn.label];
+    if (h) {
+      if (h.thenStmt) runtime.exec([h.thenStmt]);
+      if (h.body && h.body.length) runtime.exec(h.body);
+    }
+    e.preventDefault();
+  }
+
   // Prevent arrow keys / space from scrolling when game is running
   if (runtime.gameLoop !== null || runtime.animFrame) {
-    if (['up','down','left','right','space'].includes(key) && document.activeElement !== editor) {
+    if (['up','down','left','right','space'].includes(key)) {
       e.preventDefault();
     }
   }
@@ -2640,7 +2681,7 @@ world is {width: 256, height: 192}
 mode is "title"
 lives is 3
 score is 0
-player is {x: 60, y: 60, hp: 3}
+player is {x: 60, y: 60, hp: 3, invuln: 0}
 
 trees is [{x: 40, y: 40}, {x: 120, y: 60}, {x: 180, y: 30}, {x: 60, y: 120}, {x: 200, y: 130}]
 coins is [{x: 90, y: 40}, {x: 150, y: 100}, {x: 30, y: 150}, {x: 220, y: 80}, {x: 180, y: 160}]
@@ -2654,6 +2695,7 @@ follow player with camera
 
 to update
   if mode is not "play" return
+  if player.invuln > 0 remove 1 from player.invuln
   if key "up" remove 1 from player.y
   if key "down" add 1 to player.y
   if key "left" remove 1 from player.x
@@ -2664,7 +2706,11 @@ when player picks up any coin
   if no coins mode is "win"
 
 when player hits any enemy
-  knock player away from enemy distance 8
+  if player.invuln > 0 return
+  knock player away from enemy distance 16
+  remove 1 from lives
+  player.invuln is 45
+  if lives is 0 mode is "lose"
 
 when button "start" is clicked
   mode is "play"
@@ -2679,6 +2725,7 @@ to restart game
   player.x is 60
   player.y is 60
   player.hp is 3
+  player.invuln is 0
 
 to draw
   if mode is "title"
@@ -2705,7 +2752,8 @@ to draw
   each tree in trees draw sprite "tree" at tree.x, tree.y
   each coin in coins draw sprite "coin" at coin.x, coin.y
   each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
-  draw sprite "hero" at player.x, player.y
+  if player.invuln is 0 or player.invuln mod 6 > 2
+    draw sprite "hero" at player.x, player.y
   -- HUD
   write "score {score}" at 2, 2 in white on hud
   repeat with i from 1 to lives
