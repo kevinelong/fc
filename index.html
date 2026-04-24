@@ -9,8 +9,32 @@
 html, body { height: 100%; background: #1a1a2e; color: #e0e0e0; font-family: monospace; overflow: hidden; }
 #app { display: flex; height: 100%; gap: 4px; padding: 4px; }
 #canvas-wrap { flex: 2; display: flex; align-items: center; justify-content: center; background: #0f0f23; border-radius: 4px; position: relative; min-width: 0; min-height: 0; }
-#screen-frame { position: relative; line-height: 0; }
-canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+#screen-frame { position: relative; line-height: 0; box-shadow: 0 0 30px rgba(80, 150, 200, 0.15); }
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+  /* CRT phosphor bleed: subtle glow + saturation */
+  filter: blur(0.4px) brightness(1.08) contrast(1.05) saturate(1.1);
+}
+#subpixels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --scale: 4px;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 0, 0, 0.18) 0,
+    rgba(255, 0, 0, 0.18) calc(var(--scale) / 4),
+    rgba(0, 255, 0, 0.18) calc(var(--scale) / 4),
+    rgba(0, 255, 0, 0.18) calc(var(--scale) * 2 / 4),
+    rgba(0, 0, 255, 0.18) calc(var(--scale) * 2 / 4),
+    rgba(0, 0, 255, 0.18) calc(var(--scale) * 3 / 4),
+    rgba(0, 255, 0, 0.18) calc(var(--scale) * 3 / 4),
+    rgba(0, 255, 0, 0.18) var(--scale)
+  );
+  mix-blend-mode: screen;
+}
 #scanlines {
   position: absolute;
   inset: 0;
@@ -28,8 +52,8 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: bloc
       to right,
       transparent 0,
       transparent calc(var(--scale) - 1px),
-      rgba(0,0,0,0.35) calc(var(--scale) - 1px),
-      rgba(0,0,0,0.35) var(--scale)
+      rgba(0,0,0,0.45) calc(var(--scale) - 1px),
+      rgba(0,0,0,0.45) var(--scale)
     );
   mix-blend-mode: multiply;
 }
@@ -51,6 +75,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: bloc
   <div id="canvas-wrap">
     <div id="screen-frame">
       <canvas id="screen" width="128" height="128"></canvas>
+      <div id="subpixels"></div>
       <div id="scanlines"></div>
     </div>
   </div>
@@ -82,6 +107,8 @@ function resizeCanvas() {
   if (frame) { frame.style.width = displayPx + 'px'; frame.style.height = displayPx + 'px'; }
   const sl = document.getElementById('scanlines');
   if (sl) sl.style.setProperty('--scale', scale + 'px');
+  const sp = document.getElementById('subpixels');
+  if (sp) sp.style.setProperty('--scale', scale + 'px');
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -813,6 +840,11 @@ function parse(source) {
       return { type: 'funcdef', name, params, body: [], lineNum };
     }
 
+    // -- follow X with camera --
+    if (first === 'follow' && raw.length >= 4 && tv(raw[raw.length - 1]) === 'camera') {
+      return { type: 'follow', target: raw[1].value, lineNum };
+    }
+
     // -- run game with update and draw --
     if (first === 'run' && raw.length >= 2 && tv(raw[1]) === 'game') {
       const funcs = [];
@@ -896,6 +928,11 @@ function parse(source) {
     // -- say "text" --
     if (first === 'say') {
       return parseSay(raw, lineNum);
+    }
+
+    // -- show button "label" at x, y --
+    if (first === 'show' && raw.length >= 3 && tv(raw[1]) === 'button') {
+      return parseButton(raw, lineNum);
     }
 
     // -- add X to Y --
@@ -1033,7 +1070,8 @@ function parse(source) {
     return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
-      'if', 'repeat', 'each', 'every'].includes(w);
+      'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
+      'when', 'else', 'to'].includes(w);
   }
 
   function parseWhen(raw, lineNum) {
@@ -1058,6 +1096,13 @@ function parse(source) {
     if (rest.length >= 3 && tv(rest[0]) === 'mouse') {
       const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
       return { type: 'when_mouse', event: tv(rest[2]), thenStmt: action, body: [], lineNum };
+    }
+
+    // when button "X" is clicked [inline action]
+    if (rest.length >= 4 && tv(rest[0]) === 'button' && rest[1].type === 'string' &&
+        tv(rest[2]) === 'is' && tv(rest[3]) === 'clicked') {
+      const action = rest.length > 4 ? parseLine(rest.slice(4), lineNum) : null;
+      return { type: 'when_button', label: rest[1].value, thenStmt: action, body: [], lineNum };
     }
 
     // when player picks up any coin [inline action]
@@ -1349,7 +1394,21 @@ function parse(source) {
     return parts.join('');
   }
 
+  // Detect and strip "on hud" / "on screen" suffix. Returns { tokens, hud }
+  function stripHudSuffix(raw) {
+    for (let i = raw.length - 2; i >= 0; i--) {
+      if (raw[i].type === 'word' && tv(raw[i]) === 'on' &&
+          raw[i + 1].type === 'word' && (tv(raw[i + 1]) === 'hud' || tv(raw[i + 1]) === 'screen')) {
+        return { tokens: raw.slice(0, i), hud: true };
+      }
+    }
+    return { tokens: raw, hud: false };
+  }
+
   function parseDraw(raw, lineNum) {
+    const stripped = stripHudSuffix(raw);
+    raw = stripped.tokens;
+    const hudFlag = stripped.hud;
     const shape = raw[1] ? tv(raw[1]) : '';
     const args = {};
 
@@ -1368,7 +1427,7 @@ function parse(source) {
           args.x = parseExpression(afterAt);
         }
       }
-      return { type: 'draw', shape: 'sprite', args, lineNum };
+      return { type: 'draw', shape: 'sprite', args, hud: hudFlag, lineNum };
     }
 
     // Find positions of all keyword delimiters
@@ -1407,10 +1466,13 @@ function parse(source) {
       else if (kw === 'from') { args.x1 = first; args.y1 = second; }
       else if (kw === 'to') { args.x2 = first; args.y2 = second; }
     }
-    return { type: 'draw', shape, args, lineNum };
+    return { type: 'draw', shape, args, hud: hudFlag, lineNum };
   }
 
   function parseWrite(raw, lineNum) {
+    const stripped = stripHudSuffix(raw);
+    raw = stripped.tokens;
+    const hudFlag = stripped.hud;
     let text = null, x = null, y = null, color = null;
     let i = 1;
     // get text
@@ -1442,7 +1504,25 @@ function parse(source) {
     if (inIdx2 > 0) {
       color = raw.slice(inIdx2 + 1).map(t => t.value).join(' ');
     }
-    return { type: 'write', text: text ? { type: 'literal', value: text } : { type: 'literal', value: '' }, x: x || { type: 'literal', value: 0 }, y: y || { type: 'literal', value: 0 }, color: color || 'white', lineNum };
+    return { type: 'write', text: text ? { type: 'literal', value: text } : { type: 'literal', value: '' }, x: x || { type: 'literal', value: 0 }, y: y || { type: 'literal', value: 0 }, color: color || 'white', hud: hudFlag, lineNum };
+  }
+
+  function parseButton(raw, lineNum) {
+    // show button "label" at x, y
+    const label = raw[2] && raw[2].type === 'string' ? raw[2].value : '';
+    const atIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
+    let x = { type: 'literal', value: 10 }, y = { type: 'literal', value: 10 };
+    if (atIdx > 0) {
+      const after = raw.slice(atIdx + 1);
+      const commaIdx = after.findIndex(t => t.type === 'comma');
+      if (commaIdx > 0) {
+        x = parseExpression(after.slice(0, commaIdx));
+        y = parseExpression(after.slice(commaIdx + 1));
+      } else {
+        x = parseExpression(after);
+      }
+    }
+    return { type: 'button', label, x, y, lineNum };
   }
 
   function parseSay(raw, lineNum) {
@@ -1561,7 +1641,12 @@ class Runtime {
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.pickupHandlers = {};
     this.hitHandlers = {};
+    this.buttonHandlers = {};
+    this.buttons = [];  // list of {label, x, y, w, h} redrawn each frame
     this._prevPositions = {};
+    this.camera = { x: 0, y: 0 };
+    this.followTarget = null;
+    this.world = { width: 128, height: 128 };
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -1577,7 +1662,12 @@ class Runtime {
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.pickupHandlers = {};
     this.hitHandlers = {};
+    this.buttonHandlers = {};
+    this.buttons = [];  // list of {label, x, y, w, h} redrawn each frame
     this._prevPositions = {};
+    this.camera = { x: 0, y: 0 };
+    this.followTarget = null;
+    this.world = { width: 128, height: 128 };
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
@@ -1924,7 +2014,20 @@ class Runtime {
         }
 
         case 'rungame': {
+          // Sync world from user variable if they set it
+          if (this.vars.world && typeof this.vars.world.width === 'number') {
+            this.world = this.vars.world;
+          }
           this.startGameLoop(stmt.funcs);
+          break;
+        }
+
+        case 'follow': {
+          this.followTarget = stmt.target;
+          // Also sync world size now in case user set it before follow
+          if (this.vars.world && typeof this.vars.world.width === 'number') {
+            this.world = this.vars.world;
+          }
           break;
         }
 
@@ -1940,6 +2043,17 @@ class Runtime {
 
         case 'when_mouse': {
           this.eventHandlers.mouse[stmt.event] = stmt;
+          break;
+        }
+
+        case 'when_button': {
+          this.buttonHandlers[stmt.label.toLowerCase()] = stmt;
+          break;
+        }
+
+        case 'button': {
+          // Draw a button and remember its hitbox
+          this.drawButton(stmt);
           break;
         }
 
@@ -2102,8 +2216,11 @@ class Runtime {
 
   execDraw(stmt) {
     const a = stmt.args;
-    const x = a.x ? this.evalExpr(a.x) : 0;
-    const y = a.y ? this.evalExpr(a.y) : 0;
+    // Camera offset: world-space draws subtract camera, HUD draws don't
+    const ox = stmt.hud ? 0 : this.camera.x;
+    const oy = stmt.hud ? 0 : this.camera.y;
+    const x = (a.x ? this.evalExpr(a.x) : 0) - ox;
+    const y = (a.y ? this.evalExpr(a.y) : 0) - oy;
     const color = resolveColor(a.color);
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
@@ -2124,10 +2241,10 @@ class Runtime {
         break;
       }
       case 'line': {
-        const x1 = a.x1 ? this.evalExpr(a.x1) : 0;
-        const y1 = a.y1 ? this.evalExpr(a.y1) : 0;
-        const x2 = a.x2 ? this.evalExpr(a.x2) : 0;
-        const y2 = a.y2 ? this.evalExpr(a.y2) : 0;
+        const x1 = (a.x1 ? this.evalExpr(a.x1) : 0) - ox;
+        const y1 = (a.y1 ? this.evalExpr(a.y1) : 0) - oy;
+        const x2 = (a.x2 ? this.evalExpr(a.x2) : 0) - ox;
+        const y2 = (a.y2 ? this.evalExpr(a.y2) : 0) - oy;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -2145,10 +2262,30 @@ class Runtime {
     }
   }
 
+  drawButton(stmt) {
+    // Buttons are always screen-space (HUD)
+    const x = Math.floor(this.evalExpr(stmt.x));
+    const y = Math.floor(this.evalExpr(stmt.y));
+    const label = String(stmt.label || '');
+    const w = label.length * 4 + 8;
+    const h = 11;
+    // record for click hit-testing
+    this.buttons.push({ label: label.toLowerCase(), x, y, w, h });
+    // background
+    ctx.fillStyle = '#29adff';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#1d2b53';
+    ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+    // label
+    drawText(label, x + 4, y + 3, '#fff1e8');
+  }
+
   execWrite(stmt) {
     const text = this.interpolate(this.evalExpr(stmt.text));
-    const x = this.evalExpr(stmt.x);
-    const y = this.evalExpr(stmt.y);
+    const ox = stmt.hud ? 0 : this.camera.x;
+    const oy = stmt.hud ? 0 : this.camera.y;
+    const x = this.evalExpr(stmt.x) - ox;
+    const y = this.evalExpr(stmt.y) - oy;
     const color = resolveColor(stmt.color);
     drawText(text, x, y, color);
   }
@@ -2189,7 +2326,23 @@ class Runtime {
           if (handler.body && handler.body.length) self.exec(handler.body);
         }
       }
-      // Process mouse events
+
+      // Dispatch button clicks (if any click pending and hits a button's box)
+      if (self.mouseState.clicked) {
+        for (const btn of self.buttons) {
+          if (self.mouseState.x >= btn.x && self.mouseState.x < btn.x + btn.w &&
+              self.mouseState.y >= btn.y && self.mouseState.y < btn.y + btn.h) {
+            const h = self.buttonHandlers[btn.label];
+            if (h) {
+              if (h.thenStmt) self.exec([h.thenStmt]);
+              if (h.body && h.body.length) self.exec(h.body);
+            }
+            break;
+          }
+        }
+      }
+
+      // Process mouse events (after button check so generic mouse doesn't eat clicks)
       if (self.mouseState.clicked && self.eventHandlers.mouse['clicked']) {
         const h = self.eventHandlers.mouse['clicked'];
         self.vars['mouse'] = { x: self.mouseState.x, y: self.mouseState.y };
@@ -2216,7 +2369,19 @@ class Runtime {
       // Check collisions after movement
       self.checkCollisions();
 
-      // Run remaining functions (draw, etc)
+      // Update camera (follow target, clamp to world)
+      if (self.followTarget) {
+        const t = self.vars[self.followTarget];
+        if (t && typeof t.x === 'number') {
+          self.camera.x = Math.max(0, Math.min(self.world.width - 128, t.x - 64));
+          self.camera.y = Math.max(0, Math.min(self.world.height - 128, t.y - 64));
+        }
+      }
+
+      // Reset button hitbox list before draw populates it
+      self.buttons = [];
+
+      // Run remaining functions (draw, hud, etc)
       for (let i = 1; i < funcNames.length; i++) {
         self.callFunc(funcNames[i]);
       }
@@ -2470,42 +2635,81 @@ canvas.addEventListener('touchend', () => {
 });
 
 // Load sample program
-editor.value = `-- click canvas, arrow keys to move!
-player is {x: 60, y: 60, hp: 3}
+editor.value = `-- click canvas to start!
+world is {width: 256, height: 192}
+mode is "title"
+lives is 3
 score is 0
+player is {x: 60, y: 60, hp: 3}
 
-trees is [{x: 20, y: 30}, {x: 90, y: 50}, {x: 40, y: 90}]
-coins is [{x: 30, y: 70}, {x: 100, y: 20}, {x: 70, y: 100}]
-enemies is [{x: 100, y: 90}]
+trees is [{x: 40, y: 40}, {x: 120, y: 60}, {x: 180, y: 30}, {x: 60, y: 120}, {x: 200, y: 130}]
+coins is [{x: 90, y: 40}, {x: 150, y: 100}, {x: 30, y: 150}, {x: 220, y: 80}, {x: 180, y: 160}]
+enemies is [{x: 100, y: 80}, {x: 200, y: 100}]
 
--- declare behaviors
 trees are solid
 coins are pickups
 enemies are hostile
 
--- movement
+follow player with camera
+
 to update
+  if mode is not "play" return
   if key "up" remove 1 from player.y
   if key "down" add 1 to player.y
   if key "left" remove 1 from player.x
   if key "right" add 1 to player.x
 
--- reactions
 when player picks up any coin
   add 1 to score
+  if no coins mode is "win"
 
 when player hits any enemy
-  damage player 1
-  knock player away from enemy distance 6
+  knock player away from enemy distance 8
+
+when button "start" is clicked
+  mode is "play"
+
+when button "retry" is clicked
+  restart game
+
+to restart game
+  mode is "play"
+  lives is 3
+  score is 0
+  player.x is 60
+  player.y is 60
+  player.hp is 3
 
 to draw
+  if mode is "title"
+    clear screen to dark blue
+    write "COIN QUEST" at 24, 30 in yellow on hud
+    write "arrows to move" at 18, 60 in white on hud
+    write "grab all coins!" at 16, 72 in white on hud
+    show button "start" at 46, 92
+    return
+  if mode is "win"
+    clear screen to dark green
+    write "YOU WIN!" at 36, 40 in yellow on hud
+    write "score {score}" at 38, 60 in white on hud
+    show button "retry" at 46, 90
+    return
+  if mode is "lose"
+    clear screen to dark purple
+    write "GAME OVER" at 34, 40 in red on hud
+    write "score {score}" at 38, 60 in white on hud
+    show button "retry" at 46, 90
+    return
+  -- playing
   clear screen to dark green
   each tree in trees draw sprite "tree" at tree.x, tree.y
   each coin in coins draw sprite "coin" at coin.x, coin.y
   each enemy in enemies draw sprite "slime" at enemy.x, enemy.y
   draw sprite "hero" at player.x, player.y
-  write "score: {score}" at 2, 2 in white
-  write "hp: {player.hp}" at 90, 2 in red
+  -- HUD
+  write "score {score}" at 2, 2 in white on hud
+  repeat with i from 1 to lives
+    draw sprite "heart" at i * 10, 14 on hud
 
 run game with update and draw`;
 
