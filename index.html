@@ -196,56 +196,378 @@ function drawText(text, x, y, colorHex) {
 // Palette: 0=trans 1=black 2=dk blue 3=dk purple 4=dk green
 // 5=brown 6=dk gray 7=lt gray 8=white 9=red a=orange b=yellow
 // c=green d=blue e=indigo f=pink
+// Helper: assemble 8 rows, validates each is 8 chars
+function spr(...rows) {
+  if (rows.length !== 8) console.warn('sprite needs 8 rows, got', rows.length);
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length !== 8) console.warn('row', i, 'has', rows[i].length, 'chars:', rows[i]);
+  }
+  return rows.join('');
+}
+
 const SPRITES = {
   // Characters
-  hero:     '000dd000001d100011d1d110d11111d0011d1100011d110001100110',
-  wizard:   '00e00000' + '0eee0000' + '0e8e0000' + 'eeeee000' + '03e30000' + '03e30000' + '03030000' + '03030000',
-  knight:   '06666000' + '06860000' + '06660000' + '67676000' + '06660000' + '06660000' + '06060000' + '06060000',
-  rogue:    '01110000' + '01610000' + '01110000' + '11611000' + '05150000' + '01110000' + '01010000' + '01010000',
-  princess: '00b00000' + '08880000' + '08180000' + '08880000' + 'f8f8f000' + '0fff0000' + '0f0f0000' + '0f0f0000',
-  ship:     '00010000' + '00111000' + '01111100' + '11111110' + '01111100' + '00111000' + '00010000' + '00000000',
+  hero: spr(
+    '00dddd00',
+    '00d88d00',
+    '00dddd00',
+    '0ddddddd',
+    '0d9999d0',
+    '09999990',
+    '00c00c00',
+    '0cc00cc0'),
+  wizard: spr(
+    '00e00000',
+    '0eee0000',
+    '0e8e0000',
+    'eeeeee00',
+    '03e3e000',
+    '03e3e000',
+    '03303000',
+    '03303000'),
+  knight: spr(
+    '06666600',
+    '06868600',
+    '06666600',
+    '67777760',
+    '06666600',
+    '06666600',
+    '06006000',
+    '06006000'),
+  rogue: spr(
+    '01111100',
+    '01616100',
+    '01111100',
+    '11611100',
+    '05111500',
+    '01111100',
+    '01001000',
+    '01001000'),
+  princess: spr(
+    '00bbb000',
+    '00888000',
+    '08181800',
+    '00888000',
+    '0fffff00',
+    '0fffff00',
+    '0f000f00',
+    '0f000f00'),
+  ship: spr(
+    '00088000',
+    '00988900',
+    '09988990',
+    '99999999',
+    '99999999',
+    '09088090',
+    '00900900',
+    '00000000'),
 
   // Enemies
-  slime:    '00000000' + '00ccc000' + '0cc9cc00' + '0ccccc00' + 'cc9c9cc0' + '0ccccc00' + '0c999c00' + '00000000',
-  bat:      '00000000' + '10000010' + '91000190' + '99100990' + '09999900' + '00999000' + '00090000' + '00000000',
-  ghost:    '00eee000' + '0eeeee00' + '0e8e8e00' + '0eeeee00' + '0eeeee00' + '0eeeee00' + '0e0e0e00' + '00000000',
-  skeleton: '00888000' + '08818800' + '00888000' + '08888800' + '00878000' + '00888000' + '00808000' + '00808000',
-  goblin:   '0c000c00' + '0cccc000' + '0c8c8000' + '0cccc000' + '00cc0000' + '0cccc000' + '0c00c000' + '0c00c000',
-  spider:   '10000010' + '01000100' + '10999010' + '01999100' + '19989910' + '01999100' + '10000010' + '01000100',
-  alien:    '00100100' + '01111110' + '11011010' + '11111110' + '01011010' + '00100100' + '01001010' + '10000010',
+  slime: spr(
+    '00cccc00',
+    '0cccccc0',
+    'cc8cc8cc',
+    'cccccccc',
+    'cc9999cc',
+    'ccccccc0',
+    '0cccccc0',
+    '00c00c00'),
+  bat: spr(
+    '00000000',
+    '10000010',
+    '91000190',
+    '99188199',
+    '99999999',
+    '09999990',
+    '00909900',
+    '00000000'),
+  ghost: spr(
+    '00eeee00',
+    '0eeeeee0',
+    '0e8e8ee0',
+    '0e8e8ee0',
+    'eeeeeeee',
+    'eeeeeeee',
+    'e0e0e0e0',
+    '00000000'),
+  skeleton: spr(
+    '00888800',
+    '08818180',
+    '08888880',
+    '00888000',
+    '08888800',
+    '08878880',
+    '00800800',
+    '08800880'),
+  goblin: spr(
+    '0cc00cc0',
+    '0cccccc0',
+    'c8cccc8c',
+    '0cccccc0',
+    '00cccc00',
+    '0cc00cc0',
+    '0c0000c0',
+    '0c0000c0'),
+  spider: spr(
+    '10000001',
+    '01000010',
+    '10999901',
+    '19999991',
+    '19989991',
+    '19999991',
+    '01000010',
+    '10000001'),
+  alien: spr(
+    '00c00c00',
+    '0cccccc0',
+    'cc1cc1cc',
+    'cccccccc',
+    '0c0cc0c0',
+    'c0c00c0c',
+    '0c0000c0',
+    'c000000c'),
 
   // Items
-  coin:     '00000000' + '00bbb000' + '0bb8bb00' + '0bbbbb00' + '0bb8bb00' + '00bbb000' + '00000000' + '00000000',
-  gem:      '00000000' + '00090000' + '00999000' + '09f9f900' + '00999000' + '00090000' + '00000000' + '00000000',
-  heart:    '00000000' + '09009000' + '09999000' + '09999000' + '00990000' + '00090000' + '00000000' + '00000000',
-  key:      '00000000' + '00bb0000' + '00b0b000' + '00bb0000' + '000b0000' + '000bb000' + '000b0000' + '00000000',
-  chest:    '00000000' + '05555500' + '5a5a5a50' + '55555550' + '55b55550' + '55555550' + '00000000' + '00000000',
-  potion:   '00000000' + '00780000' + '00870000' + '009d0000' + '09dd9000' + '09dd9000' + '00990000' + '00000000',
-  sword:    '00000080' + '00000800' + '00008000' + '00080000' + '09080000' + '00900000' + '09000000' + '00000000',
-  bomb:     '00000000' + '000ab000' + '00a00000' + '01111000' + '01111000' + '01111000' + '00110000' + '00000000',
-  star:     '00000000' + '000b0000' + '000b0000' + '0bbbbb00' + '00bbb000' + '00b0b000' + '0b000b00' + '00000000',
+  coin: spr(
+    '00000000',
+    '00bbbb00',
+    '0bb88bb0',
+    '0b8bb8b0',
+    '0bb88bb0',
+    '00bbbb00',
+    '00000000',
+    '00000000'),
+  gem: spr(
+    '00000000',
+    '00dddd00',
+    '0d8dd8d0',
+    'dddddddd',
+    'dddddddd',
+    '0dddddd0',
+    '00dddd00',
+    '00000000'),
+  heart: spr(
+    '00000000',
+    '09909900',
+    '99999990',
+    '99999990',
+    '09999900',
+    '00999000',
+    '00090000',
+    '00000000'),
+  key: spr(
+    '00000000',
+    '00bbb000',
+    '0b8b8b00',
+    '0bbbb000',
+    '000b0000',
+    '000bbb00',
+    '000b0000',
+    '000bb000'),
+  chest: spr(
+    '00000000',
+    '05555550',
+    '5a8a8a85',
+    '55555555',
+    '55b11b55',
+    '55511555',
+    '55555555',
+    '00000000'),
+  potion: spr(
+    '00000000',
+    '00078000',
+    '00087000',
+    '009dd000',
+    '09dddd00',
+    '09dddd00',
+    '09d99d00',
+    '00dddd00'),
+  sword: spr(
+    '000000c0',
+    '00000c00',
+    '0000c000',
+    '000c0000',
+    '09c00000',
+    '00c00000',
+    '0c000000',
+    'c0000000'),
+  bomb: spr(
+    '00000000',
+    '00a9b000',
+    '00a00000',
+    '01111000',
+    '01111000',
+    '01111000',
+    '01111000',
+    '00110000'),
+  star: spr(
+    '000bb000',
+    '000bb000',
+    'bbbbbbbb',
+    '0bbbbbb0',
+    '00bbbb00',
+    '00b00b00',
+    '0b0000b0',
+    '00000000'),
+  house: spr(
+    '0009a000',
+    '000aaa00',
+    '00aaaaa0',
+    '0aaaaaaa',
+    '55555555',
+    '55155155',
+    '55155155',
+    '55155155'),
 
   // Tiles
-  grass:    '44444444' + '44444444' + '44c44444' + '44444c44' + '44444444' + '4c444444' + '44444444' + '44444444',
-  dirt:     '55555555' + '55a55555' + '55555555' + '55555a55' + '5a555555' + '55555555' + '55555555' + '555a5555',
-  stone:    '66676666' + '66666666' + '66666676' + '77777777' + '66666666' + '67666666' + '66666666' + '77777777',
-  water:    '22d22222' + '2222d222' + '22222222' + 'd2222222' + '22222d22' + '22222222' + '222d2222' + '22222222',
-  brick:    '99599595' + '55555555' + '95995599' + '55555555' + '99599595' + '55555555' + '95995599' + '55555555',
-  tree:     '00ccc000' + '0ccccc00' + 'cccccc00' + '0ccccc00' + '00ccc000' + '00550000' + '00550000' + '00000000',
-  door:     '55555500' + '51111500' + '51111500' + '51111500' + '511b1500' + '51111500' + '51111500' + '55555500',
+  grass: spr(
+    '44c44444',
+    '44444c44',
+    'c4444444',
+    '44444444',
+    '4444c444',
+    '44444444',
+    '4c444444',
+    '44444444'),
+  dirt: spr(
+    '55555555',
+    '55a55555',
+    '55555555',
+    '55555a55',
+    '5a555555',
+    '55555555',
+    '55555555',
+    '555a5555'),
+  stone: spr(
+    '66676666',
+    '66666666',
+    '66666676',
+    '77777777',
+    '66666666',
+    '67666666',
+    '66666666',
+    '77777777'),
+  water: spr(
+    '22d22222',
+    '2222d222',
+    '22222222',
+    'd2222222',
+    '22222d22',
+    '22222222',
+    '222d2222',
+    '22222222'),
+  brick: spr(
+    '99599595',
+    '55555555',
+    '95995599',
+    '55555555',
+    '99599595',
+    '55555555',
+    '95995599',
+    '55555555'),
+  tree: spr(
+    '00cccc00',
+    '0cccccc0',
+    'cc4cc4cc',
+    'cccccccc',
+    'cccccccc',
+    '0cccccc0',
+    '00c55c00',
+    '00555500'),
+  door: spr(
+    '05555500',
+    '51111150',
+    '51111150',
+    '51111150',
+    '51b11150',
+    '51111150',
+    '51111150',
+    '55555555'),
 
   // Effects
-  explosion1: '00000000' + '00090000' + '009a9000' + '09ab900' + '009a9000' + '00090000' + '00000000' + '00000000',
-  explosion2: '09000900' + '00999000' + '09aba900' + '9abba900' + '09aba900' + '00999000' + '09000900' + '00000000',
-  spark:    '00000000' + '00080000' + '00808000' + '08000800' + '00808000' + '00080000' + '00000000' + '00000000',
-  smoke:    '00000000' + '00770000' + '07777000' + '07777000' + '07777000' + '00770000' + '00000000' + '00000000',
-  bullet:   '00000000' + '00000000' + '00080000' + '00888000' + '00080000' + '00000000' + '00000000' + '00000000',
-  fireball: '00000000' + '00990000' + '09a99000' + '9aab9000' + '09a99000' + '00990000' + '00000000' + '00000000',
+  explosion1: spr(
+    '00000000',
+    '00099000',
+    '009aa900',
+    '09abba90',
+    '09abba90',
+    '009aa900',
+    '00099000',
+    '00000000'),
+  explosion2: spr(
+    '09000090',
+    '00999900',
+    '09aabb90',
+    '9abbba99',
+    '9abbba99',
+    '09aabb90',
+    '00999900',
+    '09000090'),
+  spark: spr(
+    '00000000',
+    '00080000',
+    '00808000',
+    '08000800',
+    '00808000',
+    '00080000',
+    '00000000',
+    '00000000'),
+  smoke: spr(
+    '00000000',
+    '00777000',
+    '07777700',
+    '07777700',
+    '07777700',
+    '00777000',
+    '00000000',
+    '00000000'),
+  bullet: spr(
+    '00000000',
+    '00000000',
+    '00088000',
+    '00888800',
+    '00088000',
+    '00000000',
+    '00000000',
+    '00000000'),
+  fireball: spr(
+    '00000000',
+    '00999000',
+    '09aaa900',
+    '9aabba90',
+    '09aaa900',
+    '00999000',
+    '00000000',
+    '00000000'),
 
   // UI
-  heart_full:  '00000000' + '09009000' + '09999000' + '09999000' + '00990000' + '00090000' + '00000000' + '00000000',
-  heart_empty: '00000000' + '01001000' + '01001000' + '01111000' + '00110000' + '00010000' + '00000000' + '00000000',
-  skull:    '00000000' + '08880000' + '08080800' + '08888000' + '08880000' + '08080800' + '00000000' + '00000000',
+  heart_full: spr(
+    '00000000',
+    '09909900',
+    '99999990',
+    '99999990',
+    '09999900',
+    '00999000',
+    '00090000',
+    '00000000'),
+  heart_empty: spr(
+    '00000000',
+    '01101100',
+    '11001100',
+    '11001110',
+    '01111100',
+    '00111000',
+    '00010000',
+    '00000000'),
+  skull: spr(
+    '00000000',
+    '00888800',
+    '08181800',
+    '08888800',
+    '08888800',
+    '00808000',
+    '00000000',
+    '00000000'),
   arrow_up: '00000000' + '00100000' + '01110000' + '11111000' + '00100000' + '00100000' + '00100000' + '00000000',
 };
 
@@ -590,6 +912,11 @@ function parse(source) {
 
   function splitOnAnd(tokens) {
     // Find "and" that separates statements (not inside "between X and Y" or "run game with X and Y")
+    // Don't split if the line starts with a context that uses "and" as a connector: run, when
+    const firstWord = tokens[0] ? tv(tokens[0]) : '';
+    if (firstWord === 'run' || firstWord === 'when' || firstWord === 'to') {
+      return [tokens];
+    }
     const parts = [];
     let current = [];
     let inBetween = false;
@@ -907,58 +1234,56 @@ function parse(source) {
     // Handle "draw sprite "name" at x, y"
     if (shape === 'sprite' && raw.length >= 3 && raw[2].type === 'string') {
       args.spriteName = raw[2].value.toLowerCase().replace(/\s+/g, '_');
-      // parse remaining at x, y
-      for (let i = 3; i < raw.length; i++) {
-        const w = raw[i].value ? tv(raw[i]) : '';
-        if (w === 'at' && i + 1 < raw.length) {
-          args.x = parseExpression([raw[i + 1]]);
-          if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-            args.y = parseExpression([raw[i + 3]]);
-          }
+      // Find "at" keyword, then split remaining at comma for x, y expressions
+      const atIdx = raw.findIndex((t, i) => i >= 3 && t.type === 'word' && tv(t) === 'at');
+      if (atIdx > 0) {
+        const afterAt = raw.slice(atIdx + 1);
+        const commaIdx = afterAt.findIndex(t => t.type === 'comma');
+        if (commaIdx > 0) {
+          args.x = parseExpression(afterAt.slice(0, commaIdx));
+          args.y = parseExpression(afterAt.slice(commaIdx + 1));
+        } else {
+          args.x = parseExpression(afterAt);
         }
       }
       return { type: 'draw', shape: 'sprite', args, lineNum };
     }
 
-    // Parse keyword arguments: at, size, from, to, in
+    // Find positions of all keyword delimiters
+    const KEYWORDS = ['at', 'size', 'from', 'to', 'in'];
+    const positions = [];
     for (let i = 2; i < raw.length; i++) {
-      const w = raw[i].value ? tv(raw[i]) : '';
-      if (w === 'at' && i + 1 < raw.length) {
-        args.x = parseExpression([raw[i + 1]]);
-        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-          args.y = parseExpression([raw[i + 3]]);
-          i += 3;
-        } else { i += 1; }
-      } else if (w === 'size' && i + 1 < raw.length) {
-        args.w = parseExpression([raw[i + 1]]);
-        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-          args.h = parseExpression([raw[i + 3]]);
-          i += 3;
-        } else {
-          args.h = args.w;
-          i += 1;
-        }
-      } else if (w === 'from' && i + 1 < raw.length) {
-        args.x1 = parseExpression([raw[i + 1]]);
-        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-          args.y1 = parseExpression([raw[i + 3]]);
-          i += 3;
-        } else { i += 1; }
-      } else if (w === 'to' && i + 1 < raw.length) {
-        args.x2 = parseExpression([raw[i + 1]]);
-        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-          args.y2 = parseExpression([raw[i + 3]]);
-          i += 3;
-        } else { i += 1; }
-      } else if (w === 'in') {
-        // collect remaining words as color
-        const colorParts = [];
-        for (let j = i + 1; j < raw.length; j++) {
-          colorParts.push(raw[j].value);
-        }
-        args.color = colorParts.join(' ');
-        break;
+      if (raw[i].type === 'word' && KEYWORDS.includes(tv(raw[i]))) {
+        positions.push({ kw: tv(raw[i]), idx: i });
       }
+    }
+    positions.push({ kw: 'END', idx: raw.length });
+
+    // For each keyword, extract tokens until the next keyword
+    for (let p = 0; p < positions.length - 1; p++) {
+      const { kw, idx } = positions[p];
+      const nextIdx = positions[p + 1].idx;
+      const segment = raw.slice(idx + 1, nextIdx);
+
+      if (kw === 'in') {
+        args.color = segment.map(t => t.value).join(' ');
+        continue;
+      }
+
+      // Split segment on comma for x, y pairs
+      const commaIdx = segment.findIndex(t => t.type === 'comma');
+      let first, second;
+      if (commaIdx > 0) {
+        first = parseExpression(segment.slice(0, commaIdx));
+        second = parseExpression(segment.slice(commaIdx + 1));
+      } else {
+        first = parseExpression(segment);
+      }
+
+      if (kw === 'at') { args.x = first; args.y = second; }
+      else if (kw === 'size') { args.w = first; args.h = second || first; }
+      else if (kw === 'from') { args.x1 = first; args.y1 = second; }
+      else if (kw === 'to') { args.x2 = first; args.y2 = second; }
     }
     return { type: 'draw', shape, args, lineNum };
   }
@@ -978,21 +1303,22 @@ function parse(source) {
         i = atIdx;
       }
     }
-    // parse at, in
-    while (i < raw.length) {
-      const w = raw[i].value ? tv(raw[i]) : '';
-      if (w === 'at' && i + 1 < raw.length) {
-        x = parseExpression([raw[i + 1]]);
-        if (i + 2 < raw.length && raw[i + 2].type === 'comma' && i + 3 < raw.length) {
-          y = parseExpression([raw[i + 3]]);
-          i += 4;
-        } else { i += 2; }
-      } else if (w === 'in') {
-        const colorParts = [];
-        for (let j = i + 1; j < raw.length; j++) colorParts.push(raw[j].value);
-        color = colorParts.join(' ');
-        break;
-      } else { i++; }
+    // Find at/in keyword positions and extract multi-token expressions
+    const atIdx2 = raw.findIndex((t, idx) => idx >= i && t.type === 'word' && tv(t) === 'at');
+    const inIdx2 = raw.findIndex((t, idx) => idx >= i && t.type === 'word' && tv(t) === 'in');
+    if (atIdx2 > 0) {
+      const end = inIdx2 > atIdx2 ? inIdx2 : raw.length;
+      const segment = raw.slice(atIdx2 + 1, end);
+      const commaIdx = segment.findIndex(t => t.type === 'comma');
+      if (commaIdx > 0) {
+        x = parseExpression(segment.slice(0, commaIdx));
+        y = parseExpression(segment.slice(commaIdx + 1));
+      } else {
+        x = parseExpression(segment);
+      }
+    }
+    if (inIdx2 > 0) {
+      color = raw.slice(inIdx2 + 1).map(t => t.value).join(' ');
     }
     return { type: 'write', text: text ? { type: 'literal', value: text } : { type: 'literal', value: '' }, x: x || { type: 'literal', value: 0 }, y: y || { type: 'literal', value: 0 }, color: color || 'white', lineNum };
   }
@@ -1069,11 +1395,16 @@ function parse(source) {
 
   function parsePset(raw, lineNum) {
     let x = null, y = null, color = 'white';
-    let i = 1;
-    if (i < raw.length) { x = parseExpression([raw[i]]); i++; }
-    if (i < raw.length && raw[i].type === 'comma') { i++; }
-    if (i < raw.length) { y = parseExpression([raw[i]]); i++; }
-    const inIdx = raw.findIndex((t, idx) => idx > 2 && t.type === 'word' && tv(t) === 'in');
+    const inIdx = raw.findIndex((t, idx) => idx > 0 && t.type === 'word' && tv(t) === 'in');
+    const end = inIdx > 0 ? inIdx : raw.length;
+    const segment = raw.slice(1, end);
+    const commaIdx = segment.findIndex(t => t.type === 'comma');
+    if (commaIdx > 0) {
+      x = parseExpression(segment.slice(0, commaIdx));
+      y = parseExpression(segment.slice(commaIdx + 1));
+    } else {
+      x = parseExpression(segment);
+    }
     if (inIdx > 0) {
       color = raw.slice(inIdx + 1).map(t => t.value).join(' ');
     }
@@ -1676,7 +2007,9 @@ class Runtime {
         self.callFunc(name);
       }
     }
-    // Use setInterval for reliable 60fps (rAF pauses in background tabs)
+    // Draw one frame immediately so canvas isn't blank
+    frame();
+    // Then loop at 60fps
     self.animFrame = setInterval(frame, 1000 / 60);
   }
 
