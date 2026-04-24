@@ -9,7 +9,30 @@
 html, body { height: 100%; background: #1a1a2e; color: #e0e0e0; font-family: monospace; overflow: hidden; }
 #app { display: flex; height: 100%; gap: 4px; padding: 4px; }
 #canvas-wrap { flex: 2; display: flex; align-items: center; justify-content: center; background: #0f0f23; border-radius: 4px; position: relative; min-width: 0; min-height: 0; }
-canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+#screen-frame { position: relative; line-height: 0; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+#scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --scale: 4px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--scale) - 2px),
+      rgba(0,0,0,0.55) calc(var(--scale) - 2px),
+      rgba(0,0,0,0.55) var(--scale)
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--scale) - 1px),
+      rgba(0,0,0,0.35) calc(var(--scale) - 1px),
+      rgba(0,0,0,0.35) var(--scale)
+    );
+  mix-blend-mode: multiply;
+}
 #editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 #editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
 #editor::placeholder { color: #4a4a6a; }
@@ -25,7 +48,12 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 </head>
 <body>
 <div id="app">
-  <div id="canvas-wrap"><canvas id="screen" width="128" height="128"></canvas></div>
+  <div id="canvas-wrap">
+    <div id="screen-frame">
+      <canvas id="screen" width="128" height="128"></canvas>
+      <div id="scanlines"></div>
+    </div>
+  </div>
   <div id="editor-wrap">
     <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
     <div id="errors"></div>
@@ -46,9 +74,14 @@ function resizeCanvas() {
   const wrap = document.getElementById('canvas-wrap');
   const maxW = wrap.clientWidth - 16;
   const maxH = wrap.clientHeight - 16;
-  const scale = Math.max(1, Math.floor(Math.min(maxW / 128, maxH / 128)));
-  canvas.style.width = (128 * scale) + 'px';
-  canvas.style.height = (128 * scale) + 'px';
+  const scale = Math.max(2, Math.floor(Math.min(maxW / 128, maxH / 128)));
+  const displayPx = 128 * scale;
+  canvas.style.width = displayPx + 'px';
+  canvas.style.height = displayPx + 'px';
+  const frame = document.getElementById('screen-frame');
+  if (frame) { frame.style.width = displayPx + 'px'; frame.style.height = displayPx + 'px'; }
+  const sl = document.getElementById('scanlines');
+  if (sl) sl.style.setProperty('--scale', scale + 'px');
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
