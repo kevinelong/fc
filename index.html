@@ -278,13 +278,50 @@ function spr(...rows) {
 }
 
 const SPRITES = {
-  // Characters
+  // Characters - hero in 4 facing directions (down is the default)
+  hero_down: spr(
+    '00dddd00',
+    '0dddddd0',
+    '0d8888d0',
+    '0d1881d0',
+    '09999990',
+    '09999990',
+    '00c00c00',
+    '0cc00cc0'),
+  hero_up: spr(
+    '00dddd00',
+    '0dddddd0',
+    '0dddddd0',
+    '0dddddd0',
+    '09999990',
+    '09999990',
+    '00c00c00',
+    '0cc00cc0'),
+  hero_left: spr(
+    '0dddd000',
+    'dddddd00',
+    'd1881d00',
+    'd8888d00',
+    '999999d0',
+    '99999d00',
+    '0c00cc00',
+    'cc00cc00'),
+  hero_right: spr(
+    '000dddd0',
+    '00dddddd',
+    '00d1881d',
+    '00d8888d',
+    '0d999999',
+    '00d99999',
+    '00cc00c0',
+    '00cc00cc'),
+  // Backward-compat alias - "hero" without facing maps to hero_down
   hero: spr(
     '00dddd00',
-    '00d88d00',
-    '00dddd00',
-    '0ddddddd',
-    '0d9999d0',
+    '0dddddd0',
+    '0d8888d0',
+    '0d1881d0',
+    '09999990',
     '09999990',
     '00c00c00',
     '0cc00cc0'),
@@ -698,6 +735,14 @@ function tv(token) {
   return typeof v === 'string' ? v.toLowerCase() : String(v);
 }
 
+// Direction lookup for facing - keeps a consistent vector for movement/projectiles
+const DIR_VECTORS = {
+  up:    { dx:  0, dy: -1 },
+  down:  { dx:  0, dy:  1 },
+  left:  { dx: -1, dy:  0 },
+  right: { dx:  1, dy:  0 },
+};
+
 // Helper: convert plural to singular for collision binding
 function singularize(plural) {
   const s = String(plural).toLowerCase();
@@ -1022,6 +1067,20 @@ function parse(source) {
       return parseKnock(raw, lineNum);
     }
 
+    // -- face X direction / face X toward Y --
+    if (first === 'face' && raw.length >= 3) {
+      const target = raw[1].value;
+      // "face X toward Y"
+      if (tv(raw[2]) === 'toward' && raw.length >= 4) {
+        return { type: 'face_toward', target, towardName: raw[3].value, lineNum };
+      }
+      // "face X up/down/left/right"
+      const dir = tv(raw[2]);
+      if (['up', 'down', 'left', 'right'].includes(dir)) {
+        return { type: 'face', target, direction: dir, lineNum };
+      }
+    }
+
     // -- damage X [N] --
     if (first === 'damage') {
       const target = raw[1] ? raw[1].value : 'player';
@@ -1095,7 +1154,7 @@ function parse(source) {
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
-      'when', 'else', 'to', 'go'].includes(w);
+      'when', 'else', 'to', 'go', 'face'].includes(w);
   }
 
   function parseWhen(raw, lineNum) {
@@ -2241,6 +2300,36 @@ class Runtime {
           break;
         }
 
+        case 'face': {
+          const obj = this.getVar(stmt.target);
+          if (obj) {
+            obj.facing = stmt.direction;
+            const v = DIR_VECTORS[stmt.direction];
+            if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+          }
+          break;
+        }
+
+        case 'face_toward': {
+          const obj = this.getVar(stmt.target);
+          const target = this.getVar(stmt.towardName);
+          if (obj && target && typeof target.x === 'number' && typeof obj.x === 'number') {
+            const dx = target.x - obj.x;
+            const dy = target.y - obj.y;
+            // Pick dominant axis
+            let dir;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              dir = dx > 0 ? 'right' : 'left';
+            } else {
+              dir = dy > 0 ? 'down' : 'up';
+            }
+            obj.facing = dir;
+            const v = DIR_VECTORS[dir];
+            if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+          }
+          break;
+        }
+
         case 'heal': {
           const obj = this.getVar(stmt.target);
           const amt = this.evalExpr(stmt.amount);
@@ -2390,7 +2479,19 @@ class Runtime {
         let name = a.spriteName;
         if (!name && a.spriteNameExpr) {
           const resolved = this.evalExpr(a.spriteNameExpr);
-          if (typeof resolved === 'string') name = resolved.toLowerCase().replace(/\s+/g, '_');
+          if (typeof resolved === 'string') {
+            name = resolved.toLowerCase().replace(/\s+/g, '_');
+          } else if (resolved && typeof resolved === 'object' && resolved.image) {
+            // Sprite object: try <image>_<facing> first, fall back to <image>
+            const base = String(resolved.image).toLowerCase().replace(/\s+/g, '_');
+            const facing = resolved.facing;
+            if (facing) {
+              const variant = base + '_' + facing;
+              name = SPRITES[variant] ? variant : base;
+            } else {
+              name = base;
+            }
+          }
         }
         name = name || '';
         drawSprite(name, x, y);
@@ -2843,7 +2944,7 @@ score is 0
 speed is 1
 
 -- one-liner sprite setup!
-player is centered sprite {hp: 3, invuln: 0, image: "hero"}
+player is centered sprite {hp: 3, invuln: 0, image: "hero", facing: "down"}
 trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 enemies is list of 3 sprites {image: "slime"}
@@ -2886,7 +2987,7 @@ to screen play
   each coin in coins draw sprite coin.image at coin.x, coin.y
   each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
   if player.invuln is 0 or player.invuln mod 6 > 2
-    draw sprite player.image at player.x, player.y
+    draw sprite player at player.x, player.y
   write "score {score}" at 2, 2 in white on hud
   repeat with i from 1 to lives
     draw sprite "heart" at i * 10, 14 on hud
@@ -2909,10 +3010,18 @@ to screen lose
 to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
-  if key "up" remove speed from player.y
-  if key "down" add speed to player.y
-  if key "left" remove speed from player.x
-  if key "right" add speed to player.x
+  if key "up"
+    face player up
+    remove speed from player.y
+  if key "down"
+    face player down
+    add speed to player.y
+  if key "left"
+    face player left
+    remove speed from player.x
+  if key "right"
+    face player right
+    add speed to player.x
 
 when player picks up any coin
   add 1 to score
