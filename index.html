@@ -1011,7 +1011,7 @@ function parse(source) {
     }
 
     // -- stop --
-    if (first === 'stop') {
+    if (first === 'stop' && raw.length === 1) {
       return { type: 'stop', lineNum };
     }
 
@@ -1114,6 +1114,27 @@ function parse(source) {
       return parseKnock(raw, lineNum);
     }
 
+    // -- walk X direction / walk X toward Y --
+    if (first === 'walk' && raw.length >= 3) {
+      const target = raw[1].value;
+      if (tv(raw[2]) === 'toward' && raw.length >= 4) {
+        return { type: 'walk_toward', target, towardName: raw[3].value, lineNum };
+      }
+      const dir = tv(raw[2]);
+      if (['up', 'down', 'left', 'right'].includes(dir)) {
+        return { type: 'walk', target, direction: dir, lineNum };
+      }
+    }
+
+    // -- stop walking X / stop X --
+    if (first === 'stop' && raw.length >= 2) {
+      // "stop walking X" — also accepts "stop X" as a synonym for sprites
+      const targetIdx = tv(raw[1]) === 'walking' ? 2 : 1;
+      if (targetIdx < raw.length) {
+        return { type: 'stop_walking', target: raw[targetIdx].value, lineNum };
+      }
+    }
+
     // -- face X direction / face X toward Y --
     if (first === 'face' && raw.length >= 3) {
       const target = raw[1].value;
@@ -1201,7 +1222,7 @@ function parse(source) {
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
-      'when', 'else', 'to', 'go', 'face'].includes(w);
+      'when', 'else', 'to', 'go', 'face', 'walk'].includes(w);
   }
 
   function parseWhen(raw, lineNum) {
@@ -2371,6 +2392,40 @@ class Runtime {
           break;
         }
 
+        case 'walk': {
+          const obj = this.getVar(stmt.target);
+          if (obj) {
+            obj.facing = stmt.direction;
+            const v = DIR_VECTORS[stmt.direction];
+            if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+            obj.walking = true;
+          }
+          break;
+        }
+
+        case 'walk_toward': {
+          const obj = this.getVar(stmt.target);
+          const target = this.getVar(stmt.towardName);
+          if (obj && target && typeof target.x === 'number' && typeof obj.x === 'number') {
+            const dx = target.x - obj.x;
+            const dy = target.y - obj.y;
+            const dir = Math.abs(dx) > Math.abs(dy)
+              ? (dx > 0 ? 'right' : 'left')
+              : (dy > 0 ? 'down' : 'up');
+            obj.facing = dir;
+            const v = DIR_VECTORS[dir];
+            if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+            obj.walking = true;
+          }
+          break;
+        }
+
+        case 'stop_walking': {
+          const obj = this.getVar(stmt.target);
+          if (obj) obj.walking = false;
+          break;
+        }
+
         case 'face_toward': {
           const obj = this.getVar(stmt.target);
           const target = this.getVar(stmt.towardName);
@@ -2538,6 +2593,7 @@ class Runtime {
       case 'sprite': {
         // draw sprite "name" at x, y
         let name = a.spriteName;
+        let bounceY = 0;
         if (!name && a.spriteNameExpr) {
           const resolved = this.evalExpr(a.spriteNameExpr);
           if (typeof resolved === 'string') {
@@ -2552,10 +2608,16 @@ class Runtime {
             } else {
               name = base;
             }
+            // Walking bounce: 1px up on alternating ~12-frame phases
+            // (matches the ~5Hz cadence the research recommended)
+            if (resolved.walking) {
+              const phase = Math.floor((this.tick || 0) / 12) % 2;
+              if (phase === 1) bounceY = -1;
+            }
           }
         }
         name = name || '';
-        drawSprite(name, x, y);
+        drawSprite(name, x, y + bounceY);
         break;
       }
       default:
@@ -2658,6 +2720,9 @@ class Runtime {
       }
       self.mouseState.clicked = false;
 
+      // Tick counter for animation timing
+      self.tick = (self.tick || 0) + 1;
+
       // Save player's previous position for collision rollback
       const player = self.vars.player;
       if (player && typeof player.x === 'number') {
@@ -2667,15 +2732,19 @@ class Runtime {
       // Run update function first (movement, input)
       if (funcNames.length > 0) self.callFunc(funcNames[0]);
 
+      // Auto-move any sprite with walking: yes (player + future NPCs)
+      // Walks until: solid collision, world edge, or stop_walking
+      self._autoWalk();
+
       // Clamp player to world edges (8px sprite, world is the map bounds)
       const p = self.vars.player;
       if (p && typeof p.x === 'number') {
         const maxX = self.world.width - 8;
         const maxY = self.world.height - 8;
-        if (p.x < 0) p.x = 0;
-        if (p.y < 0) p.y = 0;
-        if (p.x > maxX) p.x = maxX;
-        if (p.y > maxY) p.y = maxY;
+        if (p.x < 0) { p.x = 0; if (p.walking) p.walking = false; }
+        if (p.y < 0) { p.y = 0; if (p.walking) p.walking = false; }
+        if (p.x > maxX) { p.x = maxX; if (p.walking) p.walking = false; }
+        if (p.y > maxY) { p.y = maxY; if (p.walking) p.walking = false; }
       }
 
       // Check collisions after movement
@@ -2708,6 +2777,18 @@ class Runtime {
     frame();
     // Then loop at 60fps
     self.animFrame = setInterval(frame, 1000 / 60);
+  }
+
+  _autoWalk() {
+    // Move every sprite that has walking: true by its dx, dy * speed.
+    // Walks the player and any other top-level sprite (e.g. NPCs).
+    const speed = (this.vars.speed && typeof this.vars.speed === 'number') ? this.vars.speed : 1;
+    const player = this.vars.player;
+    if (player && player.walking && typeof player.dx === 'number' && typeof player.dy === 'number') {
+      const sp = typeof player.speed === 'number' ? player.speed : speed;
+      player.x += player.dx * sp;
+      player.y += player.dy * sp;
+    }
   }
 
   _collectAllSprites() {
@@ -2753,6 +2834,8 @@ class Runtime {
         if (item && typeof item.x === 'number' && overlaps(player, item)) {
           const prev = this._prevPositions.player;
           if (prev) { player.x = prev.x; player.y = prev.y; }
+          // Auto-stop walking on solid (so auto-walk pattern doesn't loop)
+          if (player.walking) player.walking = false;
           // Also fire hit handler if defined
           const singular = singularize(listName);
           const hh = this.hitHandlers[singular];
@@ -3128,18 +3211,16 @@ to screen lose
 to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
-  if key "up"
-    face player up
-    remove speed from player.y
-  if key "down"
-    face player down
-    add speed to player.y
-  if key "left"
-    face player left
-    remove speed from player.x
-  if key "right"
-    face player right
-    add speed to player.x
+
+-- continuous walking: tap a direction to start, hits solid or edge to stop
+when "up" is pressed
+  if mode is "play" walk player up
+when "down" is pressed
+  if mode is "play" walk player down
+when "left" is pressed
+  if mode is "play" walk player left
+when "right" is pressed
+  if mode is "play" walk player right
 
 when player picks up any coin
   add 1 to score
