@@ -639,6 +639,53 @@ const SPRITES = {
     '00000000',
     '00000000',
     '00000000'),
+  // Directional arrow projectiles - 8 = white shaft/head
+  arrow_right: spr(
+    '00000000',
+    '00080000',
+    '00088000',
+    '08888888',
+    '00088000',
+    '00080000',
+    '00000000',
+    '00000000'),
+  arrow_left: spr(
+    '00000000',
+    '00008000',
+    '00088000',
+    '88888880',
+    '00088000',
+    '00008000',
+    '00000000',
+    '00000000'),
+  arrow_up: spr(
+    '00080000',
+    '00888000',
+    '08080800',
+    '00080000',
+    '00080000',
+    '00080000',
+    '00080000',
+    '00080000'),
+  arrow_down: spr(
+    '00080000',
+    '00080000',
+    '00080000',
+    '00080000',
+    '00080000',
+    '08080800',
+    '00888000',
+    '00080000'),
+  // Backward-compat alias
+  arrow: spr(
+    '00000000',
+    '00080000',
+    '00088000',
+    '08888888',
+    '00088000',
+    '00080000',
+    '00000000',
+    '00000000'),
   fireball: spr(
     '00000000',
     '00999000',
@@ -1495,25 +1542,32 @@ function parse(source) {
   }
 
   function parseObjectLiteral(tokens) {
-    const obj = {};
+    // Build an object_expr where each value is a parsed expression.
+    // The runtime evaluates each value at construction time so refs like
+    // {x: player.x} resolve dynamically.
+    const props = {};
     let i = 1; // skip {
     while (i < tokens.length && tokens[i].type !== 'rbrace') {
       if (tokens[i].type === 'comma') { i++; continue; }
       const key = tokens[i].value;
       i++; // skip key
-      // skip colon (might be parsed as something else or missing)
-      if (i < tokens.length && (tokens[i].value === ':' || tokens[i].type === 'operator')) i++;
-      // read value - single token for simplicity
-      if (i < tokens.length && tokens[i].type !== 'comma' && tokens[i].type !== 'rbrace') {
-        if (tokens[i].type === 'number') obj[key] = tokens[i].value;
-        else if (tokens[i].type === 'string') obj[key] = tokens[i].value;
-        else if (tokens[i].value === 'yes') obj[key] = true;
-        else if (tokens[i].value === 'no') obj[key] = false;
-        else obj[key] = tokens[i].value;
+      if (i < tokens.length && tokens[i].value === ':') i++; // colon (rarely tokenized)
+      // Find end of value: next comma or closing brace at depth 0
+      const valueStart = i;
+      let depth = 0;
+      while (i < tokens.length) {
+        const t = tokens[i];
+        if (depth === 0 && (t.type === 'comma' || t.type === 'rbrace')) break;
+        if (t.type === 'lbrace' || t.type === 'lbracket' || t.type === 'lparen') depth++;
+        if (t.type === 'rbrace' || t.type === 'rbracket' || t.type === 'rparen') depth--;
         i++;
       }
+      const valueTokens = tokens.slice(valueStart, i);
+      if (valueTokens.length > 0) {
+        props[key] = parseExpression(valueTokens);
+      }
     }
-    return { type: 'literal', value: obj };
+    return { type: 'object_expr', props };
   }
 
   function tokensToRef(tokens) {
@@ -1874,6 +1928,13 @@ class Runtime {
         return node.value;
       }
       case 'listliteral': return node.items.map(item => this.evalExpr(item));
+      case 'object_expr': {
+        const obj = {};
+        for (const [key, expr] of Object.entries(node.props)) {
+          obj[key] = this.evalExpr(expr);
+        }
+        return obj;
+      }
       case 'ref': {
         const v = this.getVar(node.name);
         if (v !== undefined) return v;
@@ -2760,6 +2821,59 @@ class Runtime {
         }
       }
     }
+
+    // 5. Projectiles: move bullets, then test against solids and hostiles
+    for (const listName of this.tags.projectiles || []) {
+      const bullets = this.vars[listName];
+      if (!Array.isArray(bullets)) continue;
+      // Iterate backwards so we can splice safely
+      for (let bi = bullets.length - 1; bi >= 0; bi--) {
+        const bullet = bullets[bi];
+        if (!bullet || typeof bullet.x !== 'number') continue;
+        // Move the bullet by its direction vector × speed (default 2)
+        const sp = typeof bullet.speed === 'number' ? bullet.speed : 2;
+        if (typeof bullet.dx === 'number') bullet.x += bullet.dx * sp;
+        if (typeof bullet.dy === 'number') bullet.y += bullet.dy * sp;
+        // Off-world? Despawn
+        if (bullet.x < -8 || bullet.x > this.world.width + 8 ||
+            bullet.y < -8 || bullet.y > this.world.height + 8) {
+          bullets.splice(bi, 1);
+          continue;
+        }
+        // Hit solid? Stop the bullet (no damage to solids)
+        let consumed = false;
+        for (const solidName of this.tags.solid || []) {
+          const solids = this.vars[solidName];
+          if (!Array.isArray(solids)) continue;
+          for (const solid of solids) {
+            if (solid && typeof solid.x === 'number' && overlaps(bullet, solid)) {
+              bullets.splice(bi, 1);
+              consumed = true;
+              break;
+            }
+          }
+          if (consumed) break;
+        }
+        if (consumed) continue;
+        // Hit hostile? Damage them (and despawn bullet)
+        for (const hostileName of this.tags.hostile || []) {
+          const hostiles = this.vars[hostileName];
+          if (!Array.isArray(hostiles)) continue;
+          for (let hi = hostiles.length - 1; hi >= 0; hi--) {
+            const enemy = hostiles[hi];
+            if (enemy && typeof enemy.x === 'number' && overlaps(bullet, enemy)) {
+              if (typeof enemy.hp !== 'number') enemy.hp = 1;
+              enemy.hp -= 1;
+              if (enemy.hp <= 0) hostiles.splice(hi, 1);
+              bullets.splice(bi, 1);
+              consumed = true;
+              break;
+            }
+          }
+          if (consumed) break;
+        }
+      }
+    }
   }
 
   // Process key state for "when" handlers (non-game-loop mode)
@@ -2849,7 +2963,8 @@ document.addEventListener('keydown', (e) => {
   const key = normalizeKey(e.key);
   const wasPressed = runtime.keyState[key];
   runtime.keyState[key] = true;
-  runtime.processKeyPress(key);
+  // Only fire "when X is pressed" once per actual press, not on auto-repeat
+  if (!wasPressed) runtime.processKeyPress(key);
 
   // Space / Enter activates the first visible button (like a focused default action)
   if (!wasPressed && (key === 'space' || key === 'enter') && runtime.buttons && runtime.buttons.length > 0) {
@@ -2948,10 +3063,12 @@ player is centered sprite {hp: 3, invuln: 0, image: "hero", facing: "down"}
 trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 enemies is list of 3 sprites {image: "slime"}
+bullets is []
 
 trees are solid
 coins are pickups
 enemies are hostile
+bullets are projectiles
 
 follow player with camera
 
@@ -2986,6 +3103,7 @@ to screen play
   each tree in trees draw sprite tree.image at tree.x, tree.y
   each coin in coins draw sprite coin.image at coin.x, coin.y
   each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
+  each bullet in bullets draw sprite bullet at bullet.x, bullet.y
   if player.invuln is 0 or player.invuln mod 6 > 2
     draw sprite player at player.x, player.y
   write "score {score}" at 2, 2 in white on hud
@@ -3026,6 +3144,15 @@ to update
 when player picks up any coin
   add 1 to score
   if no coins mode is "win"
+
+when "space" is pressed
+  if mode is "play" shoot
+when "enter" is pressed
+  if mode is "play" shoot
+
+to shoot
+  bullet is sprite {image: "arrow", x: player.x, y: player.y, dx: player.dx, dy: player.dy, facing: player.facing, speed: 3}
+  add bullet to bullets
 
 when player hits any enemy
   if player.invuln > 0 return
