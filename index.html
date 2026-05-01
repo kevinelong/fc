@@ -882,6 +882,22 @@ function parse(source) {
     lines.push({ tokens, indent: tokens.indent, lineNum: i + 1 });
   }
 
+  // Pre-scan: collect user-defined function names so they terminate
+  // conditions like built-in command words. Without this:
+  //   if mode is "play" shoot
+  // would swallow "shoot" into the condition and drop it.
+  const userFuncs = new Set();
+  for (const line of lines) {
+    const t = line.tokens;
+    if (t.length >= 2 && tv(t[0]) === 'to') {
+      if (t.length >= 3 && tv(t[1]) === 'screen') {
+        userFuncs.add('screen_' + String(t[2].value).toLowerCase());
+      } else if (typeof t[1].value === 'string') {
+        userFuncs.add(t[1].value.toLowerCase());
+      }
+    }
+  }
+
   function parseBlock(start, minIndent) {
     const stmts = [];
     let i = start;
@@ -1218,6 +1234,7 @@ function parse(source) {
   }
 
   function isCommandWord(w) {
+    if (userFuncs.has(w)) return true;
     return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
