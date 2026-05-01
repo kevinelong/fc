@@ -3212,15 +3212,34 @@ to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
 
--- continuous walking: tap a direction to start, hits solid or edge to stop
+-- continuous walking: tap a direction to start, tap same direction to stop,
+-- different direction to change. "x" stops anytime. Solids and edges also stop.
 when "up" is pressed
-  if mode is "play" walk player up
+  if mode is not "play" return
+  if player.walking and player.facing is "up"
+    stop player
+  else
+    walk player up
 when "down" is pressed
-  if mode is "play" walk player down
+  if mode is not "play" return
+  if player.walking and player.facing is "down"
+    stop player
+  else
+    walk player down
 when "left" is pressed
-  if mode is "play" walk player left
+  if mode is not "play" return
+  if player.walking and player.facing is "left"
+    stop player
+  else
+    walk player left
 when "right" is pressed
-  if mode is "play" walk player right
+  if mode is not "play" return
+  if player.walking and player.facing is "right"
+    stop player
+  else
+    walk player right
+when "x" is pressed
+  if mode is "play" stop player
 
 when player picks up any coin
   add 1 to score
