@@ -2849,26 +2849,52 @@ class Runtime {
     const SIZE = 8;
     const overlaps = (a, b) => Math.abs(a.x - b.x) < SIZE && Math.abs(a.y - b.y) < SIZE;
 
-    // 1. Solid: restore player to prev position if overlapping any solid
-    for (const listName of this.tags.solid || []) {
-      const list = this.vars[listName];
-      if (!Array.isArray(list)) continue;
-      for (const item of list) {
-        if (item && typeof item.x === 'number' && overlaps(player, item)) {
-          const prev = this._prevPositions.player;
-          if (prev) { player.x = prev.x; player.y = prev.y; }
-          // Auto-stop walking on solid (so auto-walk pattern doesn't loop)
-          if (player.walking) player.walking = false;
-          // Also fire hit handler if defined
-          const singular = singularize(listName);
-          const hh = this.hitHandlers[singular];
-          if (hh) {
-            this.vars[singular] = item;
-            if (hh.thenStmt) this.exec([hh.thenStmt]);
-            if (hh.body && hh.body.length) this.exec(hh.body);
+    // 1. Solid: per-axis collision so the player slides along walls instead
+    //    of stopping completely on a diagonal collision.
+    //    First test x-only restore; then y-only restore.
+    const prev = this._prevPositions.player;
+    const overlapsAnySolid = (px, py) => {
+      const probe = { x: px, y: py };
+      for (const listName of this.tags.solid || []) {
+        const list = this.vars[listName];
+        if (!Array.isArray(list)) continue;
+        for (const item of list) {
+          if (item && typeof item.x === 'number' && overlaps(probe, item)) {
+            return { item, listName };
           }
-          break;
         }
+      }
+      return null;
+    };
+    let solidHit = null;
+    if (prev) {
+      // Test current position against solids; if collision, try restoring axes one at a time
+      const hit = overlapsAnySolid(player.x, player.y);
+      if (hit) {
+        solidHit = hit;
+        // Try keeping new x, restoring y
+        if (!overlapsAnySolid(player.x, prev.y)) {
+          player.y = prev.y;
+        } else if (!overlapsAnySolid(prev.x, player.y)) {
+          // Try keeping new y, restoring x
+          player.x = prev.x;
+        } else {
+          // Both axes blocked, restore both
+          player.x = prev.x;
+          player.y = prev.y;
+        }
+        // Auto-stop walking flag (used by walk verb / auto-walk pattern)
+        if (player.walking) player.walking = false;
+      }
+    }
+    // Fire hit handler if a solid was hit (regardless of which axis was restored)
+    if (solidHit) {
+      const singular = singularize(solidHit.listName);
+      const hh = this.hitHandlers[singular];
+      if (hh) {
+        this.vars[singular] = solidHit.item;
+        if (hh.thenStmt) this.exec([hh.thenStmt]);
+        if (hh.body && hh.body.length) this.exec(hh.body);
       }
     }
 
@@ -3231,38 +3257,27 @@ to screen lose
   show button "menu" at 46, 100
 
 -- gameplay (only runs while mode is "play")
+-- hold an arrow to walk; release to stop. multiple arrows = diagonal.
 to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
-
--- continuous walking: tap a direction to start, tap same direction to stop,
--- different direction to change. "x" stops anytime. Solids and edges also stop.
-when "up" is pressed
-  if mode is not "play" return
-  if player.walking and player.facing is "up"
-    stop player
-  else
-    walk player up
-when "down" is pressed
-  if mode is not "play" return
-  if player.walking and player.facing is "down"
-    stop player
-  else
-    walk player down
-when "left" is pressed
-  if mode is not "play" return
-  if player.walking and player.facing is "left"
-    stop player
-  else
-    walk player left
-when "right" is pressed
-  if mode is not "play" return
-  if player.walking and player.facing is "right"
-    stop player
-  else
-    walk player right
-when "x" is pressed
-  if mode is "play" stop player
+  player.walking is no
+  if key "up"
+    face player up
+    remove speed from player.y
+    player.walking is yes
+  if key "down"
+    face player down
+    add speed to player.y
+    player.walking is yes
+  if key "left"
+    face player left
+    remove speed from player.x
+    player.walking is yes
+  if key "right"
+    face player right
+    add speed to player.x
+    player.walking is yes
 
 when player picks up any coin
   add 1 to score
