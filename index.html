@@ -1996,6 +1996,12 @@ class Runtime {
           const props = this.evalExpr(node.props);
           Object.assign(base, props);
         }
+        // Auto-populate dx/dy from facing so projectiles/walking work even
+        // before the first face/walk verb runs
+        if (base.facing && DIR_VECTORS[base.facing]) {
+          if (typeof base.dx !== 'number') base.dx = DIR_VECTORS[base.facing].dx;
+          if (typeof base.dy !== 'number') base.dy = DIR_VECTORS[base.facing].dy;
+        }
         return base;
       }
       case 'list_of_sprites': {
