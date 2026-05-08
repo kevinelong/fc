@@ -80,6 +80,63 @@ canvas {
 @media (max-width: 600px) {
   #editor { font-size: 12px; }
 }
+
+/* On-screen gamepad: hidden by default, shown on coarse-pointer (touch) devices.
+   Add ?gamepad to the URL to force-show on desktop for testing. */
+#gamepad { display: none; }
+@media (hover: none) and (pointer: coarse) { #gamepad { display: contents; } }
+body.force-gamepad #gamepad { display: contents; }
+body.editing #gamepad { display: none; }
+
+#dpad, #actions {
+  position: fixed;
+  bottom: 16px;
+  z-index: 100;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#dpad {
+  left: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+}
+#actions {
+  right: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+}
+.gp-btn {
+  pointer-events: auto;
+  background: rgba(40, 40, 70, 0.55);
+  color: #e0e0e0;
+  border: 1px solid rgba(168, 216, 234, 0.4);
+  border-radius: 10px;
+  font-family: monospace;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gp-btn.gp-pressed { background: rgba(168, 216, 234, 0.7); color: #1a1a2e; }
+.gp-up    { grid-column: 2; grid-row: 1; }
+.gp-left  { grid-column: 1; grid-row: 2; }
+.gp-right { grid-column: 3; grid-row: 2; }
+.gp-down  { grid-column: 2; grid-row: 3; }
+.gp-a, .gp-b { width: 60px; height: 60px; border-radius: 50%; font-size: 22px; }
+.gp-a { background: rgba(255, 0, 77, 0.45); border-color: rgba(255, 0, 77, 0.8); }
+.gp-b { background: rgba(255, 195, 0, 0.4); border-color: rgba(255, 195, 0, 0.8); }
 </style>
 </head>
 <body>
@@ -94,6 +151,18 @@ canvas {
   <div id="editor-wrap">
     <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
     <div id="errors"></div>
+  </div>
+</div>
+<div id="gamepad" aria-label="on-screen controls">
+  <div id="dpad" role="group" aria-label="direction pad">
+    <button type="button" tabindex="-1" class="gp-btn gp-up"    data-gp-key="up"    aria-label="up">&#9650;</button>
+    <button type="button" tabindex="-1" class="gp-btn gp-left"  data-gp-key="left"  aria-label="left">&#9664;</button>
+    <button type="button" tabindex="-1" class="gp-btn gp-right" data-gp-key="right" aria-label="right">&#9654;</button>
+    <button type="button" tabindex="-1" class="gp-btn gp-down"  data-gp-key="down"  aria-label="down">&#9660;</button>
+  </div>
+  <div id="actions" role="group" aria-label="action buttons">
+    <button type="button" tabindex="-1" class="gp-btn gp-b" data-gp-key="enter" aria-label="B">B</button>
+    <button type="button" tabindex="-1" class="gp-btn gp-a" data-gp-key="space" aria-label="A">A</button>
   </div>
 </div>
 <script>
@@ -3089,25 +3158,40 @@ function normalizeKey(k) {
   return key;
 }
 
-// Key handling
-document.addEventListener('keydown', (e) => {
-  if (document.activeElement === editor) return; // don't intercept while editing code
-  const key = normalizeKey(e.key);
+// Press/release helpers shared by physical keys and the on-screen gamepad.
+function pressKey(key) {
   const wasPressed = runtime.keyState[key];
   runtime.keyState[key] = true;
-  // Only fire "when X is pressed" once per actual press, not on auto-repeat
-  if (!wasPressed) runtime.processKeyPress(key);
-
+  if (wasPressed) return;
+  runtime.processKeyPress(key);
   // Space / Enter activates the first visible button (like a focused default action)
-  if (!wasPressed && (key === 'space' || key === 'enter') && runtime.buttons && runtime.buttons.length > 0) {
+  if ((key === 'space' || key === 'enter') && runtime.buttons && runtime.buttons.length > 0) {
     const btn = runtime.buttons[0];
     const h = runtime.buttonHandlers[btn.label];
     if (h) {
       if (h.thenStmt) runtime.exec([h.thenStmt]);
       if (h.body && h.body.length) runtime.exec(h.body);
     }
-    e.preventDefault();
   }
+}
+function releaseKey(key) {
+  runtime.keyState[key] = false;
+}
+
+// Key handling
+document.addEventListener('keydown', (e) => {
+  if (document.activeElement === editor) {
+    // Allow tab in editor
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(editor.selectionEnd);
+      editor.selectionStart = editor.selectionEnd = start + 2;
+    }
+    return; // don't intercept while editing code
+  }
+  const key = normalizeKey(e.key);
+  pressKey(key);
 
   // Prevent arrow keys / space from scrolling when game is running
   if (runtime.gameLoop !== null || runtime.animFrame) {
@@ -3115,19 +3199,46 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
     }
   }
-
-  // Allow tab in editor
-  if (e.key === 'Tab' && document.activeElement === editor) {
-    e.preventDefault();
-    const start = editor.selectionStart;
-    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(editor.selectionEnd);
-    editor.selectionStart = editor.selectionEnd = start + 2;
-  }
 });
 
 document.addEventListener('keyup', (e) => {
-  runtime.keyState[normalizeKey(e.key)] = false;
+  releaseKey(normalizeKey(e.key));
 });
+
+// On-screen gamepad: route taps/clicks through the same press/release path.
+(function wireGamepad() {
+  if (location.search.includes('gamepad')) document.body.classList.add('force-gamepad');
+  editor.addEventListener('focus', () => document.body.classList.add('editing'));
+  editor.addEventListener('blur',  () => document.body.classList.remove('editing'));
+
+  document.querySelectorAll('#gamepad .gp-btn').forEach(btn => {
+    const key = btn.dataset.gpKey;
+    let active = false;
+    const down = (e) => {
+      e.preventDefault();
+      if (active) return;
+      active = true;
+      btn.classList.add('gp-pressed');
+      if (btn.setPointerCapture && e.pointerId !== undefined) {
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      pressKey(key);
+    };
+    const up = (e) => {
+      if (!active) return;
+      active = false;
+      btn.classList.remove('gp-pressed');
+      releaseKey(key);
+    };
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
+    btn.addEventListener('pointerleave', up);
+    // Avoid the synthetic click after a pointerup on touch.
+    btn.addEventListener('click', (e) => e.preventDefault());
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+})();
 
 // Click canvas to focus it for key input (away from editor)
 canvas.setAttribute('tabindex', '0');
