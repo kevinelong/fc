@@ -560,6 +560,15 @@ const SPRITES = {
     '09dddd00',
     '09d99d00',
     '00dddd00'),
+  medkit: spr(
+    '00000000',
+    '08888880',
+    '08899880',
+    '08999980',
+    '08999980',
+    '08899880',
+    '08888880',
+    '00000000'),
   sword: spr(
     '000000c0',
     '00000c00',
@@ -1134,6 +1143,11 @@ function parse(source) {
     // -- show button "label" at x, y --
     if (first === 'show' && raw.length >= 3 && tv(raw[1]) === 'button') {
       return parseButton(raw, lineNum);
+    }
+
+    // -- show meter CURRENT of MAX at x, y [size w, h] [in color] --
+    if (first === 'show' && raw.length >= 3 && tv(raw[1]) === 'meter') {
+      return parseMeter(raw, lineNum);
     }
 
     // -- add X to Y --
@@ -1823,6 +1837,49 @@ function parse(source) {
     return { type: 'button', label, x, y, lineNum };
   }
 
+  function parseMeter(raw, lineNum) {
+    // show meter CURRENT of MAX at x, y [size w, h] [in color]
+    const idxOf = (w) => raw.findIndex((t, i) => i > 1 && t.type === 'word' && tv(t) === w);
+    const ofIdx = idxOf('of');
+    const atIdx = idxOf('at');
+    const sizeIdx = idxOf('size');
+    const inIdx = idxOf('in');
+
+    const num = (v) => ({ type: 'literal', value: v });
+    const segment = (a, b) => raw.slice(a, b);
+
+    // current: from index 2 up to "of" (or "at" if no "of")
+    const curEnd = ofIdx > 0 ? ofIdx : (atIdx > 0 ? atIdx : raw.length);
+    const current = parseExpression(segment(2, curEnd));
+    // max: between "of" and "at"
+    const max = ofIdx > 0 ? parseExpression(segment(ofIdx + 1, atIdx > 0 ? atIdx : raw.length)) : num(1);
+
+    // x, y after "at"
+    let x = num(2), y = num(2);
+    if (atIdx > 0) {
+      const xyEnd = sizeIdx > 0 ? sizeIdx : (inIdx > 0 ? inIdx : raw.length);
+      const xy = segment(atIdx + 1, xyEnd);
+      const c = xy.findIndex(t => t.type === 'comma');
+      if (c > 0) { x = parseExpression(xy.slice(0, c)); y = parseExpression(xy.slice(c + 1)); }
+      else x = parseExpression(xy);
+    }
+
+    // optional size
+    let w = num(40), h = num(5);
+    if (sizeIdx > 0) {
+      const sEnd = inIdx > sizeIdx ? inIdx : raw.length;
+      const sz = segment(sizeIdx + 1, sEnd);
+      const c = sz.findIndex(t => t.type === 'comma');
+      if (c > 0) { w = parseExpression(sz.slice(0, c)); h = parseExpression(sz.slice(c + 1)); }
+    }
+
+    // optional color
+    let color = 'green';
+    if (inIdx > 0) color = raw.slice(inIdx + 1).map(t => t.value).join(' ');
+
+    return { type: 'meter', current, max, x, y, w, h, color, lineNum };
+  }
+
   function parseSay(raw, lineNum) {
     if (raw.length >= 2 && raw[1].type === 'string') {
       return { type: 'say', text: { type: 'literal', value: raw[1].value }, lineNum };
@@ -2422,6 +2479,11 @@ class Runtime {
           break;
         }
 
+        case 'meter': {
+          this.drawMeter(stmt);
+          break;
+        }
+
         case 'when_pickup': {
           this.pickupHandlers[stmt.itemVar] = stmt;
           break;
@@ -2733,6 +2795,29 @@ class Runtime {
     ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
     // label
     drawText(label, x + 4, y + 3, '#fff1e8');
+  }
+
+  drawMeter(stmt) {
+    // Meters are always screen-space (HUD)
+    const cur = this.evalExpr(stmt.current);
+    const max = this.evalExpr(stmt.max) || 1;
+    const x = Math.floor(this.evalExpr(stmt.x));
+    const y = Math.floor(this.evalExpr(stmt.y));
+    const w = Math.max(3, Math.floor(this.evalExpr(stmt.w)));
+    const h = Math.max(3, Math.floor(this.evalExpr(stmt.h)));
+    const frac = Math.max(0, Math.min(1, cur / max));
+    // outer border (black)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x, y, w, h);
+    // empty track (dark gray)
+    ctx.fillStyle = '#5f574f';
+    ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+    // filled portion
+    const fillW = Math.round((w - 2) * frac);
+    if (fillW > 0) {
+      ctx.fillStyle = resolveColor(stmt.color);
+      ctx.fillRect(x + 1, y + 1, fillW, h - 2);
+    }
   }
 
   execWrite(stmt) {
@@ -3297,19 +3382,20 @@ world is {width: 256, height: 192}
 mode is "title"
 difficulty is "normal"
 music is yes
-lives is 3
 score is 0
 speed is 1
 
 -- one-liner sprite setup!
-player is centered sprite {hp: 3, invuln: 0, image: "hero", facing: "down"}
+player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down"}
 trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 enemies is list of 3 sprites {image: "slime"}
+medkits is list of 3 sprites {image: "medkit"}
 bullets is []
 
 trees are solid
 coins are pickups
+medkits are pickups
 enemies are hostile
 bullets are projectiles
 
@@ -3345,13 +3431,15 @@ to screen play
   clear screen to dark green
   each tree in trees draw sprite tree.image at tree.x, tree.y
   each coin in coins draw sprite coin.image at coin.x, coin.y
+  each medkit in medkits draw sprite medkit.image at medkit.x, medkit.y
   each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
   each bullet in bullets draw sprite bullet at bullet.x, bullet.y
   if player.invuln is 0 or player.invuln mod 6 > 2
     draw sprite player at player.x, player.y
-  write "score {score}" at 2, 2 in white on hud
-  repeat with i from 1 to lives
-    draw sprite "heart" at i * 10, 14 on hud
+  -- HUD: health meter + score
+  write "HP" at 2, 3 in white on hud
+  show meter player.hp of player.max_hp at 16, 2 size 40, 7 in red
+  write "score {score}" at 2, 14 in white on hud
 
 to screen win
   clear screen to dark green
@@ -3394,6 +3482,9 @@ when player picks up any coin
   add 1 to score
   if no coins mode is "win"
 
+when player picks up any medkit
+  heal player 2
+
 when "space" is pressed
   if mode is "play" shoot
 when "enter" is pressed
@@ -3406,9 +3497,9 @@ to shoot
 when player hits any enemy
   if player.invuln > 0 return
   knock player away from enemy distance 16
-  remove 1 from lives
+  damage player 2
   player.invuln is 45
-  if lives is 0 mode is "lose"
+  if player.hp < 1 mode is "lose"
 
 -- navigation
 when button "play" is clicked
@@ -3441,13 +3532,13 @@ when button "hard" is clicked
 when button "toggle music" is clicked toggle music
 
 to restart game
-  lives is 3
   score is 0
   player.x is 128
   player.y is 96
-  player.hp is 3
+  player.hp is player.max_hp
   player.invuln is 0
   coins is list of 8 sprites {image: "coin"}
+  medkits is list of 3 sprites {image: "medkit"}
 
 run game with update`;
 
