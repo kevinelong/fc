@@ -1114,6 +1114,16 @@ function parse(source) {
       return { type: 'return', value: raw.length > 1 ? parseExpression(raw.slice(1)) : null, lineNum };
     }
 
+    // -- move X with arrows [speed N] --
+    // Smart movement: reads held arrow keys, normalizes diagonal speed,
+    // updates facing + dx/dy + walking. One line replaces the if-key ladder.
+    if (first === 'move' && raw.length >= 4 && tv(raw[2]) === 'with' && tv(raw[3]) === 'arrows') {
+      const target = raw[1].value;
+      const spIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'speed');
+      const speed = spIdx > 0 ? parseExpression(raw.slice(spIdx + 1)) : null;
+      return { type: 'move_with_arrows', target, speed, lineNum };
+    }
+
     // -- clear screen to COLOR --
     if (first === 'clear' && raw.length >= 2 && tv(raw[1]) === 'screen') {
       const colorTokens = raw.slice(raw.findIndex(t => tv(t) === 'to') + 1);
@@ -1375,6 +1385,13 @@ function parse(source) {
       const itemVar = rest[itemIdx] ? rest[itemIdx].value : 'item';
       const action = rest.length > itemIdx + 1 ? parseLine(rest.slice(itemIdx + 1), lineNum) : null;
       return { type: 'when_hit', itemVar, thenStmt: action, body: [], lineNum };
+    }
+
+    // when X is defeated  (fires when a hostile's hp hits 0 from a projectile)
+    if (rest.length >= 3 && tv(rest[1]) === 'is' && tv(rest[2]) === 'defeated') {
+      const itemVar = rest[0].value;
+      const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
+      return { type: 'when_defeat', itemVar, thenStmt: action, body: [], lineNum };
     }
 
     return { type: 'when_generic', tokens: rest, body: [], lineNum };
@@ -1996,6 +2013,7 @@ class Runtime {
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.pickupHandlers = {};
     this.hitHandlers = {};
+    this.defeatHandlers = {};
     this.buttonHandlers = {};
     this.buttons = [];  // list of {label, x, y, w, h} redrawn each frame
     this._prevPositions = {};
@@ -2006,18 +2024,25 @@ class Runtime {
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
+    this._rafId = null;
+    this._watchdog = null;
   }
 
   reset() {
+    if (this._rafId) cancelAnimationFrame(this._rafId);
+    if (this._watchdog) clearInterval(this._watchdog);
     if (this.animFrame) clearInterval(this.animFrame);
     this.vars = {};
     this.funcs = {};
     this.gameLoop = null;
     this.animFrame = null;
+    this._rafId = null;
+    this._watchdog = null;
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.pickupHandlers = {};
     this.hitHandlers = {};
+    this.defeatHandlers = {};
     this.buttonHandlers = {};
     this.buttons = [];  // list of {label, x, y, w, h} redrawn each frame
     this._prevPositions = {};
@@ -2494,6 +2519,11 @@ class Runtime {
           break;
         }
 
+        case 'when_defeat': {
+          this.defeatHandlers[stmt.itemVar] = stmt;
+          break;
+        }
+
         case 'tag': {
           // Register subject under tag
           if (!this.tags[stmt.tag]) this.tags[stmt.tag] = [];
@@ -2542,6 +2572,34 @@ class Runtime {
             obj.facing = stmt.direction;
             const v = DIR_VECTORS[stmt.direction];
             if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+          }
+          break;
+        }
+
+        case 'move_with_arrows': {
+          const obj = this.getVar(stmt.target);
+          if (obj) {
+            const sp = stmt.speed != null ? this.evalExpr(stmt.speed)
+                     : (typeof obj.speed === 'number' ? obj.speed : 1);
+            let mx = 0, my = 0;
+            if (this.keyState.up) my -= 1;
+            if (this.keyState.down) my += 1;
+            if (this.keyState.left) mx -= 1;
+            if (this.keyState.right) mx += 1;
+            // Normalize diagonal so it isn't ~1.41x faster than cardinal
+            if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
+            obj.x += mx * sp;
+            obj.y += my * sp;
+            obj.walking = (mx !== 0 || my !== 0);
+            // Facing: dominant axis, horizontal priority on a tie (incl. diagonals)
+            if (obj.walking) {
+              let dir;
+              if (Math.abs(mx) >= Math.abs(my)) dir = mx > 0 ? 'right' : 'left';
+              else dir = my > 0 ? 'down' : 'up';
+              obj.facing = dir;
+              const v = DIR_VECTORS[dir];
+              if (v) { obj.dx = v.dx; obj.dy = v.dy; }
+            }
           }
           break;
         }
@@ -2818,6 +2876,14 @@ class Runtime {
       ctx.fillStyle = resolveColor(stmt.color);
       ctx.fillRect(x + 1, y + 1, fillW, h - 2);
     }
+    // percent text, centered, only if the bar is big enough to fit it
+    if (w >= 18 && h >= 5) {
+      const pct = Math.round(frac * 100) + '%';
+      const textW = pct.length * 4 - 1; // 3px glyph + 1px gap, minus trailing gap
+      const tx = x + Math.max(1, Math.floor((w - textW) / 2));
+      const ty = y + Math.floor((h - 5) / 2);
+      drawText(pct, tx, ty, '#fff1e8');
+    }
   }
 
   execWrite(stmt) {
@@ -2950,10 +3016,31 @@ class Runtime {
         self.callFunc('screen_' + mode);
       }
     }
+    // Track when a frame last ran, regardless of which driver ran it.
+    let lastFrame = performance.now();
+    function runFrame() {
+      lastFrame = performance.now();
+      frame();
+    }
+
     // Draw one frame immediately so canvas isn't blank
-    frame();
-    // Then loop at 60fps
-    self.animFrame = setInterval(frame, 1000 / 60);
+    runFrame();
+
+    // Primary loop: requestAnimationFrame, vsync-locked => smooth motion.
+    function rafTick() {
+      if (self.stopped) return;
+      runFrame();
+      self._rafId = requestAnimationFrame(rafTick);
+    }
+    self._rafId = requestAnimationFrame(rafTick);
+
+    // Watchdog: some environments (headless / background tabs) never fire
+    // rAF. If no frame has run in >32ms (2 missed vsync intervals), drive
+    // the loop from setInterval. When rAF is healthy this does nothing.
+    self._watchdog = setInterval(function () {
+      if (self.stopped) return;
+      if (performance.now() - lastFrame > 32) runFrame();
+    }, 1000 / 60);
   }
 
   _autoWalk() {
@@ -3150,7 +3237,17 @@ class Runtime {
             if (enemy && typeof enemy.x === 'number' && overlaps(bullet, enemy)) {
               if (typeof enemy.hp !== 'number') enemy.hp = 1;
               enemy.hp -= 1;
-              if (enemy.hp <= 0) hostiles.splice(hi, 1);
+              if (enemy.hp <= 0) {
+                hostiles.splice(hi, 1);
+                // Fire the "when X is defeated" handler with the slain enemy bound
+                const singular = singularize(hostileName);
+                const dh = this.defeatHandlers[singular];
+                if (dh) {
+                  this.vars[singular] = enemy;
+                  if (dh.thenStmt) this.exec([dh.thenStmt]);
+                  if (dh.body && dh.body.length) this.exec(dh.body);
+                }
+              }
               bullets.splice(bi, 1);
               consumed = true;
               break;
@@ -3383,10 +3480,10 @@ mode is "title"
 difficulty is "normal"
 music is yes
 score is 0
-speed is 1
+xp is 0
 
 -- one-liner sprite setup!
-player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down"}
+player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down", speed: 1.2}
 trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 enemies is list of 3 sprites {image: "slime"}
@@ -3436,10 +3533,11 @@ to screen play
   each bullet in bullets draw sprite bullet at bullet.x, bullet.y
   if player.invuln is 0 or player.invuln mod 6 > 2
     draw sprite player at player.x, player.y
-  -- HUD: health meter + score
+  -- HUD: health meter, coin score, experience
   write "HP" at 2, 3 in white on hud
-  show meter player.hp of player.max_hp at 16, 2 size 40, 7 in red
-  write "score {score}" at 2, 14 in white on hud
+  show meter player.hp of player.max_hp at 16, 2 size 44, 7 in red
+  write "coins {score}" at 2, 14 in yellow on hud
+  write "xp {xp}" at 64, 14 in green on hud
 
 to screen win
   clear screen to dark green
@@ -3456,27 +3554,11 @@ to screen lose
   show button "menu" at 46, 100
 
 -- gameplay (only runs while mode is "play")
--- hold an arrow to walk; release to stop. multiple arrows = diagonal.
+-- hold arrows to walk; release to stop. diagonal speed is normalized.
 to update
   if mode is not "play" return
   if player.invuln > 0 remove 1 from player.invuln
-  player.walking is no
-  if key "up"
-    face player up
-    remove speed from player.y
-    player.walking is yes
-  if key "down"
-    face player down
-    add speed to player.y
-    player.walking is yes
-  if key "left"
-    face player left
-    remove speed from player.x
-    player.walking is yes
-  if key "right"
-    face player right
-    add speed to player.x
-    player.walking is yes
+  move player with arrows
 
 when player picks up any coin
   add 1 to score
@@ -3501,6 +3583,10 @@ when player hits any enemy
   player.invuln is 45
   if player.hp < 1 mode is "lose"
 
+-- shoot a slime down and earn experience
+when enemy is defeated
+  add 10 to xp
+
 -- navigation
 when button "play" is clicked
   restart game
@@ -3520,19 +3606,20 @@ when button "play again" is clicked
 -- settings actions
 when button "easy" is clicked
   difficulty is "easy"
-  speed is 2
+  player.speed is 1.6
 when button "normal" is clicked
   difficulty is "normal"
-  speed is 1
+  player.speed is 1.2
 when button "hard" is clicked
   difficulty is "hard"
-  speed is 1
+  player.speed is 1
   -- harder: more enemies next run
   enemies is list of 6 sprites {image: "slime"}
 when button "toggle music" is clicked toggle music
 
 to restart game
   score is 0
+  xp is 0
   player.x is 128
   player.y is 96
   player.hp is player.max_hp
