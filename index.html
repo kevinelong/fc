@@ -3483,7 +3483,7 @@ score is 0
 xp is 0
 
 -- one-liner sprite setup!
-player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down", speed: 1.2}
+player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down", speed: 0.6}
 trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 enemies is list of 3 sprites {image: "slime"}
@@ -3606,13 +3606,13 @@ when button "play again" is clicked
 -- settings actions
 when button "easy" is clicked
   difficulty is "easy"
-  player.speed is 1.6
+  player.speed is 0.8
 when button "normal" is clicked
   difficulty is "normal"
-  player.speed is 1.2
+  player.speed is 0.6
 when button "hard" is clicked
   difficulty is "hard"
-  player.speed is 1
+  player.speed is 0.5
   -- harder: more enemies next run
   enemies is list of 6 sprites {image: "slime"}
 when button "toggle music" is clicked toggle music
