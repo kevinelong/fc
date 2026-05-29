@@ -1292,6 +1292,12 @@ function parse(source) {
       return { type: 'forever', body: [], lineNum };
     }
 
+    // -- every N frames / every N seconds (run the body on a cadence) --
+    if (first === 'every' && raw[1] && raw[1].type === 'number') {
+      const unit = (raw[2] && raw[2].type === 'word' && tv(raw[2]) === 'seconds') ? 'seconds' : 'frames';
+      return { type: 'every', n: Number(raw[1].value), unit, body: [], lineNum };
+    }
+
     // -- stop --
     if (first === 'stop' && raw.length === 1) {
       return { type: 'stop', lineNum };
@@ -2257,6 +2263,7 @@ class Runtime {
     if (this._watchdog) clearInterval(this._watchdog);
     if (this.animFrame) clearInterval(this.animFrame);
     AUDIO.stopMusic();
+    this._everyCounters = {};
     for (const k in USER_SPRITES) delete USER_SPRITES[k];   // re-registered on each run
     this.vars = {};
     this.funcs = {};
@@ -2642,6 +2649,18 @@ class Runtime {
             ops++;
             execList(stmt.body);
           }
+          break;
+        }
+
+        case 'every': {
+          // Run the body once every N frames (or N*60 frames for seconds).
+          // Counter persists across frames, keyed by source line.
+          if (!this._everyCounters) this._everyCounters = {};
+          const key = stmt.lineNum;
+          const c = (this._everyCounters[key] || 0) + 1;
+          this._everyCounters[key] = c;
+          const period = Math.max(1, stmt.unit === 'seconds' ? Math.round(stmt.n * 60) : stmt.n);
+          if (c % period === 0) execList(stmt.body);
           break;
         }
 
