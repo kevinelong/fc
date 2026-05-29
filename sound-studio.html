@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>fc · Sound Forge</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--chrome:#c8a96e;--bg:#050505;}
+  html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0 2px,rgba(0,0,0,.22) 2px 4px);pointer-events:none;z-index:100;}
+  body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.65) 85%,rgba(0,0,0,.95) 100%);pointer-events:none;z-index:99;}
+  #header{position:fixed;top:0;left:0;right:0;padding:10px 18px 6px;display:flex;justify-content:space-between;align-items:flex-end;z-index:50;background:linear-gradient(to bottom,rgba(0,0,0,.95) 70%,transparent);}
+  #title{font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,5vw,30px);color:var(--chrome);letter-spacing:.18em;text-shadow:0 0 12px rgba(200,169,110,.5);}
+  #hint{font-family:'Share Tech Mono',monospace;font-size:clamp(9px,2.6vw,12px);color:rgba(200,169,110,.55);letter-spacing:.08em;}
+  #grid-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:54px 8px 92px;}
+  #grid{display:grid;gap:clamp(3px,1vw,7px);width:100%;max-width:680px;}
+  .cell{aspect-ratio:1;position:relative;cursor:pointer;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#6a5828 0%,#4a3c18 18%,#2e2208 42%,#160e02 65%,#0a0800 100%);
+    box-shadow:0 1px 4px rgba(0,0,0,.95),inset 0 1px 1px rgba(180,140,60,.12);transition:transform .07s,box-shadow .12s;}
+  .cell:active{transform:scale(.9);}
+  .lens{position:absolute;inset:9%;border-radius:50%;overflow:hidden;transition:background .12s;
+    background:radial-gradient(circle at 38% 32%,rgba(40,30,10,.25) 0%,rgba(15,10,2,.6) 45%,rgba(4,3,0,.99) 100%);}
+  .col-playing{box-shadow:0 0 0 2px rgba(255,255,255,.18) inset, 0 1px 4px rgba(0,0,0,.95);}
+  #dock{position:fixed;bottom:0;left:0;right:0;z-index:50;padding:9px 14px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:linear-gradient(to top,rgba(0,0,0,.96) 72%,transparent);font-family:'Share Tech Mono',monospace;}
+  .btn{font-family:'Share Tech Mono',monospace;font-size:clamp(9px,2.6vw,13px);background:none;border:1px solid rgba(140,100,40,.35);color:rgba(200,169,110,.75);padding:8px 13px;cursor:pointer;letter-spacing:.1em;border-radius:3px;transition:all .15s;}
+  .btn:hover,.btn:active{border-color:var(--chrome);color:#fff;text-shadow:0 0 6px var(--chrome);}
+  #play-btn.on{border-color:#00e436;color:#00e436;text-shadow:0 0 8px #00e436;}
+  #tempo-lbl{font-size:clamp(9px,2.6vw,12px);color:rgba(200,169,110,.7);letter-spacing:.08em;}
+  input[type=range]{width:90px;accent-color:#ffa300;}
+  #out{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:rgba(2,2,2,.97);padding:54px 16px 20px;gap:12px;}
+  #out.show{display:flex;}
+  #out h2{font-family:'Bebas Neue',sans-serif;color:var(--chrome);letter-spacing:.2em;font-size:clamp(16px,4.5vw,26px);}
+  #out pre{font-family:'Share Tech Mono',monospace;font-size:clamp(10px,2.7vw,14px);color:#9fe;background:rgba(0,40,40,.25);border:1px solid rgba(40,173,255,.25);padding:12px;border-radius:4px;overflow:auto;line-height:1.5;white-space:pre;}
+  #close-x{position:fixed;top:12px;right:16px;z-index:90;font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--chrome);cursor:pointer;display:none;}
+  #close-x.show{display:block;}
+</style>
+</head>
+<body>
+<div id="header"><div id="title">SOUND·FORGE</div><div id="hint">tap to place notes · pentatonic (can't sound wrong)</div></div>
+<div id="grid-wrap"><div id="grid"></div></div>
+<div id="dock">
+  <button class="btn" id="play-btn">▶ PLAY</button>
+  <span id="tempo-lbl">TEMPO <b id="bpm">120</b></span>
+  <input type="range" id="tempo" min="60" max="240" value="120">
+  <button class="btn" id="clear-btn">CLEAR</button>
+  <button class="btn" id="export-btn">EXPORT ▸</button>
+</div>
+<div id="close-x">✕</div>
+<div id="out"><h2>SONG SOURCE (plain text · diffable)</h2><pre id="src"></pre>
+  <div><button class="btn" id="copy-btn">COPY</button> <span id="copied" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#29adff;opacity:0">copied ✓</span></div></div>
+<script>
+(function(){
+  const STEPS=16, ROWS=8;
+  // C major pentatonic, low (bottom row) to high (top row)
+  const SCALE=[523.25,493.88/1,440,392,329.63,293.66,261.63,196]; // top->bottom: hi to lo (we'll reverse for display)
+  const NOTE_NAMES=['C5','A4','G4','E4','D4','C4','A3','G3'];
+  const FREQ=[523.25,440,392,329.63,293.66,261.63,220,196];        // row 0 (top)=high
+  // per-row palette color (fc palette) for visual variety
+  const ROWCOL=['#ff77a8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#fff1e8'];
+  const grid=document.getElementById('grid'); grid.style.gridTemplateColumns=`repeat(${STEPS},1fr)`;
+  const cells=[]; // [row*STEPS+step] -> {el,on,row}
+  for(let r=0;r<ROWS;r++)for(let s=0;s<STEPS;s++){const el=document.createElement('div');el.className='cell';el.innerHTML='<div class="lens"></div>';
+    if(s%4===0) el.style.opacity='1'; else el.style.opacity='.92';
+    grid.appendChild(el);cells.push({el,on:false,row:r});}
+
+  function rgb(h){h=h.slice(1);return[0,2,4].map(k=>parseInt(h.slice(k,k+2),16));}
+  function light(c){const lens=c.el.querySelector('.lens');
+    if(!c.on){c.el.style.boxShadow='';lens.style.background='';return;}
+    const hex=ROWCOL[c.row],[r,g,b]=rgb(hex);
+    lens.style.background=`radial-gradient(circle at 42% 36%,#fff 0%,${hex} 34%,rgba(${r*.35|0},${g*.35|0},${b*.35|0},.95) 75%,rgba(0,0,0,.99) 100%)`;
+    c.el.style.boxShadow=`0 0 8px 3px rgba(${r},${g},${b},.6),0 0 20px 7px rgba(${r},${g},${b},.3),inset 0 1px 2px rgba(255,255,255,.45)`;}
+
+  // --- audio (same procedural synth as fc) ---
+  let ac=null,master=null;
+  function audio(){if(ac){if(ac.state==='suspended')ac.resume();return ac;}const AC=window.AudioContext||window.webkitAudioContext;ac=new AC();master=ac.createGain();master.gain.value=.3;master.connect(ac.destination);return ac;}
+  function blip(freq,dur){const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.25,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(master);o.start(t);o.stop(t+dur+.02);}
+
+  // --- paint (drag to place/erase) ---
+  let painting=false,paintOn=null;const seen=new Set();
+  function idxAt(x,y){for(const el of document.elementsFromPoint(x,y)){const c=el.closest?.('.cell');if(c)return cells.findIndex(o=>o.el===c);}return -1;}
+  function apply(i){const c=cells[i];if(c.on!==paintOn){c.on=paintOn;light(c);if(c.on){audio();blip(FREQ[c.row],.12);}}}
+  function start(x,y){const i=idxAt(x,y);if(i<0)return;painting=true;seen.clear();paintOn=!cells[i].on;seen.add(i);apply(i);}
+  function move(x,y){if(!painting)return;const i=idxAt(x,y);if(i>=0&&!seen.has(i)){seen.add(i);apply(i);}}
+  function end(){painting=false;seen.clear();}
+  grid.addEventListener('mousedown',e=>start(e.clientX,e.clientY));
+  window.addEventListener('mousemove',e=>move(e.clientX,e.clientY));
+  window.addEventListener('mouseup',end);
+  grid.addEventListener('touchstart',e=>{e.preventDefault();start(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+  window.addEventListener('touchmove',e=>{e.preventDefault();move(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+  window.addEventListener('touchend',end);window.addEventListener('touchcancel',end);
+
+  // --- playback ---
+  let timer=null,col=0,bpm=120;
+  const playBtn=document.getElementById('play-btn');
+  function stepMs(){return 60000/bpm/4;} // 16th notes
+  function tick(){
+    cells.forEach(c=>c.el.classList.remove('col-playing'));
+    for(let r=0;r<ROWS;r++){const c=cells[r*STEPS+col];c.el.classList.add('col-playing');if(c.on){audio();blip(FREQ[r],stepMs()/1000*1.6);}}
+    col=(col+1)%STEPS;
+  }
+  function play(){audio();stop();playBtn.classList.add('on');playBtn.textContent='■ STOP';col=0;timer=setInterval(tick,stepMs());}
+  function stop(){if(timer){clearInterval(timer);timer=null;}playBtn.classList.remove('on');playBtn.textContent='▶ PLAY';cells.forEach(c=>c.el.classList.remove('col-playing'));}
+  playBtn.onclick=()=>timer?stop():play();
+  const tempo=document.getElementById('tempo');
+  tempo.oninput=()=>{bpm=+tempo.value;document.getElementById('bpm').textContent=bpm;if(timer){clearInterval(timer);timer=setInterval(tick,stepMs());}};
+  document.getElementById('clear-btn').onclick=()=>{cells.forEach(c=>{c.on=false;light(c);});};
+
+  // --- export to plain text (diffable; an fc song format) ---
+  const out=document.getElementById('out'),src=document.getElementById('src'),closeX=document.getElementById('close-x');
+  document.getElementById('export-btn').onclick=()=>{
+    let lines=[];
+    for(let r=0;r<ROWS;r++){let row='';for(let s=0;s<STEPS;s++)row+=cells[r*STEPS+s].on?'#':'.';lines.push(`  ${NOTE_NAMES[r].padEnd(3)} '${row}'`);}
+    src.textContent=`song "tune" at ${bpm} bpm\n`+lines.join('\n');
+    out.classList.add('show');closeX.classList.add('show');
+  };
+  document.getElementById('copy-btn').onclick=()=>{navigator.clipboard?.writeText(src.textContent);const c=document.getElementById('copied');c.style.opacity=1;setTimeout(()=>c.style.opacity=0,1200);};
+  closeX.onclick=()=>{out.classList.remove('show');closeX.classList.remove('show');};
+
+  // demo: a little rising motif so it's not empty
+  [[7,0],[5,2],[4,4],[3,6],[2,8],[3,10],[4,12],[5,14]].forEach(([r,s])=>{const c=cells[r*STEPS+s];c.on=true;light(c);});
+})();
+</script>
+</body>
+</html>

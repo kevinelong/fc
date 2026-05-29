@@ -879,6 +879,106 @@ function singularize(plural) {
 }
 
 // ============================================================
+// ============================================================
+// AUDIO — fully procedural chiptune SFX + music (NO audio files).
+// Sounds are tiny synthesis recipes, mirroring how sprites are hex
+// strings rather than PNGs: nothing to bundle, stays diffable.
+// Usage in fc:  play sound "pickup"   |   play music "theme"
+// ============================================================
+const AUDIO = (function () {
+  let ctx = null, master = null, noiseBuf = null, musicTimer = null, currentMusic = null;
+  function ensure() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return ctx; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.35; master.connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return ctx;
+  }
+  // browsers block audio until a user gesture — resume on the first one
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, ensure, { passive: true }));
+
+  function tone(wave, f0, f1, dur, vol, when) {
+    if (!ctx) return;
+    const t = ctx.currentTime + (when || 0);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = wave;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(f0, f1, dur, vol, q, when) {
+    if (!ctx) return;
+    const t = ctx.currentTime + (when || 0);
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = q || 1;
+    f.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.02);
+  }
+  const arp = (notes, wave, step, dur, vol) => notes.forEach((f, i) => tone(wave, f, f, dur, vol, i * step));
+
+  // The named SFX library — "sound sprites" for common game actions
+  const SFX = {
+    pickup:    () => arp([880, 1320], 'square', 0.05, 0.09, 0.3),
+    coin:      () => { tone('square', 988, 988, 0.08, 0.3, 0); tone('square', 1319, 1319, 0.16, 0.3, 0.08); },
+    treasure:  () => arp([784, 988, 1319, 1568], 'square', 0.07, 0.12, 0.28),
+    powerup:   () => arp([523, 659, 784, 1047], 'square', 0.06, 0.09, 0.28),
+    heal:      () => arp([659, 880, 1047], 'sine', 0.08, 0.18, 0.3),
+    jump:      () => tone('square', 320, 720, 0.16, 0.28, 0),
+    shoot:     () => { tone('square', 800, 180, 0.12, 0.22, 0); noise(2000, 400, 0.08, 0.15); },
+    hit:       () => { noise(1200, 200, 0.12, 0.3, 1); tone('square', 200, 120, 0.1, 0.18, 0); },
+    hurt:      () => { tone('sawtooth', 360, 90, 0.22, 0.28, 0); noise(900, 200, 0.15, 0.2); },
+    damage:    () => SFX.hurt(),
+    explosion: () => { noise(1400, 50, 0.5, 0.4, 0.8); tone('sawtooth', 120, 40, 0.5, 0.18, 0); },
+    step:      () => noise(520, 220, 0.06, 0.1, 2),
+    blip:      () => tone('square', 660, 660, 0.05, 0.2, 0),
+    select:    () => tone('square', 880, 1100, 0.07, 0.22, 0),
+    win:       () => arp([523, 659, 784, 1047, 1319], 'triangle', 0.1, 0.18, 0.3),
+    lose:      () => arp([392, 311, 247, 165], 'sawtooth', 0.12, 0.22, 0.28),
+    beep:      () => tone('square', 587, 587, 0.1, 0.25, 0),
+    boop:      () => tone('square', 294, 294, 0.12, 0.25, 0),
+  };
+
+  // Built-in looping music — easy entry, no tracker required
+  const MUSIC = {
+    theme: { tempo: 150, wave: 'square',   notes: [523,659,784,659,523,587,659,587,494,587,659,587,494,440,494,523] },
+    chill: { tempo: 110, wave: 'triangle', notes: [440,0,523,0,659,0,523,0,392,0,494,0,587,0,494,0] },
+  };
+  function playMusic(name) {
+    if (!ensure()) return;
+    name = String(name || 'theme').toLowerCase();
+    if (currentMusic === name) return;        // idempotent: safe to call every frame
+    stopMusic();
+    const m = MUSIC[name] || MUSIC.theme;
+    currentMusic = name;
+    let i = 0; const stepMs = 60000 / m.tempo / 2;
+    musicTimer = setInterval(() => {
+      const f = m.notes[i % m.notes.length];
+      if (f) tone(m.wave, f, f, stepMs / 1000 * 0.9, 0.16, 0);
+      i++;
+    }, stepMs);
+  }
+  function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } currentMusic = null; }
+
+  return {
+    play(name) { if (ensure()) { const fn = SFX[String(name || '').toLowerCase()]; if (fn) fn(); } },
+    music: playMusic,
+    stopMusic,
+    names: Object.keys(SFX),
+  };
+})();
+
+// ============================================================
 // LEXER
 // ============================================================
 function tokenizeLine(line) {
@@ -1278,6 +1378,22 @@ function parse(source) {
       const target = raw.slice(0, isIdx);
       const valueTokens = raw.slice(isIdx + 1);
       return { type: 'assign', target: tokensToRef(target), value: parseExpression(valueTokens), lineNum };
+    }
+
+    // -- play sound "X" / play music "X" --
+    if (first === 'play' && raw.length >= 2) {
+      const kind = tv(raw[1]) === 'music' ? 'music' : 'sound';
+      let name = null;
+      for (let i = 1; i < raw.length; i++) {
+        if (raw[i].type === 'string') { name = raw[i].value; break; }
+        if (raw[i].type === 'word' && tv(raw[i]) !== 'sound' && tv(raw[i]) !== 'music') name = raw[i].value;
+      }
+      return { type: 'play_sound', kind, name, lineNum };
+    }
+
+    // -- stop music / stop sound --
+    if (first === 'stop' && raw[1] && (tv(raw[1]) === 'music' || tv(raw[1]) === 'sound')) {
+      return { type: 'stop_music', lineNum };
     }
 
     // -- function call (anything else) --
@@ -2032,6 +2148,7 @@ class Runtime {
     if (this._rafId) cancelAnimationFrame(this._rafId);
     if (this._watchdog) clearInterval(this._watchdog);
     if (this.animFrame) clearInterval(this.animFrame);
+    AUDIO.stopMusic();
     this.vars = {};
     this.funcs = {};
     this.gameLoop = null;
@@ -2674,6 +2791,15 @@ class Runtime {
           ctx.fillRect(0, 0, 128, 128);
           break;
         }
+
+        case 'play_sound':
+          if (stmt.kind === 'music') AUDIO.music(stmt.name);
+          else AUDIO.play(stmt.name);
+          break;
+
+        case 'stop_music':
+          AUDIO.stopMusic();
+          break;
 
         case 'draw':
           this.execDraw(stmt);
