@@ -1,0 +1,90 @@
+-- SPACE INVADERS  ·  move: LEFT / RIGHT    fire: SPACE
+-- Click the screen first so it hears the keys.
+
+world is {width: 128, height: 128}
+mode is "play"
+score is 0
+march is 0
+adir is 4
+
+player is {x: 60, y: 118, image: "ship"}
+
+-- build a 3 x 6 grid of invaders
+enemies is []
+repeat with row from 0 to 2
+  repeat with col from 0 to 5
+    a is sprite
+    a.x is col * 18 + 14
+    a.y is row * 14 + 14
+    a.image is "alien"
+    add a to enemies
+
+bullets is []
+enemies are hostile
+bullets are projectiles
+
+define sound "zap" as square from 900 to 200 over 0.1
+define sound "march" as square from 110 to 90 over 0.06
+
+to update
+  if mode is not "play" return
+
+  -- move the ship
+  if key "left" remove 2 from player.x
+  if key "right" add 2 to player.x
+  if player.x < 2 player.x is 2
+  if player.x > 118 player.x is 118
+
+  -- march the whole formation, reversing + dropping at the edges
+  march is march + 1
+  if march mod 16 is 0
+    play sound "march"
+    hit is no
+    each e in enemies
+      if e.x + adir > 118 hit is yes
+      if e.x + adir < 2 hit is yes
+    if hit
+      adir is 0 - adir
+      each e in enemies
+        e.y is e.y + 8
+    else
+      each e in enemies
+        e.x is e.x + adir
+
+  -- lose if invaders reach the bottom
+  each e in enemies
+    if e.y > 110 mode is "lose"
+
+  -- win when the wave is cleared
+  if no enemies mode is "win"
+
+when "space" is pressed
+  if mode is "play" fire
+
+to fire
+  b is {x: player.x + 3, y: player.y, image: "bullet", dx: 0, dy: 0 - 1, facing: "up", speed: 3}
+  add b to bullets
+  play sound "zap"
+
+when enemy is defeated
+  add 10 to score
+  play sound "explosion"
+
+to draw
+  clear screen to black
+  each e in enemies draw sprite e.image at e.x, e.y
+  each b in bullets draw sprite b at b.x, b.y
+  draw sprite player.image at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+
+to screen win
+  clear screen to dark blue
+  write "WAVE CLEARED" at 24, 50 in yellow on hud
+  write "score {score}" at 38, 66 in white on hud
+
+to screen lose
+  clear screen to dark purple
+  write "INVADED!" at 38, 50 in red on hud
+  write "score {score}" at 38, 66 in white on hud
+
+run game with update and draw

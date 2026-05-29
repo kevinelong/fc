@@ -1,0 +1,67 @@
+-- PONG  ·  left paddle: W / S    right paddle: UP / DOWN
+-- Click the screen first so it hears the keys.
+
+mode is "play"
+p1 is 52
+p2 is 52
+score1 is 0
+score2 is 0
+ball is {x: 64, y: 64, dx: 1.4, dy: 1}
+
+define sound "bounce" as square from 420 to 720 over 0.05
+define sound "point" as square from 300 to 80 over 0.25
+
+to update
+  -- paddles (held keys)
+  if key "w" remove 3 from p1
+  if key "s" add 3 to p1
+  if key "up" remove 3 from p2
+  if key "down" add 3 to p2
+  if p1 < 0 p1 is 0
+  if p1 > 104 p1 is 104
+  if p2 < 0 p2 is 0
+  if p2 > 104 p2 is 104
+
+  -- move the ball
+  ball.x is ball.x + ball.dx
+  ball.y is ball.y + ball.dy
+
+  -- bounce off top and bottom
+  if ball.y < 2
+    ball.dy is 0 - ball.dy
+    play sound "bounce"
+  if ball.y > 123
+    ball.dy is 0 - ball.dy
+    play sound "bounce"
+
+  -- bounce off the paddles
+  if ball.x < 6 and ball.y > p1 and ball.y < p1 + 24
+    ball.dx is 0 - ball.dx
+    play sound "bounce"
+  if ball.x > 119 and ball.y > p2 and ball.y < p2 + 24
+    ball.dx is 0 - ball.dx
+    play sound "bounce"
+
+  -- someone scores: reset to center
+  if ball.x < 0
+    add 1 to score2
+    play sound "point"
+    ball.x is 64
+    ball.y is 64
+    ball.dx is 1.4
+  if ball.x > 128
+    add 1 to score1
+    play sound "point"
+    ball.x is 64
+    ball.y is 64
+    ball.dx is 0 - 1.4
+
+to draw
+  clear screen to black
+  draw rect at 2, p1 size 3, 24 in white
+  draw rect at 123, p2 size 3, 24 in white
+  draw rect at ball.x, ball.y size 3, 3 in white
+  write "{score1}" at 40, 4 in white on hud
+  write "{score2}" at 84, 4 in white on hud
+
+run game with update and draw
