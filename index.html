@@ -1628,6 +1628,12 @@ function parse(source) {
     let condEnd = raw.length;
     let seenIs = false;
     for (let i = 1; i < raw.length; i++) {
+      // after a logical and/or, the next `is` is another comparison, not an
+      // inline assignment — so reset, allowing `if a is b and c is d`.
+      if (raw[i].type === 'word' && (tv(raw[i]) === 'and' || tv(raw[i]) === 'or')) {
+        seenIs = false;
+        continue;
+      }
       if (raw[i].type === 'word' && tv(raw[i]) === 'is') {
         if (seenIs) {
           // Walk back to find start of the assignment target (handles dotted refs)
@@ -1655,7 +1661,7 @@ function parse(source) {
     if (tokens.length === 0) return { type: 'literal', value: false };
 
     // Handle "key "X"" or "key "X" is pressed" — check live key state
-    if (tokens[0].type === 'word' && tv(tokens[0]) === 'key' && tokens.length >= 2 && tokens[1].type === 'string') {
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'key' && tokens.length === 2 && tokens[1].type === 'string') {
       return { type: 'key_pressed', key: tokens[1].value.toLowerCase() };
     }
 

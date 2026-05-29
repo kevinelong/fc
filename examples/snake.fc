@@ -20,22 +20,18 @@ to update
   if mode is not "play" return
 
   -- steer (can't reverse straight back)
-  if key "left"
-    if dx is 0
-      dx is 0 - 8
-      dy is 0
-  if key "right"
-    if dx is 0
-      dx is 8
-      dy is 0
-  if key "up"
-    if dy is 0
-      dx is 0
-      dy is 0 - 8
-  if key "down"
-    if dy is 0
-      dx is 0
-      dy is 8
+  if key "left" and dx is 0
+    dx is 0 - 8
+    dy is 0
+  if key "right" and dx is 0
+    dx is 8
+    dy is 0
+  if key "up" and dy is 0
+    dx is 0
+    dy is 0 - 8
+  if key "down" and dy is 0
+    dx is 0
+    dy is 8
 
   -- advance one cell every 7 frames
   tick is tick + 1
@@ -52,8 +48,7 @@ to update
 
   -- bite yourself?
   each seg in body
-    if seg.x is nx
-      if seg.y is ny mode is "lose"
+    if seg.x is nx and seg.y is ny mode is "lose"
   if mode is "lose"
     play sound "die"
     return
@@ -66,15 +61,14 @@ to update
 
   -- eat the apple, or drop the tail
   ate is no
-  if nx is food.x
-    if ny is food.y
-      add 1 to score
-      play sound "eat"
-      fx is random 15
-      fy is random 15
-      food.x is fx * 8
-      food.y is fy * 8
-      ate is yes
+  if nx is food.x and ny is food.y
+    add 1 to score
+    play sound "eat"
+    fx is random 15
+    fy is random 15
+    food.x is fx * 8
+    food.y is fy * 8
+    ate is yes
   if not ate
     tail is item 1 of body
     remove tail from body
