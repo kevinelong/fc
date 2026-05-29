@@ -149,9 +149,17 @@ body.editing #gamepad { display: none; }
     </div>
   </div>
   <div id="editor-wrap">
+    <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px">
+      <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
+      <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
+    </div>
     <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
     <div id="errors"></div>
   </div>
+</div>
+<div id="forge-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#000">
+  <button type="button" id="forge-close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <iframe id="forge-frame" title="fc creation tool" style="width:100%;height:100%;border:0;display:block"></iframe>
 </div>
 <div id="gamepad" aria-label="on-screen controls">
   <div id="dpad" role="group" aria-label="direction pad">
@@ -825,8 +833,9 @@ const SPRITE_PAL = [
   '#ff77a8',  // f = pink
 ];
 
+const USER_SPRITES = {};   // defined in fc code:  sprite "name" is "<64 hex>"
 function drawSprite(name, x, y) {
-  const hex = SPRITES[name];
+  const hex = USER_SPRITES[name] || SPRITES[name];
   if (!hex) return;
   // Strip any spaces/joins
   const data = hex.replace(/\s/g, '');
@@ -954,17 +963,32 @@ const AUDIO = (function () {
     theme: { tempo: 150, wave: 'square',   notes: [523,659,784,659,523,587,659,587,494,587,659,587,494,440,494,523] },
     chill: { tempo: 110, wave: 'triangle', notes: [440,0,523,0,659,0,523,0,392,0,494,0,587,0,494,0] },
   };
+  // Songs authored in fc (or the Sound Forge):  song "name" at N bpm "row" ...
+  // Each row is a pentatonic pitch (top=high); '#' = note on at that step.
+  const userSongs = {};
+  const SONG_ROWS = [523.25, 440, 392, 329.63, 293.66, 261.63, 220, 196];
+  function defineSong(name, tempo, rows) {
+    const W = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    const steps = [];
+    for (let s = 0; s < W; s++) {
+      const fs = [];
+      for (let r = 0; r < rows.length; r++) if (rows[r][s] === '#') fs.push(SONG_ROWS[r % SONG_ROWS.length]);
+      steps.push(fs);
+    }
+    userSongs[String(name).toLowerCase()] = { tempo: tempo || 120, wave: 'square', steps };
+  }
   function playMusic(name) {
     if (!ensure()) return;
     name = String(name || 'theme').toLowerCase();
     if (currentMusic === name) return;        // idempotent: safe to call every frame
     stopMusic();
-    const m = MUSIC[name] || MUSIC.theme;
+    const m = userSongs[name] || MUSIC[name] || MUSIC.theme;
     currentMusic = name;
-    let i = 0; const stepMs = 60000 / m.tempo / 2;
+    let i = 0;
+    const stepMs = m.steps ? (60000 / m.tempo / 4) : (60000 / m.tempo / 2);
     musicTimer = setInterval(() => {
-      const f = m.notes[i % m.notes.length];
-      if (f) tone(m.wave, f, f, stepMs / 1000 * 0.9, 0.16, 0);
+      if (m.steps) { const fs = m.steps[i % m.steps.length]; fs.forEach(f => tone(m.wave, f, f, stepMs / 1000 * 1.4, 0.14, 0)); }
+      else { const f = m.notes[i % m.notes.length]; if (f) tone(m.wave, f, f, stepMs / 1000 * 0.9, 0.16, 0); }
       i++;
     }, stepMs);
   }
@@ -973,6 +997,7 @@ const AUDIO = (function () {
   return {
     play(name) { if (ensure()) { const fn = SFX[String(name || '').toLowerCase()]; if (fn) fn(); } },
     music: playMusic,
+    defineSong,
     stopMusic,
     names: Object.keys(SFX),
   };
@@ -1140,6 +1165,21 @@ function parse(source) {
         }
       }
       return { type: 'funcdef', name, params, body: [], lineNum };
+    }
+
+    // -- sprite "name" is "<64 hex>" (user-defined sprite) --
+    if (first === 'sprite' && raw[1] && raw[1].type === 'string') {
+      const sname = raw[1].value;
+      const hexTok = raw.find((t, idx) => idx >= 2 && t.type === 'string');
+      return { type: 'def_sprite', name: sname, hex: hexTok ? String(hexTok.value).toLowerCase() : '', lineNum };
+    }
+
+    // -- song "name" at N bpm "row" "row" ... (user-defined song) --
+    if (first === 'song' && raw[1] && raw[1].type === 'string') {
+      const sname = raw[1].value;
+      const bpmTok = raw.find(t => t.type === 'number');
+      const rows = raw.filter((t, idx) => idx >= 2 && t.type === 'string').map(t => t.value);
+      return { type: 'def_song', name: sname, tempo: bpmTok ? Number(bpmTok.value) : 120, rows, lineNum };
     }
 
     // -- go to X / go back --
@@ -2149,6 +2189,7 @@ class Runtime {
     if (this._watchdog) clearInterval(this._watchdog);
     if (this.animFrame) clearInterval(this.animFrame);
     AUDIO.stopMusic();
+    for (const k in USER_SPRITES) delete USER_SPRITES[k];   // re-registered on each run
     this.vars = {};
     this.funcs = {};
     this.gameLoop = null;
@@ -2801,6 +2842,14 @@ class Runtime {
           AUDIO.stopMusic();
           break;
 
+        case 'def_sprite':
+          if (stmt.hex && stmt.hex.length === 64) USER_SPRITES[stmt.name] = stmt.hex;
+          break;
+
+        case 'def_song':
+          AUDIO.defineSong(stmt.name, stmt.tempo, stmt.rows);
+          break;
+
         case 'draw':
           this.execDraw(stmt);
           break;
@@ -2942,7 +2991,7 @@ class Runtime {
             const facing = resolved.facing;
             if (facing) {
               const variant = base + '_' + facing;
-              name = SPRITES[variant] ? variant : base;
+              name = (USER_SPRITES[variant] || SPRITES[variant]) ? variant : base;
             } else {
               name = base;
             }
@@ -3756,6 +3805,30 @@ to restart game
 run game with update`;
 
 // Initial run
+// --- embedded creation tools (Pixel Forge / Sound Forge) ---
+(function () {
+  const overlay = document.getElementById('forge-overlay');
+  const frame = document.getElementById('forge-frame');
+  function openForge(src) { frame.src = src + '?embed=1'; overlay.style.display = 'block'; }
+  function closeForge() { overlay.style.display = 'none'; frame.src = 'about:blank'; }
+  const sp = document.getElementById('tool-sprite'), sd = document.getElementById('tool-sound');
+  if (sp) sp.onclick = () => openForge('sprite-editor.html');
+  if (sd) sd.onclick = () => openForge('sound-studio.html');
+  const cx = document.getElementById('forge-close'); if (cx) cx.onclick = closeForge;
+  window.addEventListener('message', e => {
+    if (!e.data || e.data.type !== 'fc-insert') return;
+    const code = String(e.data.code || '').trim();
+    if (!code) { closeForge(); return; }
+    const s = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+    const before = editor.value.slice(0, s), after = editor.value.slice(s);
+    const ins = (before && !before.endsWith('\n') ? '\n' : '') + code + '\n';
+    editor.value = before + ins + after;
+    const caret = (before + ins).length;
+    editor.selectionStart = editor.selectionEnd = caret;
+    closeForge(); editor.focus(); run(editor.value);
+  });
+})();
+
 setTimeout(() => run(editor.value), 100);
 </script>
 </body>

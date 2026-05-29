@@ -80,6 +80,7 @@
   <button class="btn" id="pick-btn">PICK ⌖</button>
   <button class="btn" id="clear-btn">CLEAR</button>
   <button class="btn" id="export-btn">EXPORT ▸</button>
+  <button class="btn" id="insert-btn" style="border-color:#00e436;color:#00e436">✓ INSERT</button>
 </div>
 
 <div id="close-x">✕</div>
@@ -160,11 +161,16 @@
   const out=document.getElementById('out'),src=document.getElementById('src'),pv=document.getElementById('preview').getContext('2d');
   function spriteRows(){const r=[];for(let y=0;y<N;y++){let s='';for(let x=0;x<N;x++)s+=HEX[px[y*N+x]];r.push(s);}return r;}
   function showExport(){hideOverlays();const r=spriteRows();
-    src.textContent='my_sprite: spr(\n'+r.map(s=>`  '${s}'`).join(',\n')+')';
+    src.textContent='sprite "my_sprite" is "'+r.join('')+'"';
     pv.clearRect(0,0,8,8);for(let i=0;i<64;i++){if(px[i]){pv.fillStyle=PAL[px[i]];pv.fillRect(i%8,(i/8)|0,1,1);}}
     out.classList.add('show');closeX.classList.add('show');}
   document.getElementById('export-btn').onclick=showExport;
   document.getElementById('copy-btn').onclick=()=>{navigator.clipboard?.writeText(src.textContent);const c=document.getElementById('copied');c.style.opacity=1;setTimeout(()=>c.style.opacity=0,1200);};
+
+  // embedded-in-fc: post the sprite definition back to the editor
+  const insertBtn=document.getElementById('insert-btn');
+  if(window.parent===window) insertBtn.style.display='none';
+  insertBtn.onclick=()=>{ const code='sprite "my_sprite" is "'+spriteRows().join('')+'"'; window.parent.postMessage({type:'fc-insert',code},'*'); };
 
   function hideOverlays(){picker.classList.remove('show');out.classList.remove('show');closeX.classList.remove('show');}
   closeX.onclick=hideOverlays;

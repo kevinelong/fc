@@ -47,6 +47,7 @@
   <input type="range" id="tempo" min="60" max="240" value="120">
   <button class="btn" id="clear-btn">CLEAR</button>
   <button class="btn" id="export-btn">EXPORT ▸</button>
+  <button class="btn" id="insert-btn" style="border-color:#00e436;color:#00e436">✓ INSERT</button>
 </div>
 <div id="close-x">✕</div>
 <div id="out"><h2>SONG SOURCE (plain text · diffable)</h2><pre id="src"></pre>
@@ -111,12 +112,19 @@
   // --- export to plain text (diffable; an fc song format) ---
   const out=document.getElementById('out'),src=document.getElementById('src'),closeX=document.getElementById('close-x');
   document.getElementById('export-btn').onclick=()=>{
-    let lines=[];
-    for(let r=0;r<ROWS;r++){let row='';for(let s=0;s<STEPS;s++)row+=cells[r*STEPS+s].on?'#':'.';lines.push(`  ${NOTE_NAMES[r].padEnd(3)} '${row}'`);}
-    src.textContent=`song "tune" at ${bpm} bpm\n`+lines.join('\n');
+    let rows=[];
+    for(let r=0;r<ROWS;r++){let row='';for(let s=0;s<STEPS;s++)row+=cells[r*STEPS+s].on?'#':'.';rows.push(row);}
+    src.textContent=`song "tune" at ${bpm} bpm `+rows.map(r=>`"${r}"`).join(' ')+`\n-- then:  play music "tune"`;
     out.classList.add('show');closeX.classList.add('show');
   };
   document.getElementById('copy-btn').onclick=()=>{navigator.clipboard?.writeText(src.textContent);const c=document.getElementById('copied');c.style.opacity=1;setTimeout(()=>c.style.opacity=0,1200);};
+
+  // embedded-in-fc: post the song (plus a play line) back to the editor
+  const insertBtn=document.getElementById('insert-btn');
+  if(window.parent===window) insertBtn.style.display='none';
+  insertBtn.onclick=()=>{ let rows=[];for(let r=0;r<ROWS;r++){let row='';for(let s=0;s<STEPS;s++)row+=cells[r*STEPS+s].on?'#':'.';rows.push(row);}
+    const code=`song "tune" at ${bpm} bpm `+rows.map(r=>`"${r}"`).join(' ')+`\nplay music "tune"`;
+    window.parent.postMessage({type:'fc-insert',code},'*'); };
   closeX.onclick=()=>{out.classList.remove('show');closeX.classList.remove('show');};
 
   // demo: a little rising motif so it's not empty
