@@ -1,0 +1,70 @@
+-- FLAPPY  ·  press SPACE (or tap) to flap.  dodge the pipes.
+-- Click the screen first so it hears the keys.
+
+mode is "play"
+score is 0
+gravity is 0.35
+player is {x: 28, y: 50, image: "ship", dy: 0}
+pipes is []
+
+define sound "flap" as square from 300 to 620 over 0.06
+define sound "point" as square from 700 to 1100 over 0.08
+define sound "smack" as noise from 1000 to 80 over 0.35
+
+when "space" is pressed
+  if mode is "play" jump player
+  play sound "flap"
+when mouse is clicked
+  if mode is "play" jump player
+  play sound "flap"
+
+to update
+  if mode is not "play" return
+
+  -- new pipe every ~1.5s with a random gap
+  every 90 frames
+    g is random 44
+    pipe is sprite
+    pipe.x is 128
+    pipe.gy is g + 12
+    pipe.passed is no
+    add pipe to pipes
+
+  -- move pipes, score, collide
+  each pipe in pipes
+    pipe.x is pipe.x - 1.3
+    if pipe.x + 12 < player.x and pipe.passed is no
+      pipe.passed is yes
+      add 1 to score
+      play sound "point"
+    if player.x + 6 > pipe.x and player.x < pipe.x + 12
+      if player.y < pipe.gy
+        mode is "lose"
+        play sound "smack"
+      if player.y + 8 > pipe.gy + 40
+        mode is "lose"
+        play sound "smack"
+
+  -- hit the ground or ceiling
+  if player.y > 116
+    mode is "lose"
+    play sound "smack"
+
+  -- drop the oldest pipe once it scrolls off the left
+  if the number of pipes > 0
+    oldest is item 1 of pipes
+    if oldest.x < -14 remove oldest from pipes
+
+to draw
+  clear screen to dark blue
+  each pipe in pipes
+    draw rect at pipe.x, 0 size 12, pipe.gy in green
+    draw rect at pipe.x, pipe.gy + 40 size 12, 90 in green
+  draw sprite player.image at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+
+to screen lose
+  write "GAME OVER" at 32, 54 in red on hud
+  write "score {score}" at 38, 70 in white on hud
+
+run game with update and draw
