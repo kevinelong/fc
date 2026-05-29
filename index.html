@@ -994,10 +994,27 @@ const AUDIO = (function () {
   }
   function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } currentMusic = null; }
 
+  // Custom SFX recipes authored in fc:  define sound "zap" as square from 900 to 100 over 0.12
+  const userSfx = {};
+  function defineSfx(name, recipe) { userSfx[String(name).toLowerCase()] = recipe; }
+  function playRecipe(rec) {
+    if (!rec) return;
+    const dur = rec.dur || 0.15;
+    if (rec.kind === 'notes') { (rec.notes || []).forEach((f, i) => tone('square', f, f, dur, 0.25, i * dur)); return; }
+    if (rec.wave === 'noise') { noise(rec.f0 || 1000, rec.f1 || rec.f0 || 1000, dur, 0.3, 1); return; }
+    tone(rec.wave || 'square', rec.f0 || 440, rec.f1, dur, 0.28, 0);
+  }
+
   return {
-    play(name) { if (ensure()) { const fn = SFX[String(name || '').toLowerCase()]; if (fn) fn(); } },
+    play(name) {
+      if (!ensure()) return;
+      const n = String(name || '').toLowerCase();
+      if (userSfx[n]) { playRecipe(userSfx[n]); return; }
+      const fn = SFX[n]; if (fn) fn();
+    },
     music: playMusic,
     defineSong,
+    defineSfx,
     stopMusic,
     names: Object.keys(SFX),
   };
@@ -1180,6 +1197,31 @@ function parse(source) {
       const bpmTok = raw.find(t => t.type === 'number');
       const rows = raw.filter((t, idx) => idx >= 2 && t.type === 'string').map(t => t.value);
       return { type: 'def_song', name: sname, tempo: bpmTok ? Number(bpmTok.value) : 120, rows, lineNum };
+    }
+
+    // -- define sound "name" as <wave> [from F0 to F1] [over D]  |  notes F0 F1 ... [over D] --
+    if (first === 'define' && tv(raw[1]) === 'sound' && raw[2] && raw[2].type === 'string') {
+      const sname = raw[2].value;
+      const asIdx = findWord('as');
+      const rest = raw.slice(asIdx >= 0 ? asIdx + 1 : 3);
+      const findIn = w => rest.findIndex(t => t.type === 'word' && tv(t) === w);
+      const overI = findIn('over');
+      const dur = (overI >= 0 && rest[overI + 1]) ? Number(rest[overI + 1].value) : 0.15;
+      const w0 = rest[0] ? tv(rest[0]) : 'square';
+      let recipe;
+      if (w0 === 'notes') {
+        const end = overI >= 0 ? overI : rest.length;
+        const notes = rest.slice(1, end).filter(t => t.type === 'number').map(t => Number(t.value));
+        recipe = { kind: 'notes', notes, dur };
+      } else {
+        const wave = ['square', 'sine', 'triangle', 'sawtooth', 'noise'].includes(w0) ? w0 : 'square';
+        const fromI = findIn('from'), toI = findIn('to');
+        let f0 = 440, f1 = null;
+        if (fromI >= 0 && rest[fromI + 1]) { f0 = Number(rest[fromI + 1].value); if (toI >= 0 && rest[toI + 1]) f1 = Number(rest[toI + 1].value); }
+        else { const n = rest.find(t => t.type === 'number'); if (n) f0 = Number(n.value); }
+        recipe = { kind: 'tone', wave, f0, f1, dur };
+      }
+      return { type: 'def_sfx', name: sname, recipe, lineNum };
     }
 
     // -- go to X / go back --
@@ -2848,6 +2890,10 @@ class Runtime {
 
         case 'def_song':
           AUDIO.defineSong(stmt.name, stmt.tempo, stmt.rows);
+          break;
+
+        case 'def_sfx':
+          AUDIO.defineSfx(stmt.name, stmt.recipe);
           break;
 
         case 'draw':
