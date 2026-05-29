@@ -1,0 +1,85 @@
+-- BREAKOUT  ·  move the paddle: LEFT / RIGHT.  clear every brick.
+-- Click the screen first so it hears the keys.
+
+mode is "play"
+score is 0
+px is 52
+ball is {x: 60, y: 96, dx: 1.3, dy: -1.4}
+
+-- build a wall of bricks (5 rows x 8 columns)
+bricks is []
+repeat with row from 0 to 4
+  repeat with col from 0 to 7
+    brick is sprite
+    brick.x is col * 16 + 1
+    brick.y is row * 9 + 12
+    add brick to bricks
+
+define sound "bounce" as square from 420 to 720 over 0.05
+define sound "break" as square from 800 to 1200 over 0.06
+define sound "drop" as noise from 600 to 80 over 0.3
+
+to update
+  if mode is not "play" return
+
+  -- paddle
+  if key "left" remove 3 from px
+  if key "right" add 3 to px
+  if px < 0 px is 0
+  if px > 104 px is 104
+
+  -- move the ball
+  ball.x is ball.x + ball.dx
+  ball.y is ball.y + ball.dy
+
+  -- bounce off the walls
+  if ball.x < 1
+    reverse ball.dx
+  if ball.x > 124
+    reverse ball.dx
+  if ball.y < 1
+    reverse ball.dy
+
+  -- bounce off the paddle
+  if ball.y > 114 and ball.x + 3 > px and ball.x < px + 24
+    reverse ball.dy
+    ball.y is 113
+    play sound "bounce"
+
+  -- fall past the bottom = game over
+  if ball.y > 127
+    mode is "lose"
+    play sound "drop"
+
+  -- hit a brick (find one, then remove it after the loop)
+  hitbrick is no
+  each brick in bricks
+    if not hitbrick
+      if ball.x + 3 > brick.x and ball.x < brick.x + 14
+        if ball.y + 3 > brick.y and ball.y < brick.y + 7
+          hitbrick is brick
+  if hitbrick
+    remove hitbrick from bricks
+    reverse ball.dy
+    add 1 to score
+    play sound "break"
+
+  -- cleared the wall
+  if no bricks mode is "win"
+
+to draw
+  clear screen to black
+  each brick in bricks draw rect at brick.x, brick.y size 14, 7 in orange
+  draw rect at px, 118 size 24, 3 in white
+  draw rect at ball.x, ball.y size 3, 3 in white
+  write "score {score}" at 2, 2 in white on hud
+
+to screen win
+  write "YOU WIN!" at 36, 54 in yellow on hud
+  write "score {score}" at 38, 70 in white on hud
+
+to screen lose
+  write "GAME OVER" at 32, 54 in red on hud
+  write "score {score}" at 38, 70 in white on hud
+
+run game with update and draw
