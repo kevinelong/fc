@@ -1298,6 +1298,14 @@ function parse(source) {
       return { type: 'every', n: Number(raw[1].value), unit, body: [], lineNum };
     }
 
+    // -- jump X [by N]  (upward velocity impulse; pairs with `gravity is N`) --
+    if (first === 'jump') {
+      const target = raw[1] ? raw[1].value : 'player';
+      const numTok = raw.find(t => t.type === 'number');
+      const force = numTok ? Number(numTok.value) : 4.5;
+      return { type: 'jump', target, force, lineNum };
+    }
+
     // -- stop --
     if (first === 'stop' && raw.length === 1) {
       return { type: 'stop', lineNum };
@@ -1547,7 +1555,7 @@ function parse(source) {
     if (userFuncs.has(w)) return true;
     return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
-      'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset', 'reverse', 'spawn',
+      'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset', 'reverse', 'spawn', 'jump',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
       'when', 'else', 'to', 'go', 'face', 'walk'].includes(w);
   }
@@ -2941,6 +2949,12 @@ class Runtime {
           AUDIO.defineSfx(stmt.name, stmt.recipe);
           break;
 
+        case 'jump': {
+          const obj = this.getVar(stmt.target);
+          if (obj && typeof obj === 'object') obj.dy = -stmt.force;
+          break;
+        }
+
         case 'draw':
           this.execDraw(stmt);
           break;
@@ -3245,15 +3259,27 @@ class Runtime {
       // Walks until: solid collision, world edge, or stop_walking
       self._autoWalk();
 
+      // Gravity: if the user set a positive `gravity`, the player accelerates
+      // downward each frame (dy builds up, then moves y). `jump player` sets a
+      // negative dy. Defaults off (gravity 0) so non-platformers are unaffected.
+      {
+        const gp = self.vars.player;
+        const g = self.getVar('gravity');
+        if (typeof g === 'number' && g > 0 && gp && typeof gp.y === 'number') {
+          gp.dy = (typeof gp.dy === 'number' ? gp.dy : 0) + g;
+          gp.y = gp.y + gp.dy;
+        }
+      }
+
       // Clamp player to world edges (8px sprite, world is the map bounds)
       const p = self.vars.player;
       if (p && typeof p.x === 'number') {
         const maxX = self.world.width - 8;
         const maxY = self.world.height - 8;
         if (p.x < 0) { p.x = 0; if (p.walking) p.walking = false; }
-        if (p.y < 0) { p.y = 0; if (p.walking) p.walking = false; }
+        if (p.y < 0) { p.y = 0; p.dy = 0; if (p.walking) p.walking = false; }
         if (p.x > maxX) { p.x = maxX; if (p.walking) p.walking = false; }
-        if (p.y > maxY) { p.y = maxY; if (p.walking) p.walking = false; }
+        if (p.y > maxY) { p.y = maxY; p.dy = 0; if (p.walking) p.walking = false; }
       }
 
       // Check collisions after movement
