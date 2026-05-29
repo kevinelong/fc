@@ -152,6 +152,12 @@ body.editing #gamepad { display: none; }
     <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px">
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
+      <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
+        <option value="">▾ examples</option>
+        <option value="pong">Pong</option>
+        <option value="snake">Snake</option>
+        <option value="space-invaders">Space Invaders</option>
+      </select>
     </div>
     <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
     <div id="errors"></div>
@@ -3867,6 +3873,16 @@ run game with update`;
   if (sp) sp.onclick = () => openForge('sprite-editor.html');
   if (sd) sd.onclick = () => openForge('sound-studio.html');
   const cx = document.getElementById('forge-close'); if (cx) cx.onclick = closeForge;
+  // load a bundled example program into the editor and run it
+  const ep = document.getElementById('example-pick');
+  if (ep) ep.onchange = () => {
+    const v = ep.value; ep.selectedIndex = 0;
+    if (!v) return;
+    fetch('examples/' + v + '.fc')
+      .then(r => r.text())
+      .then(src => { editor.value = src; run(src); })
+      .catch(() => { errorsDiv.textContent = "Couldn't load example (try the live site, not a local file)."; });
+  };
   window.addEventListener('message', e => {
     if (!e.data || e.data.type !== 'fc-insert') return;
     const code = String(e.data.code || '').trim();
