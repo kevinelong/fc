@@ -1371,6 +1371,13 @@ function parse(source) {
       return { type: 'halve', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
     }
 
+    // -- reverse X  (flip a number's sign: reverse ball.dx)  desugars to X is 0 - X --
+    if (first === 'reverse' && raw.length >= 2) {
+      const refTokens = raw.slice(1);
+      return { type: 'assign', target: tokensToRef(refTokens),
+        value: { type: 'math', op: '-', left: { type: 'literal', value: 0 }, right: parseExpression(refTokens) }, lineNum };
+    }
+
     // -- pset x, y in color --
     if (first === 'pset') {
       return parsePset(raw, lineNum);
@@ -1534,7 +1541,7 @@ function parse(source) {
     if (userFuncs.has(w)) return true;
     return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
-      'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset',
+      'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset', 'reverse', 'spawn',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
       'when', 'else', 'to', 'go', 'face', 'walk'].includes(w);
   }
@@ -1877,6 +1884,13 @@ function parse(source) {
         (tokens[i].type === 'word' && tv(tokens[i]) === 'mod')) {
         return { type: 'math', op: tokens[i].value === 'mod' ? '%' : tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
       }
+    }
+
+    // Leading unary minus: -X  (placed after the binary +/- split above, which
+    // scans from the right and skips index 0 — so -4 + 10 splits at + first = 6,
+    // while a bare -X negates the atom).
+    if (tokens[0].type === 'operator' && tokens[0].value === '-') {
+      return { type: 'math', op: '-', left: { type: 'literal', value: 0 }, right: parseExpression(tokens.slice(1)) };
     }
 
     // String interpolation - join remaining tokens
