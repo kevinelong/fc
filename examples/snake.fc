@@ -1,0 +1,92 @@
+-- SNAKE  ·  arrow keys to turn.  eat the apples, don't bite yourself.
+-- Click the screen first so it hears the keys.
+
+mode is "play"
+score is 0
+tick is 0
+dx is 8
+dy is 0
+hx is 64
+hy is 64
+body is []
+start is {x: 64, y: 64}
+add start to body
+food is {x: 32, y: 32}
+
+define sound "eat" as square from 600 to 1100 over 0.08
+define sound "die" as square from 320 to 60 over 0.4
+
+to update
+  if mode is not "play" return
+
+  -- steer (can't reverse straight back)
+  if key "left"
+    if dx is 0
+      dx is 0 - 8
+      dy is 0
+  if key "right"
+    if dx is 0
+      dx is 8
+      dy is 0
+  if key "up"
+    if dy is 0
+      dx is 0
+      dy is 0 - 8
+  if key "down"
+    if dy is 0
+      dx is 0
+      dy is 8
+
+  -- advance one cell every 7 frames
+  tick is tick + 1
+  if tick mod 7 is not 0 return
+
+  nx is hx + dx
+  ny is hy + dy
+
+  -- hit a wall?
+  if nx < 0 or nx > 120 or ny < 0 or ny > 120
+    mode is "lose"
+    play sound "die"
+    return
+
+  -- bite yourself?
+  each seg in body
+    if seg.x is nx
+      if seg.y is ny mode is "lose"
+  if mode is "lose"
+    play sound "die"
+    return
+
+  -- grow into the new cell
+  head is {x: nx, y: ny}
+  add head to body
+  hx is nx
+  hy is ny
+
+  -- eat the apple, or drop the tail
+  ate is no
+  if nx is food.x
+    if ny is food.y
+      add 1 to score
+      play sound "eat"
+      fx is random 15
+      fy is random 15
+      food.x is fx * 8
+      food.y is fy * 8
+      ate is yes
+  if not ate
+    tail is item 1 of body
+    remove tail from body
+
+to draw
+  clear screen to black
+  each seg in body draw rect at seg.x, seg.y size 7, 7 in green
+  draw rect at food.x, food.y size 7, 7 in red
+  write "score {score}" at 2, 2 in white on hud
+
+to screen lose
+  write "GAME OVER" at 32, 56 in red on hud
+  write "score {score}" at 38, 72 in white on hud
+
+run game with update and draw
