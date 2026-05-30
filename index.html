@@ -86,11 +86,12 @@ canvas {
 #gamepad { display: none; }
 @media (hover: none) and (pointer: coarse) { #gamepad { display: contents; } }
 body.force-gamepad #gamepad { display: contents; }
-body.editing #gamepad { display: none; }
+body.touch #gamepad { display: contents; }            /* JS-detected touch — reliable */
+body.editing:not(.touch) #gamepad { display: none; }  /* on touch, keep it visible while editing */
 
 #dpad, #actions {
   position: fixed;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
   pointer-events: none;
   user-select: none;
@@ -3713,6 +3714,8 @@ document.addEventListener('keyup', (e) => {
 // On-screen gamepad: route taps/clicks through the same press/release path.
 (function wireGamepad() {
   if (location.search.includes('gamepad')) document.body.classList.add('force-gamepad');
+  // Reliable touch detection (media query can misfire on some mobile browsers)
+  if ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0) document.body.classList.add('touch');
   editor.addEventListener('focus', () => document.body.classList.add('editing'));
   editor.addEventListener('blur',  () => document.body.classList.remove('editing'));
 
