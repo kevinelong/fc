@@ -84,13 +84,63 @@ canvas {
 /* On-screen gamepad: hidden by default, shown on coarse-pointer (touch) devices.
    Add ?gamepad to the URL to force-show on desktop for testing. */
 #gamepad { display: none; }
-@media (hover: none) and (pointer: coarse) { #gamepad { display: contents; } }
 body.force-gamepad #gamepad { display: contents; }
-body.editing #gamepad { display: none; }
+body.touch.playing #gamepad { display: contents; }    /* gamepad shows only while a game is playing */
+
+/* "Scan to play on your phone" QR badge — desktop only */
+#qr-badge { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  #qr-badge {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    position: fixed; right: 10px; bottom: 10px; z-index: 150;
+    background: rgba(8,8,8,.72); border: 1px solid #2a2a4a; border-radius: 6px;
+    padding: 7px; opacity: .5; transition: opacity .2s;
+    font: 9px 'Share Tech Mono', monospace; color: #8a8aa8; letter-spacing: .06em; text-align: center;
+  }
+  #qr-badge:hover { opacity: 1; }
+}
+body.touch #qr-badge { display: none; }
+#qr-badge img { width: 78px; height: 78px; image-rendering: pixelated; display: block; background: #fff; border-radius: 3px; }
+
+/* ?embed — canvas only (for the docs "Run" stage) */
+body.embed #editor-wrap, body.embed #qr-badge, body.embed #credit,
+body.embed #run-btn, body.embed #edit-btn, body.embed #gamepad { display: none !important; }
+body.embed #app { padding: 0; }
+body.embed #canvas-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+
+/* Credit link (desktop, bottom-left) */
+#credit { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  #credit { display: block; position: fixed; left: 10px; bottom: 10px; z-index: 150;
+    font: 10px 'Share Tech Mono', monospace; color: #6a6a8a; text-decoration: none; letter-spacing: .06em; }
+  #credit:hover { color: #c8a96e; text-decoration: underline; }
+}
+body.touch #credit { display: none; }
+
+/* Mobile screens (touch only): CODE (editor + RUN) when not playing,
+   PLAY (game + gamepad + EDIT) when playing. Desktop is unaffected. */
+#run-btn, #edit-btn { display: none; }
+body.touch:not(.playing) #canvas-wrap { display: none; }
+body.touch:not(.playing) #run-btn {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 200;
+  font: 18px 'Bebas Neue', sans-serif; letter-spacing: .14em;
+  background: #0d3b0d; color: #5dff5d; border: 1px solid #2fae2f;
+  border-radius: 8px; padding: 12px 38px; cursor: pointer;
+  box-shadow: 0 0 16px rgba(0,255,60,.3);
+}
+body.touch.playing #editor-wrap { display: none; }
+body.touch.playing #edit-btn {
+  display: block; position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 200;
+  font: 13px 'Share Tech Mono', monospace; letter-spacing: .1em;
+  background: rgba(20,20,20,.82); color: #c8a96e; border: 1px solid #5a4a28;
+  border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
 
 #dpad, #actions {
   position: fixed;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
   pointer-events: none;
   user-select: none;
@@ -152,8 +202,10 @@ body.editing #gamepad { display: none; }
     <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px">
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
+      <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
+        <option value="coin-quest">Coin Quest (home)</option>
         <option value="pong">Pong</option>
         <option value="snake">Snake</option>
         <option value="breakout">Breakout</option>
@@ -169,6 +221,36 @@ body.editing #gamepad { display: none; }
 <div id="forge-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#000">
   <button type="button" id="forge-close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <iframe id="forge-frame" title="fc creation tool" style="width:100%;height:100%;border:0;display:block"></iframe>
+</div>
+<button type="button" id="run-btn">&#9654; RUN</button>
+<button type="button" id="edit-btn">&#9998; EDIT</button>
+<a id="credit" href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">▸ by Kevin Long</a>
+<div id="qr-badge"><img alt="QR to codeonline.io" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJEAAACRAQMAAAD5FshgAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEhSURBVEiJ1ZUxDsMgDEWNMjDmCBwlF6tEpF4MbsIRGBmiuN8OUdV2tYd6Sh6D8ffHJv4N+ktWiChW3ilyx2fwYBWZYqFHAsssvw6sU9KUzP0hN/BjuY3NlxVaOLIfE/0qP1usn5oasssHHT2qX96wYxpS4LfHDVmh3KAfysIN0ggejPlIg3AwQl+aD6tg2iORrt0+sGVS26BVH2dub/0s2bkeFM91T2jUMr1mzeRJiogk+vHU1JiJnyEdGhVweutny+TFo6I94WCn6XFjVqQ952Vq+HnzYBpqAXHd7JEx0/lyklgAQ8aHXXNS5r02anNhMu/hZ8IAoDuvC8P+xeM8Em1uDO2hK3lwYaof/ByLDAD2YHNvZd2N7WM3mrHf+Ef2Ah6YL53ELqZXAAAAAElFTkSuQmCC"><span>scan to play<br>on your phone</span></div>
+<div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
+  <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.18em">FANTASY COMPUTER &mdash; QUICK HELP</div>
+    <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">describe what you want, type it, it runs. tap a starter to load it.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="help-starters">
+      <button class="hstart" data-k="hero" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; moving hero</button>
+      <button class="hstart" data-k="coins" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; collect coins</button>
+      <button class="hstart" data-k="bounce" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; bouncing ball + sound</button>
+      <button class="hstart" data-k="screens" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; title + play screen</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;font-size:12.5px;line-height:1.7">
+      <div><b style="color:#ffec27">MOVE &amp; DRAW</b><br>move player with arrows<br>draw sprite "hero" at x, y<br>draw circle at 64, 64 size 20 in red<br>draw rect at 10, 10 size 8, 8 in green<br>write "score {score}" at 2, 2 in white on hud<br>clear screen to dark blue</div>
+      <div><b style="color:#ffec27">VALUES &amp; MATH</b><br>score is 0<br>add 10 to score<br>reverse ball.dx&nbsp;&nbsp;(flip sign)<br>x is -8&nbsp;&nbsp;(negatives ok)<br>if score is 100 ...<br>if x &gt; 10 and y &lt; 5 ...</div>
+      <div><b style="color:#ffec27">LOOPS &amp; FUNCTIONS</b><br>repeat 10 times ...<br>repeat with i from 1 to 5 ...<br>each enemy in enemies ...<br>every 30 frames ...<br>to NAME ... &nbsp;(define)<br>NAME &nbsp;(call it)</div>
+      <div><b style="color:#ffec27">SPRITES</b><br>player is centered sprite {image: "hero"}<br>coins is list of 8 sprites {image: "coin"}<br>sprite "blob" is "&lt;64 hex&gt;"&nbsp;(or use &#129529;)<br>draw sprite player.image at player.x, player.y</div>
+      <div><b style="color:#ffec27">SOUND</b><br>play sound "pickup"&nbsp;(18 built in)<br>play music "theme"&nbsp;&middot;&nbsp;stop music<br>define sound "zap" as square from 900 to 100 over 0.1<br>song "tune" at 120 bpm "#..." ... &nbsp;(or use &#9834;)</div>
+      <div><b style="color:#ffec27">COLLISION</b><br>walls are solid&nbsp;&middot;&nbsp;coins are pickups<br>enemies are hostile&nbsp;&middot;&nbsp;spikes are deadly<br>when player picks up any coin ...<br>when player hits any enemy ...</div>
+      <div><b style="color:#ffec27">MOTION (platformer)</b><br>gravity is 0.4<br>jump player&nbsp;&nbsp;(upward impulse)<br>knock player away from enemy distance 16</div>
+      <div><b style="color:#ffec27">INPUT</b><br>when "space" is pressed ...<br>when mouse is clicked ...<br>if key "left" ...&nbsp;(held)<br>up down left right space enter</div>
+      <div><b style="color:#ffec27">SCREENS &amp; BUTTONS</b><br>mode is "title"<br>to screen title ...<br>show button "play" at 40, 50<br>when button "play" is clicked go to play<br>go to X&nbsp;&middot;&nbsp;go back</div>
+      <div><b style="color:#ffec27">THE GAME LOOP</b><br>to update ...&nbsp;(runs each frame)<br>to draw ...&nbsp;(draws each frame)<br>run game with update and draw</div>
+    </div>
+    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full command reference (with runnable examples): <a href="/docs/" style="color:#c8a96e">codeonline.io/docs</a><br>Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener" style="color:#c8a96e">Kevin Long</a> (LinkedIn).</div>
+  </div>
 </div>
 <div id="gamepad" aria-label="on-screen controls">
   <div id="dpad" role="group" aria-label="direction pad">
@@ -3685,6 +3767,8 @@ document.addEventListener('keyup', (e) => {
 // On-screen gamepad: route taps/clicks through the same press/release path.
 (function wireGamepad() {
   if (location.search.includes('gamepad')) document.body.classList.add('force-gamepad');
+  // Reliable touch detection (media query can misfire on some mobile browsers)
+  if ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0) document.body.classList.add('touch');
   editor.addEventListener('focus', () => document.body.classList.add('editing'));
   editor.addEventListener('blur',  () => document.body.classList.remove('editing'));
 
@@ -3942,9 +4026,92 @@ run game with update`;
     if (!v) return;
     fetch('examples/' + v + '.fc')
       .then(r => r.text())
-      .then(src => { editor.value = src; run(src); })
+      .then(src => { editor.value = src; run(src); setPlaying(true); })
       .catch(() => { errorsDiv.textContent = "Couldn't load example (try the live site, not a local file)."; });
   };
+
+  // --- mobile CODE/PLAY screen toggle (no-op styling-wise on desktop) ---
+  function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
+  const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
+  if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+  if (editBtn) editBtn.onclick = () => { setPlaying(false); editor.focus(); };
+  // on touch, a game auto-runs on load, so start on the PLAY screen
+  if ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0) setPlaying(true);
+
+  // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
+  const STARTERS = {
+    hero:
+`-- a hero you can walk around
+player is centered sprite {image: "hero", speed: 1}
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  draw sprite player.image at player.x, player.y
+run game with update and draw`,
+    coins:
+`-- walk around and collect coins
+score is 0
+player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+when player picks up any coin
+  add 1 to score
+  play sound "pickup"
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+  write "coins {score}" at 2, 2 in white on hud
+run game with update and draw`,
+    bounce:
+`-- a ball that bounces and beeps
+ball is {x: 64, y: 64, dx: 1.5, dy: 1.2}
+define sound "ping" as square from 500 to 820 over 0.05
+to update
+  ball.x is ball.x + ball.dx
+  ball.y is ball.y + ball.dy
+  if ball.x < 2 or ball.x > 124
+    reverse ball.dx
+    play sound "ping"
+  if ball.y < 2 or ball.y > 124
+    reverse ball.dy
+    play sound "ping"
+to draw
+  clear screen to black
+  draw circle at ball.x, ball.y size 3 in yellow
+run game with update and draw`,
+    screens:
+`-- a title screen and a play screen
+mode is "title"
+to update
+  -- screens do the drawing
+to screen title
+  clear screen to dark blue
+  write "MY GAME" at 36, 24 in yellow on hud
+  show button "play" at 44, 56
+to screen play
+  clear screen to dark green
+  write "playing!" at 34, 50 in white on hud
+  show button "menu" at 44, 90
+when button "play" is clicked go to play
+when button "menu" is clicked go to title
+run game with update`,
+  };
+  const helpOverlay = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('tool-help');
+  if (helpBtn) helpBtn.onclick = () => { helpOverlay.style.display = 'block'; helpOverlay.scrollTop = 0; };
+  const helpClose = document.getElementById('help-close');
+  if (helpClose) helpClose.onclick = () => { helpOverlay.style.display = 'none'; };
+  document.querySelectorAll('.hstart').forEach(btn => {
+    btn.onclick = () => {
+      const s = STARTERS[btn.dataset.k];
+      if (!s) return;
+      editor.value = s; helpOverlay.style.display = 'none'; run(s); setPlaying(true);
+    };
+  });
   window.addEventListener('message', e => {
     if (!e.data || e.data.type !== 'fc-insert') return;
     const code = String(e.data.code || '').trim();
@@ -3957,6 +4124,17 @@ run game with update`;
     editor.selectionStart = editor.selectionEnd = caret;
     closeForge(); editor.focus(); run(editor.value);
   });
+})();
+
+// URL params: ?embed (canvas-only, for embedding) and ?code=<base64> (load+run a snippet)
+(function applyUrlParams() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('embed')) document.body.classList.add('embed');
+  const code = params.get('code');
+  if (code) {
+    try { editor.value = decodeURIComponent(escape(atob(code))); }
+    catch (e) { try { editor.value = atob(code); } catch (_) {} }
+  }
 })();
 
 setTimeout(() => run(editor.value), 100);

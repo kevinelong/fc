@@ -4,7 +4,7 @@
 mode is "play"
 score is 0
 px is 52
-ball is {x: 60, y: 96, dx: 1.3, dy: -1.4}
+ball is {x: 60, y: 96, dx: 0.65, dy: -0.7}
 
 -- build a wall of bricks (5 rows x 8 columns)
 bricks is []
@@ -23,8 +23,8 @@ to update
   if mode is not "play" return
 
   -- paddle
-  if key "left" remove 3 from px
-  if key "right" add 3 to px
+  if key "left" remove 2 from px
+  if key "right" add 2 to px
   if px < 0 px is 0
   if px > 104 px is 104
 

@@ -5,7 +5,7 @@ world is {width: 128, height: 128}
 mode is "play"
 score is 0
 march is 0
-adir is 4
+adir is 2
 
 player is {x: 60, y: 118, image: "ship"}
 
@@ -37,7 +37,7 @@ to update
 
   -- march the whole formation, reversing + dropping at the edges
   march is march + 1
-  if march mod 16 is 0
+  if march mod 32 is 0
     play sound "march"
     hit is no
     each e in enemies
@@ -62,7 +62,7 @@ when "space" is pressed
   if mode is "play" fire
 
 to fire
-  b is {x: player.x + 3, y: player.y, image: "bullet", dx: 0, dy: 0 - 1, facing: "up", speed: 3}
+  b is {x: player.x + 3, y: player.y, image: "bullet", dx: 0, dy: -1, facing: "up", speed: 1.5}
   add b to bullets
   play sound "zap"
 

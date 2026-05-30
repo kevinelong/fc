@@ -1,0 +1,154 @@
+-- COIN QUEST: click canvas, use arrows!
+world is {width: 256, height: 192}
+mode is "title"
+difficulty is "normal"
+music is yes
+score is 0
+xp is 0
+
+-- one-liner sprite setup!
+player is centered sprite {hp: 6, max_hp: 6, invuln: 0, image: "hero", facing: "down", speed: 0.6}
+trees is list of 12 sprites {image: "tree"}
+coins is list of 8 sprites {image: "coin"}
+enemies is list of 3 sprites {image: "slime"}
+medkits is list of 3 sprites {image: "medkit"}
+bullets is []
+
+trees are solid
+coins are pickups
+medkits are pickups
+enemies are hostile
+bullets are projectiles
+
+follow player with camera
+
+-- screens auto-run when "mode" matches
+to screen title
+  clear screen to dark blue
+  write "COIN QUEST" at 24, 18 in yellow on hud
+  show button "play" at 44, 40
+  show button "options" at 40, 58
+  show button "credits" at 40, 76
+
+to screen options
+  clear screen to dark gray
+  write "OPTIONS" at 36, 14 in white on hud
+  write "difficulty {difficulty}" at 8, 34 in white on hud
+  show button "easy" at 6, 48
+  show button "normal" at 40, 48
+  show button "hard" at 80, 48
+  write "music {music}" at 8, 74 in white on hud
+  show button "toggle music" at 20, 88
+  show button "back" at 48, 108
+
+to screen credits
+  clear screen to dark purple
+  write "CREDITS" at 36, 20 in white on hud
+  write "made with" at 30, 50 in white on hud
+  write "fantasy computer" at 14, 62 in yellow on hud
+  show button "back" at 48, 100
+
+to screen play
+  clear screen to dark green
+  each tree in trees draw sprite tree.image at tree.x, tree.y
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  each medkit in medkits draw sprite medkit.image at medkit.x, medkit.y
+  each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
+  each bullet in bullets draw sprite bullet at bullet.x, bullet.y
+  if player.invuln is 0 or player.invuln mod 6 > 2
+    draw sprite player at player.x, player.y
+  -- HUD: health meter, coin score, experience
+  write "HP" at 2, 3 in white on hud
+  show meter player.hp of player.max_hp at 16, 2 size 44, 7 in red
+  write "coins {score}" at 2, 14 in yellow on hud
+  write "xp {xp}" at 64, 14 in green on hud
+
+to screen win
+  clear screen to dark green
+  write "YOU WIN!" at 36, 30 in yellow on hud
+  write "score {score}" at 38, 50 in white on hud
+  show button "play again" at 30, 80
+  show button "menu" at 46, 100
+
+to screen lose
+  clear screen to dark purple
+  write "GAME OVER" at 34, 30 in red on hud
+  write "score {score}" at 38, 50 in white on hud
+  show button "retry" at 46, 80
+  show button "menu" at 46, 100
+
+-- gameplay (only runs while mode is "play")
+-- hold arrows to walk; release to stop. diagonal speed is normalized.
+to update
+  if mode is not "play" return
+  if player.invuln > 0 remove 1 from player.invuln
+  move player with arrows
+
+when player picks up any coin
+  add 1 to score
+  if no coins mode is "win"
+
+when player picks up any medkit
+  heal player 2
+
+when "space" is pressed
+  if mode is "play" shoot
+when "enter" is pressed
+  if mode is "play" shoot
+
+to shoot
+  bullet is sprite {image: "arrow", x: player.x, y: player.y, dx: player.dx, dy: player.dy, facing: player.facing, speed: 3}
+  add bullet to bullets
+
+when player hits any enemy
+  if player.invuln > 0 return
+  knock player away from enemy distance 16
+  damage player 2
+  player.invuln is 45
+  if player.hp < 1 mode is "lose"
+
+-- shoot a slime down and earn experience
+when enemy is defeated
+  add 10 to xp
+
+-- navigation
+when button "play" is clicked
+  restart game
+  go to play
+
+when button "options" is clicked go to options
+when button "credits" is clicked go to credits
+when button "back" is clicked go back
+when button "menu" is clicked go to title
+when button "retry" is clicked
+  restart game
+  go to play
+when button "play again" is clicked
+  restart game
+  go to play
+
+-- settings actions
+when button "easy" is clicked
+  difficulty is "easy"
+  player.speed is 0.8
+when button "normal" is clicked
+  difficulty is "normal"
+  player.speed is 0.6
+when button "hard" is clicked
+  difficulty is "hard"
+  player.speed is 0.5
+  -- harder: more enemies next run
+  enemies is list of 6 sprites {image: "slime"}
+when button "toggle music" is clicked toggle music
+
+to restart game
+  score is 0
+  xp is 0
+  player.x is 128
+  player.y is 96
+  player.hp is player.max_hp
+  player.invuln is 0
+  coins is list of 8 sprites {image: "coin"}
+  medkits is list of 3 sprites {image: "medkit"}
+
+run game with update

@@ -5,7 +5,7 @@
 world is {width: 128, height: 112}
 mode is "play"
 score is 0
-gravity is 0.5
+gravity is 0.25
 player is {x: 24, y: 104, image: "hero", dy: 0}
 logs is []
 
@@ -15,18 +15,18 @@ define sound "point" as square from 700 to 1100 over 0.07
 
 when "space" is pressed
   if player.y >= 103
-    if mode is "play" jump player
+    if mode is "play" jump player 3.2
     play sound "hop"
 when mouse is clicked
   if player.y >= 103
-    if mode is "play" jump player
+    if mode is "play" jump player 3.2
     play sound "hop"
 
 to update
   if mode is not "play" return
 
-  -- a new log every ~1.2s
-  every 70 frames
+  -- a new log (slower pace, wider spacing)
+  every 140 frames
     log is sprite
     log.x is 128
     log.y is 104
@@ -35,7 +35,7 @@ to update
     add log to logs
 
   each log in logs
-    log.x is log.x - 1.6
+    log.x is log.x - 0.8
     -- score once it passes you
     if log.x + 8 < player.x and log.passed is no
       log.passed is yes

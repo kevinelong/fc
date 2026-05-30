@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fc · Command Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a14;color:#cdd6e0;font-family:'Share Tech Mono',monospace;line-height:1.5}
+  a{color:#c8a96e}
+  header{padding:16px 18px 10px;border-bottom:1px solid #23233a}
+  header h1{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.16em;color:#c8a96e}
+  header p{font-size:12px;color:#8a8aa8;margin-top:2px}
+  header .links{font-size:12px;margin-top:6px}
+  /* sticky run stage */
+  #stage-wrap{position:sticky;top:0;z-index:10;background:#05050c;border-bottom:1px solid #23233a;
+    display:flex;gap:12px;align-items:center;justify-content:center;padding:10px}
+  #stage{width:200px;height:200px;border:1px solid #2a2a4a;border-radius:6px;background:#000;flex:0 0 auto}
+  #stage-meta{font-size:12px;color:#8a8aa8;max-width:360px}
+  #stage-meta b{color:#ffec27}
+  #stage-meta code{color:#9fe}
+  main{max-width:860px;margin:0 auto;padding:16px 14px 60px}
+  .cat{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.14em;color:#ffec27;margin:22px 0 8px;border-bottom:1px solid #23233a;padding-bottom:3px}
+  .cmd{background:#11111e;border:1px solid #23233a;border-radius:6px;padding:10px 12px;margin:10px 0}
+  .cmd .nm{font-size:15px;color:#fff;font-weight:bold}
+  .cmd .desc{font-size:12.5px;color:#9aa3b2;margin:2px 0 7px}
+  .cmd pre{background:#070710;border:1px solid #1d1d30;border-radius:4px;padding:9px 11px;font-size:12.5px;color:#a8d8ea;white-space:pre;overflow:auto;line-height:1.55}
+  .cmd .run{margin-top:7px;font:12px 'Share Tech Mono',monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:6px 14px;cursor:pointer;letter-spacing:.06em}
+  .cmd .run:hover{background:#163a16}
+  footer{text-align:center;color:#6a6a8a;font-size:11px;padding:24px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>FANTASY COMPUTER · COMMAND REFERENCE</h1>
+  <p>Every example is a tiny working program. Tap <b style="color:#9f9">▶ Run</b> to execute it in the stage above — describe what you want, type it, it runs.</p>
+  <p class="links"><a href="/">← back to the editor</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a></p>
+</header>
+<div id="stage-wrap">
+  <iframe id="stage" title="run stage"></iframe>
+  <div id="stage-meta"><b id="stage-name">Stage</b><br><span id="stage-desc">Tap ▶ Run on any command to see it here.</span></div>
+</div>
+<main id="ref"></main>
+<footer>fantasy computer · plain-English game coding · codeonline.io/docs</footer>
+<script>
+// [category, name, description, example program]
+const COMMANDS = [
+  ["Drawing","clear screen","Fill the whole screen with a color.","clear screen to dark blue"],
+  ["Drawing","draw circle","A filled circle at x, y with a radius.","clear screen to black\ndraw circle at 64, 64 size 22 in red"],
+  ["Drawing","draw rect","A filled rectangle (x, y, then width, height).","clear screen to black\ndraw rect at 36, 44 size 56, 36 in green"],
+  ["Drawing","draw line","A straight line between two points.","clear screen to black\ndraw line from 8, 8 to 120, 120 in yellow"],
+  ["Drawing","draw sprite","One of the ~50 built-in 8x8 sprites, by name.","clear screen to dark green\ndraw sprite \"hero\" at 60, 56"],
+  ["Drawing","write","Text. Put a {variable} in the string to show its value.","score is 42\nclear screen to dark blue\nwrite \"score {score}\" at 26, 58 in white"],
+  ["Drawing","pset","Set a single pixel.","clear screen to black\nrepeat 90 times\n  pset random 128, random 128 in white"],
+
+  ["Values & math","is (assign)","Store a value in a name.","hero is \"crow\"\nclear screen to black\nwrite \"hi {hero}\" at 28, 58 in pink"],
+  ["Values & math","add to","Increase a number (or push onto a list).","score is 0\nadd 10 to score\nadd 5 to score\nclear screen to black\nwrite \"{score}\" at 56, 58 in yellow"],
+  ["Values & math","reverse","Flip a number's sign (handy for bounces).","x is 7\nreverse x\nclear screen to black\nwrite \"x is {x}\" at 30, 58 in white"],
+  ["Values & math","random","A random whole number from 0 to N.","clear screen to black\nrepeat 45 times\n  draw circle at random 128, random 128 size 3 in random color"],
+
+  ["Decisions & loops","if","Do something only when a condition is true.","score is 100\nclear screen to black\nif score is 100 write \"you win!\" at 24, 58 in yellow"],
+  ["Decisions & loops","repeat with","A counted loop with a counter variable.","clear screen to black\nrepeat with i from 1 to 8\n  draw circle at i * 14, 64 size 5 in pink"],
+  ["Decisions & loops","each ... in","Loop over every item in a list.","coins is list of 6 sprites {image: \"coin\"}\nclear screen to dark green\neach c in coins draw sprite c.image at c.x, c.y"],
+  ["Decisions & loops","every N frames","Run something on a timed cadence.","n is 0\nto update\n  every 30 frames add 1 to n\nto draw\n  clear screen to black\n  write \"ticks {n}\" at 30, 58 in white\nrun game with update and draw"],
+
+  ["Functions","to NAME / call","Define a reusable action, then call it by name.","to box at x, y\n  draw rect at x, y size 12, 12 in orange\nclear screen to black\nbox at 30, 40\nbox at 82, 80"],
+
+  ["Sprites","list of N sprites","Make N sprites, auto-placed without overlap.","trees is list of 10 sprites {image: \"tree\"}\nclear screen to dark green\neach t in trees draw sprite t.image at t.x, t.y"],
+  ["Sprites","sprite \"name\" is","Define your own 8x8 sprite (64 hex digits).","sprite \"blob\" is \"0009900000999900099999900999999009999990099999900099990000099000\"\nclear screen to black\ndraw sprite \"blob\" at 60, 56"],
+  ["Sprites","centered sprite + move","A player you can walk with the arrows / D-pad.","player is centered sprite {image: \"hero\", speed: 1}\nto update\n  move player with arrows\nto draw\n  clear screen to dark blue\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
+
+  ["Sound","play sound","Play one of 18 built-in sound effects.","to update\nwhen \"space\" is pressed play sound \"coin\"\nto draw\n  clear screen to dark blue\n  write \"press space\" at 22, 56 in white\nrun game with update and draw"],
+  ["Sound","define sound","Make your own effect: a wave sliding between pitches.","define sound \"zap\" as square from 900 to 100 over 0.12\nwhen \"space\" is pressed play sound \"zap\"\nto update\nto draw\n  clear screen to black\n  write \"press space\" at 22, 56 in white\nrun game with update and draw"],
+  ["Sound","play music","Loop a built-in tune (theme or chill).","when \"space\" is pressed play music \"theme\"\nto update\nto draw\n  clear screen to dark purple\n  write \"press space\" at 22, 56 in white\nrun game with update and draw"],
+
+  ["Input","when \"key\" is pressed","React once when a key is pressed.","taps is 0\nwhen \"space\" is pressed add 1 to taps\nto update\nto draw\n  clear screen to black\n  write \"presses {taps}\" at 22, 56 in white\nrun game with update and draw"],
+  ["Input","if key (held)","Check a held key every frame inside update.","box is {x: 60, y: 56}\nto update\n  if key \"left\" remove 2 from box.x\n  if key \"right\" add 2 to box.x\nto draw\n  clear screen to dark blue\n  draw rect at box.x, box.y size 10, 10 in orange\nrun game with update and draw"],
+  ["Input","when mouse is clicked","React to a tap / click (mouse.x, mouse.y).","to update\nwhen mouse is clicked draw circle at mouse.x, mouse.y size 6 in random color\nto draw\nrun game with update and draw"],
+
+  ["Collision","pickups + when picks up","Tag a list as pickups; collect on contact.","score is 0\nplayer is centered sprite {image: \"hero\", speed: 1}\ncoins is list of 6 sprites {image: \"coin\"}\ncoins are pickups\nwhen player picks up any coin\n  add 1 to score\n  play sound \"pickup\"\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  each c in coins draw sprite c.image at c.x, c.y\n  draw sprite player.image at player.x, player.y\n  write \"coins {score}\" at 2, 2 in white on hud\nrun game with update and draw"],
+  ["Collision","solid","Tag a list as solid so the player can't pass.","player is centered sprite {image: \"hero\", speed: 1}\nwalls is list of 9 sprites {image: \"brick\"}\nwalls are solid\nto update\n  move player with arrows\nto draw\n  clear screen to dark gray\n  each w in walls draw sprite w.image at w.x, w.y\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
+
+  ["Motion","gravity + jump","Make the player fall; jump gives an upward push.","player is {x: 60, y: 20, image: \"ship\", dy: 0}\ngravity is 0.4\nwhen \"space\" is pressed jump player\nto update\nto draw\n  clear screen to dark blue\n  draw sprite player.image at player.x, player.y\n  write \"space = jump\" at 16, 4 in white on hud\nrun game with update and draw"],
+
+  ["World & screens","world + follow camera","A world bigger than the screen; camera follows.","world is {width: 256, height: 192}\nplayer is centered sprite {image: \"hero\", speed: 1}\ntrees is list of 16 sprites {image: \"tree\"}\nfollow player with camera\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  each t in trees draw sprite t.image at t.x, t.y\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
+  ["World & screens","screens + button","Menus: one function per screen, with buttons.","mode is \"title\"\nto update\nto screen title\n  clear screen to dark blue\n  write \"MY GAME\" at 34, 24 in yellow on hud\n  show button \"play\" at 44, 56\nto screen play\n  clear screen to dark green\n  write \"playing!\" at 34, 50 in white on hud\nwhen button \"play\" is clicked go to play\nrun game with update"],
+
+  ["Drawing","on hud","Draw in screen-space, ignoring the camera (for HUDs).","world is {width: 256, height: 192}\nplayer is centered sprite {image: \"hero\", speed: 1}\nfollow player with camera\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  draw sprite player.image at player.x, player.y\n  write \"always here\" at 2, 2 in yellow on hud\nrun game with update and draw"],
+  ["Drawing","show meter","A bar that fills to a fraction (e.g. health).","clear screen to black\nshow meter 7 of 10 at 22, 52 size 84, 10 in green"],
+
+  ["Values & math","remove from","Decrease a number (or remove an item from a list).","lives is 3\nremove 1 from lives\nclear screen to black\nwrite \"lives {lives}\" at 26, 58 in red"],
+  ["Values & math","toggle","Flip a yes/no value (or 0/1).","on is no\ntoggle on\nclear screen to black\nwrite \"on is {on}\" at 26, 58 in green"],
+  ["Values & math","double / halve","Multiply or divide a number by two.","n is 10\ndouble n\nhalve n\nhalve n\nclear screen to black\nwrite \"n is {n}\" at 32, 58 in yellow"],
+  ["Values & math","negative numbers","Write negatives directly with a minus sign.","x is -8\nclear screen to black\nwrite \"x is {x}\" at 30, 58 in white"],
+  ["Values & math","mod","Remainder after division (great for grids/wrapping).","clear screen to black\nrepeat with i from 1 to 24\n  c is i mod 4\n  draw circle at i * 5, c * 18 + 24 size 3 in pink"],
+
+  ["Decisions & loops","repeat N times","Loop a fixed number of times, no counter needed.","clear screen to black\nrepeat 6 times\n  draw circle at random 128, random 128 size 8 in orange"],
+  ["Decisions & loops","comparisons","Test with is not, and >, <, >=, <=.","hp is 3\nclear screen to black\nif hp is not 0 write \"alive\" at 42, 50 in green\nif hp < 5 write \"careful\" at 34, 64 in orange"],
+  ["Decisions & loops","and / or / not","Combine or negate conditions.","x is 5\nclear screen to black\nif x > 0 and x < 10 write \"in range\" at 30, 50 in white\nif not x write \"zero\" at 44, 64 in red"],
+  ["Decisions & loops","between A and B","Inclusive range test.","score is 30\nclear screen to black\nif score is between 0 and 50 write \"low score\" at 26, 58 in yellow"],
+  ["Decisions & loops","is in [list]","Membership test against a list.","pick is \"red\"\nclear screen to black\nif pick is in [red, blue, green] write \"primary!\" at 28, 58 in pink"],
+  ["Decisions & loops","repeat while / until","Loop while (or until) a condition holds.","ammo is 5\nfired is 0\nrepeat while ammo\n  add 1 to fired\n  remove 1 from ammo\nclear screen to black\nwrite \"fired {fired}\" at 28, 58 in white"],
+  ["Decisions & loops","any / no","Quantify a collection: is there any, are there none.","coins is list of 3 sprites {image: \"coin\"}\nclear screen to black\nif coins write \"have coins\" at 26, 48 in yellow\nempty is []\nif no empty write \"empty is empty\" at 16, 64 in pink"],
+  ["Decisions & loops","probability words","Plain-English chance: always / likely / maybe / rarely.","clear screen to black\nrepeat with i from 1 to 40\n  maybe draw circle at i * 3, 64 size 2 in white"],
+  ["Decisions & loops","forever","An endless loop (capped when run outside a game).","clear screen to black\nforever\n  draw circle at random 128, random 128 size 2 in random color"],
+
+  ["Functions","return","Leave a function early.","to grade at n\n  if n < 60 return\n  draw circle at 64, 64 size 22 in green\nclear screen to black\ngrade at 80"],
+
+  ["Lists","add / remove (list)","Push onto and pull out of a list.","names is []\nadd \"ada\" to names\nadd \"max\" to names\nremove \"ada\" from names\nn is count of names\nclear screen to black\nwrite \"left {n}\" at 30, 58 in white"],
+  ["Lists","item N of","Get the Nth item (counting from 1).","stuff is [\"sword\", \"shield\", \"potion\"]\npick is item 2 of stuff\nclear screen to black\nwrite \"{pick}\" at 36, 58 in yellow"],
+  ["Lists","count of / the number of","How many items are in a list.","coins is list of 7 sprites {image: \"coin\"}\nn is the number of coins\nclear screen to black\nwrite \"coins {n}\" at 28, 58 in yellow"],
+  ["Lists","each ... where","Loop over only the items that match a filter.","slimes is list of 8 sprites {image: \"slime\"}\nclear screen to dark green\neach s in slimes where s.x > 64 draw sprite s.image at s.x, s.y"],
+
+  ["Sound","stop music","Stop the looping tune.","when \"space\" is pressed play music \"theme\"\nwhen \"enter\" is pressed stop music\nto update\nto draw\n  clear screen to dark purple\n  write \"space=play enter=stop\" at 6, 56 in white\nrun game with update and draw"],
+  ["Sound","song","Define a step-sequencer tune, then play it.","song \"tune\" at 120 bpm \"#...#...\" \"..#...#.\" \"....#...\"\nwhen \"space\" is pressed play music \"tune\"\nto update\nto draw\n  clear screen to dark purple\n  write \"press space\" at 22, 56 in white\nrun game with update and draw"],
+
+  ["Input","when key \"X\" is pressed","React to a specific letter or digit key.","hits is 0\nwhen key \"x\" is pressed add 1 to hits\nto update\nto draw\n  clear screen to black\n  write \"x pressed {hits}\" at 14, 56 in white\nrun game with update and draw"],
+
+  ["Collision","hostile + when hits","Tag enemies hostile; react when the player touches one.","player is centered sprite {image: \"hero\", hp: 3, speed: 1}\nenemies is list of 5 sprites {image: \"slime\"}\nenemies are hostile\nwhen player hits any enemy\n  damage player 1\n  play sound \"hurt\"\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  each e in enemies draw sprite e.image at e.x, e.y\n  draw sprite player.image at player.x, player.y\n  write \"hp {player.hp}\" at 2, 2 in red on hud\nrun game with update and draw"],
+  ["Collision","deadly","Tag a list as deadly — touching it costs 1 hp.","player is centered sprite {image: \"hero\", hp: 3, speed: 1}\nspikes is list of 6 sprites {image: \"bomb\"}\nspikes are deadly\nto update\n  move player with arrows\nto draw\n  clear screen to dark gray\n  each s in spikes draw sprite s.image at s.x, s.y\n  draw sprite player.image at player.x, player.y\n  write \"hp {player.hp}\" at 2, 2 in red on hud\nrun game with update and draw"],
+  ["Collision","knock away","Push one thing away from another (knockback).","player is centered sprite {image: \"hero\", speed: 1}\nenemies is list of 4 sprites {image: \"slime\"}\nenemies are hostile\nwhen player hits any enemy\n  knock player away from enemy distance 16\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  each e in enemies draw sprite e.image at e.x, e.y\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
+  ["Collision","damage / heal","Subtract from or restore an hp value.","player is {hp: 5, max_hp: 6}\ndamage player 2\nheal player 1\nclear screen to black\nwrite \"hp {player.hp}\" at 28, 58 in red"],
+
+  ["World & screens","go to / go back","Switch screens; go back returns to the previous one.","mode is \"home\"\nto update\nto screen home\n  clear screen to dark blue\n  write \"HOME\" at 46, 26 in yellow on hud\n  show button \"options\" at 36, 56\nto screen options\n  clear screen to dark gray\n  write \"OPTIONS\" at 36, 30 in white on hud\n  show button \"back\" at 46, 62\nwhen button \"options\" is clicked go to options\nwhen button \"back\" is clicked go back\nrun game with update"],
+];
+
+const enc = code => '/?embed=1&code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
+const stage = document.getElementById('stage'), sName = document.getElementById('stage-name'), sDesc = document.getElementById('stage-desc');
+function runExample(name, desc, code){ stage.src = enc(code); sName.textContent = name; sDesc.innerHTML = desc; window.scrollTo({top:0, behavior:'smooth'}); }
+
+const ref = document.getElementById('ref');
+// bucket by category so entries can be listed in any order
+const buckets = {};
+COMMANDS.forEach(c => { (buckets[c[0]] = buckets[c[0]] || []).push(c); });
+const ORDER = ["Drawing","Values & math","Decisions & loops","Functions","Lists","Sprites","Sound","Input","Collision","Motion","World & screens"];
+const cats = ORDER.filter(c => buckets[c]).concat(Object.keys(buckets).filter(c => !ORDER.includes(c)));
+cats.forEach(cat => {
+  const h = document.createElement('div'); h.className='cat'; h.textContent = cat; ref.appendChild(h);
+  buckets[cat].forEach(([c, name, desc, code]) => {
+    const card = document.createElement('div'); card.className = 'cmd';
+    card.innerHTML = `<div class="nm">${name.replace(/</g,'&lt;')}</div><div class="desc">${desc.replace(/</g,'&lt;')}</div>`;
+    const pre = document.createElement('pre'); pre.textContent = code; card.appendChild(pre);
+    const btn = document.createElement('button'); btn.className='run'; btn.textContent='▶ Run';
+    btn.onclick = () => runExample(name, desc, code);
+    card.appendChild(btn);
+    ref.appendChild(card);
+  });
+});
+// preload the stage with the first example
+runExample(COMMANDS[0][1], COMMANDS[0][2], COMMANDS[0][3]);
+</script>
+</body>
+</html>

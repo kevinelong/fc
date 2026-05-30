@@ -1,4 +1,4 @@
--- PONG  ·  left paddle: W / S    right paddle: UP / DOWN
+-- PONG  ·  your paddle: UP / DOWN (or the D-pad).  beat the computer.
 -- Click the screen first so it hears the keys.
 
 mode is "play"
@@ -6,23 +6,27 @@ p1 is 52
 p2 is 52
 score1 is 0
 score2 is 0
-ball is {x: 64, y: 64, dx: 1.4, dy: 1}
+ball is {x: 64, y: 64, dx: 0.7, dy: 0.5}
 
 define sound "bounce" as square from 420 to 720 over 0.05
 define sound "point" as square from 300 to 80 over 0.25
 
 to update
-  -- paddles (held keys)
-  if key "w" remove 3 from p1
-  if key "s" add 3 to p1
-  if key "up" remove 3 from p2
-  if key "down" add 3 to p2
+  -- your paddle (left): up / down  (also W / S)
+  if key "up" remove 2 from p1
+  if key "w" remove 2 from p1
+  if key "down" add 2 to p1
+  if key "s" add 2 to p1
   if p1 < 0 p1 is 0
   if p1 > 104 p1 is 104
+
+  -- computer paddle (right): drifts toward the ball, a touch slow so it's beatable
+  if ball.y > p2 + 14 add 1 to p2
+  if ball.y < p2 + 10 remove 1 from p2
   if p2 < 0 p2 is 0
   if p2 > 104 p2 is 104
 
-  -- move the ball
+  -- move the ball (half speed)
   ball.x is ball.x + ball.dx
   ball.y is ball.y + ball.dy
 
@@ -48,13 +52,13 @@ to update
     play sound "point"
     ball.x is 64
     ball.y is 64
-    ball.dx is 1.4
+    ball.dx is 0.7
   if ball.x > 128
     add 1 to score1
     play sound "point"
     ball.x is 64
     ball.y is 64
-    ball.dx is -1.4
+    ball.dx is -0.7
 
 to draw
   clear screen to black
