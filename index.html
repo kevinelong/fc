@@ -84,10 +84,29 @@ canvas {
 /* On-screen gamepad: hidden by default, shown on coarse-pointer (touch) devices.
    Add ?gamepad to the URL to force-show on desktop for testing. */
 #gamepad { display: none; }
-@media (hover: none) and (pointer: coarse) { #gamepad { display: contents; } }
 body.force-gamepad #gamepad { display: contents; }
-body.touch #gamepad { display: contents; }            /* JS-detected touch — reliable */
-body.editing:not(.touch) #gamepad { display: none; }  /* on touch, keep it visible while editing */
+body.touch.playing #gamepad { display: contents; }    /* gamepad shows only while a game is playing */
+
+/* Mobile screens (touch only): CODE (editor + RUN) when not playing,
+   PLAY (game + gamepad + EDIT) when playing. Desktop is unaffected. */
+#run-btn, #edit-btn { display: none; }
+body.touch:not(.playing) #canvas-wrap { display: none; }
+body.touch:not(.playing) #run-btn {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 200;
+  font: 18px 'Bebas Neue', sans-serif; letter-spacing: .14em;
+  background: #0d3b0d; color: #5dff5d; border: 1px solid #2fae2f;
+  border-radius: 8px; padding: 12px 38px; cursor: pointer;
+  box-shadow: 0 0 16px rgba(0,255,60,.3);
+}
+body.touch.playing #editor-wrap { display: none; }
+body.touch.playing #edit-btn {
+  display: block; position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 200;
+  font: 13px 'Share Tech Mono', monospace; letter-spacing: .1em;
+  background: rgba(20,20,20,.82); color: #c8a96e; border: 1px solid #5a4a28;
+  border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
 
 #dpad, #actions {
   position: fixed;
@@ -173,6 +192,8 @@ body.editing:not(.touch) #gamepad { display: none; }  /* on touch, keep it visib
   <button type="button" id="forge-close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <iframe id="forge-frame" title="fc creation tool" style="width:100%;height:100%;border:0;display:block"></iframe>
 </div>
+<button type="button" id="run-btn">&#9654; RUN</button>
+<button type="button" id="edit-btn">&#9998; EDIT</button>
 <div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
   <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:760px;margin:0 auto">
@@ -3973,9 +3994,17 @@ run game with update`;
     if (!v) return;
     fetch('examples/' + v + '.fc')
       .then(r => r.text())
-      .then(src => { editor.value = src; run(src); })
+      .then(src => { editor.value = src; run(src); setPlaying(true); })
       .catch(() => { errorsDiv.textContent = "Couldn't load example (try the live site, not a local file)."; });
   };
+
+  // --- mobile CODE/PLAY screen toggle (no-op styling-wise on desktop) ---
+  function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
+  const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
+  if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+  if (editBtn) editBtn.onclick = () => { setPlaying(false); editor.focus(); };
+  // on touch, a game auto-runs on load, so start on the PLAY screen
+  if ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0) setPlaying(true);
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
   const STARTERS = {
@@ -4048,7 +4077,7 @@ run game with update`,
     btn.onclick = () => {
       const s = STARTERS[btn.dataset.k];
       if (!s) return;
-      editor.value = s; helpOverlay.style.display = 'none'; run(s); editor.focus();
+      editor.value = s; helpOverlay.style.display = 'none'; run(s); setPlaying(true);
     };
   });
   window.addEventListener('message', e => {
