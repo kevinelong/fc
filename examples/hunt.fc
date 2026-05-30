@@ -1,0 +1,154 @@
+-- HUNT  ·  multiplayer maze deathmatch (a tiny BSD "hunt" clone)
+-- Open on two phones/tabs. Move with arrows / D-pad, shoot with SPACE / A.
+-- Tag others with your shot to score a frag; if you're hit you respawn.
+-- Click the screen first so it hears the keys.
+
+join game "hunt" room "arena"
+
+spd is 1.4
+me is {x: 12, y: 12, dx: 1, dy: 0, alive: yes, frags: 0, bx: 0, by: 0, bon: no, kx: 0, ky: 0, kon: no, ktimer: 0, dead: 0}
+
+-- the maze: a border plus some interior blocks (all collide the same way).
+-- built one per line because list literals are single-line in fc.
+walls is []
+add {x: 0, y: 0, w: 128, h: 5} to walls
+add {x: 0, y: 123, w: 128, h: 5} to walls
+add {x: 0, y: 0, w: 5, h: 128} to walls
+add {x: 123, y: 0, w: 5, h: 128} to walls
+add {x: 26, y: 26, w: 28, h: 7} to walls
+add {x: 74, y: 26, w: 28, h: 7} to walls
+add {x: 26, y: 95, w: 28, h: 7} to walls
+add {x: 74, y: 95, w: 28, h: 7} to walls
+add {x: 60, y: 40, w: 8, h: 48} to walls
+
+define sound "shoot" as square from 900 to 200 over 0.08
+define sound "frag" as noise from 1200 to 90 over 0.3
+
+when "space" is pressed
+  if me.alive
+    if me.bon is no
+      me.bx is me.x + 2
+      me.by is me.y + 2
+      me.bdx is me.dx * 2
+      me.bdy is me.dy * 2
+      me.bon is yes
+      play sound "shoot"
+
+to update
+  -- kill-mark broadcast window: when I tag someone I flag it for a few frames
+  -- so the victim reliably hears about it (positions alone would tunnel).
+  if me.ktimer > 0
+    me.kon is yes
+    me.ktimer is me.ktimer - 1
+  else
+    me.kon is no
+
+  if me.alive
+    vx is 0
+    vy is 0
+    if key "right"
+      vx is spd
+      me.dx is 1
+      me.dy is 0
+    if key "left"
+      vx is 0 - spd
+      me.dx is -1
+      me.dy is 0
+    if key "up"
+      vy is 0 - spd
+      me.dx is 0
+      me.dy is -1
+    if key "down"
+      vy is spd
+      me.dx is 0
+      me.dy is 1
+
+    -- move on X, blocked by walls
+    if vx is not 0
+      nx is me.x + vx
+      hitx is 0
+      each w in walls
+        if nx + 6 > w.x and nx < w.x + w.w and me.y + 6 > w.y and me.y < w.y + w.h
+          hitx is 1
+      if hitx is 0
+        me.x is nx
+
+    -- move on Y, blocked by walls
+    if vy is not 0
+      ny is me.y + vy
+      hity is 0
+      each w in walls
+        if me.x + 6 > w.x and me.x < w.x + w.w and ny + 6 > w.y and ny < w.y + w.h
+          hity is 1
+      if hity is 0
+        me.y is ny
+
+    -- my bullet flies, dies on walls, frags an enemy it touches
+    if me.bon
+      me.bx is me.bx + me.bdx
+      me.by is me.by + me.bdy
+      each w in walls
+        if me.bx + 2 > w.x and me.bx < w.x + w.w and me.by + 2 > w.y and me.by < w.y + w.h
+          me.bon is no
+      each foe in peers
+        if me.bon
+          if foe.alive
+            if me.bx + 2 > foe.x and me.bx < foe.x + 6 and me.by + 2 > foe.y and me.by < foe.y + 6
+              add 1 to me.frags
+              me.bon is no
+              me.kx is foe.x
+              me.ky is foe.y
+              me.ktimer is 5
+              play sound "frag"
+
+    -- did an enemy's shot tag me? (the shooter announces the hit by position)
+    each foe in peers
+      if foe.kon
+        if foe.kx > me.x - 6 and foe.kx < me.x + 6 and foe.ky > me.y - 6 and foe.ky < me.y + 6
+          me.alive is no
+          me.dead is 90
+          me.bon is no
+          play sound "hurt"
+  else
+    -- waiting to respawn at one of four corners
+    me.dead is me.dead - 1
+    if me.dead <= 0
+      r is random 3
+      me.x is 12
+      me.y is 12
+      if r is 1
+        me.x is 108
+      if r is 2
+        me.y is 108
+      if r is 3
+        me.x is 108
+        me.y is 108
+      me.alive is yes
+
+  every 2 frames
+    broadcast {x: me.x, y: me.y, alive: me.alive, frags: me.frags, bx: me.bx, by: me.by, bon: me.bon, kx: me.kx, ky: me.ky, kon: me.kon}
+
+to draw
+  clear screen to black
+  each w in walls
+    draw rect at w.x, w.y size w.w, w.h in indigo
+
+  -- other hunters (and their shots)
+  each foe in peers
+    if foe.alive
+      draw rect at foe.x, foe.y size 6, 6 in red
+      write "{foe.frags}" at foe.x, foe.y - 7 in white on hud
+    if foe.bon
+      draw rect at foe.bx, foe.by size 2, 2 in orange
+
+  -- me
+  if me.alive
+    draw rect at me.x, me.y size 6, 6 in yellow
+  if me.bon
+    draw rect at me.bx, me.by size 2, 2 in white
+
+  write "you {me.frags}  ·  hunters {the number of peers}" at 4, 2 in green on hud
+  if me.alive is no
+    write "TAGGED - respawning" at 24, 60 in red on hud
+
+run game with update and draw
