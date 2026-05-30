@@ -102,6 +102,12 @@ body.touch.playing #gamepad { display: contents; }    /* gamepad shows only whil
 body.touch #qr-badge { display: none; }
 #qr-badge img { width: 78px; height: 78px; image-rendering: pixelated; display: block; background: #fff; border-radius: 3px; }
 
+/* ?embed — canvas only (for the docs "Run" stage) */
+body.embed #editor-wrap, body.embed #qr-badge, body.embed #credit,
+body.embed #run-btn, body.embed #edit-btn, body.embed #gamepad { display: none !important; }
+body.embed #app { padding: 0; }
+body.embed #canvas-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+
 /* Credit link (desktop, bottom-left) */
 #credit { display: none; }
 @media (hover: hover) and (pointer: fine) {
@@ -243,7 +249,7 @@ body.touch.playing #edit-btn {
       <div><b style="color:#ffec27">SCREENS &amp; BUTTONS</b><br>mode is "title"<br>to screen title ...<br>show button "play" at 40, 50<br>when button "play" is clicked go to play<br>go to X&nbsp;&middot;&nbsp;go back</div>
       <div><b style="color:#ffec27">THE GAME LOOP</b><br>to update ...&nbsp;(runs each frame)<br>to draw ...&nbsp;(draws each frame)<br>run game with update and draw</div>
     </div>
-    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full reference &amp; tutorials: <b style="color:#c8a96e">codeonline.io/docs</b><br>Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener" style="color:#c8a96e">Kevin Long</a> (LinkedIn).</div>
+    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full command reference (with runnable examples): <a href="/docs/" style="color:#c8a96e">codeonline.io/docs</a><br>Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener" style="color:#c8a96e">Kevin Long</a> (LinkedIn).</div>
   </div>
 </div>
 <div id="gamepad" aria-label="on-screen controls">
@@ -4118,6 +4124,17 @@ run game with update`,
     editor.selectionStart = editor.selectionEnd = caret;
     closeForge(); editor.focus(); run(editor.value);
   });
+})();
+
+// URL params: ?embed (canvas-only, for embedding) and ?code=<base64> (load+run a snippet)
+(function applyUrlParams() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('embed')) document.body.classList.add('embed');
+  const code = params.get('code');
+  if (code) {
+    try { editor.value = decodeURIComponent(escape(atob(code))); }
+    catch (e) { try { editor.value = atob(code); } catch (_) {} }
+  }
 })();
 
 setTimeout(() => run(editor.value), 100);
