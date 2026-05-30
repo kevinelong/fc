@@ -87,6 +87,21 @@ canvas {
 body.force-gamepad #gamepad { display: contents; }
 body.touch.playing #gamepad { display: contents; }    /* gamepad shows only while a game is playing */
 
+/* "Scan to play on your phone" QR badge — desktop only */
+#qr-badge { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  #qr-badge {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    position: fixed; right: 10px; bottom: 10px; z-index: 150;
+    background: rgba(8,8,8,.72); border: 1px solid #2a2a4a; border-radius: 6px;
+    padding: 7px; opacity: .5; transition: opacity .2s;
+    font: 9px 'Share Tech Mono', monospace; color: #8a8aa8; letter-spacing: .06em; text-align: center;
+  }
+  #qr-badge:hover { opacity: 1; }
+}
+body.touch #qr-badge { display: none; }
+#qr-badge img { width: 78px; height: 78px; image-rendering: pixelated; display: block; background: #fff; border-radius: 3px; }
+
 /* Mobile screens (touch only): CODE (editor + RUN) when not playing,
    PLAY (game + gamepad + EDIT) when playing. Desktop is unaffected. */
 #run-btn, #edit-btn { display: none; }
@@ -194,6 +209,7 @@ body.touch.playing #edit-btn {
 </div>
 <button type="button" id="run-btn">&#9654; RUN</button>
 <button type="button" id="edit-btn">&#9998; EDIT</button>
+<div id="qr-badge"><img alt="QR to codeonline.io" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJEAAACRAQMAAAD5FshgAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEhSURBVEiJ1ZUxDsMgDEWNMjDmCBwlF6tEpF4MbsIRGBmiuN8OUdV2tYd6Sh6D8ffHJv4N+ktWiChW3ilyx2fwYBWZYqFHAsssvw6sU9KUzP0hN/BjuY3NlxVaOLIfE/0qP1usn5oasssHHT2qX96wYxpS4LfHDVmh3KAfysIN0ggejPlIg3AwQl+aD6tg2iORrt0+sGVS26BVH2dub/0s2bkeFM91T2jUMr1mzeRJiogk+vHU1JiJnyEdGhVweutny+TFo6I94WCn6XFjVqQ952Vq+HnzYBpqAXHd7JEx0/lyklgAQ8aHXXNS5r02anNhMu/hZ8IAoDuvC8P+xeM8Em1uDO2hK3lwYaof/ByLDAD2YHNvZd2N7WM3mrHf+Ef2Ah6YL53ELqZXAAAAAElFTkSuQmCC"><span>scan to play<br>on your phone</span></div>
 <div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
   <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:760px;margin:0 auto">
