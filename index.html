@@ -152,6 +152,7 @@ body.editing #gamepad { display: none; }
     <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px">
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
+      <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
         <option value="pong">Pong</option>
@@ -169,6 +170,32 @@ body.editing #gamepad { display: none; }
 <div id="forge-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#000">
   <button type="button" id="forge-close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <iframe id="forge-frame" title="fc creation tool" style="width:100%;height:100%;border:0;display:block"></iframe>
+</div>
+<div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
+  <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.18em">FANTASY COMPUTER &mdash; QUICK HELP</div>
+    <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">describe what you want, type it, it runs. tap a starter to load it.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="help-starters">
+      <button class="hstart" data-k="hero" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; moving hero</button>
+      <button class="hstart" data-k="coins" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; collect coins</button>
+      <button class="hstart" data-k="bounce" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; bouncing ball + sound</button>
+      <button class="hstart" data-k="screens" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; title + play screen</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;font-size:12.5px;line-height:1.7">
+      <div><b style="color:#ffec27">MOVE &amp; DRAW</b><br>move player with arrows<br>draw sprite "hero" at x, y<br>draw circle at 64, 64 size 20 in red<br>draw rect at 10, 10 size 8, 8 in green<br>write "score {score}" at 2, 2 in white on hud<br>clear screen to dark blue</div>
+      <div><b style="color:#ffec27">VALUES &amp; MATH</b><br>score is 0<br>add 10 to score<br>reverse ball.dx&nbsp;&nbsp;(flip sign)<br>x is -8&nbsp;&nbsp;(negatives ok)<br>if score is 100 ...<br>if x &gt; 10 and y &lt; 5 ...</div>
+      <div><b style="color:#ffec27">LOOPS &amp; FUNCTIONS</b><br>repeat 10 times ...<br>repeat with i from 1 to 5 ...<br>each enemy in enemies ...<br>every 30 frames ...<br>to NAME ... &nbsp;(define)<br>NAME &nbsp;(call it)</div>
+      <div><b style="color:#ffec27">SPRITES</b><br>player is centered sprite {image: "hero"}<br>coins is list of 8 sprites {image: "coin"}<br>sprite "blob" is "&lt;64 hex&gt;"&nbsp;(or use &#129529;)<br>draw sprite player.image at player.x, player.y</div>
+      <div><b style="color:#ffec27">SOUND</b><br>play sound "pickup"&nbsp;(18 built in)<br>play music "theme"&nbsp;&middot;&nbsp;stop music<br>define sound "zap" as square from 900 to 100 over 0.1<br>song "tune" at 120 bpm "#..." ... &nbsp;(or use &#9834;)</div>
+      <div><b style="color:#ffec27">COLLISION</b><br>walls are solid&nbsp;&middot;&nbsp;coins are pickups<br>enemies are hostile&nbsp;&middot;&nbsp;spikes are deadly<br>when player picks up any coin ...<br>when player hits any enemy ...</div>
+      <div><b style="color:#ffec27">MOTION (platformer)</b><br>gravity is 0.4<br>jump player&nbsp;&nbsp;(upward impulse)<br>knock player away from enemy distance 16</div>
+      <div><b style="color:#ffec27">INPUT</b><br>when "space" is pressed ...<br>when mouse is clicked ...<br>if key "left" ...&nbsp;(held)<br>up down left right space enter</div>
+      <div><b style="color:#ffec27">SCREENS &amp; BUTTONS</b><br>mode is "title"<br>to screen title ...<br>show button "play" at 40, 50<br>when button "play" is clicked go to play<br>go to X&nbsp;&middot;&nbsp;go back</div>
+      <div><b style="color:#ffec27">THE GAME LOOP</b><br>to update ...&nbsp;(runs each frame)<br>to draw ...&nbsp;(draws each frame)<br>run game with update and draw</div>
+    </div>
+    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full reference &amp; tutorials: <b style="color:#c8a96e">codeonline.io/docs</b></div>
+  </div>
 </div>
 <div id="gamepad" aria-label="on-screen controls">
   <div id="dpad" role="group" aria-label="direction pad">
@@ -3945,6 +3972,81 @@ run game with update`;
       .then(src => { editor.value = src; run(src); })
       .catch(() => { errorsDiv.textContent = "Couldn't load example (try the live site, not a local file)."; });
   };
+
+  // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
+  const STARTERS = {
+    hero:
+`-- a hero you can walk around
+player is centered sprite {image: "hero", speed: 1}
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  draw sprite player.image at player.x, player.y
+run game with update and draw`,
+    coins:
+`-- walk around and collect coins
+score is 0
+player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+when player picks up any coin
+  add 1 to score
+  play sound "pickup"
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+  write "coins {score}" at 2, 2 in white on hud
+run game with update and draw`,
+    bounce:
+`-- a ball that bounces and beeps
+ball is {x: 64, y: 64, dx: 1.5, dy: 1.2}
+define sound "ping" as square from 500 to 820 over 0.05
+to update
+  ball.x is ball.x + ball.dx
+  ball.y is ball.y + ball.dy
+  if ball.x < 2 or ball.x > 124
+    reverse ball.dx
+    play sound "ping"
+  if ball.y < 2 or ball.y > 124
+    reverse ball.dy
+    play sound "ping"
+to draw
+  clear screen to black
+  draw circle at ball.x, ball.y size 3 in yellow
+run game with update and draw`,
+    screens:
+`-- a title screen and a play screen
+mode is "title"
+to update
+  -- screens do the drawing
+to screen title
+  clear screen to dark blue
+  write "MY GAME" at 36, 24 in yellow on hud
+  show button "play" at 44, 56
+to screen play
+  clear screen to dark green
+  write "playing!" at 34, 50 in white on hud
+  show button "menu" at 44, 90
+when button "play" is clicked go to play
+when button "menu" is clicked go to title
+run game with update`,
+  };
+  const helpOverlay = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('tool-help');
+  if (helpBtn) helpBtn.onclick = () => { helpOverlay.style.display = 'block'; helpOverlay.scrollTop = 0; };
+  const helpClose = document.getElementById('help-close');
+  if (helpClose) helpClose.onclick = () => { helpOverlay.style.display = 'none'; };
+  document.querySelectorAll('.hstart').forEach(btn => {
+    btn.onclick = () => {
+      const s = STARTERS[btn.dataset.k];
+      if (!s) return;
+      editor.value = s; helpOverlay.style.display = 'none'; run(s); editor.focus();
+    };
+  });
   window.addEventListener('message', e => {
     if (!e.data || e.data.type !== 'fc-insert') return;
     const code = String(e.data.code || '').trim();
