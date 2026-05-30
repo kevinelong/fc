@@ -108,6 +108,32 @@ body.embed #run-btn, body.embed #edit-btn, body.embed #gamepad { display: none !
 body.embed #app { padding: 0; }
 body.embed #canvas-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 
+/* --- Launcher (home) screen: a list of games + New Game --- */
+#launcher { display: none; }
+body.home #launcher {
+  display: block; position: fixed; inset: 0; z-index: 200; overflow: auto;
+  background: radial-gradient(circle at 50% -10%, #1c1408, #050505 72%);
+  padding: 34px 18px calc(40px + env(safe-area-inset-bottom, 0px));
+  font-family: 'Share Tech Mono', monospace;
+}
+body.home #app, body.home #gamepad, body.home #run-btn, body.home #edit-btn,
+body.home #qr-badge, body.home #credit { display: none !important; }
+body.embed #launcher { display: none !important; }   /* embed never shows the launcher */
+#lr-head { max-width: 720px; margin: 0 auto 22px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+#lr-title { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: .16em; color: #c8a96e; line-height: 1; }
+#lr-sub { color: #8a7340; font-size: 12px; margin-top: 5px; max-width: 380px; }
+#lr-new { font: 14px 'Share Tech Mono', monospace; background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 11px 17px; cursor: pointer; letter-spacing: .06em; white-space: nowrap; }
+#lr-new:hover { background: #16361a; }
+#lr-grid { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+.lr-tile { background: #161616; border: 1px solid #5a4a28; border-radius: 8px; padding: 18px 12px; cursor: pointer; text-align: center; color: #cbb083; transition: border-color .12s, transform .08s; }
+.lr-tile:hover { border-color: #c8a96e; transform: translateY(-2px); }
+.lr-tile:active { transform: translateY(0); }
+.lr-tile .ic { font-size: 34px; display: block; line-height: 1; margin-bottom: 9px; }
+.lr-tile .nm { font-size: 13px; letter-spacing: .04em; }
+.lr-tile .tag { display: block; font-size: 10px; color: #8a7340; margin-top: 3px; letter-spacing: .05em; }
+#lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
+#lr-foot a { color: #c8a96e; }
+
 /* Credit link (desktop, bottom-left) */
 #credit { display: none; }
 @media (hover: hover) and (pointer: fine) {
@@ -190,6 +216,21 @@ body.touch.playing #edit-btn {
 </style>
 </head>
 <body>
+<div id="launcher">
+  <div id="lr-head">
+    <div>
+      <div id="lr-title">&#9656; fc</div>
+      <div id="lr-sub">fantasy computer &mdash; pick a game to play and read its code, or start your own.</div>
+    </div>
+    <button type="button" id="lr-new">+ New Game</button>
+  </div>
+  <div id="lr-grid"></div>
+  <div id="lr-foot">
+    Open any demo to play it and see exactly how it&rsquo;s made.&nbsp;
+    <a href="/docs/">command reference</a> &middot;
+    <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a>
+  </div>
+</div>
 <div id="app">
   <div id="canvas-wrap">
     <div id="screen-frame">
@@ -199,7 +240,9 @@ body.touch.playing #edit-btn {
     </div>
   </div>
   <div id="editor-wrap">
-    <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px">
+    <div id="tools" style="display:flex;gap:8px;padding:5px 0 3px;flex-wrap:wrap">
+      <button type="button" id="tool-home" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⌂ games</button>
+      <button type="button" id="tool-run" style="font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">▸ run</button>
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
@@ -4098,12 +4141,58 @@ run game with update`;
   };
 
   // --- mobile CODE/PLAY screen toggle (no-op styling-wise on desktop) ---
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
   function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
   const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
   if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
   if (editBtn) editBtn.onclick = () => { setPlaying(false); editor.focus(); };
-  // on touch, a game auto-runs on load, so start on the PLAY screen
-  if ('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0) setPlaying(true);
+
+  // --- Launcher / game library (the home screen) ---
+  const GAMES = [
+    { file: 'coin-quest',     name: 'Coin Quest',     icon: '\u{1F7E1}' },
+    { file: 'pong',           name: 'Pong',           icon: '\u{1F3D3}' },
+    { file: 'snake',          name: 'Snake',          icon: '\u{1F40D}' },
+    { file: 'breakout',       name: 'Breakout',       icon: '\u{1F9F1}' },
+    { file: 'space-invaders', name: 'Space Invaders', icon: '\u{1F47E}' },
+    { file: 'flappy',         name: 'Flappy',         icon: '\u{1F426}' },
+    { file: 'pitfall',        name: 'Pitfall Hop',    icon: '\u{1F334}' },
+    { file: 'mp-dots',        name: 'Dots',           icon: '\u{1F534}', tag: 'multiplayer' },
+  ];
+  const NEW_GAME_STARTER =
+`-- a fresh start — edit this, it runs as you type
+clear screen to dark blue
+write "hello!" at 40, 56 in white on hud
+draw circle at 64, 80 size 10 in yellow`;
+
+  function showHome() {
+    if (window.runtime) { try { runtime.reset(); } catch (_) {} }   // stop the running game
+    document.body.classList.remove('playing');
+    document.body.classList.add('home');
+    window.scrollTo(0, 0);
+  }
+  function openGameView() { document.body.classList.remove('home'); }
+  function loadAndRun(src, play) { editor.value = src; openGameView(); run(src); setPlaying(!!play); }
+  function openGame(g) {
+    fetch('examples/' + g.file + '.fc').then(r => r.text())
+      .then(src => loadAndRun(src, true))
+      .catch(() => { openGameView(); errorsDiv.textContent = "Couldn't load (use the live site, not a local file)."; });
+  }
+  function newGame() { loadAndRun(NEW_GAME_STARTER, false); if (!isTouch) editor.focus(); }
+
+  (function buildLauncher() {
+    const grid = document.getElementById('lr-grid');
+    GAMES.forEach(g => {
+      const t = document.createElement('div');
+      t.className = 'lr-tile';
+      t.innerHTML = '<span class="ic">' + g.icon + '</span><span class="nm">' + g.name + '</span>' +
+                    (g.tag ? '<span class="tag">' + g.tag + '</span>' : '');
+      t.onclick = () => openGame(g);
+      grid.appendChild(t);
+    });
+    document.getElementById('lr-new').onclick = newGame;
+    const homeBtn = document.getElementById('tool-home'); if (homeBtn) homeBtn.onclick = showHome;
+    const runTool = document.getElementById('tool-run'); if (runTool) runTool.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+  })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
   const STARTERS = {
@@ -4191,20 +4280,25 @@ run game with update`,
     editor.selectionStart = editor.selectionEnd = caret;
     closeForge(); editor.focus(); run(editor.value);
   });
+  // --- initial route: launcher by default; ?code / ?embed deep-link straight in ---
+  (function init() {
+    const params = new URLSearchParams(location.search);
+    const embed = params.has('embed');
+    const code = params.get('code');
+    if (embed) document.body.classList.add('embed');
+    if (code) {
+      try { editor.value = decodeURIComponent(escape(atob(code))); }
+      catch (e) { try { editor.value = atob(code); } catch (_) {} }
+    }
+    if (embed || code) {                       // deep link → straight into the game, run it
+      document.body.classList.remove('home');
+      if (isTouch) setPlaying(true);
+      setTimeout(() => run(editor.value), 100);
+    } else {                                   // normal visit → show the launcher, don't auto-run
+      showHome();
+    }
+  })();
 })();
-
-// URL params: ?embed (canvas-only, for embedding) and ?code=<base64> (load+run a snippet)
-(function applyUrlParams() {
-  const params = new URLSearchParams(location.search);
-  if (params.has('embed')) document.body.classList.add('embed');
-  const code = params.get('code');
-  if (code) {
-    try { editor.value = decodeURIComponent(escape(atob(code))); }
-    catch (e) { try { editor.value = atob(code); } catch (_) {} }
-  }
-})();
-
-setTimeout(() => run(editor.value), 100);
 </script>
 </body>
 </html>
