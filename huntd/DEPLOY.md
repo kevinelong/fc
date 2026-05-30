@@ -4,6 +4,7 @@ Generic per-room websocket relay for fc multiplayer. Runs on 127.0.0.1:8090,
 exposed to browsers as `wss://codeonline.io/relay`.
 
 ## Service (Alpine / OpenRC)
+    cd huntd && npm install --omit=dev   # node_modules is gitignored
     doas cp huntd/huntd.openrc /etc/init.d/huntd
     doas chmod +x /etc/init.d/huntd
     doas touch /var/log/huntd.log && doas chown kevin:kevin /var/log/huntd.log

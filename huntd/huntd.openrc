@@ -2,9 +2,9 @@
 name="huntd"
 description="fc multiplayer relay hub (generic websocket broadcaster)"
 command="/usr/bin/node"
-command_args="/home/kevin/fc-hunt/huntd/server.js"
+command_args="/home/kevin/codeonline/huntd/server.js"
 command_user="kevin:kevin"
-directory="/home/kevin/fc-hunt/huntd"
+directory="/home/kevin/codeonline/huntd"
 pidfile="/run/huntd.pid"
 command_background=true
 output_log="/var/log/huntd.log"
