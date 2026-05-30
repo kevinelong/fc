@@ -1112,6 +1112,47 @@ const AUDIO = (function () {
 })();
 
 // ============================================================
+// NET — multiplayer via the huntd relay (wss://<host>/relay).
+//   join game "X" room "Y"   opens a socket (idempotent)
+//   broadcast {...}          sends your latest state
+// The runtime keeps a live `peers` array of everyone else's last state.
+// The relay is a dumb broadcaster — all game logic stays here in fc.
+// ============================================================
+const NET = (function () {
+  let sock = null, key = null, myId = null;
+  const byId = {};        // id -> peer state object
+  const peers = [];       // stable array ref so `each peer in peers` keeps working
+  function rebuild() { peers.length = 0; for (const id in byId) peers.push(byId[id]); }
+  function close() {
+    if (sock) { try { sock.onmessage = null; sock.close(); } catch (_) {} }
+    sock = null; key = null; myId = null;
+    for (const id in byId) delete byId[id]; rebuild();
+  }
+  function join(game, room) {
+    const k = game + '/' + room;
+    if (sock && key === k && sock.readyState <= 1) return;   // same room → keep open
+    close();
+    key = k;
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = proto + '://' + location.host + '/relay?game=' +
+                encodeURIComponent(game) + '&room=' + encodeURIComponent(room);
+    try { sock = new WebSocket(url); } catch (e) { sock = null; return; }
+    sock.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
+      if (m.t === 'welcome') { myId = m.id; }
+      else if (m.t === 'state') {
+        const p = byId[m.id] || (byId[m.id] = { id: m.id });
+        Object.assign(p, m.data || {}); p.id = m.id; rebuild();
+      } else if (m.t === 'leave') { delete byId[m.id]; rebuild(); }
+    };
+  }
+  function broadcast(obj) {
+    if (sock && sock.readyState === 1) { try { sock.send(JSON.stringify(obj)); } catch (_) {} }
+  }
+  return { join, broadcast, close, peers, id() { return myId; } };
+})();
+
+// ============================================================
 // LEXER
 // ============================================================
 function tokenizeLine(line) {
@@ -1391,6 +1432,19 @@ function parse(source) {
       return { type: 'jump', target, force, lineNum };
     }
 
+    // -- join game "X" room "Y"  (open the multiplayer relay socket) --
+    if (first === 'join' && tv(raw[1]) === 'game') {
+      const strs = raw.filter(t => t.type === 'string').map(t => t.value);
+      const game = strs[0] || 'fc';
+      const room = strs[1] || 'lobby';
+      return { type: 'net_join', game, room, lineNum };
+    }
+
+    // -- broadcast {x: player.x, ...}  (send your state to peers) --
+    if (first === 'broadcast' && raw.length >= 2) {
+      return { type: 'broadcast', value: parseExpression(raw.slice(1)), lineNum };
+    }
+
     // -- stop --
     if (first === 'stop' && raw.length === 1) {
       return { type: 'stop', lineNum };
@@ -1641,6 +1695,7 @@ function parse(source) {
     return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset', 'reverse', 'spawn', 'jump',
+      'join', 'broadcast',
       'if', 'repeat', 'each', 'every', 'return', 'restore', 'block', 'knock', 'follow',
       'when', 'else', 'to', 'go', 'face', 'walk'].includes(w);
   }
@@ -2356,6 +2411,7 @@ class Runtime {
     if (this._watchdog) clearInterval(this._watchdog);
     if (this.animFrame) clearInterval(this.animFrame);
     AUDIO.stopMusic();
+    NET.close();   // drop any relay socket; re-opened if the program calls `join`
     this._everyCounters = {};
     for (const k in USER_SPRITES) delete USER_SPRITES[k];   // re-registered on each run
     this.vars = {};
@@ -3037,6 +3093,17 @@ class Runtime {
         case 'jump': {
           const obj = this.getVar(stmt.target);
           if (obj && typeof obj === 'object') obj.dy = -stmt.force;
+          break;
+        }
+
+        case 'net_join':
+          NET.join(stmt.game, stmt.room);
+          this.vars.peers = NET.peers;   // live array, kept fresh by the relay
+          break;
+
+        case 'broadcast': {
+          const data = this.evalExpr(stmt.value);
+          if (data && typeof data === 'object') NET.broadcast(data);
           break;
         }
 
