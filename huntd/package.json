@@ -1,0 +1,10 @@
+{
+  "name": "huntd",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generic per-room WebSocket broadcast relay for fc multiplayer (hunt-clone spike)",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
