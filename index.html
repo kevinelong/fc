@@ -102,6 +102,15 @@ body.touch.playing #gamepad { display: contents; }    /* gamepad shows only whil
 body.touch #qr-badge { display: none; }
 #qr-badge img { width: 78px; height: 78px; image-rendering: pixelated; display: block; background: #fff; border-radius: 3px; }
 
+/* Credit link (desktop, bottom-left) */
+#credit { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  #credit { display: block; position: fixed; left: 10px; bottom: 10px; z-index: 150;
+    font: 10px 'Share Tech Mono', monospace; color: #6a6a8a; text-decoration: none; letter-spacing: .06em; }
+  #credit:hover { color: #c8a96e; text-decoration: underline; }
+}
+body.touch #credit { display: none; }
+
 /* Mobile screens (touch only): CODE (editor + RUN) when not playing,
    PLAY (game + gamepad + EDIT) when playing. Desktop is unaffected. */
 #run-btn, #edit-btn { display: none; }
@@ -209,6 +218,7 @@ body.touch.playing #edit-btn {
 </div>
 <button type="button" id="run-btn">&#9654; RUN</button>
 <button type="button" id="edit-btn">&#9998; EDIT</button>
+<a id="credit" href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">▸ by Kevin Long</a>
 <div id="qr-badge"><img alt="QR to codeonline.io" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJEAAACRAQMAAAD5FshgAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEhSURBVEiJ1ZUxDsMgDEWNMjDmCBwlF6tEpF4MbsIRGBmiuN8OUdV2tYd6Sh6D8ffHJv4N+ktWiChW3ilyx2fwYBWZYqFHAsssvw6sU9KUzP0hN/BjuY3NlxVaOLIfE/0qP1usn5oasssHHT2qX96wYxpS4LfHDVmh3KAfysIN0ggejPlIg3AwQl+aD6tg2iORrt0+sGVS26BVH2dub/0s2bkeFM91T2jUMr1mzeRJiogk+vHU1JiJnyEdGhVweutny+TFo6I94WCn6XFjVqQ952Vq+HnzYBpqAXHd7JEx0/lyklgAQ8aHXXNS5r02anNhMu/hZ8IAoDuvC8P+xeM8Em1uDO2hK3lwYaof/ByLDAD2YHNvZd2N7WM3mrHf+Ef2Ah6YL53ELqZXAAAAAElFTkSuQmCC"><span>scan to play<br>on your phone</span></div>
 <div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
   <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
@@ -233,7 +243,7 @@ body.touch.playing #edit-btn {
       <div><b style="color:#ffec27">SCREENS &amp; BUTTONS</b><br>mode is "title"<br>to screen title ...<br>show button "play" at 40, 50<br>when button "play" is clicked go to play<br>go to X&nbsp;&middot;&nbsp;go back</div>
       <div><b style="color:#ffec27">THE GAME LOOP</b><br>to update ...&nbsp;(runs each frame)<br>to draw ...&nbsp;(draws each frame)<br>run game with update and draw</div>
     </div>
-    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full reference &amp; tutorials: <b style="color:#c8a96e">codeonline.io/docs</b></div>
+    <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full reference &amp; tutorials: <b style="color:#c8a96e">codeonline.io/docs</b><br>Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener" style="color:#c8a96e">Kevin Long</a> (LinkedIn).</div>
   </div>
 </div>
 <div id="gamepad" aria-label="on-screen controls">
