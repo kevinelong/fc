@@ -33,9 +33,9 @@ to update
     dx is 0
     dy is 8
 
-  -- advance one cell every 7 frames
+  -- advance one cell every 14 frames (half speed)
   tick is tick + 1
-  if tick mod 7 is not 0 return
+  if tick mod 14 is not 0 return
 
   nx is hx + dx
   ny is hy + dy
