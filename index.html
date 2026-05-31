@@ -181,7 +181,7 @@ body.touch #credit { display: none; }
 
 /* Mobile screens (touch only): CODE (editor + RUN) when not playing,
    PLAY (game + gamepad + EDIT) when playing. Desktop is unaffected. */
-#run-btn, #edit-btn { display: none; }
+#run-btn, #edit-btn, #back-btn { display: none; }
 body.touch:not(.playing) #canvas-wrap { display: none; }
 body.touch:not(.playing) #run-btn {
   display: flex; align-items: center; justify-content: center;
@@ -197,6 +197,14 @@ body.touch.playing #edit-btn {
   display: block; position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 200;
   font: 13px 'Share Tech Mono', monospace; letter-spacing: .1em;
   background: rgba(20,20,20,.82); color: #c8a96e; border: 1px solid #5a4a28;
+  border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
+/* BACK = leave the game, return to the launcher. Top-left, opposite EDIT,
+   with a distinct steel tint + arrow so it doesn't read like the EDIT button. */
+body.touch.playing #back-btn {
+  display: block; position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 200;
+  font: 13px 'Share Tech Mono', monospace; letter-spacing: .1em;
+  background: rgba(20,20,20,.82); color: #9fb6c8; border: 1px solid #45576a;
   border-radius: 6px; padding: 7px 12px; cursor: pointer;
 }
 
@@ -306,6 +314,7 @@ body.touch.playing #edit-btn {
 </div>
 <button type="button" id="run-btn">&#9654; RUN</button>
 <button type="button" id="edit-btn">&#9998; EDIT</button>
+<button type="button" id="back-btn">&#9664; BACK</button>
 <a id="credit" href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">▸ by Kevin Long</a>
 <div id="qr-badge"><img alt="QR to codeonline.io" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJEAAACRAQMAAAD5FshgAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEhSURBVEiJ1ZUxDsMgDEWNMjDmCBwlF6tEpF4MbsIRGBmiuN8OUdV2tYd6Sh6D8ffHJv4N+ktWiChW3ilyx2fwYBWZYqFHAsssvw6sU9KUzP0hN/BjuY3NlxVaOLIfE/0qP1usn5oasssHHT2qX96wYxpS4LfHDVmh3KAfysIN0ggejPlIg3AwQl+aD6tg2iORrt0+sGVS26BVH2dub/0s2bkeFM91T2jUMr1mzeRJiogk+vHU1JiJnyEdGhVweutny+TFo6I94WCn6XFjVqQ952Vq+HnzYBpqAXHd7JEx0/lyklgAQ8aHXXNS5r02anNhMu/hZ8IAoDuvC8P+xeM8Em1uDO2hK3lwYaof/ByLDAD2YHNvZd2N7WM3mrHf+Ef2Ah6YL53ELqZXAAAAAElFTkSuQmCC"><span>scan to play<br>on your phone</span></div>
 <div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
@@ -4209,6 +4218,8 @@ run game with update`;
   const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
   if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
   if (editBtn) editBtn.onclick = () => { setPlaying(false); editor.focus(); };
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.onclick = () => showHome();   // leave the game, back to the list
 
   // --- Launcher / game library (the home screen) ---
   const GAMES = [
