@@ -157,6 +157,19 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 10px 16px; font: 12px 'Share Tech Mono', monospace; z-index: 400; display: none; }
 #toast.show { display: block; }
 
+#verify-overlay { display: none; position: fixed; inset: 0; z-index: 310; background: rgba(3,3,3,.92); align-items: center; justify-content: center; font-family: 'Share Tech Mono', monospace; }
+#verify-overlay.open { display: flex; }
+#verify-box { background: #121212; border: 1px solid #5a4a28; border-radius: 10px; padding: 26px 24px; max-width: 340px; width: 90%; text-align: center; position: relative; }
+#verify-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: .12em; color: #c8a96e; margin: 0 0 6px; }
+#verify-box p { color: #8a7340; font-size: 12px; margin: 0 0 16px; line-height: 1.5; }
+#verify-code { width: 180px; text-align: center; font: 22px 'Share Tech Mono', monospace; letter-spacing: .4em; padding: 10px; background: #0c0c0c; color: #fff; border: 1px solid #5a4a28; border-radius: 6px; box-sizing: border-box; }
+#verify-submit { display: block; width: 200px; margin: 14px auto 4px; background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 11px; font: 13px 'Share Tech Mono', monospace; cursor: pointer; }
+#verify-submit:hover { background: #16361a; }
+#verify-err { color: #ff6a6a; font-size: 12px; min-height: 15px; margin: 8px 0; }
+#verify-resend { background: none; border: none; color: #c8a96e; font: 12px 'Share Tech Mono', monospace; cursor: pointer; text-decoration: underline; }
+#verify-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: #c8a96e; font: 22px 'Bebas Neue', sans-serif; cursor: pointer; }
+#acct-chip.pending { background: #2a1c0c; color: #ffcf6a; border-color: #7a5a1c; }
+
 /* Credit link (desktop, bottom-left) */
 #credit { display: none; }
 @media (hover: hover) and (pointer: fine) {
@@ -334,6 +347,17 @@ body.touch.playing #edit-btn {
   </div>
 </div>
 <div id="toast"></div>
+<div id="verify-overlay">
+  <div id="verify-box">
+    <button type="button" id="verify-close">&#10005;</button>
+    <h3>Verify your email</h3>
+    <p id="verify-msg">Enter the 6-digit code we emailed you.</p>
+    <input id="verify-code" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code">
+    <button type="button" id="verify-submit">Verify</button>
+    <div id="verify-err"></div>
+    <button type="button" id="verify-resend">Resend code</button>
+  </div>
+</div>
 <div id="gamepad" aria-label="on-screen controls">
   <div id="dpad" role="group" aria-label="direction pad">
     <button type="button" tabindex="-1" class="gp-btn gp-up"    data-gp-key="up"    aria-label="up">&#9650;</button>
@@ -4364,6 +4388,14 @@ run game with update`,
 
   function renderAccount() {
     accountEl.innerHTML = '';
+    if (state.user && !state.user.emailVerified) {
+      const chip = document.createElement('button');
+      chip.id = 'acct-chip'; chip.className = 'pending';
+      chip.textContent = '⚠ verify email';
+      chip.onclick = () => openVerify(state.user.email);
+      accountEl.appendChild(chip);
+      return;
+    }
     if (state.user) {
       const chip = document.createElement('button');
       chip.id = 'acct-chip';
@@ -4426,18 +4458,46 @@ run game with update`,
   function onGoogle(resp) {
     api('google', { method: 'POST', body: JSON.stringify({ credential: resp.credential }) }).then(d => {
       if (d.error) return toast(d.error);
-      state.user = d.user; renderAccount(); closeSignin(); toast('Signed in as ' + d.user.nickname);
+      state.user = d.user; renderAccount(); closeSignin();
+      if (d.needVerify) { openVerify(d.user.email); if (d.mailError) toast("Couldn't send the code — tap Resend."); }
+      else toast('Signed in as ' + d.user.nickname);
     });
   }
 
-  // GitHub returns here via ?login=ok|error — show a toast and clean the URL
+  // --- mandatory email verification ---
+  const verifyOverlay = document.getElementById('verify-overlay');
+  const verifyCode = document.getElementById('verify-code');
+  const verifyErr = document.getElementById('verify-err');
+  function openVerify(email) {
+    document.getElementById('verify-msg').textContent = 'Enter the 6-digit code we emailed to ' + (email || 'your address') + '.';
+    verifyErr.textContent = ''; verifyCode.value = '';
+    verifyOverlay.classList.add('open');
+    setTimeout(() => verifyCode.focus(), 50);
+  }
+  function closeVerify() { verifyOverlay.classList.remove('open'); }
+  function submitVerify() {
+    verifyErr.textContent = '';
+    api('verify', { method: 'POST', body: JSON.stringify({ code: verifyCode.value.trim() }) }).then(d => {
+      if (d.error) { verifyErr.textContent = d.error; return; }
+      state.user = d.user; renderAccount(); closeVerify(); toast('Email verified ✓');
+    });
+  }
+  function resendCode() { api('resend', { method: 'POST' }).then(d => toast(d.error || 'New code sent')); }
+  document.getElementById('verify-submit').onclick = submitVerify;
+  document.getElementById('verify-resend').onclick = resendCode;
+  document.getElementById('verify-close').onclick = closeVerify;
+  verifyCode.addEventListener('keydown', e => { if (e.key === 'Enter') submitVerify(); });
+
+  // Providers return here: ?login=ok|error (verified) or ?verify=1 (needs a code). Clean the URL.
   (function loginReturn() {
     const ps = new URLSearchParams(location.search);
-    if (!ps.has('login')) return;
+    const hasLogin = ps.has('login'), hasVerify = ps.has('verify');
+    if (!hasLogin && !hasVerify) return;
     const ok = ps.get('login') === 'ok';
-    ps.delete('login');
+    ps.delete('login'); ps.delete('verify');
     history.replaceState(null, '', location.pathname + (ps.toString() ? '?' + ps : '') + location.hash);
-    setTimeout(() => toast(ok ? 'Signed in!' : 'Sign-in failed — try again'), 350);
+    if (hasVerify) { refresh().then(() => { if (state.user && !state.user.emailVerified) openVerify(state.user.email); }); }
+    else setTimeout(() => toast(ok ? 'Signed in!' : 'Sign-in failed — try again'), 350);
   })();
 
   renderAccount();

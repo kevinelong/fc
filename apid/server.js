@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { jwtVerify, createRemoteJWKSet } = require('jose');
+const nodemailer = require('nodemailer');
 const { adjectives, nouns, profanity } = require('./words');
 
 // ---- config (.env, simple KEY=VALUE) ----
@@ -30,9 +31,29 @@ const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
 
+// ---- email (Gmail SMTP relay) ----
+const SMTP = {
+  user: ENV.EMAIL_HOST_USER || process.env.EMAIL_HOST_USER || '',
+  pass: ENV.EMAIL_HOST_PASSWORD || process.env.EMAIL_HOST_PASSWORD || '',
+  host: ENV.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(ENV.SMTP_PORT || 587),
+};
+const MAIL_FROM = ENV.MAIL_FROM || SMTP.user;
+const mailer = SMTP.user ? nodemailer.createTransport({ host: SMTP.host, port: SMTP.port, secure: SMTP.port === 465, auth: { user: SMTP.user, pass: SMTP.pass } }) : null;
+async function sendCode(to, code) {
+  if (!mailer) throw new Error('mail not configured');
+  await mailer.sendMail({
+    from: MAIL_FROM,
+    to,
+    subject: `Your codeonline.io code: ${code}`,
+    text: `Welcome to codeonline.io!\n\nYour verification code is: ${code}\n\nIt expires in 10 minutes. If this wasn't you, you can ignore this email.`,
+  });
+}
+const EMAIL = { TTL: 10 * 60 * 1000, MAX_ATTEMPTS: 5, RESEND_COOLDOWN: 30 * 1000 };
+
 // ---- tiny JSON store (atomic writes) ----
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
-let db = { users: {}, nicks: {}, sessions: {}, states: {} };
+let db = { users: {}, nicks: {}, sessions: {}, states: {}, codes: {} };
 try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); } catch (_) {}
 let saveTimer = null;
 function save() {
@@ -76,19 +97,27 @@ function sessionUser(token) {
   if (Date.now() - s.createdAt > SESSION_TTL) { delete db.sessions[token]; save(); return null; }
   return db.users[s.userId] || null;
 }
-function findOrCreateUser(provider, providerId) {
+function findOrCreateUser(provider, providerId, email) {
   const id = provider + ':' + providerId;
   let u = db.users[id];
   if (!u) {
     const nickname = generateNickname();
-    u = { id, provider, nickname, createdAt: Date.now() };
+    u = { id, provider, email: email || '', emailVerified: false, nickname, createdAt: Date.now() };
     db.users[id] = u;
     db.nicks[nickname.toLowerCase()] = id;
     save();
-  }
+  } else if (email && !u.email) { u.email = email; save(); }
   return u;
 }
-function publicUser(u) { return u ? { nickname: u.nickname, provider: u.provider, since: u.createdAt } : null; }
+function maskEmail(e) { if (!e || !e.includes('@')) return ''; const [u, d] = e.split('@'); return (u.length <= 2 ? (u[0] || '') : u.slice(0, 2)) + '***@' + d; }
+function publicUser(u) { return u ? { nickname: u.nickname, provider: u.provider, since: u.createdAt, emailVerified: !!u.emailVerified, email: maskEmail(u.email) } : null; }
+// generate + email a fresh code (mandatory verification gate)
+async function startVerification(user) {
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  db.codes[user.id] = { code, expires: Date.now() + EMAIL.TTL, attempts: 0, sentAt: Date.now() };
+  save();
+  await sendCode(user.email, code);
+}
 
 // ---- http helpers ----
 function parseCookies(req) {
@@ -153,8 +182,12 @@ const server = http.createServer(async (req, res) => {
           audience: GOOGLE_CLIENT_ID,
         }));
       } catch (e) { return json(res, 401, { error: 'invalid Google token' }); }
-      const user = findOrCreateUser('google', payload.sub);
+      const user = findOrCreateUser('google', payload.sub, payload.email);
       setCookie(res, COOKIE, newSession(user.id), SESSION_TTL);
+      if (!user.emailVerified) {
+        try { await startVerification(user); } catch (e) { return json(res, 200, { user: publicUser(user), needVerify: true, mailError: true }); }
+        return json(res, 200, { user: publicUser(user), needVerify: true });
+      }
       return json(res, 200, { user: publicUser(user) });
     }
 
@@ -165,7 +198,7 @@ const server = http.createServer(async (req, res) => {
       const auth = new URL('https://github.com/login/oauth/authorize');
       auth.searchParams.set('client_id', GITHUB_CLIENT_ID);
       auth.searchParams.set('redirect_uri', ORIGIN + '/api/auth/github/callback');
-      auth.searchParams.set('scope', 'read:user');
+      auth.searchParams.set('scope', 'read:user user:email');
       auth.searchParams.set('state', state);
       return redirect(res, auth.toString());
     }
@@ -187,8 +220,23 @@ const server = http.createServer(async (req, res) => {
         headers: { Authorization: 'Bearer ' + tokRes.access_token, 'User-Agent': 'codeonline-apid', Accept: 'application/vnd.github+json' },
       }).then(r => r.json()).catch(() => ({}));
       if (!ghUser.id) return redirect(res, '/?login=error');
-      const user = findOrCreateUser('github', String(ghUser.id));
+      // GitHub may hide the public email; fetch the verified primary from /user/emails
+      let email = ghUser.email || '';
+      if (!email) {
+        const emails = await fetch('https://api.github.com/user/emails', {
+          headers: { Authorization: 'Bearer ' + tokRes.access_token, 'User-Agent': 'codeonline-apid', Accept: 'application/vnd.github+json' },
+        }).then(r => r.json()).catch(() => []);
+        if (Array.isArray(emails)) {
+          const prim = emails.find(e => e.primary && e.verified) || emails.find(e => e.verified) || emails[0];
+          if (prim) email = prim.email;
+        }
+      }
+      const user = findOrCreateUser('github', String(ghUser.id), email);
       setCookie(res, COOKIE, newSession(user.id), SESSION_TTL);
+      if (!user.emailVerified) {
+        if (user.email) { try { await startVerification(user); } catch (_) {} }
+        return redirect(res, '/?verify=1');
+      }
       return redirect(res, '/?login=ok');
     }
 
@@ -212,6 +260,33 @@ const server = http.createServer(async (req, res) => {
       if (token) { delete db.sessions[token]; save(); }
       clearCookie(res, COOKIE);
       return json(res, 200, { ok: true });
+    }
+
+    if (p === '/api/auth/verify' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      if (user.emailVerified) return json(res, 200, { user: publicUser(user) });
+      const rec = db.codes[user.id];
+      if (!rec) return json(res, 400, { error: 'No code pending — request a new one.' });
+      if (Date.now() > rec.expires) { delete db.codes[user.id]; save(); return json(res, 400, { error: 'Code expired — request a new one.' }); }
+      if (rec.attempts >= EMAIL.MAX_ATTEMPTS) { delete db.codes[user.id]; save(); return json(res, 429, { error: 'Too many tries — request a new code.' }); }
+      const body = await readBody(req);
+      if (String(body.code || '').trim() !== rec.code) { rec.attempts++; save(); return json(res, 400, { error: 'Incorrect code.' }); }
+      user.emailVerified = true; delete db.codes[user.id]; save();
+      return json(res, 200, { user: publicUser(user) });
+    }
+
+    if (p === '/api/auth/resend' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      if (user.emailVerified) return json(res, 200, { ok: true });
+      if (!user.email) return json(res, 400, { error: 'No email on file for this account.' });
+      const rec = db.codes[user.id];
+      if (rec && Date.now() - rec.sentAt < EMAIL.RESEND_COOLDOWN) return json(res, 429, { error: 'Please wait a moment before resending.' });
+      try { await startVerification(user); } catch (e) { return json(res, 500, { error: 'Could not send email — try again shortly.' }); }
+      return json(res, 200, { ok: true, email: maskEmail(user.email) });
     }
 
     return json(res, 404, { error: 'not found' });
