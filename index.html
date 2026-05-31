@@ -1234,24 +1234,22 @@ const AUDIO = (function () {
 // The relay is a dumb broadcaster — all game logic stays here in fc.
 // ============================================================
 const NET = (function () {
-  let sock = null, key = null, myId = null;
+  let sock = null, myId = null;
+  let wantGame = null, wantRoom = null;     // the room we want to stay connected to
+  let reconnectTimer = null, backoff = 0;
   const byId = {};        // id -> peer state object
   const peers = [];       // stable array ref so `each peer in peers` keeps working
   function rebuild() { peers.length = 0; for (const id in byId) peers.push(byId[id]); }
-  function close() {
-    if (sock) { try { sock.onmessage = null; sock.close(); } catch (_) {} }
-    sock = null; key = null; myId = null;
-    for (const id in byId) delete byId[id]; rebuild();
-  }
-  function join(game, room) {
-    const k = game + '/' + room;
-    if (sock && key === k && sock.readyState <= 1) return;   // same room → keep open
-    close();
-    key = k;
+  function clearPeers() { for (const id in byId) delete byId[id]; rebuild(); }
+  function isOpen() { return !!sock && sock.readyState === 1; }
+
+  function openSocket() {
+    if (!wantGame) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const url = proto + '://' + location.host + '/relay?game=' +
-                encodeURIComponent(game) + '&room=' + encodeURIComponent(room);
-    try { sock = new WebSocket(url); } catch (e) { sock = null; return; }
+                encodeURIComponent(wantGame) + '&room=' + encodeURIComponent(wantRoom);
+    try { sock = new WebSocket(url); } catch (e) { sock = null; scheduleReconnect(); return; }
+    sock.onopen = () => { backoff = 0; };
     sock.onmessage = (ev) => {
       let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
       if (m.t === 'welcome') { myId = m.id; }
@@ -1260,11 +1258,38 @@ const NET = (function () {
         Object.assign(p, m.data || {}); p.id = m.id; rebuild();
       } else if (m.t === 'leave') { delete byId[m.id]; rebuild(); }
     };
+    sock.onclose = () => { sock = null; clearPeers(); if (wantGame) scheduleReconnect(); };
+    sock.onerror = () => { try { if (sock) sock.close(); } catch (_) {} };
   }
-  function broadcast(obj) {
-    if (sock && sock.readyState === 1) { try { sock.send(JSON.stringify(obj)); } catch (_) {} }
+  function scheduleReconnect() {
+    if (!wantGame || reconnectTimer) return;
+    backoff = Math.min(backoff ? backoff * 2 : 800, 8000);   // 0.8s → 8s cap
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; if (wantGame && !isOpen()) openSocket(); }, backoff);
   }
-  return { join, broadcast, close, peers, id() { return myId; } };
+  function reconnectNow() {                 // tab woke / network back — recover immediately
+    if (!wantGame || isOpen()) return;
+    backoff = 0; clearTimeout(reconnectTimer); reconnectTimer = null; openSocket();
+  }
+  function join(game, room) {
+    if (wantGame === game && wantRoom === room && (isOpen() || sock)) return;  // already on it
+    if (sock) { try { sock.onclose = null; sock.close(); } catch (_) {} }
+    sock = null; myId = null; clearPeers();
+    clearTimeout(reconnectTimer); reconnectTimer = null; backoff = 0;
+    wantGame = game; wantRoom = room;
+    openSocket();
+  }
+  function broadcast(obj) { if (isOpen()) { try { sock.send(JSON.stringify(obj)); } catch (_) {} } }
+  function close() {                        // intentional disconnect (e.g. re-running a program)
+    wantGame = null; wantRoom = null;
+    clearTimeout(reconnectTimer); reconnectTimer = null;
+    if (sock) { try { sock.onclose = null; sock.close(); } catch (_) {} }
+    sock = null; myId = null; clearPeers();
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reconnectNow(); });
+    window.addEventListener('online', reconnectNow);
+  }
+  return { join, broadcast, close, peers, id() { return myId; }, connected: isOpen };
 })();
 
 // ============================================================
@@ -3472,6 +3497,9 @@ class Runtime {
     const self = this;
     function frame() {
       if (self.stopped) return;
+      // expose live multiplayer state to fc programs each frame
+      self.vars.peers = NET.peers;
+      self.vars.connected = NET.connected();
       // Process "when key" event handlers
       for (const [key, handler] of Object.entries(self.eventHandlers.key)) {
         if (self.keyState[key]) {

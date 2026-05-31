@@ -158,7 +158,15 @@ to draw
     draw rect at me.bx, me.by size 2, 2 in white
 
   write "you {me.frags}  ·  hunters {the number of peers}" at 4, 2 in green on hud
+
+  -- connection / lobby banner
+  if connected
+    if the number of peers is 0
+      write "waiting for another hunter..." at 6, 60 in yellow on hud
+  else
+    write "connecting..." at 40, 60 in yellow on hud
+
   if me.alive is no
-    write "TAGGED - respawning" at 24, 60 in red on hud
+    write "TAGGED - respawning" at 28, 76 in red on hud
 
 run game with update and draw
