@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+name="apid"
+description="codeonline.io API daemon (third-party auth, game storage)"
+command="/usr/bin/node"
+command_args="/home/kevin/codeonline/apid/server.js"
+command_user="kevin:kevin"
+directory="/home/kevin/codeonline/apid"
+pidfile="/run/apid.pid"
+command_background=true
+output_log="/var/log/apid.log"
+error_log="/var/log/apid.log"
+depend() { need net; }

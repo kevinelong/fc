@@ -133,6 +133,29 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .tag { display: block; font-size: 10px; color: #8a7340; margin-top: 3px; letter-spacing: .05em; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
 #lr-foot a { color: #c8a96e; }
+#lr-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#account { position: relative; }
+#account button { font: 12px 'Share Tech Mono', monospace; cursor: pointer; border-radius: 6px; padding: 9px 13px; letter-spacing: .04em; }
+#acct-signin { background: #161616; color: #c8a96e; border: 1px solid #5a4a28; }
+#acct-signin:hover { border-color: #c8a96e; }
+#acct-chip { background: #10240f; color: #9f9; border: 1px solid #2c6e2c; }
+#acct-menu { position: absolute; top: 100%; right: 0; margin-top: 6px; background: #0e0e0e; border: 1px solid #5a4a28; border-radius: 6px; padding: 6px; display: none; flex-direction: column; gap: 2px; min-width: 160px; z-index: 230; }
+#acct-menu.open { display: flex; }
+#acct-menu button { background: none; border: none; color: #cbb083; text-align: left; padding: 9px 10px; border-radius: 4px; }
+#acct-menu button:hover { background: #1a1a1a; color: #fff; }
+
+#signin-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(3,3,3,.9); align-items: center; justify-content: center; font-family: 'Share Tech Mono', monospace; }
+#signin-overlay.open { display: flex; }
+#signin-box { background: #121212; border: 1px solid #5a4a28; border-radius: 10px; padding: 26px 24px; max-width: 340px; width: 90%; text-align: center; position: relative; }
+#signin-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: .12em; color: #c8a96e; margin: 0 0 6px; }
+#signin-box p { color: #8a7340; font-size: 12px; margin: 0 0 18px; line-height: 1.5; }
+#signin-providers { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+#gh-btn { display: inline-flex; align-items: center; gap: 8px; background: #1f2328; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 11px 16px; font: 13px 'Share Tech Mono', monospace; cursor: pointer; text-decoration: none; width: 240px; justify-content: center; box-sizing: border-box; }
+#gh-btn:hover { background: #2a2f36; }
+#signin-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: #c8a96e; font: 22px 'Bebas Neue', sans-serif; cursor: pointer; }
+#signin-none { color: #8a7340; font-size: 12px; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 10px 16px; font: 12px 'Share Tech Mono', monospace; z-index: 400; display: none; }
+#toast.show { display: block; }
 
 /* Credit link (desktop, bottom-left) */
 #credit { display: none; }
@@ -222,7 +245,10 @@ body.touch.playing #edit-btn {
       <div id="lr-title">&#9656; fc</div>
       <div id="lr-sub">fantasy computer &mdash; pick a game to play and read its code, or start your own.</div>
     </div>
-    <button type="button" id="lr-new">+ New Game</button>
+    <div id="lr-actions">
+      <div id="account"></div>
+      <button type="button" id="lr-new">+ New Game</button>
+    </div>
   </div>
   <div id="lr-grid"></div>
   <div id="lr-foot">
@@ -295,6 +321,19 @@ body.touch.playing #edit-btn {
     <div style="color:#8a7340;font-size:12px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colors: black, dark blue, dark green, brown, white, red, orange, yellow, green, blue, indigo, pink, peach &amp; more.&nbsp; Comments start with <b style="color:#cbb083">--</b>.&nbsp; Full command reference (with runnable examples): <a href="/docs/" style="color:#c8a96e">codeonline.io/docs</a><br>Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener" style="color:#c8a96e">Kevin Long</a> (LinkedIn).</div>
   </div>
 </div>
+<div id="signin-overlay">
+  <div id="signin-box">
+    <button type="button" id="signin-close">&#10005;</button>
+    <h3>Sign in</h3>
+    <p>Sign in to save your games and pick a nickname. You can keep playing without it.</p>
+    <div id="signin-providers">
+      <div id="g-btn"></div>
+      <a id="gh-btn" href="/api/auth/github/start" style="display:none"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> Continue with GitHub</a>
+      <div id="signin-none" style="display:none">Sign-in isn&rsquo;t set up yet &mdash; check back soon.</div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
 <div id="gamepad" aria-label="on-screen controls">
   <div id="dpad" role="group" aria-label="direction pad">
     <button type="button" tabindex="-1" class="gp-btn gp-up"    data-gp-key="up"    aria-label="up">&#9650;</button>
@@ -4299,6 +4338,110 @@ run game with update`,
       showHome();
     }
   })();
+})();
+
+// ============================================================
+// ACCOUNT / AUTH — third-party sign-in (Google + GitHub), nicknames.
+// Login is optional: it only unlocks saving + a nickname.
+// ============================================================
+(function auth() {
+  const accountEl = document.getElementById('account');
+  const overlay = document.getElementById('signin-overlay');
+  const gBtn = document.getElementById('g-btn');
+  const ghBtn = document.getElementById('gh-btn');
+  const noneEl = document.getElementById('signin-none');
+  const toastEl = document.getElementById('toast');
+  const state = { user: null };
+  let configLoaded = false, gisLoaded = false;
+
+  let toastTimer = null;
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600); }
+
+  function api(path, opts) {
+    return fetch('/api/auth/' + path, Object.assign({ headers: { 'X-CO': '1', 'Content-Type': 'application/json' }, credentials: 'same-origin' }, opts || {}))
+      .then(r => r.json().catch(() => ({}))).catch(() => ({}));
+  }
+
+  function renderAccount() {
+    accountEl.innerHTML = '';
+    if (state.user) {
+      const chip = document.createElement('button');
+      chip.id = 'acct-chip';
+      chip.textContent = '\u{1F464} ' + state.user.nickname + '  ▾';
+      const menu = document.createElement('div');
+      menu.id = 'acct-menu';
+      const rename = document.createElement('button'); rename.textContent = 'Change nickname'; rename.onclick = changeNickname;
+      const out = document.createElement('button'); out.textContent = 'Sign out'; out.onclick = signOut;
+      menu.appendChild(rename); menu.appendChild(out);
+      chip.onclick = (e) => { e.stopPropagation(); menu.classList.toggle('open'); };
+      accountEl.appendChild(chip); accountEl.appendChild(menu);
+    } else {
+      const b = document.createElement('button');
+      b.id = 'acct-signin'; b.textContent = 'Sign in'; b.onclick = openSignin;
+      accountEl.appendChild(b);
+    }
+  }
+  document.addEventListener('click', () => { const m = document.getElementById('acct-menu'); if (m) m.classList.remove('open'); });
+
+  function refresh() { return api('me').then(d => { state.user = d.user || null; renderAccount(); }); }
+
+  function changeNickname() {
+    const v = prompt('New nickname (3–20 letters/numbers):', state.user ? state.user.nickname : '');
+    if (v == null) return;
+    api('nickname', { method: 'POST', body: JSON.stringify({ nickname: v }) }).then(d => {
+      if (d.error) return toast(d.error);
+      state.user = d.user; renderAccount(); toast('Nickname updated');
+    });
+  }
+  function signOut() { api('logout', { method: 'POST' }).then(() => { state.user = null; renderAccount(); toast('Signed out'); }); }
+
+  function openSignin() {
+    overlay.classList.add('open');
+    if (configLoaded) return;
+    api('config').then(c => {
+      configLoaded = true;
+      const prov = (c && c.providers) || {};
+      let any = false;
+      if (prov.github) { ghBtn.style.display = ''; any = true; }
+      if (prov.google && prov.google.clientId) { any = true; loadGoogle(prov.google.clientId); }
+      noneEl.style.display = any ? 'none' : 'block';
+    });
+  }
+  function closeSignin() { overlay.classList.remove('open'); }
+  document.getElementById('signin-close').onclick = closeSignin;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSignin(); });
+
+  function loadGoogle(clientId) {
+    function init() {
+      if (!(window.google && google.accounts && google.accounts.id)) return;
+      google.accounts.id.initialize({ client_id: clientId, callback: onGoogle });
+      google.accounts.id.renderButton(gBtn, { theme: 'filled_blue', size: 'large', text: 'continue_with', width: 240 });
+    }
+    if (gisLoaded) { init(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => { gisLoaded = true; init(); };
+    document.head.appendChild(s);
+  }
+  function onGoogle(resp) {
+    api('google', { method: 'POST', body: JSON.stringify({ credential: resp.credential }) }).then(d => {
+      if (d.error) return toast(d.error);
+      state.user = d.user; renderAccount(); closeSignin(); toast('Signed in as ' + d.user.nickname);
+    });
+  }
+
+  // GitHub returns here via ?login=ok|error — show a toast and clean the URL
+  (function loginReturn() {
+    const ps = new URLSearchParams(location.search);
+    if (!ps.has('login')) return;
+    const ok = ps.get('login') === 'ok';
+    ps.delete('login');
+    history.replaceState(null, '', location.pathname + (ps.toString() ? '?' + ps : '') + location.hash);
+    setTimeout(() => toast(ok ? 'Signed in!' : 'Sign-in failed — try again'), 350);
+  })();
+
+  renderAccount();
+  refresh();
 })();
 </script>
 </body>

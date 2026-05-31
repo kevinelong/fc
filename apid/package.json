@@ -1,0 +1,9 @@
+{
+  "name": "codeonline-apid",
+  "version": "0.1.0",
+  "private": true,
+  "description": "codeonline.io API: third-party auth + (later) game storage",
+  "main": "server.js",
+  "type": "commonjs",
+  "dependencies": { "jose": "^5.9.6" }
+}
