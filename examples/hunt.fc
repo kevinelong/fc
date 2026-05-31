@@ -8,6 +8,16 @@ join game "hunt" room "arena"
 spd is 1.4
 me is {x: 12, y: 12, dx: 1, dy: 0, alive: yes, frags: 0, bx: 0, by: 0, bon: no, kx: 0, ky: 0, kon: no, ktimer: 0, dead: 0}
 
+-- spawn at a random corner so two players don't stack on the same spot
+r is random 3
+if r is 1
+  me.x is 108
+if r is 2
+  me.y is 108
+if r is 3
+  me.x is 108
+  me.y is 108
+
 -- the maze: a border plus some interior blocks (all collide the same way).
 -- built one per line because list literals are single-line in fc.
 walls is []
