@@ -4287,7 +4287,7 @@ run game with update`;
   function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
   const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
   if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
-  if (editBtn) editBtn.onclick = () => { setPlaying(false); editor.focus(); };
+  if (editBtn) editBtn.onclick = () => { setPlaying(false); };   // don't auto-focus (avoids popping the mobile keyboard)
   const backBtn = document.getElementById('back-btn');
   if (backBtn) backBtn.onclick = () => showHome();   // leave the game, back to the list
 
@@ -4309,7 +4309,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.8';
+  const APP_VERSION = 'v1.9';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
