@@ -1246,8 +1246,15 @@ const NET = (function () {
   let reconnectTimer = null, backoff = 0;
   const byId = {};        // id -> peer state object
   const peers = [];       // stable array ref so `each peer in peers` keeps working
+  const lastSeen = {};    // id -> ms of last state msg (to expire ghosts that stop broadcasting)
+  const STALE_MS = 4000;  // drop a peer we haven't heard from in this long
   function rebuild() { peers.length = 0; for (const id in byId) peers.push(byId[id]); }
-  function clearPeers() { for (const id in byId) delete byId[id]; rebuild(); }
+  function clearPeers() { for (const id in byId) delete byId[id]; for (const id in lastSeen) delete lastSeen[id]; rebuild(); }
+  function pruneStale() {
+    const now = Date.now(); let changed = false;
+    for (const id in byId) { if (now - (lastSeen[id] || 0) > STALE_MS) { delete byId[id]; delete lastSeen[id]; changed = true; } }
+    if (changed) rebuild();
+  }
   function isOpen() { return !!sock && sock.readyState === 1; }
 
   function openSocket() {
@@ -1262,8 +1269,8 @@ const NET = (function () {
       if (m.t === 'welcome') { myId = m.id; }
       else if (m.t === 'state') {
         const p = byId[m.id] || (byId[m.id] = { id: m.id });
-        Object.assign(p, m.data || {}); p.id = m.id; rebuild();
-      } else if (m.t === 'leave') { delete byId[m.id]; rebuild(); }
+        Object.assign(p, m.data || {}); p.id = m.id; lastSeen[m.id] = Date.now(); rebuild();
+      } else if (m.t === 'leave') { delete byId[m.id]; delete lastSeen[m.id]; rebuild(); }
     };
     sock.onclose = () => { sock = null; clearPeers(); if (wantGame) scheduleReconnect(); };
     sock.onerror = () => { try { if (sock) sock.close(); } catch (_) {} };
@@ -1296,6 +1303,7 @@ const NET = (function () {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) reconnectNow(); });
     window.addEventListener('online', reconnectNow);
   }
+  setInterval(pruneStale, 1000);   // sweep out ghosts (frozen/abandoned peers) every second
   return { join, broadcast, close, peers, id() { return myId; }, connected: isOpen };
 })();
 
@@ -4274,7 +4282,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.2';
+  const APP_VERSION = 'v1.3';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
