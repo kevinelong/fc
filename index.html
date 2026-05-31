@@ -134,6 +134,7 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile:hover { border-color: #c8a96e; transform: translateY(-2px); }
 .lr-tile:active { transform: translateY(0); }
 .lr-tile .ic { font-size: 24px; display: block; line-height: 1; margin-bottom: 5px; }
+.lr-tile .ic-px { width: 30px; height: 30px; image-rendering: pixelated; image-rendering: crisp-edges; display: block; margin: 0 auto 5px; }
 .lr-tile .nm { font-size: 11px; letter-spacing: .03em; }
 .lr-tile .tag { display: block; font-size: 8px; color: #8a7340; margin-top: 2px; letter-spacing: .04em; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
@@ -4292,24 +4293,42 @@ run game with update`;
   if (backBtn) backBtn.onclick = () => showHome();   // leave the game, back to the list
 
   // --- Launcher / game library (the home screen) ---
+  // icons are real engine sprites (same 8x8 pixel art the games draw), or a
+  // custom 64-hex sprite where no built-in fits. Rendered pixelated on a canvas.
+  const PONG_ICON = '0000000070000000700000007000bb007000bb00700000007000000000000000';
+  const DOTS_ICON = '0000000008800000088000000000000000000990000009900000000000000000';
   const GAMES = [
-    { file: 'coin-quest',     name: 'Coin Quest',     icon: '\u{1F7E1}', desc: 'Roam the world, grab coins, dodge the foes.' },
-    { file: 'pong',           name: 'Pong',           icon: '\u{1F3D3}', desc: 'Classic paddle tennis against the computer.' },
-    { file: 'snake',          name: 'Snake',          icon: '\u{1F40D}', desc: "Eat to grow — don't hit your tail or the walls." },
-    { file: 'breakout',       name: 'Breakout',       icon: '\u{1F9F1}', desc: 'Bounce the ball to break every brick.' },
-    { file: 'space-invaders', name: 'Space Invaders', icon: '\u{1F47E}', desc: 'Blast the alien fleet before it lands.' },
-    { file: 'flappy',         name: 'Flappy',         icon: '\u{1F426}', desc: 'One button — flap through the gaps.' },
-    { file: 'pitfall',        name: 'Pitfall Hop',    icon: '\u{1F334}', desc: 'Jump the rolling logs as long as you can.' },
-    { file: 'mp-dots',        name: 'Dots',           icon: '\u{1F534}', tag: 'multiplayer', desc: "A shared room — everyone's dot moves live." },
-    { file: 'hunt',           name: 'Hunt',           icon: '\u{1F3AF}', tag: 'multiplayer', desc: 'Maze deathmatch — move, shoot, frag. Bring a friend.' },
+    { file: 'coin-quest',     name: 'Coin Quest',     sprite: 'coin',     desc: 'Roam the world, grab coins, dodge the foes.' },
+    { file: 'pong',           name: 'Pong',           sprite: PONG_ICON,  desc: 'Classic paddle tennis against the computer.' },
+    { file: 'snake',          name: 'Snake',          sprite: 'slime',    desc: "Eat to grow — don't hit your tail or the walls." },
+    { file: 'breakout',       name: 'Breakout',       sprite: 'brick',    desc: 'Bounce the ball to break every brick.' },
+    { file: 'space-invaders', name: 'Space Invaders', sprite: 'alien',    desc: 'Blast the alien fleet before it lands.' },
+    { file: 'flappy',         name: 'Flappy',         sprite: 'ship',     desc: 'One button — flap through the gaps.' },
+    { file: 'pitfall',        name: 'Pitfall Hop',    sprite: 'hero',     desc: 'Jump the rolling logs as long as you can.' },
+    { file: 'mp-dots',        name: 'Dots',           sprite: DOTS_ICON,  tag: 'multiplayer', desc: "A shared room — everyone's dot moves live." },
+    { file: 'hunt',           name: 'Hunt',           sprite: 'skull',    tag: 'multiplayer', desc: 'Maze deathmatch — move, shoot, frag. Bring a friend.' },
   ];
+  // render a sprite (built-in name or 64-hex string) onto a small pixelated canvas
+  function makeIcon(art) {
+    const hex = (SPRITES[art] || art || '').replace(/\s/g, '');
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 8; c.className = 'ic-px';
+    const cx = c.getContext('2d');
+    for (let i = 0; i < 64 && i < hex.length; i++) {
+      const ci = parseInt(hex[i], 16);
+      if (!ci) continue;
+      cx.fillStyle = SPRITE_PAL[ci];
+      cx.fillRect(i % 8, (i / 8) | 0, 1, 1);
+    }
+    return c;
+  }
   const NEW_GAME_STARTER =
 `-- a fresh start — edit this, it runs as you type
 clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.0';
+  const APP_VERSION = 'v2.1';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4340,8 +4359,9 @@ draw circle at 64, 80 size 10 in yellow`;
     GAMES.forEach(g => {
       const t = document.createElement('div');
       t.className = 'lr-tile';
-      t.innerHTML = '<span class="ic">' + g.icon + '</span><span class="nm">' + g.name + '</span>' +
-                    (g.tag ? '<span class="tag">' + g.tag + '</span>' : '');
+      t.appendChild(makeIcon(g.sprite || g.icon));
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = g.name; t.appendChild(nm);
+      if (g.tag) { const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = g.tag; t.appendChild(tg); }
       if (g.desc) t.title = g.desc;
       t.onclick = () => openGame(g);
       grid.appendChild(t);
