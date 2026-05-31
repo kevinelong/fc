@@ -129,13 +129,13 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 #lr-sub { color: #8a7340; font-size: 12px; margin-top: 5px; max-width: 380px; }
 #lr-new { font: 14px 'Share Tech Mono', monospace; background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 11px 17px; cursor: pointer; letter-spacing: .06em; white-space: nowrap; }
 #lr-new:hover { background: #16361a; }
-#lr-grid { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
-.lr-tile { background: #161616; border: 1px solid #5a4a28; border-radius: 8px; padding: 18px 12px; cursor: pointer; text-align: center; color: #cbb083; transition: border-color .12s, transform .08s; }
+#lr-grid { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lr-tile { background: #161616; border: 1px solid #5a4a28; border-radius: 7px; padding: 10px 6px; cursor: pointer; text-align: center; color: #cbb083; transition: border-color .12s, transform .08s; }
 .lr-tile:hover { border-color: #c8a96e; transform: translateY(-2px); }
 .lr-tile:active { transform: translateY(0); }
-.lr-tile .ic { font-size: 34px; display: block; line-height: 1; margin-bottom: 9px; }
-.lr-tile .nm { font-size: 13px; letter-spacing: .04em; }
-.lr-tile .tag { display: block; font-size: 10px; color: #8a7340; margin-top: 3px; letter-spacing: .05em; }
+.lr-tile .ic { font-size: 24px; display: block; line-height: 1; margin-bottom: 5px; }
+.lr-tile .nm { font-size: 11px; letter-spacing: .03em; }
+.lr-tile .tag { display: block; font-size: 8px; color: #8a7340; margin-top: 2px; letter-spacing: .04em; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
 #lr-foot a { color: #c8a96e; }
 #lr-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -4309,7 +4309,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.9';
+  const APP_VERSION = 'v2.0';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
