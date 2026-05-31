@@ -1945,26 +1945,32 @@ function parse(source) {
   }
 
   function parseIf(raw, lineNum) {
-    // Find the condition end - look for a command word, OR a second "is" that
-    // implies a new assignment statement: `if X is Y foo is bar` -> cond=X is Y, then=foo is bar
+    // Find where the condition ends and an inline statement begins. The condition
+    // is a boolean expression (one comparison per and/or clause). Once we've seen
+    // a comparison in the current clause — `is` OR a comparison operator
+    // (> < >= <= !=) — the NEXT `is` starts an inline assignment statement, e.g.
+    // `if e.x + adir > 118 hit is yes` -> cond=`e.x+adir>118`, then=`hit is yes`.
+    // (Tracking only `is` missed conditions that compare with > / < etc.)
     let condEnd = raw.length;
-    let seenIs = false;
+    let seenCompare = false;
+    const isCmpOp = t => t.type === 'operator' && ['>', '<', '>=', '<=', '!='].includes(t.value);
     for (let i = 1; i < raw.length; i++) {
-      // after a logical and/or, the next `is` is another comparison, not an
-      // inline assignment — so reset, allowing `if a is b and c is d`.
+      // after a logical and/or, the next clause starts fresh
       if (raw[i].type === 'word' && (tv(raw[i]) === 'and' || tv(raw[i]) === 'or')) {
-        seenIs = false;
+        seenCompare = false;
         continue;
       }
+      if (isCmpOp(raw[i])) { seenCompare = true; continue; }
       if (raw[i].type === 'word' && tv(raw[i]) === 'is') {
-        if (seenIs) {
-          // Walk back to find start of the assignment target (handles dotted refs)
+        if (seenCompare) {
+          // this `is` begins an inline assignment — split before its target
+          // (walk back over a dotted ref like `player.x`)
           let j = i - 1;
           while (j - 1 >= 2 && raw[j - 1].type === 'dot') j -= 2;
           condEnd = j;
           break;
         }
-        seenIs = true;
+        seenCompare = true;
         continue;
       }
       if (raw[i].type === 'word' && isCommandWord(tv(raw[i]))) {
@@ -4282,7 +4288,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.5';
+  const APP_VERSION = 'v1.6';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
