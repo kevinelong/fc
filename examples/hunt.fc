@@ -157,7 +157,8 @@ to draw
   if me.bon
     draw rect at me.bx, me.by size 2, 2 in white
 
-  write "you {me.frags}  ·  hunters {the number of peers}" at 4, 2 in green on hud
+  others is the number of peers
+  write "you {me.frags}  ·  hunters {others}" at 4, 2 in green on hud
 
   -- connection / lobby banner
   if connected

@@ -21,6 +21,7 @@ to draw
     draw rect at peer.x, peer.y size 6, 6 in red
   -- me, in white, on top
   draw rect at me.x, me.y size 6, 6 in white
-  write "you + {the number of peers} others" at 2, 2 in white on hud
+  others is the number of peers
+  write "you + {others} others" at 2, 2 in white on hud
 
 run game with update and draw
