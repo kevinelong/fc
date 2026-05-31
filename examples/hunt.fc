@@ -37,8 +37,11 @@ define sound "frag" as noise from 1200 to 90 over 0.3
 when "space" is pressed
   if me.alive
     if me.bon is no
-      me.bx is me.x + 2
-      me.by is me.y + 2
+      -- spawn the shot just AHEAD of you, so an enemy stacked on your spot
+      -- (e.g. same spawn corner) can't be fragged point-blank — that looked
+      -- like firing self-fragging.
+      me.bx is me.x + 3 + me.dx * 7
+      me.by is me.y + 3 + me.dy * 7
       me.bdx is me.dx * 2
       me.bdy is me.dy * 2
       me.bon is yes
