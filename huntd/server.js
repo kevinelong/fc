@@ -12,6 +12,7 @@ const HOST = process.env.HUNTD_HOST || "127.0.0.1";
 const ROOM_CAP = parseInt(process.env.HUNTD_ROOM_CAP || "8", 10);
 const MSG_CAP = parseInt(process.env.HUNTD_MSG_CAP || "4096", 10);   // bytes per message
 const RATE = parseInt(process.env.HUNTD_RATE || "60", 10);          // max msgs/sec per socket
+const HEARTBEAT_MS = parseInt(process.env.HUNTD_HEARTBEAT_MS || "15000", 10); // ping interval
 
 const rooms = new Map();   // "game/room" -> Set<ws>
 let nextId = 1;
@@ -44,6 +45,8 @@ wss.on("connection", (ws, req) => {
   ws.id = "p" + (nextId++);
   ws._room = k;
   ws._win = { t: Date.now(), n: 0 };
+  ws.isAlive = true;
+  ws.on("pong", () => { ws.isAlive = true; });
   peers.add(ws);
 
   // greet the newcomer with its id + who is already here
@@ -69,5 +72,17 @@ wss.on("connection", (ws, req) => {
     if (peers.size === 0) rooms.delete(k);
   });
 });
+
+// Heartbeat: ping every client each interval; if one didn't pong since the last
+// tick, its connection is dead (half-open / lost network) — terminate it so it
+// frees its room slot and fires a prompt "leave" to the others.
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { ws.terminate(); continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch { /* ignore */ }
+  }
+}, HEARTBEAT_MS);
+wss.on("close", () => clearInterval(heartbeat));
 
 server.listen(PORT, HOST, () => console.log(`huntd relay on ${HOST}:${PORT}`));
