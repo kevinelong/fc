@@ -32,8 +32,10 @@ to update
   -- move the ship
   if key "left" remove 2 from player.x
   if key "right" add 2 to player.x
-  if player.x < 2 player.x is 2
-  if player.x > 118 player.x is 118
+  if player.x < 2
+    player.x is 2
+  if player.x > 118
+    player.x is 118
 
   -- march the whole formation, reversing + dropping at the edges
   march is march + 1
@@ -41,8 +43,10 @@ to update
     play sound "march"
     hit is no
     each e in enemies
-      if e.x + adir > 118 hit is yes
-      if e.x + adir < 2 hit is yes
+      if e.x + adir > 118
+        hit is yes
+      if e.x + adir < 2
+        hit is yes
     if hit
       adir is 0 - adir
       each e in enemies
@@ -53,10 +57,12 @@ to update
 
   -- lose if invaders reach the bottom
   each e in enemies
-    if e.y > 110 mode is "lose"
+    if e.y > 110
+      mode is "lose"
 
   -- win when the wave is cleared
-  if no enemies mode is "win"
+  if no enemies
+    mode is "win"
 
 when "space" is pressed
   if mode is "play" fire
