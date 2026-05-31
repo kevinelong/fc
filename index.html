@@ -1970,6 +1970,23 @@ function parse(source) {
           condEnd = j;
           break;
         }
+        // No comparison yet. Usually this `is` is the condition's own comparison
+        // (`if mode is "play"`). But if the condition before this `is`'s target is
+        // a self-contained boolean (a bare var / `not X` / `no X`) and the target
+        // is a separate ref, it's an inline assignment with no comparison:
+        // `if ready done is yes` -> cond=`ready`, then=`done is yes`.
+        // Tell it apart from a multi-token LEFT operand (`the number of peers is 5`,
+        // `a + b is 5`): the token before the target — if it's a continuation
+        // (operator / dot / `of` / `mod`) the target is part of the left operand.
+        let ts = i - 1;
+        while (ts - 1 >= 2 && raw[ts - 1] && raw[ts - 1].type === 'dot') ts -= 2;
+        const pre = raw[ts - 1];
+        const continuesLeft = pre && (pre.type === 'operator' || pre.type === 'dot' ||
+          (pre.type === 'word' && ['of', 'mod', 'and', 'or'].includes(tv(pre))));
+        if (ts > 1 && raw[ts] && raw[ts].type === 'word' && pre && !continuesLeft) {
+          condEnd = ts;   // condition = raw[1..ts), then = `<target> is <value>`
+          break;
+        }
         seenCompare = true;
         continue;
       }
@@ -4288,7 +4305,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.6';
+  const APP_VERSION = 'v1.7';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
