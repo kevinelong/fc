@@ -2005,9 +2005,13 @@ function parse(source) {
   function parseCondition(tokens) {
     if (tokens.length === 0) return { type: 'literal', value: false };
 
-    // Handle "key "X"" or "key "X" is pressed" — check live key state
-    if (tokens[0].type === 'word' && tv(tokens[0]) === 'key' && tokens.length === 2 && tokens[1].type === 'string') {
-      return { type: 'key_pressed', key: tokens[1].value.toLowerCase() };
+    // Handle `key "X"` with an optional `is held` / `is pressed` / `is down`
+    // (or just `held` / `pressed` / `down`) suffix — check live key state.
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'key' && tokens.length >= 2 && tokens[1].type === 'string') {
+      const rest = tokens.slice(2).map(t => tv(t));
+      if (rest.every(w => ['is', 'held', 'pressed', 'down', 'being'].includes(w))) {
+        return { type: 'key_pressed', key: tokens[1].value.toLowerCase() };
+      }
     }
 
     // Handle "not" prefix
@@ -4305,7 +4309,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v1.7';
+  const APP_VERSION = 'v1.8';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {

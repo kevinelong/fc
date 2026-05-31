@@ -3,7 +3,10 @@
 -- Arrow keys / D-pad to move.
 
 join game "dots" room "lobby"
+-- start somewhere random so two players don't land on the same spot
 me is {x: 64, y: 64}
+me.x is 16 + random 96
+me.y is 16 + random 96
 
 to update
   if key "right" is held me.x is me.x + 1.5
