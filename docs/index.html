@@ -25,23 +25,32 @@
   .cmd{background:#11111e;border:1px solid #23233a;border-radius:6px;padding:10px 12px;margin:10px 0}
   .cmd .nm{font-size:15px;color:#fff;font-weight:bold}
   .cmd .desc{font-size:12.5px;color:#9aa3b2;margin:2px 0 7px}
-  .cmd pre{background:#070710;border:1px solid #1d1d30;border-radius:4px;padding:9px 11px;font-size:12.5px;color:#a8d8ea;white-space:pre;overflow:auto;line-height:1.55}
-  .cmd .run{margin-top:7px;font:12px 'Share Tech Mono',monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:6px 14px;cursor:pointer;letter-spacing:.06em}
+  .cmd .code{display:block;width:100%;background:#070710;border:1px solid #1d1d30;border-radius:4px;padding:9px 11px;font:12.5px/1.55 'Share Tech Mono',monospace;color:#a8d8ea;white-space:pre;overflow:auto;resize:vertical;outline:none;tab-size:2}
+  .cmd .code:focus{border-color:#2c6e2c}
+  .cmd .actions{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
+  .cmd .run{font:12px 'Share Tech Mono',monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:6px 14px;cursor:pointer;letter-spacing:.06em}
   .cmd .run:hover{background:#163a16}
+  .cmd .edit{font:12px 'Share Tech Mono',monospace;background:#161616;border:1px solid #5a4a28;color:#c8a96e;border-radius:4px;padding:6px 12px;cursor:pointer;letter-spacing:.06em;text-decoration:none;display:inline-block}
+  .cmd .edit:hover{border-color:#c8a96e}
+  #search{width:100%;margin:8px 0 0;background:#070710;border:1px solid #2a2a4a;border-radius:6px;color:#cdd6e0;font:13px 'Share Tech Mono',monospace;padding:9px 12px;outline:none}
+  #search:focus{border-color:#2c6e2c}
+  .cat.hide,.cmd.hide{display:none}
+  #noresults{display:none;text-align:center;color:#8a8aa8;font-size:13px;padding:24px}
   footer{text-align:center;color:#6a6a8a;font-size:11px;padding:24px 0}
 </style>
 </head>
 <body>
 <header>
   <h1>FANTASY COMPUTER · COMMAND REFERENCE</h1>
-  <p>Every example is a tiny working program. Tap <b style="color:#9f9">▶ Run</b> to execute it in the stage above — describe what you want, type it, it runs.</p>
+  <p>Every example is a tiny working program — <b style="color:#9f9">edit it right here</b> and tap <b style="color:#9f9">▶ Run</b> to see your change in the stage above, or <b style="color:#c8a96e">✎ Open in editor</b> to keep building.</p>
   <p class="links"><a href="/">← back to the editor</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a></p>
+  <input id="search" placeholder="search commands…  (e.g. sound, score, jump, sprite)" autocomplete="off" autocapitalize="off" spellcheck="false">
 </header>
 <div id="stage-wrap">
   <iframe id="stage" title="run stage"></iframe>
   <div id="stage-meta"><b id="stage-name">Stage</b><br><span id="stage-desc">Tap ▶ Run on any command to see it here.</span></div>
 </div>
-<main id="ref"></main>
+<main><div id="ref"></div><div id="noresults">No commands match — try another word.</div></main>
 <footer>fantasy computer · plain-English game coding · codeonline.io/docs</footer>
 <script>
 // [category, name, description, example program]
@@ -130,23 +139,57 @@ const stage = document.getElementById('stage'), sName = document.getElementById(
 function runExample(name, desc, code){ stage.src = enc(code); sName.textContent = name; sDesc.innerHTML = desc; window.scrollTo({top:0, behavior:'smooth'}); }
 
 const ref = document.getElementById('ref');
+const esc = s => s.replace(/</g, '&lt;');
+const editUrl = code => '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
 // bucket by category so entries can be listed in any order
 const buckets = {};
 COMMANDS.forEach(c => { (buckets[c[0]] = buckets[c[0]] || []).push(c); });
 const ORDER = ["Drawing","Values & math","Decisions & loops","Functions","Lists","Sprites","Sound","Input","Collision","Motion","World & screens"];
 const cats = ORDER.filter(c => buckets[c]).concat(Object.keys(buckets).filter(c => !ORDER.includes(c)));
+const items = [];     // { card, catKey, hay } — for search
+const headers = [];   // { el, catKey }
 cats.forEach(cat => {
   const h = document.createElement('div'); h.className='cat'; h.textContent = cat; ref.appendChild(h);
+  headers.push({ el: h, catKey: cat });
   buckets[cat].forEach(([c, name, desc, code]) => {
     const card = document.createElement('div'); card.className = 'cmd';
-    card.innerHTML = `<div class="nm">${name.replace(/</g,'&lt;')}</div><div class="desc">${desc.replace(/</g,'&lt;')}</div>`;
-    const pre = document.createElement('pre'); pre.textContent = code; card.appendChild(pre);
-    const btn = document.createElement('button'); btn.className='run'; btn.textContent='▶ Run';
-    btn.onclick = () => runExample(name, desc, code);
-    card.appendChild(btn);
+    card.innerHTML = `<div class="nm">${esc(name)}</div><div class="desc">${esc(desc)}</div>`;
+    // editable code (edit-and-rerun)
+    const ta = document.createElement('textarea');
+    ta.className = 'code'; ta.value = code; ta.spellcheck = false; ta.autocapitalize = 'off';
+    ta.rows = Math.max(2, code.split('\n').length);
+    card.appendChild(ta);
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const btn = document.createElement('button'); btn.className = 'run'; btn.textContent = '▶ Run';
+    btn.onclick = () => runExample(name, desc, ta.value);          // runs the (possibly edited) code
+    actions.appendChild(btn);
+    const edit = document.createElement('a'); edit.className = 'edit'; edit.textContent = '✎ Open in editor';
+    edit.target = '_blank'; edit.rel = 'noopener';
+    edit.href = editUrl(code);
+    edit.onclick = () => { edit.href = editUrl(ta.value); };        // open the current edited code
+    actions.appendChild(edit);
+    card.appendChild(actions);
     ref.appendChild(card);
+    items.push({ card, catKey: cat, hay: (name + ' ' + desc + ' ' + code).toLowerCase() });
   });
 });
+
+// in-page search: filter cards (and empty category headers) as you type
+const searchEl = document.getElementById('search');
+const noEl = document.getElementById('noresults');
+searchEl.addEventListener('input', () => {
+  const q = searchEl.value.trim().toLowerCase();
+  const catHas = {};
+  let any = false;
+  items.forEach(it => {
+    const show = !q || it.hay.includes(q);
+    it.card.classList.toggle('hide', !show);
+    if (show) { any = true; catHas[it.catKey] = true; }
+  });
+  headers.forEach(h => h.el.classList.toggle('hide', !!q && !catHas[h.catKey]));
+  noEl.style.display = any ? 'none' : 'block';
+});
+
 // preload the stage with the first example
 runExample(COMMANDS[0][1], COMMANDS[0][2], COMMANDS[0][3]);
 </script>
