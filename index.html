@@ -301,6 +301,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
+      <button type="button" id="tool-share" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🔗 share</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
         <option value="coin-quest">Coin Quest (home)</option>
@@ -4383,7 +4384,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.5';
+  const APP_VERSION = 'v2.6';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4425,6 +4426,18 @@ draw circle at 64, 80 size 10 in yellow`;
     document.getElementById('lr-new').onclick = newGame;
     const homeBtn = document.getElementById('tool-home'); if (homeBtn) homeBtn.onclick = showHome;
     const runTool = document.getElementById('tool-run'); if (runTool) runTool.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+    // share: a link that opens the current code in anyone's browser
+    let _toastTimer;
+    function shareToast(msg) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2800); }
+    const shareTool = document.getElementById('tool-share');
+    if (shareTool) shareTool.onclick = async () => {
+      const url = location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));
+      try {
+        if (navigator.share && isTouch) { await navigator.share({ title: 'My fc game', url }); return; }
+        await navigator.clipboard.writeText(url);
+        shareToast('Link copied — anyone who opens it gets your game');
+      } catch (e) { window.prompt('Copy this link to share your game:', url); }
+    };
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
