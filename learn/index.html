@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fc · Learn</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a14;color:#cdd6e0;font-family:'Share Tech Mono',monospace;line-height:1.5}
+  a{color:#c8a96e}
+  header{padding:16px 18px 10px;border-bottom:1px solid #23233a}
+  header h1{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.16em;color:#c8a96e}
+  header p{font-size:12.5px;color:#9aa3b2;margin-top:4px}
+  header .links{font-size:12px;margin-top:6px}
+  #stage-wrap{position:sticky;top:0;z-index:10;background:#05050c;border-bottom:1px solid #23233a;
+    display:flex;gap:12px;align-items:center;justify-content:center;padding:10px}
+  #stage{width:200px;height:200px;border:1px solid #2a2a4a;border-radius:6px;background:#000;flex:0 0 auto}
+  #stage-meta{font-size:12px;color:#8a8aa8;max-width:360px}
+  #stage-meta b{color:#ffec27}
+  main{max-width:820px;margin:0 auto;padding:16px 14px 60px}
+  .sec{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.14em;color:#ffec27;margin:26px 0 6px;border-bottom:1px solid #23233a;padding-bottom:3px}
+  .sec-note{font-size:12.5px;color:#9aa3b2;margin-bottom:6px}
+  .step{background:#11111e;border:1px solid #23233a;border-radius:6px;padding:12px 14px;margin:12px 0}
+  .step .nm{font-size:15px;color:#fff;font-weight:bold}
+  .step .nm .badge{display:inline-block;background:#2c6e2c;color:#dfffe0;font-size:11px;border-radius:3px;padding:1px 7px;margin-right:8px;vertical-align:middle}
+  .step .why{font-size:13px;color:#9aa3b2;margin:5px 0 8px}
+  .step .why b{color:#c8a96e}
+  .step textarea.code{display:block;width:100%;background:#070710;border:1px solid #1d1d30;border-radius:4px;padding:9px 11px;font:12.5px/1.55 'Share Tech Mono',monospace;color:#a8d8ea;white-space:pre;overflow:auto;resize:vertical;outline:none;tab-size:2}
+  .step textarea.code:focus{border-color:#2c6e2c}
+  .step .actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .step .run{font:12px 'Share Tech Mono',monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:6px 14px;cursor:pointer;letter-spacing:.06em}
+  .step .run:hover{background:#163a16}
+  .step .edit{font:12px 'Share Tech Mono',monospace;background:#161616;border:1px solid #5a4a28;color:#c8a96e;border-radius:4px;padding:6px 12px;cursor:pointer;letter-spacing:.06em;text-decoration:none;display:inline-block}
+  .step .edit:hover{border-color:#c8a96e}
+  footer{text-align:center;color:#6a6a8a;font-size:11px;padding:24px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>FANTASY COMPUTER · LEARN</h1>
+  <p>Build a real little game one step at a time. Every step is a complete program you can <b style="color:#9f9">edit</b> and <b style="color:#9f9">▸ Run</b> right here, or <b style="color:#c8a96e">✎ Open in editor</b> to keep going.</p>
+  <p class="links"><a href="/">← editor</a> &nbsp;·&nbsp; <a href="/docs/">command reference →</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a></p>
+</header>
+<div id="stage-wrap">
+  <iframe id="stage" title="run stage"></iframe>
+  <div id="stage-meta"><b id="stage-name">Stage</b><br><span id="stage-desc">Tap ▸ Run on any step to play it here. Click the screen, then use the arrow keys.</span></div>
+</div>
+<main>
+  <div class="sec">TUTORIAL · Make a coin collector</div>
+  <div class="sec-note">Each step adds ONE idea to the step before it. Run each one, then move on — by the last step you have a finished game.</div>
+  <div id="tut"></div>
+
+  <div class="sec">HOW-TO RECIPES</div>
+  <div class="sec-note">Short answers to common "how do I…?" questions. Each is a tiny complete program — grab it and drop it into your game.</div>
+  <div id="recipes"></div>
+</main>
+<footer>fantasy computer · plain-English game coding · codeonline.io/learn</footer>
+<script>
+// [title, why/explanation, complete program]
+const STEPS = [
+  ["A hero you can move",
+   "Make a <b>player</b> sprite and <b>move it with the arrows</b>. The game loop is two parts: <b>to update</b> (runs every frame) and <b>to draw</b> (draws every frame).",
+`player is centered sprite {image: "hero", speed: 1}
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Scatter some coins",
+   "Make a <b>list of sprites</b> and draw each one with <b>each coin in coins</b>. They just sit there for now — we'll make them collectable next.",
+`player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Collect them",
+   "Tag the coins as <b>pickups</b>, then <b>when player picks up any coin</b> play a sound. The engine removes the coin for you — no math needed.",
+`player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+when player picks up any coin
+  play sound "pickup"
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Keep score",
+   "Add a <b>score</b> variable, <b>add 1 to score</b> on each pickup, and <b>write</b> it on the HUD. Curly braces drop a value into text: <b>{score}</b>.",
+`score is 0
+player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+when player picks up any coin
+  add 1 to score
+  play sound "pickup"
+to update
+  move player with arrows
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+  write "coins {score}" at 2, 2 in white on hud
+run game with update and draw`],
+
+  ["Win the game",
+   "Use a <b>mode</b> to track game state. When <b>the number of coins is 0</b>, switch to a <b>win</b> screen — <b>to screen win</b> draws automatically when mode is \"win\". That's a complete game!",
+`mode is "play"
+score is 0
+player is centered sprite {image: "hero", speed: 1}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+when player picks up any coin
+  add 1 to score
+  play sound "pickup"
+to update
+  if mode is not "play" return
+  move player with arrows
+  if the number of coins is 0
+    mode is "win"
+to draw
+  clear screen to dark green
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+  write "coins {score}" at 2, 2 in white on hud
+to screen win
+  clear screen to dark blue
+  write "ALL COINS!" at 30, 54 in yellow on hud
+  write "score {score}" at 36, 70 in white on hud
+run game with update and draw`],
+];
+
+// [title, why, program]
+const RECIPES = [
+  ["Keep a score",
+   "A number you add to and show on the HUD.",
+`score is 0
+to update
+  every 30 frames
+    add 1 to score
+to draw
+  clear screen to black
+  write "score {score}" at 2, 2 in white on hud
+run game with update and draw`],
+
+  ["A title screen with a Play button",
+   "Use screens + a button to start the game.",
+`mode is "title"
+to update
+to screen title
+  clear screen to dark blue
+  write "MY GAME" at 36, 30 in yellow on hud
+  show button "play" at 44, 60
+to screen play
+  clear screen to dark green
+  write "playing!" at 34, 50 in white on hud
+when button "play" is clicked go to play
+run game with update`],
+
+  ["An enemy that chases you",
+   "Nudge the foe toward the player on each axis.",
+`player is centered sprite {image: "hero", speed: 1}
+foe is {x: 10, y: 10, image: "ghost"}
+to update
+  move player with arrows
+  if foe.x < player.x foe.x is foe.x + 0.5
+  if foe.x > player.x foe.x is foe.x - 0.5
+  if foe.y < player.y foe.y is foe.y + 0.5
+  if foe.y > player.y foe.y is foe.y - 0.5
+to draw
+  clear screen to dark blue
+  draw sprite foe.image at foe.x, foe.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["A sound when you get hit",
+   "Tag foes hostile and react when the player hits one.",
+`player is centered sprite {image: "hero", speed: 1}
+enemies is list of 4 sprites {image: "ghost"}
+enemies are hostile
+when player hits any enemy
+  play sound "hurt"
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+];
+
+const enc = code => '/?embed=1&code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
+const editUrl = code => '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
+const stage = document.getElementById('stage'), sName = document.getElementById('stage-name'), sDesc = document.getElementById('stage-desc');
+function run(name, code){ stage.src = enc(code); sName.textContent = name; sDesc.textContent = 'Click the screen, then use the arrow keys.'; window.scrollTo({top:0, behavior:'smooth'}); }
+
+function card(container, prefix, i, title, why, code){
+  const el = document.createElement('div'); el.className = 'step';
+  const badge = prefix ? `<span class="badge">${prefix} ${i}</span>` : '';
+  el.innerHTML = `<div class="nm">${badge}${title.replace(/</g,'&lt;')}</div><div class="why">${why}</div>`;
+  const ta = document.createElement('textarea');
+  ta.className = 'code'; ta.value = code; ta.spellcheck = false; ta.autocapitalize = 'off';
+  ta.rows = Math.max(2, code.split('\n').length);
+  el.appendChild(ta);
+  const actions = document.createElement('div'); actions.className = 'actions';
+  const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick = () => run(title, ta.value); actions.appendChild(b);
+  const e = document.createElement('a'); e.className='edit'; e.textContent='✎ Open in editor'; e.target='_blank'; e.rel='noopener';
+  e.href = editUrl(code); e.onclick = () => { e.href = editUrl(ta.value); }; actions.appendChild(e);
+  el.appendChild(actions);
+  container.appendChild(el);
+}
+
+const tut = document.getElementById('tut');
+STEPS.forEach((s, i) => card(tut, 'Step', i+1, s[0], s[1], s[2]));
+const rec = document.getElementById('recipes');
+RECIPES.forEach(r => card(rec, '', 0, r[0], r[1], r[2]));
+
+run('Step 1 · A hero you can move', STEPS[0][2]);
+</script>
+</body>
+</html>

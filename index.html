@@ -329,13 +329,30 @@ body.touch.playing #back-btn {
   <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:760px;margin:0 auto">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.18em">FANTASY COMPUTER &mdash; QUICK HELP</div>
-    <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">describe what you want, type it, it runs. tap a starter to load it.</div>
+    <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">Describe what you want, type it, it runs. Three steps, simplest first.</div>
+
+    <div style="font:bold 13px 'Share Tech Mono',monospace;color:#9f9;letter-spacing:.05em;margin:6px 0 8px">1 &middot; FIRST 5 MINUTES &mdash; tap a starter, then press &#9654; RUN</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="help-starters">
       <button class="hstart" data-k="hero" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; moving hero</button>
       <button class="hstart" data-k="coins" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; collect coins</button>
       <button class="hstart" data-k="bounce" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; bouncing ball + sound</button>
       <button class="hstart" data-k="screens" style="font:12px monospace;background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:4px;padding:7px 12px;cursor:pointer">&#9654; title + play screen</button>
     </div>
+    <div style="font:bold 13px 'Share Tech Mono',monospace;color:#9f9;letter-spacing:.05em;margin:6px 0 8px">2 &middot; MAKE YOUR FIRST GAME</div>
+    <div style="color:#9aa3b2;font-size:12.5px;line-height:1.7;margin-bottom:18px">
+      Open a game from the <b style="color:#c8a96e">⌂ games</b> menu and tweak its code, or tap <b style="color:#9f9">+ New Game</b> for a blank start.<br>
+      Step-by-step lessons &amp; recipes: <a href="/learn/" style="color:#c8a96e">codeonline.io/learn</a>.
+    </div>
+
+    <div style="font:bold 13px 'Share Tech Mono',monospace;color:#ffcf6a;letter-spacing:.05em;margin:6px 0 8px">WHEN IT DOESN&rsquo;T WORK</div>
+    <div style="color:#9aa3b2;font-size:12px;line-height:1.75;margin-bottom:18px">
+      &bull; Keys do nothing? <b>Click/tap the screen once</b> so it can hear the keyboard.<br>
+      &bull; Blank screen? Make sure you <code style="color:#9fe">clear screen ...</code> and draw inside <code style="color:#9fe">to draw</code>.<br>
+      &bull; A line ignored? Check spelling/lowercase, and that nested lines are <b>indented</b>.<br>
+      &bull; A red message under the editor names the line &mdash; fix that line.
+    </div>
+
+    <div style="font:bold 13px 'Share Tech Mono',monospace;color:#9f9;letter-spacing:.05em;margin:6px 0 8px">3 &middot; ALL COMMANDS</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;font-size:12.5px;line-height:1.7">
       <div><b style="color:#ffec27">MOVE &amp; DRAW</b><br>move player with arrows<br>draw sprite "hero" at x, y<br>draw circle at 64, 64 size 20 in red<br>draw rect at 10, 10 size 8, 8 in green<br>write "score {score}" at 2, 2 in white on hud<br>clear screen to dark blue</div>
       <div><b style="color:#ffec27">VALUES &amp; MATH</b><br>score is 0<br>add 10 to score<br>reverse ball.dx&nbsp;&nbsp;(flip sign)<br>x is -8&nbsp;&nbsp;(negatives ok)<br>if score is 100 ...<br>if x &gt; 10 and y &lt; 5 ...</div>
@@ -4366,7 +4383,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.4';
+  const APP_VERSION = 'v2.5';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
