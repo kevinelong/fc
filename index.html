@@ -1621,6 +1621,20 @@ function parse(source) {
       return { type: 'move_with_arrows', target, speed, lineNum };
     }
 
+    // -- move X by DX, DY [blocked by WALLS] --
+    // Manual move with optional wall-sliding; the engine does the per-axis AABB
+    // so game code stays plain English (each wall may carry w/h, default 8).
+    if (first === 'move' && raw.length >= 4 && tv(raw[2]) === 'by') {
+      const target = raw[1].value;
+      const bIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'blocked');
+      const vec = raw.slice(3, bIdx > 0 ? bIdx : raw.length);
+      const ci = vec.findIndex(t => t.type === 'comma');
+      const dx = parseExpression(ci >= 0 ? vec.slice(0, ci) : vec);
+      const dy = ci >= 0 ? parseExpression(vec.slice(ci + 1)) : { type: 'literal', value: 0 };
+      const blockedBy = (bIdx > 0 && raw[bIdx + 2]) ? raw[bIdx + 2].value : null;  // "blocked by LIST"
+      return { type: 'move_by', target, dx, dy, blockedBy, lineNum };
+    }
+
     // -- clear screen to COLOR --
     if (first === 'clear' && raw.length >= 2 && tv(raw[1]) === 'screen') {
       const colorTokens = raw.slice(raw.findIndex(t => tv(t) === 'to') + 1);
@@ -3181,6 +3195,30 @@ class Runtime {
           break;
         }
 
+        case 'move_by': {
+          const obj = this.getVar(stmt.target);
+          if (obj && typeof obj === 'object') {
+            const dx = Number(this.evalExpr(stmt.dx)) || 0;
+            const dy = Number(this.evalExpr(stmt.dy)) || 0;
+            const walls = stmt.blockedBy ? this.getVar(stmt.blockedBy) : null;
+            const sz = (typeof obj.w === 'number') ? obj.w : 6;   // mover box (defaults to 6)
+            const blocked = (px, py) => {
+              if (!Array.isArray(walls)) return false;
+              for (const w of walls) {
+                if (!w || typeof w.x !== 'number') continue;
+                const ww = (typeof w.w === 'number') ? w.w : 8;
+                const wh = (typeof w.h === 'number') ? w.h : 8;
+                if (px + sz > w.x && px < w.x + ww && py + sz > w.y && py < w.y + wh) return true;
+              }
+              return false;
+            };
+            // move each axis only if it stays clear — slides along walls
+            if (!blocked(obj.x + dx, obj.y)) obj.x += dx;
+            if (!blocked(obj.x, obj.y + dy)) obj.y += dy;
+          }
+          break;
+        }
+
         case 'walk': {
           const obj = this.getVar(stmt.target);
           if (obj) {
@@ -4328,7 +4366,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.2';
+  const APP_VERSION = 'v2.3';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {

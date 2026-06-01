@@ -76,25 +76,8 @@ to update
       me.dx is 0
       me.dy is 1
 
-    -- move on X, blocked by walls
-    if vx is not 0
-      nx is me.x + vx
-      hitx is 0
-      each w in walls
-        if nx + 6 > w.x and nx < w.x + w.w and me.y + 6 > w.y and me.y < w.y + w.h
-          hitx is 1
-      if hitx is 0
-        me.x is nx
-
-    -- move on Y, blocked by walls
-    if vy is not 0
-      ny is me.y + vy
-      hity is 0
-      each w in walls
-        if me.x + 6 > w.x and me.x < w.x + w.w and ny + 6 > w.y and ny < w.y + w.h
-          hity is 1
-      if hity is 0
-        me.y is ny
+    -- slide along the maze walls (the engine does the collision math)
+    move me by vx, vy blocked by walls
 
     -- my bullet flies, dies on walls, frags an enemy it touches
     if me.bon
