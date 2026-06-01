@@ -1,30 +1,77 @@
--- MULTIPLAYER DOTS  ·  open this on two devices in the same room and move around.
--- Everyone in the room sees everyone else's dot, live, via the huntd relay.
--- Arrow keys / D-pad to move.
+-- TAG  ·  multiplayer. One player is "it" (red). If "it" touches you, you're it!
+-- Open on two devices (or two windows) in the same room. Arrows / D-pad to move.
 
 join game "dots" room "lobby"
--- start somewhere random so two players don't land on the same spot
-me is {x: 64, y: 64}
+
+-- start at a random spot with a random "tag number". The highest number is "it",
+-- so the most-recently-tagged player is always the one chasing.
+me is {x: 64, y: 64, tag: 0, safe: 0, wasit: no}
 me.x is 16 + random 96
 me.y is 16 + random 96
+me.tag is random 1000
+
+define sound "tag" as square from 200 to 900 over 0.12
 
 to update
-  if key "right" is held me.x is me.x + 1.5
-  if key "left" is held  me.x is me.x - 1.5
-  if key "up" is held    me.y is me.y - 1.5
-  if key "down" is held  me.y is me.y + 1.5
-  -- share my position a few times a second (don't flood the relay)
-  every 5 frames
-    broadcast {x: me.x, y: me.y}
+  -- move around
+  if key "right" me.x is me.x + 1.5
+  if key "left"  me.x is me.x - 1.5
+  if key "up"    me.y is me.y - 1.5
+  if key "down"  me.y is me.y + 1.5
+  if me.x < 2 me.x is 2
+  if me.x > 120 me.x is 120
+  if me.y < 2 me.y is 2
+  if me.y > 120 me.y is 120
+
+  -- who is "it"? whoever has the highest tag number (me or a peer)
+  top is me.tag
+  each peer in peers
+    if peer.tag > top
+      top is peer.tag
+  amit is no
+  if me.tag >= top
+    amit is yes
+
+  -- when your "it" status just flipped, take a short breather (no instant tag-backs)
+  if amit is not me.wasit
+    me.safe is 40
+  me.wasit is amit
+  if me.safe > 0
+    me.safe is me.safe - 1
+
+  -- if you're a runner and "it" touches you, YOU become "it"
+  if amit is no
+    if me.safe <= 0
+      each peer in peers
+        if peer.tag is top
+          if peer.x > me.x - 6 and peer.x < me.x + 6
+            if peer.y > me.y - 6 and peer.y < me.y + 6
+              me.tag is top + 1
+              me.safe is 40
+              play sound "tag"
+
+  -- share my position + tag number a few times a second
+  every 4 frames
+    broadcast {x: me.x, y: me.y, tag: me.tag}
 
 to draw
   clear screen to dark blue
-  -- everyone else, in red
+  -- other players: "it" is red, runners are sky blue
   each peer in peers
-    draw rect at peer.x, peer.y size 6, 6 in red
-  -- me, in white, on top
-  draw rect at me.x, me.y size 6, 6 in white
+    if peer.tag is top
+      draw rect at peer.x, peer.y size 6, 6 in red
+    else
+      draw rect at peer.x, peer.y size 6, 6 in blue
+  -- you: red while you're it, green while you're a runner
+  if amit
+    draw rect at me.x, me.y size 6, 6 in red
+  else
+    draw rect at me.x, me.y size 6, 6 in green
+
   others is the number of peers
-  write "you + {others} others" at 2, 2 in white on hud
+  if amit
+    write "YOU'RE IT - tag someone!" at 6, 2 in red on hud
+  else
+    write "RUN!  {others} players" at 6, 2 in green on hud
 
 run game with update and draw

@@ -4296,7 +4296,7 @@ run game with update`;
   // icons are real engine sprites (same 8x8 pixel art the games draw), or a
   // custom 64-hex sprite where no built-in fits. Rendered pixelated on a canvas.
   const PONG_ICON = '0000000070000000700000007000bb007000bb00700000007000000000000000';
-  const DOTS_ICON = '0000000008800000088000000000000000000990000009900000000000000000';
+  const DOTS_ICON = '000000000cc000000cc00000000000000000099000000990000000000000000';
   const GAMES = [
     { file: 'coin-quest',     name: 'Coin Quest',     sprite: 'coin',     desc: 'Roam the world, grab coins, dodge the foes.' },
     { file: 'pong',           name: 'Pong',           sprite: PONG_ICON,  desc: 'Classic paddle tennis against the computer.' },
@@ -4305,7 +4305,7 @@ run game with update`;
     { file: 'space-invaders', name: 'Space Invaders', sprite: 'alien',    desc: 'Blast the alien fleet before it lands.' },
     { file: 'flappy',         name: 'Flappy',         sprite: 'ship',     desc: 'One button — flap through the gaps.' },
     { file: 'pitfall',        name: 'Pitfall Hop',    sprite: 'hero',     desc: 'Jump the rolling logs as long as you can.' },
-    { file: 'mp-dots',        name: 'Dots',           sprite: DOTS_ICON,  tag: 'multiplayer', desc: "A shared room — everyone's dot moves live." },
+    { file: 'mp-dots',        name: 'Tag',            sprite: DOTS_ICON,  tag: 'multiplayer', desc: 'One player is “it” (red) — get touched and you’re it!' },
     { file: 'hunt',           name: 'Hunt',           sprite: 'skull',    tag: 'multiplayer', desc: 'Maze deathmatch — move, shoot, frag. Bring a friend.' },
   ];
   // render a sprite (built-in name or 64-hex string) onto a small pixelated canvas
@@ -4328,7 +4328,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.1';
+  const APP_VERSION = 'v2.2';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
