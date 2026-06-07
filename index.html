@@ -142,6 +142,12 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .ic-px { width: 30px; height: 30px; image-rendering: pixelated; image-rendering: crisp-edges; display: block; margin: 0 auto 5px; }
 .lr-tile .nm { font-size: 11px; letter-spacing: .03em; }
 .lr-tile .tag { display: block; font-size: 8px; color: #8a7340; margin-top: 2px; letter-spacing: .04em; }
+#lr-yours { display: none; max-width: 480px; margin: 0 auto 12px; }
+.lr-sub2 { color: #8a7340; font-size: 12px; letter-spacing: .08em; margin: 2px 2px 6px; }
+.lr-grid-y { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lr-tile.yours { position: relative; }
+.lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
+.lr-tile .del:hover { color: #ff6a6a; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
 #lr-foot a { color: #c8a96e; }
 #lr-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -282,6 +288,7 @@ body.touch.playing #back-btn {
       <button type="button" id="lr-new">+ New Game</button>
     </div>
   </div>
+  <div id="lr-yours"></div>
   <div id="lr-grid"></div>
   <div id="lr-foot">
     Open any demo to play it and see exactly how it&rsquo;s made.&nbsp;
@@ -308,6 +315,8 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-sprite" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🖌 sprite</button>
       <button type="button" id="tool-sound" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">♪ sound</button>
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
+      <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
+      <button type="button" id="tool-github" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1f2328;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⬆ GitHub</button>
       <button type="button" id="tool-share" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🔗 share</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
@@ -4396,7 +4405,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.8';
+  const APP_VERSION = 'v2.9';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4482,6 +4491,41 @@ draw circle at 64, 80 size 10 in yellow`;
       kb.onclick = () => insertSnippet(text, !!isLine);
       kbar.appendChild(kb);
     });
+
+    // ---- save code on this device + a "Your games" shelf on the launcher ----
+    const SAVES_KEY = 'fc.saves';
+    function loadSaves() { try { return JSON.parse(localStorage.getItem(SAVES_KEY)) || {}; } catch (_) { return {}; } }
+    function writeSaves(o) { try { localStorage.setItem(SAVES_KEY, JSON.stringify(o)); } catch (_) {} }
+    function renderYours() {
+      const wrap = document.getElementById('lr-yours'); if (!wrap) return;
+      const saves = loadSaves(); const names = Object.keys(saves).sort();
+      if (!names.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+      wrap.style.display = 'block'; wrap.innerHTML = '';
+      const sub = document.createElement('div'); sub.className = 'lr-sub2'; sub.textContent = 'Your games'; wrap.appendChild(sub);
+      const grid = document.createElement('div'); grid.className = 'lr-grid-y';
+      names.forEach(name => {
+        const t = document.createElement('div'); t.className = 'lr-tile yours';
+        t.appendChild(makeIcon('chest'));
+        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = name; t.appendChild(nm);
+        const del = document.createElement('button'); del.className = 'del'; del.textContent = '×'; del.title = 'Delete';
+        del.onclick = (e) => { e.stopPropagation(); if (confirm('Delete “' + name + '”?')) { const s = loadSaves(); delete s[name]; writeSaves(s); renderYours(); } };
+        t.appendChild(del);
+        t.onclick = () => { const s = loadSaves()[name]; if (s) { loadAndRun(s.code, true); setGameDesc({ name: name, desc: 'your saved game' }); } };
+        grid.appendChild(t);
+      });
+      wrap.appendChild(grid);
+    }
+    window.fcSaveCurrent = function () {
+      const name = (prompt('Save this game as:', '') || '').trim();
+      if (!name) return null;
+      const saves = loadSaves(); saves[name] = { code: editor.value, at: Date.now() }; writeSaves(saves);
+      shareToast('Saved “' + name + '” on this device');
+      renderYours();
+      return name;
+    };
+    const saveTool = document.getElementById('tool-save');
+    if (saveTool) saveTool.onclick = () => window.fcSaveCurrent();
+    renderYours();
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
