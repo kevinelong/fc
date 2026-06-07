@@ -2,8 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fantasy Computer</title>
+<!-- PWA: installable, offline-capable. theme/background match the app shell. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="description" content="fc — a plain-English fantasy console. Write little games that read like a design doc and run them on a 128x128 CRT screen.">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="fc">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; background: #1a1a2e; color: #e0e0e0; font-family: monospace; overflow: hidden; }
@@ -4411,7 +4421,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v3.2';
+  const APP_VERSION = 'v3.3';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4866,6 +4876,96 @@ run game with update`,
 
   renderAccount();
   refresh();
+})();
+</script>
+
+<!-- ===== PWA: service-worker registration + install hint ===================== -->
+<script>
+(() => {
+  const inApp = location.protocol === 'file:' ||
+                location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const isEmbed = window.top !== window.self || /[?&]embed=1/.test(location.search);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+                     window.navigator.standalone === true;
+
+  // Register the service worker only on the live HTTPS site — never inside the
+  // packaged APK (localhost server) or an embedded iframe, where it would only
+  // get in the way.
+  if ('serviceWorker' in navigator && location.protocol === 'https:' &&
+      /(^|\.)codeonline\.io$/.test(location.hostname) && !isEmbed) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
+  if (inApp || isEmbed || standalone) return;   // no install hint needed in these
+
+  const KEY = 'fc.pwa.hint';
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+  if (dismissed) {
+    // still wire up Android/desktop install prompt below, but skip the iOS hint
+  }
+
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isOtherIOSBrowser = /CriOS|FxiOS|EdgiOS/.test(ua);  // only Safari can A2HS
+  const iosSafari = isIOS && !isOtherIOSBrowser;
+
+  function bar(html, opts) {
+    opts = opts || {};
+    const b = document.createElement('div');
+    b.setAttribute('role', 'dialog');
+    b.style.cssText = 'position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));' +
+      'transform:translateX(-50%);z-index:99999;max-width:340px;width:calc(100% - 20px);' +
+      'background:#16162a;color:#dfe3ee;border:1px solid #34345a;border-radius:10px;' +
+      'box-shadow:0 8px 28px rgba(0,0,0,.55);font:12.5px/1.5 monospace;padding:11px 12px;' +
+      'display:flex;align-items:center;gap:10px';
+    b.innerHTML = '<span style="flex:1">' + html + '</span>';
+    const x = document.createElement('button');
+    x.textContent = '×';
+    x.setAttribute('aria-label', 'Dismiss');
+    x.style.cssText = 'background:none;border:none;color:#8a8aa8;font-size:18px;cursor:pointer;line-height:1;padding:0 2px';
+    x.onclick = () => { b.remove(); try { localStorage.setItem(KEY, '1'); } catch (e) {} };
+    b.appendChild(x);
+    if (opts.action) {
+      const a = document.createElement('button');
+      a.textContent = opts.action;
+      a.style.cssText = 'background:#10240f;border:1px solid #2c6e2c;color:#9f9;border-radius:6px;' +
+        'padding:6px 12px;cursor:pointer;font:12px monospace;white-space:nowrap';
+      a.onclick = opts.onAction;
+      b.insertBefore(a, x);
+    }
+    document.body.appendChild(b);
+    return b;
+  }
+
+  // iOS Safari has no install prompt — show the manual Share -> Add to Home Screen tip.
+  if (iosSafari && !dismissed) {
+    setTimeout(() => bar(
+      'Install <b style="color:#9f9">fc</b>: tap the Share button ' +
+      '<span style="display:inline-block;border:1px solid #5a6;border-radius:3px;padding:0 4px">↑</span>' +
+      ' then <b>Add to Home Screen</b> — runs offline, fullscreen.'
+    ), 2600);
+  }
+
+  // Android / desktop Chromium: use the real install prompt.
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferred = e;
+    if (dismissed) return;
+    const b = bar('Install <b style="color:#9f9">fc</b> as an app — runs offline, fullscreen.', {
+      action: 'Install',
+      onAction: async () => {
+        b.remove();
+        deferred.prompt();
+        try { await deferred.userChoice; } catch (e) {}
+        deferred = null;
+      }
+    });
+  });
 })();
 </script>
 </body>
