@@ -53,7 +53,7 @@ const EMAIL = { TTL: 10 * 60 * 1000, MAX_ATTEMPTS: 5, RESEND_COOLDOWN: 30 * 1000
 
 // ---- tiny JSON store (atomic writes) ----
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
-let db = { users: {}, nicks: {}, sessions: {}, states: {}, codes: {} };
+let db = { users: {}, nicks: {}, sessions: {}, states: {}, codes: {}, community: [] };
 try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); } catch (_) {}
 let saveTimer = null;
 function save() {
@@ -151,7 +151,7 @@ const server = http.createServer(async (req, res) => {
   const p = u.pathname;
   const method = req.method;
   // CSRF: state-changing POSTs must carry our custom header (browsers can't add it cross-site without CORS).
-  const csrfOk = method !== 'POST' || req.headers['x-co'] === '1';
+  const csrfOk = method === 'GET' || method === 'HEAD' || req.headers['x-co'] === '1';
 
   try {
     if (p === '/api/auth/health') return json(res, 200, { ok: true, providers: { google: !!GOOGLE_CLIENT_ID, github: !!GITHUB_CLIENT_ID } });
@@ -313,6 +313,44 @@ const server = http.createServer(async (req, res) => {
         if (!gh.ok || !g.html_url) return json(res, 502, { error: (g && g.message) ? ('GitHub: ' + g.message) : 'GitHub upload failed.' });
         return json(res, 200, { url: g.html_url });
       } catch (e) { return json(res, 502, { error: 'Could not reach GitHub.' }); }
+    }
+
+    // ---- Community gallery: publish / browse / delete-your-own ----
+    if (p === '/api/games/community' && method === 'GET') {
+      const me = sessionUser(parseCookies(req)[COOKIE]);
+      const list = (db.community || []).slice(-60).reverse().map(g => ({
+        id: g.id, name: g.name, author: g.author, at: g.at, code: g.code,
+        mine: !!(me && g.ownerId === me.id),
+      }));
+      return json(res, 200, { games: list });
+    }
+    if (p === '/api/games/publish' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'sign in to publish' });
+      const body = await readBody(req);
+      const code = String(body.code || '');
+      if (!code.trim()) return json(res, 400, { error: 'nothing to publish' });
+      if (code.length > 16000) return json(res, 400, { error: 'game too big to publish (16 KB max)' });
+      const name = (String(body.name || '').replace(/[^\w \-!?.()]/g, '').trim() || 'Untitled').slice(0, 40);
+      if (!db.community) db.community = [];
+      if (db.community.filter(g => g.ownerId === user.id).length >= 20) return json(res, 429, { error: 'Publish limit reached (20) — delete some first.' });
+      const id = crypto.randomBytes(6).toString('hex');
+      db.community.push({ id, name, code, ownerId: user.id, author: user.nickname, at: Date.now() });
+      if (db.community.length > 500) db.community = db.community.slice(-500);
+      save();
+      return json(res, 200, { id, name });
+    }
+    if (p.startsWith('/api/games/community/') && method === 'DELETE') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      const id = p.slice('/api/games/community/'.length);
+      const i = (db.community || []).findIndex(g => g.id === id);
+      if (i < 0) return json(res, 404, { error: 'not found' });
+      if (db.community[i].ownerId !== user.id) return json(res, 403, { error: 'not yours to delete' });
+      db.community.splice(i, 1); save();
+      return json(res, 200, { ok: true });
     }
 
     return json(res, 404, { error: 'not found' });

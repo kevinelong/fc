@@ -150,6 +150,7 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile.yours { position: relative; }
 .lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
 .lr-tile .del:hover { color: #ff6a6a; }
+#lr-community { display: none; max-width: 480px; margin: 0 auto 12px; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
 #lr-foot a { color: #c8a96e; }
 #lr-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -292,6 +293,7 @@ body.touch.playing #back-btn {
     </div>
   </div>
   <div id="lr-yours"></div>
+  <div id="lr-community"></div>
   <div id="lr-grid"></div>
   <div id="lr-foot">
     Open any demo to play it and see exactly how it&rsquo;s made.&nbsp;
@@ -320,6 +322,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
       <button type="button" id="tool-github" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1f2328;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⬆ GitHub</button>
+      <button type="button" id="tool-publish" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🌐 publish</button>
       <button type="button" id="tool-share" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🔗 share</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
@@ -4408,7 +4411,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v3.1';
+  const APP_VERSION = 'v3.2';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4557,6 +4560,34 @@ draw circle at 64, 80 size 10 in yellow`;
     }
     const openTool = document.getElementById('lr-open');
     if (openTool) openTool.onclick = openShared;
+
+    // ---- Community shelf: games published by signed-in players ----
+    function renderCommunity() {
+      const wrap = document.getElementById('lr-community'); if (!wrap) return;
+      fetch('/api/games/community', { credentials: 'same-origin' }).then(r => r.json()).then(d => {
+        const games = (d && d.games) || [];
+        if (!games.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+        wrap.style.display = 'block'; wrap.innerHTML = '';
+        const sub = document.createElement('div'); sub.className = 'lr-sub2'; sub.textContent = 'Community'; wrap.appendChild(sub);
+        const grid = document.createElement('div'); grid.className = 'lr-grid-y';
+        games.forEach(g => {
+          const t = document.createElement('div'); t.className = 'lr-tile community';
+          t.appendChild(makeIcon('star'));
+          const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = g.name; t.appendChild(nm);
+          const by = document.createElement('span'); by.className = 'tag'; by.textContent = 'by ' + g.author; t.appendChild(by);
+          if (g.mine) {
+            const del = document.createElement('button'); del.className = 'del'; del.textContent = '×'; del.title = 'Remove';
+            del.onclick = (e) => { e.stopPropagation(); if (confirm('Remove “' + g.name + '” from the community?')) fetch('/api/games/community/' + g.id, { method: 'DELETE', headers: { 'X-CO': '1' }, credentials: 'same-origin' }).then(() => renderCommunity()); };
+            t.appendChild(del);
+          }
+          t.onclick = () => { loadAndRun(g.code, true); setGameDesc({ name: g.name, desc: 'community game by ' + g.author }); };
+          grid.appendChild(t);
+        });
+        wrap.appendChild(grid);
+      }).catch(() => {});
+    }
+    window.fcRenderCommunity = renderCommunity;
+    renderCommunity();
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
@@ -4682,9 +4713,24 @@ run game with update`,
   let toastTimer = null;
   function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600); }
 
-  // GitHub upload: show the ⬆ GitHub button only when signed in via GitHub
+  // Show the ⬆ GitHub button only for GitHub users; 🌐 publish for any signed-in user
   const githubBtn = document.getElementById('tool-github');
-  function updateGithubBtn() { if (githubBtn) githubBtn.style.display = (state.user && state.user.provider === 'github') ? '' : 'none'; }
+  const publishBtn = document.getElementById('tool-publish');
+  function updateGithubBtn() {
+    if (githubBtn) githubBtn.style.display = (state.user && state.user.provider === 'github') ? '' : 'none';
+    if (publishBtn) publishBtn.style.display = state.user ? '' : 'none';
+  }
+  if (publishBtn) publishBtn.onclick = async () => {
+    if (!state.user) { toast('Sign in to publish'); openSignin(); return; }
+    const name = (prompt('Publish to the community as:', '') || '').trim();
+    if (!name) return;
+    toast('Publishing…');
+    try {
+      const r = await fetch('/api/games/publish', { method: 'POST', headers: { 'X-CO': '1', 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ name: name, code: editor.value }) }).then(x => x.json()).catch(() => ({}));
+      if (r && r.id) { toast('Published to the community ✓'); if (window.fcRenderCommunity) window.fcRenderCommunity(); }
+      else { toast((r && r.error) || 'Publish failed'); }
+    } catch (e) { toast('Publish failed'); }
+  };
   if (githubBtn) githubBtn.onclick = async () => {
     if (!(state.user && state.user.provider === 'github')) { toast('Sign in with GitHub to upload'); openSignin(); return; }
     const name = (prompt('Upload to a GitHub gist as:', '') || '').trim();
