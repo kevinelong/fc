@@ -198,7 +198,7 @@ const server = http.createServer(async (req, res) => {
       const auth = new URL('https://github.com/login/oauth/authorize');
       auth.searchParams.set('client_id', GITHUB_CLIENT_ID);
       auth.searchParams.set('redirect_uri', ORIGIN + '/api/auth/github/callback');
-      auth.searchParams.set('scope', 'read:user user:email');
+      auth.searchParams.set('scope', 'read:user user:email gist');
       auth.searchParams.set('state', state);
       return redirect(res, auth.toString());
     }
@@ -232,6 +232,8 @@ const server = http.createServer(async (req, res) => {
         }
       }
       const user = findOrCreateUser('github', String(ghUser.id), email);
+      // store the token + login so the user can push games to a GitHub gist
+      user.gh_token = tokRes.access_token; user.gh_login = ghUser.login || ''; save();
       setCookie(res, COOKIE, newSession(user.id), SESSION_TTL);
       if (!user.emailVerified) {
         if (user.email) { try { await startVerification(user); } catch (_) {} }
@@ -287,6 +289,30 @@ const server = http.createServer(async (req, res) => {
       if (rec && Date.now() - rec.sentAt < EMAIL.RESEND_COOLDOWN) return json(res, 429, { error: 'Please wait a moment before resending.' });
       try { await startVerification(user); } catch (e) { return json(res, 500, { error: 'Could not send email — try again shortly.' }); }
       return json(res, 200, { ok: true, email: maskEmail(user.email) });
+    }
+
+    // upload the current game to a GitHub gist (requires a github session + token)
+    if (p === '/api/games/gist' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      if (user.provider !== 'github' || !user.gh_token) return json(res, 403, { error: 'reconnect', detail: 'Sign out and sign in with GitHub again to enable upload.' });
+      const body = await readBody(req);
+      const code = String(body.code || '');
+      if (!code.trim()) return json(res, 400, { error: 'nothing to upload' });
+      const clean = String(body.name || 'game').replace(/[^a-z0-9 _-]/gi, '').trim() || 'game';
+      const fname = clean.toLowerCase().replace(/\s+/g, '-') + '.fc';
+      try {
+        const gh = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + user.gh_token, 'User-Agent': 'codeonline-apid', Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: 'fc game: ' + clean + ' — made at https://codeonline.io', public: body.public !== false, files: { [fname]: { content: code } } }),
+        });
+        const g = await gh.json().catch(() => ({}));
+        if (gh.status === 401) { user.gh_token = ''; save(); return json(res, 403, { error: 'reconnect', detail: 'GitHub token expired — sign out and sign in again.' }); }
+        if (!gh.ok || !g.html_url) return json(res, 502, { error: (g && g.message) ? ('GitHub: ' + g.message) : 'GitHub upload failed.' });
+        return json(res, 200, { url: g.html_url });
+      } catch (e) { return json(res, 502, { error: 'Could not reach GitHub.' }); }
     }
 
     return json(res, 404, { error: 'not found' });

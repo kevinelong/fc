@@ -4405,7 +4405,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.9';
+  const APP_VERSION = 'v3.0';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4651,6 +4651,22 @@ run game with update`,
   let toastTimer = null;
   function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600); }
 
+  // GitHub upload: show the ⬆ GitHub button only when signed in via GitHub
+  const githubBtn = document.getElementById('tool-github');
+  function updateGithubBtn() { if (githubBtn) githubBtn.style.display = (state.user && state.user.provider === 'github') ? '' : 'none'; }
+  if (githubBtn) githubBtn.onclick = async () => {
+    if (!(state.user && state.user.provider === 'github')) { toast('Sign in with GitHub to upload'); openSignin(); return; }
+    const name = (prompt('Upload to a GitHub gist as:', '') || '').trim();
+    if (!name) return;
+    toast('Uploading to GitHub…');
+    try {
+      const r = await fetch('/api/games/gist', { method: 'POST', headers: { 'X-CO': '1', 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ name: name, code: editor.value }) }).then(x => x.json()).catch(() => ({}));
+      if (r && r.url) { toast('Uploaded to GitHub ✓'); window.open(r.url, '_blank'); }
+      else if (r && r.error === 'reconnect') { toast(r.detail || 'Sign out & in with GitHub to enable upload'); }
+      else { toast((r && r.error) || 'Upload failed'); }
+    } catch (e) { toast('Upload failed'); }
+  };
+
   function api(path, opts) {
     return fetch('/api/auth/' + path, Object.assign({ headers: { 'X-CO': '1', 'Content-Type': 'application/json' }, credentials: 'same-origin' }, opts || {}))
       .then(r => r.json().catch(() => ({}))).catch(() => ({}));
@@ -4658,6 +4674,7 @@ run game with update`,
 
   function renderAccount() {
     accountEl.innerHTML = '';
+    updateGithubBtn();
     if (state.user && !state.user.emailVerified) {
       const chip = document.createElement('button');
       chip.id = 'acct-chip'; chip.className = 'pending';
