@@ -1284,8 +1284,12 @@ const NET = (function () {
 
   function openSocket() {
     if (!wantGame) return;
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = proto + '://' + location.host + '/relay?game=' +
+    // packaged mode: when running off-host (the bundled APK serves on localhost,
+    // or file://), reach the live relay at codeonline.io so multiplayer works online.
+    const offHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+    const host = offHost ? 'codeonline.io' : location.host;
+    const proto = (offHost || location.protocol === 'https:') ? 'wss' : 'ws';
+    const url = proto + '://' + host + '/relay?game=' +
                 encodeURIComponent(wantGame) + '&room=' + encodeURIComponent(wantRoom);
     try { sock = new WebSocket(url); } catch (e) { sock = null; scheduleReconnect(); return; }
     sock.onopen = () => { backoff = 0; };
