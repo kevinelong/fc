@@ -134,6 +134,8 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 #lr-sub { color: #8a7340; font-size: 12px; margin-top: 5px; max-width: 380px; }
 #lr-new { font: 14px 'Share Tech Mono', monospace; background: #10240f; color: #9f9; border: 1px solid #2c6e2c; border-radius: 6px; padding: 11px 17px; cursor: pointer; letter-spacing: .06em; white-space: nowrap; }
 #lr-new:hover { background: #16361a; }
+#lr-open { font: 14px 'Share Tech Mono', monospace; background: #161616; color: #c8a96e; border: 1px solid #5a4a28; border-radius: 6px; padding: 11px 14px; cursor: pointer; letter-spacing: .04em; white-space: nowrap; }
+#lr-open:hover { border-color: #c8a96e; }
 #lr-grid { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .lr-tile { background: #161616; border: 1px solid #5a4a28; border-radius: 7px; padding: 10px 6px; cursor: pointer; text-align: center; color: #cbb083; transition: border-color .12s, transform .08s; }
 .lr-tile:hover { border-color: #c8a96e; transform: translateY(-2px); }
@@ -285,6 +287,7 @@ body.touch.playing #back-btn {
     </div>
     <div id="lr-actions">
       <div id="account"></div>
+      <button type="button" id="lr-open">↧ Open shared</button>
       <button type="button" id="lr-new">+ New Game</button>
     </div>
   </div>
@@ -4405,7 +4408,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v3.0';
+  const APP_VERSION = 'v3.1';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4526,6 +4529,34 @@ draw circle at 64, 80 size 10 in yellow`;
     const saveTool = document.getElementById('tool-save');
     if (saveTool) saveTool.onclick = () => window.fcSaveCurrent();
     renderYours();
+
+    // ---- open a shared game: a ?code link, a GitHub gist URL, or pasted code ----
+    const decodeB64 = b64 => { try { return decodeURIComponent(escape(atob(decodeURIComponent(b64)))); } catch (_) { try { return atob(decodeURIComponent(b64)); } catch (__) { return null; } } };
+    async function openShared() {
+      const input = (prompt('Paste a share link, a GitHub gist URL, or fc code:', '') || '').trim();
+      if (!input) return;
+      let code = null;
+      const m = input.match(/[?&]code=([^&\s]+)/);
+      if (m) code = decodeB64(m[1]);
+      if (!code) {
+        const gm = input.match(/gist\.github\.com\/(?:[^/]+\/)?([0-9a-f]{6,})/i) || input.match(/api\.github\.com\/gists\/([0-9a-f]{6,})/i);
+        if (gm) {
+          shareToast('Fetching gist…');
+          try {
+            const g = await fetch('https://api.github.com/gists/' + gm[1]).then(r => r.json());
+            const files = (g && g.files) ? Object.values(g.files) : [];
+            const fc = files.find(f => /\.fc$/i.test(f.filename)) || files[0];
+            if (fc) code = fc.truncated ? await fetch(fc.raw_url).then(r => r.text()) : fc.content;
+          } catch (_) {}
+        }
+      }
+      if (!code && input.includes('\n')) code = input;                       // pasted raw code
+      if (!code && /^[A-Za-z0-9+/=_-]{24,}$/.test(input)) code = decodeB64(input);  // bare base64
+      if (!code) { shareToast('Couldn’t read that — paste a share link or gist URL'); return; }
+      loadAndRun(code, true); setGameDesc({ name: 'Shared game', desc: 'opened from a link' });
+    }
+    const openTool = document.getElementById('lr-open');
+    if (openTool) openTool.onclick = openShared;
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
