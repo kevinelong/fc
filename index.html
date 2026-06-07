@@ -71,6 +71,11 @@ canvas {
 }
 #editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 #editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
+#kbar { display: flex; gap: 5px; overflow-x: auto; padding: 4px 0; margin-bottom: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+#kbar::-webkit-scrollbar { height: 5px; }
+#kbar::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+#kbar button { flex: 0 0 auto; font: 12px 'Share Tech Mono', monospace; background: #14140f; color: #cbb083; border: 1px solid #4a4030; border-radius: 5px; padding: 6px 9px; cursor: pointer; white-space: nowrap; letter-spacing: .03em; }
+#kbar button:active { background: #2a2418; color: #ffe09a; }
 #editor::placeholder { color: #4a4a6a; }
 #errors { background: #1a1a2e; color: #ff6b6b; padding: 4px 8px; font-size: 12px; max-height: 60px; overflow-y: auto; border-radius: 4px; }
 #errors:empty { display: none; }
@@ -313,6 +318,7 @@ body.touch.playing #back-btn {
         <option value="pitfall">Pitfall Hop</option>
       </select>
     </div>
+    <div id="kbar" aria-label="keyword keys"></div>
     <textarea id="editor" spellcheck="false" placeholder="clear screen to dark blue&#10;draw circle at 64, 64 size 30 in red&#10;write &quot;hello!&quot; at 40, 60 in white"></textarea>
     <div id="errors"></div>
   </div>
@@ -4384,7 +4390,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v2.6';
+  const APP_VERSION = 'v2.7';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
@@ -4438,6 +4444,38 @@ draw circle at 64, 80 size 10 in yellow`;
         shareToast('Link copied — anyone who opens it gets your game');
       } catch (e) { window.prompt('Copy this link to share your game:', url); }
     };
+
+    // keyword bar: tap to insert common fc keywords/snippets at the cursor
+    const KEYS = [
+      ['to update', 'to update', 1], ['to draw', 'to draw', 1],
+      ['run game', 'run game with update and draw', 1],
+      ['clear', 'clear screen to dark blue', 1],
+      ['move', 'move player with arrows', 1],
+      ['sprite', 'draw sprite player.image at player.x, player.y', 1],
+      ['rect', 'draw rect at 10, 10 size 8, 8 in green', 1],
+      ['circle', 'draw circle at 64, 64 size 20 in red', 1],
+      ['write', 'write "score {score}" at 2, 2 in white on hud', 1],
+      ['sound', 'play sound "pickup"', 1],
+      ['if', 'if ', 0], ['when', 'when ', 0], ['each', 'each ', 0],
+      ['every', 'every ', 0], ['repeat', 'repeat ', 0], ['is', 'is ', 0],
+      ['add', 'add 1 to score', 1],
+    ];
+    function insertSnippet(text, isLine) {
+      const s = editor.selectionStart || 0, e = editor.selectionEnd || 0;
+      const before = editor.value.slice(0, s), after = editor.value.slice(e);
+      const ins = isLine ? ((before === '' || before.endsWith('\n')) ? text + '\n' : '\n' + text + '\n') : text;
+      editor.value = before + ins + after;
+      editor.selectionStart = editor.selectionEnd = (before + ins).length;
+      editor.focus();
+      editor.dispatchEvent(new Event('input'));   // re-runs (debounced)
+    }
+    const kbar = document.getElementById('kbar');
+    if (kbar) KEYS.forEach(([label, text, isLine]) => {
+      const kb = document.createElement('button'); kb.type = 'button'; kb.textContent = label;
+      kb.onmousedown = (ev) => ev.preventDefault();   // keep the editor's caret/selection
+      kb.onclick = () => insertSnippet(text, !!isLine);
+      kbar.appendChild(kb);
+    });
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
