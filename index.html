@@ -2901,13 +2901,11 @@ class Runtime {
     // Isolate return within this exec context (return exits function, not whole runtime)
     const priorReturning = this._returning || false;
     this._returning = false;
-    const execList = (list) => {
-      for (const stmt of list) {
-        if (this.stopped || this._returning || ops > limit) return;
-        ops++;
-        execOne(stmt);
-      }
-    };
+    // Execute a statement list with proper if / else if / else threading at EVERY
+    // nesting level. Previously only the top-level list went through smartExecList,
+    // so an if/else nested inside a loop body ran its `else` unconditionally (both
+    // branches firing). Delegating here fixes that — see smartExecList below.
+    const execList = (list) => smartExecList(list);
     const execOne = (stmt) => {
       if (!stmt || this.stopped || this._returning) return;
       switch (stmt.type) {
@@ -4421,7 +4419,7 @@ clear screen to dark blue
 write "hello!" at 40, 56 in white on hud
 draw circle at 64, 80 size 10 in yellow`;
 
-  const APP_VERSION = 'v3.3';
+  const APP_VERSION = 'v3.4';
   const gameDescEl = document.getElementById('game-desc');
   function setGameDesc(g) {
     if (g && (g.name || g.desc)) {
