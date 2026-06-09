@@ -21,7 +21,16 @@ cargo build --release --target wasm32-unknown-unknown
 | &nbsp;&nbsp;2.1 AST + contract JSON | ✅ | sorted keys / lineNum strip / int-no-decimal | serializer correct |
 | &nbsp;&nbsp;2.2 corpus statements + expr/cond | ✅ | assign/add/repeat/every/tag/when/if-else/math/listliteral/random/item_of/eq/cmp/and/or/not | all 31 corpus |
 | &nbsp;&nbsp;2.3 game sub-parsers | ✅ | sprite/object/list-of/count · draw/write/meter/button/each/move/follow/goto/rungame/clearscreen/play/def_sfx/damage/heal/knock/broadcast/net_join · when_key·button·mouse · inline `if` (parseIf heuristic) · splitOnAnd via two-pass userFuncs | **all 9 games** |
-| 3. runtime (`exec` → vars + command buffer) | ⬜ next | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
+| 3. runtime (`exec` → vars) | ✅ | `node exec-diff.mjs` vs `corpus/_goldens.json` | **31/31 corpus, 0 diff** · 133 KB wasm |
+| &nbsp;&nbsp;3b. game runtime (command buffer + frame loop) | ⬜ next | draw/sprite/collision per-frame cmds | — |
+
+**Stage 3** ports the value model (`Num/Str/Bool/List(Rc<RefCell>)/Obj/Undef`),
+coercion (`parseFloat`/loose `==`/truthiness), dotted auto-vivify get/set, `eval`,
+`eval_cond`, and `exec` (the fixed if/else threading at every level, op budget,
+forward-call no-op, polymorphic `add`, seeded mulberry32 `random`). All 31 corpus
+programs match `{say,vars,errors}` structurally. The remaining 3b is the game
+runtime — the per-frame command buffer + draw/collision — which is what lets the
+WASM core fully stand in for the JS interpreter behind a `?core=wasm` flag.
 
 The **parseIf inline-split heuristic** and the **two-pass user-function prescan** (so user
 funcs count as command-word boundaries) are both ported and validated by the games passing.

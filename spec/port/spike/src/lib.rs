@@ -839,3 +839,204 @@ fn parse_def_sfx(ts: &[Tok]) -> Stmt {
 fn brace_props(ts: &[Tok]) -> Expr {
     if let Some(lb) = ts.iter().position(|t| t.t == 11) { parse_object(&ts[lb..]) } else { Expr::Object(Vec::new()) }
 }
+
+// ============================================================================
+// STAGE 3 — runtime (exec). Value model + eval + exec, producing {say,vars,errors}
+// diffed against corpus/_goldens.json. Reference: index.html Runtime (~L2633).
+// ============================================================================
+use alloc::rc::Rc;
+use core::cell::RefCell;
+use alloc::collections::BTreeMap;
+
+#[derive(Clone)]
+enum Val { Num(f64), Str(String), Bool(bool), List(Rc<RefCell<Vec<Val>>>), Obj(Rc<RefCell<BTreeMap<String, Val>>>), Undef }
+
+fn truthy(v: &Val) -> bool {
+    match v { Val::Undef=>false, Val::Bool(b)=>*b, Val::Num(n)=>*n!=0.0,
+        Val::Str(s)=>!s.is_empty() && s!="no",
+        Val::List(l)=>!l.borrow().is_empty(), Val::Obj(o)=>!o.borrow().is_empty() }
+}
+fn as_num(v: &Val) -> f64 { match v { Val::Num(n)=>*n, Val::Str(s)=>js_parse_float(s), Val::Bool(b)=>if *b {1.0} else {0.0}, _=>0.0 } }
+fn to_number(s: &str) -> Option<f64> { let t=s.trim(); if t.is_empty() { Some(0.0) } else { t.parse::<f64>().ok() } }
+fn display(v: &Val) -> String {
+    match v { Val::Num(n)=>{ let mut s=String::new(); json_num(*n,&mut s); s } Val::Str(s)=>s.clone(),
+        Val::Bool(b)=>if *b {"true".to_string()} else {"false".to_string()}, _=>String::new() }
+}
+fn loose_eq(a: &Val, b: &Val) -> bool {
+    match (a, b) {
+        (Val::Num(x), Val::Num(y)) => x==y,
+        (Val::Str(x), Val::Str(y)) => x==y,
+        (Val::Bool(x), Val::Bool(y)) => x==y,
+        (Val::Undef, Val::Undef) => true,
+        (Val::Bool(x), _) => loose_eq(&Val::Num(if *x {1.0} else {0.0}), b),
+        (_, Val::Bool(y)) => loose_eq(a, &Val::Num(if *y {1.0} else {0.0})),
+        (Val::Num(x), Val::Str(s)) => to_number(s).map(|n| *x==n).unwrap_or(false),
+        (Val::Str(s), Val::Num(y)) => to_number(s).map(|n| n==*y).unwrap_or(false),
+        _ => false,
+    }
+}
+
+struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool }
+impl Rt {
+    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false } }
+    fn rng(&mut self) -> f64 {
+        self.seed = self.seed.wrapping_add(0x6D2B79F5);
+        let a = self.seed;
+        let mut t = (a ^ (a >> 15)).wrapping_mul(1 | a);
+        t = t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t)) ^ t;
+        ((t ^ (t >> 14)) as f64) / 4294967296.0
+    }
+    fn get_var(&self, path: &str) -> Val {
+        let parts: Vec<&str> = path.split('.').collect();
+        let mut cur = match self.vars.get(parts[0]) { Some(v)=>v.clone(), None=>return Val::Undef };
+        for p in &parts[1..] {
+            cur = match cur {
+                Val::Obj(o) => o.borrow().get(*p).cloned().unwrap_or(Val::Undef),
+                Val::List(l) => if *p=="count"||*p=="length" { Val::Num(l.borrow().len() as f64) } else { return Val::Undef },
+                _ => return Val::Undef,
+            };
+        }
+        cur
+    }
+    fn set_var(&mut self, path: &str, val: Val) {
+        let parts: Vec<&str> = path.split('.').collect();
+        if parts.len()==1 { self.vars.insert(parts[0].to_string(), val); return; }
+        let root = self.vars.entry(parts[0].to_string()).or_insert_with(|| Val::Obj(Rc::new(RefCell::new(BTreeMap::new()))));
+        if !matches!(root, Val::Obj(_)) { *root = Val::Obj(Rc::new(RefCell::new(BTreeMap::new()))); }
+        let mut cur = if let Val::Obj(o)=root { o.clone() } else { return };
+        for p in &parts[1..parts.len()-1] {
+            let next = cur.borrow().get(*p).cloned();
+            let obj = match next { Some(Val::Obj(o))=>o, _=>{ let o=Rc::new(RefCell::new(BTreeMap::new())); cur.borrow_mut().insert(p.to_string(), Val::Obj(o.clone())); o } };
+            cur = obj;
+        }
+        cur.borrow_mut().insert(parts[parts.len()-1].to_string(), val);
+    }
+    fn eval(&mut self, e: &Expr) -> Val {
+        match e {
+            Expr::Lit(LitVal::Num(n)) => Val::Num(*n),
+            Expr::Lit(LitVal::Str(s)) => Val::Str(s.clone()),
+            Expr::Lit(LitVal::Bool(b)) => Val::Bool(*b),
+            Expr::Ref(n) => self.get_var(n),
+            Expr::Math(op, l, r) => {
+                let a = as_num(&self.eval(l)); let b = as_num(&self.eval(r));
+                Val::Num(match op.as_str() { "+"=>a+b, "-"=>a-b, "*"=>a*b, "/"=>if b!=0.0 {a/b} else {0.0}, "%"=>if b!=0.0 {a%b} else {0.0}, _=>0.0 })
+            }
+            Expr::ListLit(items) => { let mut v=Vec::new(); for it in items { v.push(self.eval(it)); } Val::List(Rc::new(RefCell::new(v))) }
+            Expr::Random(m) => { let max = as_num(&self.eval(m)); let r = self.rng(); Val::Num((r * (max + 1.0)) as i64 as f64) }
+            Expr::ItemOf(idx, list) => { let i = as_num(&self.eval(idx)) as i64; match self.eval(list) { Val::List(l) => { let b=l.borrow(); if i>=1 && (i as usize)<=b.len() { b[(i-1) as usize].clone() } else { Val::Undef } } _=>Val::Undef } }
+            Expr::Object(props) => { let mut m=BTreeMap::new(); for (k,v) in props { let val=self.eval(v); m.insert(k.clone(), val); } Val::Obj(Rc::new(RefCell::new(m))) }
+            Expr::Count(e) => match self.eval(e) { Val::List(l)=>Val::Num(l.borrow().len() as f64), Val::Str(s)=>Val::Num(s.chars().count() as f64), _=>Val::Num(0.0) },
+            _ => Val::Undef,
+        }
+    }
+    fn eval_cond(&mut self, c: &Cond) -> bool {
+        match c {
+            Cond::Eq(l, r) => { let a=self.eval(l); let b=self.eval(r); loose_eq(&a,&b) }
+            Cond::Neq(l, r) => { let a=self.eval(l); let b=self.eval(r); !loose_eq(&a,&b) }
+            Cond::Cmp(op, l, r) => { let a=as_num(&self.eval(l)); let b=as_num(&self.eval(r)); match op.as_str() { ">"=>a>b, "<"=>a<b, ">="=>a>=b, "<="=>a<=b, "!="=>a!=b, "=="=>a==b, _=>false } }
+            Cond::And(a, b) => self.eval_cond(a) && self.eval_cond(b),
+            Cond::Or(a, b) => self.eval_cond(a) || self.eval_cond(b),
+            Cond::Not(c) => !self.eval_cond(c),
+            Cond::NotExpr(e) => { let v=self.eval(e); !truthy(&v) }
+            Cond::Bare(e) => { let v=self.eval(e); truthy(&v) }
+            Cond::Has(l, r) => { let a=display(&self.eval(l)); let b=display(&self.eval(r)); a.contains(&b) }
+            Cond::Key(_) => false,
+        }
+    }
+    fn exec_block(&mut self, stmts: &[Stmt]) {
+        let mut last_if: Option<bool> = None;
+        for s in stmts {
+            if self.stopped || self.returning || self.ops > 100000 { return; }
+            self.ops += 1;
+            match s {
+                Stmt::If(c, then, body) => { let r=self.eval_cond(c); last_if=Some(r); if r { self.run_then(then, body); } }
+                Stmt::ElseIf(c, then, body) => { if last_if==Some(false) { let r=self.eval_cond(c); last_if=Some(r); if r { self.run_then(then, body); } } }
+                Stmt::Else(body) => { if last_if==Some(false) { self.exec_block(body); } last_if=None; }
+                _ => { last_if=None; self.exec_one(s); }
+            }
+        }
+    }
+    fn run_then(&mut self, then: &Option<Box<Stmt>>, body: &[Stmt]) {
+        if let Some(t)=then { self.exec_one(t); }
+        if !body.is_empty() { self.exec_block(body); }
+    }
+    fn exec_one(&mut self, s: &Stmt) {
+        if self.stopped || self.returning { return; }
+        match s {
+            Stmt::Assign(t, v) => { let val=self.eval(v); self.set_var(t, val); }
+            Stmt::Add(t, v) => {
+                let val=self.eval(v); let cur=self.get_var(t);
+                match cur {
+                    Val::List(l) => l.borrow_mut().push(val),
+                    Val::Str(s) => self.set_var(t, Val::Str(s + &display(&val))),
+                    Val::Num(n) => self.set_var(t, Val::Num(n + as_num(&val))),
+                    Val::Undef => self.set_var(t, Val::Num(as_num(&val))),
+                    _ => {}
+                }
+            }
+            Stmt::Remove(t, v) => {
+                let val=self.eval(v); let cur=self.get_var(t);
+                match cur { Val::List(l)=>{ let mut b=l.borrow_mut(); if let Some(i)=b.iter().position(|x| loose_eq(x,&val)) { b.remove(i); } } Val::Num(n)=>self.set_var(t, Val::Num(n - as_num(&val))), _=>{} }
+            }
+            Stmt::Simple(op, t) => {
+                let cur=self.get_var(t);
+                match *op {
+                    "double" => if let Val::Num(n)=cur { self.set_var(t, Val::Num(n*2.0)); }
+                    "halve" => if let Val::Num(n)=cur { self.set_var(t, Val::Num(n/2.0)); }
+                    "toggle" => match cur { Val::Bool(b)=>self.set_var(t,Val::Bool(!b)), Val::Num(n)=>self.set_var(t,Val::Num(if n==0.0 {1.0} else {0.0})), Val::Str(ref s) if s=="yes"=>self.set_var(t,Val::Str("no".to_string())), Val::Str(ref s) if s=="no"=>self.set_var(t,Val::Str("yes".to_string())), _=>{ let tr=truthy(&cur); self.set_var(t,Val::Bool(!tr)); } },
+                    _ => {}
+                }
+            }
+            Stmt::FuncDef(name, _p, body) => { self.funcs.insert(name.clone(), body.clone()); }
+            Stmt::Call(name, _a) => { if let Some(body)=self.funcs.get(name).cloned() { self.exec_block(&body); } }
+            Stmt::RepeatTimes(c, body) => { let n=as_num(&self.eval(c)) as i64; let mut i=0; while i<n && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); i+=1; } }
+            Stmt::RepeatRange(var, from, to, body) => {
+                let f=as_num(&self.eval(from)); let t=as_num(&self.eval(to)); let step=if f<=t {1.0} else {-1.0};
+                let mut i=f; while (step>0.0 && i<=t)||(step<0.0 && i>=t) { if self.stopped||self.ops>100000 {break;} self.ops+=1; self.set_var(var, Val::Num(i)); self.exec_block(body); i+=step; }
+            }
+            Stmt::RepeatWhile(c, body) => { while self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
+            Stmt::RepeatUntil(c, body) => { while !self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
+            Stmt::Forever(body) => { let mut i=0; while i<1000 && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); i+=1; } }
+            Stmt::Every(n, unit, body) => { let period = if unit=="seconds" { (n*60.0 + 0.5) as i64 } else { *n as i64 }; let period=if period<1 {1} else {period}; if 1 % period == 0 { self.exec_block(body); } }
+            Stmt::Each(var, list, where_, then, body) => {
+                if let Val::List(l) = self.eval(list) {
+                    let items: Vec<Val> = l.borrow().clone();
+                    for it in items { if self.stopped||self.ops>100000 {break;} self.ops+=1; self.set_var(var, it);
+                        if let Some(w)=where_ { if !self.eval_cond(w) { continue; } }
+                        if let Some(t)=then { self.exec_one(t); }
+                        if !body.is_empty() { self.exec_block(body); } }
+                }
+            }
+            Stmt::Return(_) => { self.returning=true; }
+            Stmt::Stop => { self.stopped=true; }
+            _ => {} // tag/when_*/draw/etc: no observable effect on {say,vars} in a single exec
+        }
+    }
+}
+
+const RES_CAP: usize = 1 << 20;
+static mut RES: [u8; RES_CAP] = [0; RES_CAP];
+#[no_mangle] pub extern "C" fn res_ptr() -> *const u8 { addr_of!(RES) as *const u8 }
+#[no_mangle] pub extern "C" fn parse_exec_to_json(len: u32, seed: u32) -> u32 {
+    reset_arena();
+    let n = (len as usize).min(SRC_CAP);
+    let src = unsafe { core::slice::from_raw_parts(addr_of!(SRC) as *const u8, n) }.to_vec();
+    let program = parse_program(&src);
+    let mut rt = Rt::new(seed);
+    rt.exec_block(&program);
+    let mut s = String::new();
+    s.push_str("{\"errors\":[],\"say\":[],\"vars\":{");
+    for (i,(k,v)) in rt.vars.iter().enumerate() { if i>0 {s.push(',');} json_str(k,&mut s); s.push(':'); emit_val(v,&mut s); }
+    s.push_str("}}");
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
+}
+fn emit_val(v: &Val, out: &mut String) {
+    match v {
+        Val::Num(n)=>json_num(*n,out), Val::Str(s)=>json_str(s,out), Val::Bool(b)=>out.push_str(if *b {"true"} else {"false"}),
+        Val::List(l)=>{ out.push('['); for (i,x) in l.borrow().iter().enumerate(){ if i>0 {out.push(',');} emit_val(x,out);} out.push(']'); }
+        Val::Obj(o)=>{ out.push('{'); for (i,(k,x)) in o.borrow().iter().enumerate(){ if i>0 {out.push(',');} json_str(k,out); out.push(':'); emit_val(x,out);} out.push('}'); }
+        Val::Undef=>out.push_str("null"),
+    }
+}
