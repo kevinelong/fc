@@ -195,23 +195,42 @@ fn lex_line(b: &[u8]) -> (u32, Vec<Tok>) {
 enum LitVal { Num(f64), Str(String), Bool(bool) }
 #[derive(Clone)]
 enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
-    ListLit(Vec<Expr>), Random(Box<Expr>), ItemOf(Box<Expr>, Box<Expr>) }
+    ListLit(Vec<Expr>), Random(Box<Expr>), ItemOf(Box<Expr>, Box<Expr>),
+    Object(Vec<(String, Expr)>), Sprite(String, Box<Expr>), ListOfSprites(Box<Expr>, Box<Expr>), Count(Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
-    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), Bare(Expr) }
+    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), Bare(Expr), Key(String) }
 #[derive(Clone)]
 enum Stmt {
     Assign(String, Expr), Add(String, Expr), Remove(String, Expr),
     Simple(&'static str, String), // double/halve/toggle/clear -> {target,type}
     Call(String, Vec<Tok>),
     FuncDef(String, Vec<String>, Vec<Stmt>),
-    If(Cond, Vec<Stmt>), ElseIf(Cond, Vec<Stmt>), Else(Vec<Stmt>),
+    If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Vec<Stmt>),
     RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
     RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>),
     Every(f64, String, Vec<Stmt>),
     Tag(String, String),
     WhenPickup(String, Vec<Stmt>), WhenHit(String, Vec<Stmt>), WhenDefeat(String, Vec<Stmt>),
+    WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
+    WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
+    ClearScreen(String), Draw(DrawArgs), Write(WriteArgs),
+    Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
+    RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
+    MoveArrows(String, Option<Expr>), MoveBy(String, Expr, Expr, Option<String>),
+    PlaySound(String, String), Button(String, Expr, Expr), Return(Option<Expr>), Stop,
+    Jump(String, f64), Broadcast(Expr), NetJoin(String, String), DefSfx(String, SfxRecipe),
+    Meter(Expr, Expr, Expr, Expr, Expr, Expr, String),
+    Damage(String, Expr), Heal(String, Expr), Knock(String, String, Expr),
 }
+#[derive(Clone)]
+struct SfxRecipe { tone: bool, wave: String, f0: f64, f1: Option<f64>, dur: f64, notes: Vec<f64> }
+#[derive(Clone, Default)]
+struct DrawArgs { shape: String, hud: bool, sprite_name: Option<String>, sprite_name_expr: Option<Expr>,
+    x: Option<Expr>, y: Option<Expr>, w: Option<Expr>, h: Option<Expr>,
+    x1: Option<Expr>, y1: Option<Expr>, x2: Option<Expr>, y2: Option<Expr>, color: Option<String> }
+#[derive(Clone)]
+struct WriteArgs { text: Expr, x: Option<Expr>, y: Option<Expr>, color: Option<String>, hud: bool }
 
 fn find_word(ts: &[Tok], w: &str) -> Option<usize> { ts.iter().position(|t| t.is_word(w)) }
 fn tokens_to_ref(ts: &[Tok]) -> String { let mut s=String::new(); for t in ts { s.push_str(t.sval()); } s }
@@ -219,6 +238,23 @@ fn join_dot(ts: &[Tok]) -> String { let mut parts: Vec<&str>=Vec::new(); for t i
 
 fn parse_expr(ts: &[Tok]) -> Expr {
     if ts.is_empty() { return Expr::Lit(LitVal::Num(0.0)); }
+    // whole-expression literals first (so internal math isn't mis-split by the flat scan)
+    if ts[0].t==9 {
+        let inner = if ts.len()>=2 && ts[ts.len()-1].t==10 { &ts[1..ts.len()-1] } else { &ts[1..] };
+        let mut items: Vec<Expr> = Vec::new();
+        for seg in split_top_commas(inner) { if !seg.is_empty() { items.push(parse_expr(seg)); } }
+        return Expr::ListLit(items);
+    }
+    if ts[0].t==11 { return parse_object(ts); }
+    if ts[0].is_word("centered") && ts.len()>=2 && ts[1].is_word("sprite") { return Expr::Sprite("centered".to_string(), Box::new(brace_props(&ts[2..]))); }
+    if ts[0].is_word("sprite") && ts.iter().any(|t| t.t==11) { return Expr::Sprite("zero".to_string(), Box::new(brace_props(&ts[1..]))); }
+    if ts[0].is_word("list") && ts.len()>=2 && ts[1].is_word("of") {
+        let lb = ts.iter().position(|t| t.t==11).unwrap_or(ts.len());
+        let count = if ts.len()>=3 { parse_expr(&ts[2..3]) } else { Expr::Lit(LitVal::Num(0.0)) };
+        let props = if lb < ts.len() { parse_object(&ts[lb..]) } else { Expr::Object(Vec::new()) };
+        return Expr::ListOfSprites(Box::new(count), Box::new(props));
+    }
+    // math splits
     let mut i = ts.len();
     while i > 1 { i -= 1; if ts[i].t==4 { let o=ts[i].sval(); if o=="+"||o=="-" {
         return Expr::Math(o.to_string(), Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } } }
@@ -229,16 +265,12 @@ fn parse_expr(ts: &[Tok]) -> Expr {
         if let Some(op)=op { return Expr::Math(op, Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } }
     if ts[0].t==4 && ts[0].sval()=="-" {
         return Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(parse_expr(&ts[1..]))); }
-    // atom forms (no top-level math operator reached here)
-    if ts[0].t==9 { // [ items ]
-        let inner = if ts.len()>=2 && ts[ts.len()-1].t==10 { &ts[1..ts.len()-1] } else { &ts[1..] };
-        let mut items: Vec<Expr> = Vec::new();
-        for seg in split_top_commas(inner) { if !seg.is_empty() { items.push(parse_expr(seg)); } }
-        return Expr::ListLit(items);
-    }
+    // phrase atoms (reached only with no top-level math operator)
     if ts[0].is_word("random") { return Expr::Random(Box::new(parse_expr(&ts[1..]))); }
     if ts[0].is_word("item") { if let Some(k)=find_word(ts,"of") {
         return Expr::ItemOf(Box::new(parse_expr(&ts[1..k])), Box::new(parse_expr(&ts[k+1..]))); } }
+    if ts[0].is_word("the") && ts.len()>=3 && ts[1].is_word("number") && ts[2].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[3..]))); }
+    if ts[0].is_word("count") && ts.len()>=2 && ts[1].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[2..]))); }
     if ts.len()==1 {
         let t=&ts[0];
         return match t.t { 2=>Expr::Lit(LitVal::Num(if let TokVal::Num(n)=t.v {n} else {0.0})),
@@ -260,10 +292,10 @@ fn split_top_commas(ts: &[Tok]) -> Vec<&[Tok]> {
     out.push(&ts[start..]); out
 }
 fn parse_cond(ts: &[Tok]) -> Cond {
-    if !ts.is_empty() && ts[0].is_word("not") { return Cond::Not(Box::new(parse_cond(&ts[1..]))); }
-    if !ts.is_empty() && ts[0].is_word("no") { return Cond::NotExpr(parse_expr(&ts[1..])); }
+    if !ts.is_empty() && (ts[0].is_word("not") || ts[0].is_word("no")) { return Cond::NotExpr(parse_expr(&ts[1..])); }
     if let Some(k)=find_word(ts,"or") { return Cond::Or(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if let Some(k)=find_word(ts,"and") { return Cond::And(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
+    if !ts.is_empty() && ts[0].is_word("key") { return Cond::Key(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default()); }
     for i in 0..ts.len() { if ts[i].t==4 { let o=ts[i].sval(); if matches!(o, ">"|"<"|">="|"<="|"!="|"==") {
         return Cond::Cmp(o.to_string(), parse_expr(&ts[..i]), parse_expr(&ts[i+1..])); } } }
     if let Some(k)=find_word(ts,"is") {
@@ -288,9 +320,9 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         let params: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with").map(|t| t.sval().to_string()).collect();
         return Stmt::FuncDef(ts[1].sval().to_string(), params, Vec::new());
     }
-    if first=="if" { return Stmt::If(parse_cond(&ts[1..]), Vec::new()); }
+    if first=="if" { return parse_if(&ts[1..], false); }
     if first=="else" {
-        if ts.len()>=2 && ts[1].is_word("if") { return Stmt::ElseIf(parse_cond(&ts[2..]), Vec::new()); }
+        if ts.len()>=2 && ts[1].is_word("if") { return parse_if(&ts[2..], true); }
         return Stmt::Else(Vec::new());
     }
     if first=="repeat" { return parse_repeat(ts); }
@@ -304,11 +336,67 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="double" && ts.len()>=2 { return Stmt::Simple("double", join_dot(&ts[1..])); }
     if first=="halve" && ts.len()>=2 { return Stmt::Simple("halve", join_dot(&ts[1..])); }
     if first=="toggle" && ts.len()>=2 { return Stmt::Simple("toggle", join_dot(&ts[1..])); }
-    if let Some(k)=find_word(ts,"are") {
-        let subject = tokens_to_ref(&ts[..k]);
-        let mut parts: Vec<&str> = Vec::new(); for t in &ts[k+1..] { parts.push(t.sval()); }
-        return Stmt::Tag(subject, parts.join(" ").to_lowercase());
+    if first=="clear" && ts.len()>=2 && ts[1].is_word("screen") {
+        let color = if let Some(k)=find_word(ts,"to") { word_join(&ts[k+1..]) } else { String::new() };
+        return Stmt::ClearScreen(color);
     }
+    if first=="draw" { return parse_draw(ts); }
+    if first=="write" { return parse_write(ts); }
+    if first=="each" { return parse_each(ts); }
+    if first=="run" && ts.len()>=2 && ts[1].is_word("game") {
+        let funcs: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="with" && t.sval()!="and").map(|t| t.sval().to_string()).collect();
+        return Stmt::RunGame(funcs);
+    }
+    if first=="follow" { return Stmt::Follow(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default()); }
+    if first=="go" {
+        if ts.len()>=2 && ts[1].is_word("back") { return Stmt::GoBack; }
+        if ts.len()>=3 && ts[1].is_word("to") { return Stmt::Goto(ts[2].sval().to_string()); }
+    }
+    if first=="move" && ts.len()>=2 {
+        let target = ts[1].sval().to_string();
+        if find_word(ts,"arrows").is_some() {
+            let speed = find_word(ts,"speed").map(|k| parse_expr(&ts[k+1..]));
+            return Stmt::MoveArrows(target, speed);
+        }
+        if let Some(byk)=find_word(ts,"by") {
+            let mut rest_end = ts.len(); let mut blocked = None;
+            if let Some(bk)=find_word(ts,"blocked") { rest_end = bk; if let Some(t)=ts.get(bk+2) { blocked = Some(t.sval().to_string()); } }
+            let segs = split_top_commas(&ts[byk+1..rest_end]);
+            let dx = parse_expr(segs.get(0).copied().unwrap_or(&[]));
+            let dy = if segs.len()>1 { parse_expr(segs[1]) } else { Expr::Lit(LitVal::Num(0.0)) };
+            return Stmt::MoveBy(target, dx, dy, blocked);
+        }
+    }
+    if first=="define" && ts.len()>=2 && ts[1].is_word("sound") { return parse_def_sfx(ts); }
+    if first=="play" && ts.len()>=3 { return Stmt::PlaySound(ts[1].sval().to_string(), ts[2].sval().to_string()); }
+    if first=="show" && ts.len()>=2 && ts[1].is_word("button") { return parse_button(ts); }
+    if first=="show" && ts.len()>=2 && ts[1].is_word("meter") { return parse_meter(ts); }
+    if first=="damage" || first=="heal" {
+        let (target, mut astart) = match ts.get(1) { Some(t) if t.t==3 && !t.is_word("by") => (t.sval().to_string(), 2), _ => ("player".to_string(), 1) };
+        if ts.get(astart).map(|t| t.is_word("by")).unwrap_or(false) { astart += 1; }
+        let amount = if astart < ts.len() { parse_expr(&ts[astart..]) } else { Expr::Lit(LitVal::Num(1.0)) };
+        return if first=="damage" { Stmt::Damage(target, amount) } else { Stmt::Heal(target, amount) };
+    }
+    if first=="knock" {
+        let target = ts.get(1).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
+        let source = if let Some(k)=find_word(ts,"from") { ts.get(k+1).map(|t| t.sval().to_string()).unwrap_or_else(|| "enemy".to_string()) } else { "enemy".to_string() };
+        let distance = if let Some(k)=find_word(ts,"distance") { parse_expr(&ts[k+1..]) } else { Expr::Lit(LitVal::Num(4.0)) };
+        return Stmt::Knock(target, source, distance);
+    }
+    if first=="broadcast" { return Stmt::Broadcast(parse_expr(&ts[1..])); }
+    if first=="join" { return Stmt::NetJoin(string_after(ts,"game"), string_after(ts,"room")); }
+    if first=="return" { if ts.len()>1 { return Stmt::Return(Some(parse_expr(&ts[1..]))); } return Stmt::Return(None); }
+    if first=="stop" && ts.len()==1 { return Stmt::Stop; }
+    if first=="jump" {
+        let target = ts.get(1).filter(|t| t.t==3 && !t.is_word("by")).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
+        let force = ts.iter().skip(1).find_map(|t| if let TokVal::Num(n)=t.v { Some(n) } else { None }).unwrap_or(4.5);
+        return Stmt::Jump(target, force);
+    }
+    if first=="reverse" && ts.len()>=2 {
+        let name = tokens_to_ref(&ts[1..]);
+        return Stmt::Assign(name.clone(), Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(Expr::Ref(name))));
+    }
+    if let Some(k)=find_word(ts,"are") { return Stmt::Tag(tokens_to_ref(&ts[..k]), word_join(&ts[k+1..]).to_lowercase()); }
     if let Some(k)=find_word(ts,"is") { return Stmt::Assign(tokens_to_ref(&ts[..k]), parse_expr(&ts[k+1..])); }
     call_fallback(ts)
 }
@@ -327,15 +415,26 @@ fn parse_repeat(ts: &[Tok]) -> Stmt {
 fn parse_when(ts: &[Tok]) -> Stmt {
     let has = |w: &str| ts.iter().any(|t| t.is_word(w));
     let last = || ts.last().map(|t| t.sval().to_string()).unwrap_or_default();
+    let first_str = || ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
+    let inline_after = |w: &str| ts.iter().position(|t| t.is_word(w)).and_then(|k| if k+1 < ts.len() { Some(Box::new(parse_line(&ts[k+1..]))) } else { None });
     if has("picks") && has("up") { return Stmt::WhenPickup(last(), Vec::new()); }
     if has("hits") { return Stmt::WhenHit(last(), Vec::new()); }
     if has("defeated") { return Stmt::WhenDefeat(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default(), Vec::new()); }
+    if has("mouse") {
+        // 'when mouse is EVENT' — checked before pressed/clicked since those words follow 'is'
+        let event = ts.iter().position(|t| t.is_word("is")).and_then(|i| ts.get(i+1)).map(|t| t.sval().to_string()).unwrap_or_default();
+        let then = ts.iter().position(|t| t.is_word("is")).and_then(|i| if i+2 < ts.len() { Some(Box::new(parse_line(&ts[i+2..]))) } else { None });
+        return Stmt::WhenMouse(event, then, Vec::new());
+    }
+    if has("button") && has("clicked") { return Stmt::WhenButton(first_str(), inline_after("clicked"), Vec::new()); }
+    if has("pressed") { return Stmt::WhenKey(first_str(), inline_after("pressed"), Vec::new()); }
     call_fallback(ts)
 }
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
-    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,b)|Stmt::ElseIf(_,b)|Stmt::Else(b)
+    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
-        |Stmt::Forever(b)|Stmt::Every(_,_,b)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b) => *b=body, _=>{} }
+        |Stmt::Forever(b)|Stmt::Every(_,_,b)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
+        |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
 fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
@@ -357,6 +456,20 @@ fn parse_program(src: &[u8]) -> Vec<Stmt> {
         let (indent, toks) = lex_line(raw);
         if toks.is_empty() { continue; }
         lines.push(Line { indent, toks });
+    }
+    // two-pass: collect user function names so they count as command words in the
+    // parseIf / splitOnAnd boundary checks.
+    unsafe {
+        // Fresh Vec, NOT clear(): the previous program's buffer points into arena
+        // memory that reset_arena() has since recycled — reusing it corrupts this parse.
+        UFUNCS = Vec::new();
+        for ln in &lines {
+            let t = &ln.toks;
+            if t.len() >= 2 && t[0].is_word("to") {
+                if t.len() >= 3 && t[1].is_word("screen") { UFUNCS.push(format!("screen_{}", t[2].sval().to_lowercase())); }
+                else if t[1].t == 3 { UFUNCS.push(t[1].sval().to_lowercase()); }
+            }
+        }
     }
     parse_block(&lines, 0, 0)
 }
@@ -389,8 +502,17 @@ fn emit_expr(e: &Expr, out: &mut String) {
         Expr::ListLit(items)=>{ out.push_str("{\"items\":["); for (i,e) in items.iter().enumerate(){ if i>0 {out.push(',');} emit_expr(e,out);} out.push_str("],\"type\":\"listliteral\"}"); }
         Expr::Random(m)=>{ out.push_str("{\"max\":"); emit_expr(m,out); out.push_str(",\"type\":\"random\"}"); }
         Expr::ItemOf(idx,l)=>{ out.push_str("{\"index\":"); emit_expr(idx,out); out.push_str(",\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"item_of\"}"); }
+        Expr::Object(props)=>{ out.push_str("{\"props\":{");
+            let mut kv: Vec<&(String,Expr)> = props.iter().collect(); kv.sort_by(|a,b| a.0.as_str().cmp(b.0.as_str()));
+            for (i,(k,v)) in kv.iter().enumerate() { if i>0 {out.push(',');} json_str(k,out); out.push(':'); emit_expr(v,out); }
+            out.push_str("},\"type\":\"object_expr\"}"); }
+        Expr::Sprite(pos,props)=>{ out.push_str("{\"position\":"); json_str(pos,out); out.push_str(",\"props\":"); emit_expr(props,out); out.push_str(",\"type\":\"sprite_expr\"}"); }
+        Expr::ListOfSprites(c,p)=>{ out.push_str("{\"count\":"); emit_expr(c,out); out.push_str(",\"props\":"); emit_expr(p,out); out.push_str(",\"type\":\"list_of_sprites\"}"); }
+        Expr::Count(e)=>{ out.push_str("{\"expr\":"); emit_expr(e,out); out.push_str(",\"type\":\"count\"}"); }
     }
 }
+fn expr_json(e: &Expr) -> String { let mut s = String::new(); emit_expr(e, &mut s); s }
+fn emit_then(t: &Option<Box<Stmt>>, out: &mut String) { match t { Some(s)=>emit_stmt(s,out), None=>out.push_str("null") } }
 fn emit_cond(c: &Cond, out: &mut String) {
     match c {
         Cond::Or(a,b)=>{ out.push_str("{\"left\":"); emit_cond(a,out); out.push_str(",\"right\":"); emit_cond(b,out); out.push_str(",\"type\":\"or\"}"); }
@@ -402,6 +524,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
         Cond::Cmp(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"cmp\"}"); }
         Cond::Has(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"has\"}"); }
         Cond::Bare(e)=>emit_expr(e,out),
+        Cond::Key(k)=>{ out.push_str("{\"key\":"); json_str(k,out); out.push_str(",\"type\":\"key_pressed\"}"); }
     }
 }
 fn emit_tok(t: &Tok, out: &mut String) {
@@ -422,8 +545,8 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::Simple(ty,t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\""); out.push_str(ty); out.push_str("\"}"); }
         Stmt::Call(n,args)=>{ out.push_str("{\"args\":["); for (i,a) in args.iter().enumerate() { if i>0 {out.push(',');} emit_tok(a,out); } out.push_str("],\"name\":"); json_str(n,out); out.push_str(",\"type\":\"call\"}"); }
         Stmt::FuncDef(n,params,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"params\":["); for (i,p) in params.iter().enumerate() { if i>0 {out.push(',');} json_str(p,out); } out.push_str("],\"type\":\"funcdef\"}"); }
-        Stmt::If(c,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":null,\"type\":\"if\"}"); }
-        Stmt::ElseIf(c,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":null,\"type\":\"else_if\"}"); }
+        Stmt::If(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"if\"}"); }
+        Stmt::ElseIf(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"else_if\"}"); }
         Stmt::Else(body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"type\":\"else\"}"); }
         Stmt::RepeatTimes(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"count\":"); emit_expr(c,out); out.push_str(",\"type\":\"repeat_times\"}"); }
         Stmt::RepeatRange(v,f,t,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"from\":"); emit_expr(f,out); out.push_str(",\"to\":"); emit_expr(t,out); out.push_str(",\"type\":\"repeat_range\",\"varName\":"); json_str(v,out); out.push('}'); }
@@ -435,6 +558,77 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenPickup(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_pickup\"}"); }
         Stmt::WhenHit(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_hit\"}"); }
         Stmt::WhenDefeat(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_defeat\"}"); }
+        Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
+        Stmt::WhenButton(l,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"label\":"); json_str(l,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_button\"}"); }
+        Stmt::WhenMouse(ev,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"event\":"); json_str(ev,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_mouse\"}"); }
+        Stmt::ClearScreen(c)=>{ out.push_str("{\"color\":"); json_str(c,out); out.push_str(",\"type\":\"clearscreen\"}"); }
+        Stmt::Draw(a)=>{
+            out.push_str("{\"args\":{");
+            let mut kv: Vec<(&str, String)> = Vec::new();
+            if let Some(c)=&a.color { let mut s=String::new(); json_str(c,&mut s); kv.push(("color", s)); }
+            if let Some(e)=&a.h { kv.push(("h", expr_json(e))); }
+            if let Some(s)=&a.sprite_name { let mut j=String::new(); json_str(s,&mut j); kv.push(("spriteName", j)); }
+            if let Some(e)=&a.sprite_name_expr { kv.push(("spriteNameExpr", expr_json(e))); }
+            if let Some(e)=&a.w { kv.push(("w", expr_json(e))); }
+            if let Some(e)=&a.x { kv.push(("x", expr_json(e))); }
+            if let Some(e)=&a.x1 { kv.push(("x1", expr_json(e))); }
+            if let Some(e)=&a.x2 { kv.push(("x2", expr_json(e))); }
+            if let Some(e)=&a.y { kv.push(("y", expr_json(e))); }
+            if let Some(e)=&a.y1 { kv.push(("y1", expr_json(e))); }
+            if let Some(e)=&a.y2 { kv.push(("y2", expr_json(e))); }
+            kv.sort_by(|p,q| p.0.cmp(q.0));
+            for (i,(k,v)) in kv.iter().enumerate() { if i>0 {out.push(',');} json_str(k,out); out.push(':'); out.push_str(v); }
+            out.push_str("},\"hud\":"); out.push_str(if a.hud {"true"} else {"false"});
+            out.push_str(",\"shape\":"); json_str(&a.shape,out); out.push_str(",\"type\":\"draw\"}");
+        }
+        Stmt::Write(w)=>{
+            out.push('{'); let mut sep=false;
+            if let Some(c)=&w.color { out.push_str("\"color\":"); json_str(c,out); sep=true; }
+            if sep { out.push(','); } out.push_str("\"hud\":"); out.push_str(if w.hud {"true"} else {"false"});
+            out.push_str(",\"text\":"); emit_expr(&w.text,out); out.push_str(",\"type\":\"write\"");
+            if let Some(e)=&w.x { out.push_str(",\"x\":"); emit_expr(e,out); }
+            if let Some(e)=&w.y { out.push_str(",\"y\":"); emit_expr(e,out); }
+            out.push('}');
+        }
+        Stmt::Each(var,list,wc,then,b)=>{
+            out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"list\":"); emit_expr(list,out);
+            out.push_str(",\"thenStmt\":"); emit_then(then,out);
+            out.push_str(",\"type\":\"each\",\"varName\":"); json_str(var,out);
+            out.push_str(",\"where\":"); match wc { Some(c)=>emit_cond(c,out), None=>out.push_str("null") }
+            out.push('}');
+        }
+        Stmt::RunGame(fs)=>{ out.push_str("{\"funcs\":["); for (i,f) in fs.iter().enumerate() { if i>0 {out.push(',');} json_str(f,out); } out.push_str("],\"type\":\"rungame\"}"); }
+        Stmt::Follow(t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"follow\"}"); }
+        Stmt::Goto(t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"goto\"}"); }
+        Stmt::GoBack=>{ out.push_str("{\"type\":\"goback\"}"); }
+        Stmt::MoveArrows(t,sp)=>{ out.push_str("{\"speed\":"); match sp { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"move_with_arrows\"}"); }
+        Stmt::MoveBy(t,dx,dy,bl)=>{ out.push_str("{\"blockedBy\":"); match bl { Some(s)=>json_str(s,out), None=>out.push_str("null") } out.push_str(",\"dx\":"); emit_expr(dx,out); out.push_str(",\"dy\":"); emit_expr(dy,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"move_by\"}"); }
+        Stmt::PlaySound(k,n)=>{ out.push_str("{\"kind\":"); json_str(k,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"type\":\"play_sound\"}"); }
+        Stmt::Button(l,x,y)=>{ out.push_str("{\"label\":"); json_str(l,out); out.push_str(",\"type\":\"button\",\"x\":"); emit_expr(x,out); out.push_str(",\"y\":"); emit_expr(y,out); out.push('}'); }
+        Stmt::Return(v)=>{ out.push_str("{\"type\":\"return\",\"value\":"); match v { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push('}'); }
+        Stmt::Stop=>{ out.push_str("{\"type\":\"stop\"}"); }
+        Stmt::Jump(t,f)=>{ out.push_str("{\"force\":"); json_num(*f,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"jump\"}"); }
+        Stmt::Broadcast(v)=>{ out.push_str("{\"type\":\"broadcast\",\"value\":"); emit_expr(v,out); out.push('}'); }
+        Stmt::NetJoin(g,r)=>{ out.push_str("{\"game\":"); json_str(g,out); out.push_str(",\"room\":"); json_str(r,out); out.push_str(",\"type\":\"net_join\"}"); }
+        Stmt::Knock(t,src,d)=>{ out.push_str("{\"distance\":"); emit_expr(d,out); out.push_str(",\"source\":"); json_str(src,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"knock\"}"); }
+        Stmt::Damage(t,a)=>{ out.push_str("{\"amount\":"); emit_expr(a,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"damage\"}"); }
+        Stmt::Heal(t,a)=>{ out.push_str("{\"amount\":"); emit_expr(a,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"heal\"}"); }
+        Stmt::Meter(cur,mx,x,y,w,h,color)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"current\":"); emit_expr(cur,out); out.push_str(",\"h\":"); emit_expr(h,out); out.push_str(",\"max\":"); emit_expr(mx,out); out.push_str(",\"type\":\"meter\",\"w\":"); emit_expr(w,out); out.push_str(",\"x\":"); emit_expr(x,out); out.push_str(",\"y\":"); emit_expr(y,out); out.push('}'); }
+        Stmt::DefSfx(name,rec)=>{
+            out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"recipe\":{");
+            if rec.tone {
+                out.push_str("\"dur\":"); json_num(rec.dur,out);
+                out.push_str(",\"f0\":"); json_num(rec.f0,out);
+                out.push_str(",\"f1\":"); match rec.f1 { Some(f)=>json_num(f,out), None=>out.push_str("null") }
+                out.push_str(",\"kind\":\"tone\",\"wave\":"); json_str(&rec.wave,out);
+            } else {
+                out.push_str("\"dur\":"); json_num(rec.dur,out);
+                out.push_str(",\"kind\":\"notes\",\"notes\":[");
+                for (i,n) in rec.notes.iter().enumerate() { if i>0 {out.push(',');} json_num(*n,out); }
+                out.push(']');
+            }
+            out.push_str("},\"type\":\"def_sfx\"}");
+        }
     }
 }
 
@@ -455,4 +649,193 @@ static mut OUT: [u8; OUT_CAP] = [0; OUT_CAP];
     let m = bytes.len().min(OUT_CAP);
     unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(OUT) as *mut u8, OUT_CAP); out[..m].copy_from_slice(&bytes[..m]); }
     m as u32
+}
+
+// --- game sub-parsers ---------------------------------------------------------
+static mut UFUNCS: Vec<String> = Vec::new();
+fn is_command_word(w: &str) -> bool {
+    const CMDS: &[&str] = &["move","draw","write","say","add","remove","clear","play","stop","jump",
+        "walk","face","go","follow","run","when","repeat","every","each","toggle","double","halve",
+        "broadcast","join","knock","damage","heal","show","pset","return","set","reverse","restore","block","to"];
+    if CMDS.contains(&w) { return true; }
+    unsafe { UFUNCS.iter().any(|f| f == w) }
+}
+fn word_join(ts: &[Tok]) -> String { let mut p: Vec<&str> = Vec::new(); for t in ts { p.push(t.sval()); } p.join(" ") }
+fn string_after(ts: &[Tok], w: &str) -> String {
+    if let Some(k) = find_word(ts, w) { if let Some(t) = ts.get(k+1) { return t.sval().to_string(); } } String::new()
+}
+fn parse_object(ts: &[Tok]) -> Expr { // ts INCLUDING braces or inner; returns Object(props)
+    let inner = if !ts.is_empty() && ts[0].t==11 {
+        if ts[ts.len()-1].t==12 { &ts[1..ts.len()-1] } else { &ts[1..] }
+    } else { ts };
+    let mut props: Vec<(String, Expr)> = Vec::new();
+    for seg in split_top_commas(inner) {
+        if seg.is_empty() { continue; }
+        // key is first word; ':' was dropped by the lexer, value = rest
+        let key = seg[0].sval().to_string();
+        props.push((key, parse_expr(&seg[1..])));
+    }
+    Expr::Object(props)
+}
+fn parse_if(ts: &[Tok], is_elseif: bool) -> Stmt {
+    // locate where the condition ends and an inline statement begins (seenCompare heuristic)
+    let mut cond_end = ts.len();
+    let mut seen_compare = false;
+    let mut i = 0;
+    while i < ts.len() {
+        let t = &ts[i];
+        if t.t==4 && matches!(t.sval(), ">"|"<"|">="|"<="|"!="|"==") { seen_compare = true; }
+        else if t.is_word("and") || t.is_word("or") { seen_compare = false; }
+        else if t.is_word("is") {
+            // walk back over the assignment target (dotted ref) before `is`
+            let mut s = i;
+            if s > 0 { s -= 1; while s >= 2 && ts[s-1].t==5 { s -= 2; } }
+            if seen_compare {
+                cond_end = s; break;       // `is` begins an inline assignment
+            } else if s == 0 {
+                seen_compare = true;       // target is the whole left -> this `is` is the comparison
+            } else {
+                let b = &ts[s-1];
+                let continuation = b.t==4 || b.t==5 || b.is_word("of") || b.is_word("mod") || b.is_word("and") || b.is_word("or");
+                if continuation { seen_compare = true; }
+                else { cond_end = s; break; }  // self-contained boolean before -> split
+            }
+        } else if t.t==3 && i > 0 && is_command_word(t.sval()) {
+            let p = &ts[i-1];
+            if !(p.is_word("is")||p.is_word("not")||p.is_word("and")||p.is_word("or")||p.is_word("in")||p.is_word("between")) {
+                cond_end = i; break;
+            }
+        }
+        i += 1;
+    }
+    let cond = parse_cond(&ts[..cond_end]);
+    let then = if cond_end < ts.len() { Some(Box::new(parse_line(&ts[cond_end..]))) } else { None };
+    if is_elseif { Stmt::ElseIf(cond, then, Vec::new()) } else { Stmt::If(cond, then, Vec::new()) }
+}
+fn parse_draw(ts: &[Tok]) -> Stmt {
+    let mut a = DrawArgs::default();
+    // hud suffix: trailing 'on hud' / 'on screen'
+    let mut end = ts.len();
+    if end >= 2 && ts[end-2].is_word("on") && (ts[end-1].is_word("hud")||ts[end-1].is_word("screen")) { a.hud = true; end -= 2; }
+    let body = &ts[1..end]; // after 'draw'
+    let mut idx = 0;
+    if !body.is_empty() && body[0].is_word("sprite") {
+        a.shape = "sprite".to_string();
+        // draw sprite NAME/EXPR  — name lowercased, spaces->_ ; here usually a string or ref
+        idx = 1;
+        // sprite name = the token(s) after 'sprite' up to 'at': a static name (string
+        // or all-words) -> spriteName; a dotted/expr name (e.g. tree.image) -> spriteNameExpr
+        let at = body.iter().position(|t| t.is_word("at")).unwrap_or(body.len());
+        let nm = &body[idx..at];
+        if nm.len()==1 && nm[0].t==1 { a.sprite_name = Some(nm[0].sval().to_lowercase()); }
+        else if !nm.is_empty() { a.sprite_name_expr = Some(parse_expr(nm)); }
+        idx = at;
+    } else if !body.is_empty() {
+        a.shape = body[0].sval().to_string(); // rect/circle/line
+        idx = 1;
+    }
+    // landmark args from idx onward
+    let mut j = idx;
+    while j < body.len() {
+        let kw = body[j].sval();
+        let seg_start = j + 1;
+        // collect tokens until next landmark word
+        let mut k = seg_start;
+        while k < body.len() && !matches!(body[k].sval(), "at"|"size"|"from"|"to"|"in") { k += 1; }
+        let seg = &body[seg_start..k];
+        match kw {
+            "at" => { let p = split_top_commas(seg); a.x = p.get(0).map(|s| parse_expr(s)); a.y = p.get(1).map(|s| parse_expr(s)); }
+            "size" => { let p = split_top_commas(seg); a.w = p.get(0).map(|s| parse_expr(s)); a.h = p.get(1).map(|s| parse_expr(s)).or_else(|| a.w.clone()); }
+            "from" => { let p = split_top_commas(seg); a.x1 = p.get(0).map(|s| parse_expr(s)); a.y1 = p.get(1).map(|s| parse_expr(s)); }
+            "to" => { let p = split_top_commas(seg); a.x2 = p.get(0).map(|s| parse_expr(s)); a.y2 = p.get(1).map(|s| parse_expr(s)); }
+            "in" => { a.color = Some(word_join(seg)); }
+            _ => {}
+        }
+        j = k;
+    }
+    Stmt::Draw(a)
+}
+fn parse_write(ts: &[Tok]) -> Stmt {
+    let mut end = ts.len(); let mut hud = false;
+    if end >= 2 && ts[end-2].is_word("on") && (ts[end-1].is_word("hud")||ts[end-1].is_word("screen")) { hud = true; end -= 2; }
+    let body = &ts[1..end];
+    let at = body.iter().position(|t| t.is_word("at"));
+    let inw = body.iter().position(|t| t.is_word("in"));
+    let text_end = at.or(inw).unwrap_or(body.len());
+    let text = parse_expr(&body[..text_end]);
+    let (mut x, mut y, mut color) = (None, None, None);
+    if let Some(ak) = at { let stop = inw.filter(|&i| i>ak).unwrap_or(body.len()); let p = split_top_commas(&body[ak+1..stop]); x = p.get(0).map(|s| parse_expr(s)); y = p.get(1).map(|s| parse_expr(s)); }
+    if let Some(ik) = inw { color = Some(word_join(&body[ik+1..])); }
+    Stmt::Write(WriteArgs { text, x, y, color, hud })
+}
+fn safe<'a>(ts: &'a [Tok], a: usize, b: usize) -> &'a [Tok] { if a <= b && b <= ts.len() { &ts[a..b] } else { &[] } }
+fn parse_meter(ts: &[Tok]) -> Stmt {
+    // show meter CURRENT of MAX at X,Y size W,H in COLOR
+    let of_i = find_word(ts,"of").unwrap_or(ts.len());
+    let at_i = find_word(ts,"at").unwrap_or(ts.len());
+    let size_i = find_word(ts,"size").unwrap_or(ts.len());
+    let in_i = find_word(ts,"in").unwrap_or(ts.len());
+    let current = parse_expr(safe(ts, 2, of_i));
+    let max = parse_expr(safe(ts, of_i+1, at_i));
+    let at_seg = split_top_commas(safe(ts, at_i+1, size_i));
+    let x = parse_expr(at_seg.get(0).copied().unwrap_or(&[]));
+    let y = parse_expr(at_seg.get(1).copied().unwrap_or(&[]));
+    let size_seg = split_top_commas(safe(ts, size_i+1, in_i));
+    let w = parse_expr(size_seg.get(0).copied().unwrap_or(&[]));
+    let h = parse_expr(size_seg.get(1).copied().unwrap_or(&[]));
+    let color = if in_i < ts.len() { word_join(&ts[in_i+1..]) } else { String::new() };
+    Stmt::Meter(current, max, x, y, w, h, color)
+}
+fn parse_button(ts: &[Tok]) -> Stmt {
+    // show button "label" at X, Y
+    let label = ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
+    let (mut x, mut y) = (Expr::Lit(LitVal::Num(0.0)), Expr::Lit(LitVal::Num(0.0)));
+    if let Some(ak) = find_word(ts, "at") { let p = split_top_commas(&ts[ak+1..]); if let Some(s)=p.get(0) { x = parse_expr(s); } if let Some(s)=p.get(1) { y = parse_expr(s); } }
+    Stmt::Button(label, x, y)
+}
+fn parse_each(ts: &[Tok]) -> Stmt {
+    // each VAR in LIST [where COND] [INLINE-STMT]
+    let var = ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default();
+    let in_i = find_word(ts, "in").unwrap_or(1);
+    // list ends at 'where' or the first command word
+    let mut list_end = ts.len();
+    let mut where_i = None;
+    let mut i = in_i + 1;
+    while i < ts.len() {
+        if ts[i].is_word("where") { where_i = Some(i); list_end = i; break; }
+        if ts[i].t==3 && i > in_i+1 && is_command_word(ts[i].sval()) { list_end = i; break; }
+        i += 1;
+    }
+    let list = parse_expr(&ts[in_i+1..list_end]);
+    let mut where_c = None;
+    let mut then_start = list_end;
+    if let Some(wi) = where_i {
+        let mut cond_end = ts.len(); let mut j = wi + 1;
+        while j < ts.len() { if ts[j].t==3 && j > wi+1 && is_command_word(ts[j].sval()) { cond_end = j; break; } j += 1; }
+        where_c = Some(parse_cond(&ts[wi+1..cond_end]));
+        then_start = cond_end;
+    }
+    let then = if then_start < ts.len() { Some(Box::new(parse_line(&ts[then_start..]))) } else { None };
+    Stmt::Each(var, list, where_c, then, Vec::new())
+}
+fn parse_def_sfx(ts: &[Tok]) -> Stmt {
+    // define sound "NAME" as WAVE from F0 to F1 over DUR  |  ... as notes N.. over DUR
+    let name = ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
+    let num_after = |w: &str, d: f64| find_word(ts, w).and_then(|k| ts.get(k+1)).and_then(|t| if let TokVal::Num(n)=t.v { Some(n) } else { None }).unwrap_or(d);
+    let opt_after = |w: &str| find_word(ts, w).and_then(|k| ts.get(k+1)).and_then(|t| if let TokVal::Num(n)=t.v { Some(n) } else { None });
+    let as_i = find_word(ts, "as");
+    let is_notes = as_i.and_then(|k| ts.get(k+1)).map(|t| t.is_word("notes")).unwrap_or(false);
+    if is_notes {
+        let over_i = find_word(ts, "over").unwrap_or(ts.len());
+        let start = as_i.unwrap_or(0) + 2;
+        let mut notes: Vec<f64> = Vec::new();
+        for t in &ts[start.min(ts.len())..over_i.min(ts.len())] { if let TokVal::Num(n)=t.v { notes.push(n); } }
+        Stmt::DefSfx(name, SfxRecipe { tone: false, wave: String::new(), f0: 0.0, f1: None, dur: num_after("over", 0.15), notes })
+    } else {
+        let wave = as_i.and_then(|k| ts.get(k+1)).map(|t| t.sval().to_string()).unwrap_or_else(|| "square".to_string());
+        Stmt::DefSfx(name, SfxRecipe { tone: true, wave, f0: num_after("from", 440.0), f1: opt_after("to"), dur: num_after("over", 0.15), notes: Vec::new() })
+    }
+}
+fn brace_props(ts: &[Tok]) -> Expr {
+    if let Some(lb) = ts.iter().position(|t| t.t == 11) { parse_object(&ts[lb..]) } else { Expr::Object(Vec::new()) }
 }

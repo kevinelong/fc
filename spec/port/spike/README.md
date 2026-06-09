@@ -16,19 +16,18 @@ cargo build --release --target wasm32-unknown-unknown
 |---|---|---|---|
 | 0. command-buffer ABI round-trip | ✅ | (host instantiate + decode) | 532 B wasm, buffer decodes correctly |
 | **1. lexer** (`tokenizeLine`) | ✅ | `node tokenize-diff.mjs` | **1036/1036 lines, 0 diff** · 1422 B wasm |
-| 2. parser (`parse` → AST) | 🔶 **31/40** | `node parse-ast.mjs && node ast-diff.mjs` | 65 KB wasm |
-| &nbsp;&nbsp;2.0 allocator | ✅ | `alloc_selftest`==328350; lexer still 1036/1036 | bump arena |
-| &nbsp;&nbsp;2.1 AST + contract JSON | ✅ | sorted keys / lineNum strip / int-no-decimal proven | serializer correct |
-| &nbsp;&nbsp;2.2 statements | ✅ | assign/add/remove/double/halve/toggle/call/funcdef/if/else(+if)/repeat*/every/tag/when_pickup·hit·defeat | **all 31 corpus pass** |
-| &nbsp;&nbsp;2.3 expr/cond | ✅ | literal/ref/math/listliteral/random/item_of · eq/cmp/and/or/not/no/neq/has/bare | — |
-| &nbsp;&nbsp;2.4 game sub-parsers | ⬜ next | the 9 example games | sprite/draw/each/when_key/object |
+| 2. parser (`parse` → AST) | ✅ **40/40** | `node parse-ast.mjs && node ast-diff.mjs` | 100 KB wasm |
+| &nbsp;&nbsp;2.0 allocator | ✅ | bump arena; `alloc_selftest`==328350 | — |
+| &nbsp;&nbsp;2.1 AST + contract JSON | ✅ | sorted keys / lineNum strip / int-no-decimal | serializer correct |
+| &nbsp;&nbsp;2.2 corpus statements + expr/cond | ✅ | assign/add/repeat/every/tag/when/if-else/math/listliteral/random/item_of/eq/cmp/and/or/not | all 31 corpus |
+| &nbsp;&nbsp;2.3 game sub-parsers | ✅ | sprite/object/list-of/count · draw/write/meter/button/each/move/follow/goto/rungame/clearscreen/play/def_sfx/damage/heal/knock/broadcast/net_join · when_key·button·mouse · inline `if` (parseIf heuristic) · splitOnAnd via two-pass userFuncs | **all 9 games** |
+| 3. runtime (`exec` → vars + command buffer) | ⬜ next | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
 
-**Remaining 9 diffs are all the example GAMES** (corpus is 31/31). They need the
-game sub-parsers not yet ported: sprite expression atoms (`sprite`/`centered sprite`/
-`list of N` → `value.name`), object literals `{..}`, and `draw`/`write`/`each`/`when key`
-/`move`/`follow`/`rungame`/`clearscreen` statements (→ `.args` from the `call` fallback).
-Then the `parseIf`/`splitOnAnd` heuristics last (stress tables ready).
-| 3. runtime (`exec` → vars + command buffer) | ⬜ | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
+The **parseIf inline-split heuristic** and the **two-pass user-function prescan** (so user
+funcs count as command-word boundaries) are both ported and validated by the games passing.
+One real bug found & fixed along the way: `UFUNCS` (the user-func set) must be a fresh `Vec`
+per program — reusing its buffer after `reset_arena()` recycled the arena caused cross-program
+memory corruption (null-byte ref names). Caught by the diff harness.
 
 ## ABI (current)
 - `input_ptr() -> *u8`, `tok_ptr() -> *u8`, `indent() -> u32`, `tokenize(len) -> count`.
