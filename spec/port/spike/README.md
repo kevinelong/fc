@@ -16,18 +16,18 @@ cargo build --release --target wasm32-unknown-unknown
 |---|---|---|---|
 | 0. command-buffer ABI round-trip | ✅ | (host instantiate + decode) | 532 B wasm, buffer decodes correctly |
 | **1. lexer** (`tokenizeLine`) | ✅ | `node tokenize-diff.mjs` | **1036/1036 lines, 0 diff** · 1422 B wasm |
-| 2. parser (`parse` → AST) | 🔶 **18/40** | `node parse-ast.mjs && node ast-diff.mjs` | 64 KB wasm |
+| 2. parser (`parse` → AST) | 🔶 **31/40** | `node parse-ast.mjs && node ast-diff.mjs` | 65 KB wasm |
 | &nbsp;&nbsp;2.0 allocator | ✅ | `alloc_selftest`==328350; lexer still 1036/1036 | bump arena |
 | &nbsp;&nbsp;2.1 AST + contract JSON | ✅ | sorted keys / lineNum strip / int-no-decimal proven | serializer correct |
-| &nbsp;&nbsp;2.2 dispatch subset | ✅ | assign/add/remove/double/halve/toggle/call/funcdef/if/else(+if) | 18/40 |
-| &nbsp;&nbsp;2.3 expr/cond subset | ✅ | literal/ref/math · eq/cmp/and/or/not/neq/has | — |
-| &nbsp;&nbsp;**remaining diffs** | ⬜ | deferred constructs only (no crashes) | see below |
+| &nbsp;&nbsp;2.2 statements | ✅ | assign/add/remove/double/halve/toggle/call/funcdef/if/else(+if)/repeat*/every/tag/when_pickup·hit·defeat | **all 31 corpus pass** |
+| &nbsp;&nbsp;2.3 expr/cond | ✅ | literal/ref/math/listliteral/random/item_of · eq/cmp/and/or/not/no/neq/has/bare | — |
+| &nbsp;&nbsp;2.4 game sub-parsers | ⬜ next | the 9 example games | sprite/draw/each/when_key/object |
 
-**Remaining 22 diffs are all deferred, known constructs** (the contract + implemented
-nodes are correct): list/object/`random`/sprite/`list of`/`item of` expression atoms
-(`value.items`/`value.name`/`value.max`); `repeat*`/`each`/`every`/`when*`/`draw`/`write`
-/tag statements (currently `call` fallback → `.args` diff); and the bare-truthy condition
-wrapper (`condition.expr`). Each is "add the parse arm + emit, watch the count climb."
+**Remaining 9 diffs are all the example GAMES** (corpus is 31/31). They need the
+game sub-parsers not yet ported: sprite expression atoms (`sprite`/`centered sprite`/
+`list of N` → `value.name`), object literals `{..}`, and `draw`/`write`/`each`/`when key`
+/`move`/`follow`/`rungame`/`clearscreen` statements (→ `.args` from the `call` fallback).
+Then the `parseIf`/`splitOnAnd` heuristics last (stress tables ready).
 | 3. runtime (`exec` → vars + command buffer) | ⬜ | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
 
 ## ABI (current)

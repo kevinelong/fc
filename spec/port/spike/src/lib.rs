@@ -194,9 +194,10 @@ fn lex_line(b: &[u8]) -> (u32, Vec<Tok>) {
 #[derive(Clone)]
 enum LitVal { Num(f64), Str(String), Bool(bool) }
 #[derive(Clone)]
-enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>) }
+enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
+    ListLit(Vec<Expr>), Random(Box<Expr>), ItemOf(Box<Expr>, Box<Expr>) }
 #[derive(Clone)]
-enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>),
+enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
     Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), Bare(Expr) }
 #[derive(Clone)]
 enum Stmt {
@@ -205,6 +206,11 @@ enum Stmt {
     Call(String, Vec<Tok>),
     FuncDef(String, Vec<String>, Vec<Stmt>),
     If(Cond, Vec<Stmt>), ElseIf(Cond, Vec<Stmt>), Else(Vec<Stmt>),
+    RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
+    RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>),
+    Every(f64, String, Vec<Stmt>),
+    Tag(String, String),
+    WhenPickup(String, Vec<Stmt>), WhenHit(String, Vec<Stmt>), WhenDefeat(String, Vec<Stmt>),
 }
 
 fn find_word(ts: &[Tok], w: &str) -> Option<usize> { ts.iter().position(|t| t.is_word(w)) }
@@ -223,6 +229,16 @@ fn parse_expr(ts: &[Tok]) -> Expr {
         if let Some(op)=op { return Expr::Math(op, Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } }
     if ts[0].t==4 && ts[0].sval()=="-" {
         return Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(parse_expr(&ts[1..]))); }
+    // atom forms (no top-level math operator reached here)
+    if ts[0].t==9 { // [ items ]
+        let inner = if ts.len()>=2 && ts[ts.len()-1].t==10 { &ts[1..ts.len()-1] } else { &ts[1..] };
+        let mut items: Vec<Expr> = Vec::new();
+        for seg in split_top_commas(inner) { if !seg.is_empty() { items.push(parse_expr(seg)); } }
+        return Expr::ListLit(items);
+    }
+    if ts[0].is_word("random") { return Expr::Random(Box::new(parse_expr(&ts[1..]))); }
+    if ts[0].is_word("item") { if let Some(k)=find_word(ts,"of") {
+        return Expr::ItemOf(Box::new(parse_expr(&ts[1..k])), Box::new(parse_expr(&ts[k+1..]))); } }
     if ts.len()==1 {
         let t=&ts[0];
         return match t.t { 2=>Expr::Lit(LitVal::Num(if let TokVal::Num(n)=t.v {n} else {0.0})),
@@ -236,8 +252,16 @@ fn parse_expr(ts: &[Tok]) -> Expr {
     let mut parts: Vec<&str>=Vec::new(); for t in ts { parts.push(t.sval()); }
     Expr::Ref(parts.join(" "))
 }
+fn split_top_commas(ts: &[Tok]) -> Vec<&[Tok]> {
+    let mut out = Vec::new(); let mut depth = 0i32; let mut start = 0;
+    for (i,t) in ts.iter().enumerate() { match t.t {
+        9|11|7 => depth += 1, 10|12|8 => depth -= 1,
+        6 if depth == 0 => { out.push(&ts[start..i]); start = i+1; }, _=>{} } }
+    out.push(&ts[start..]); out
+}
 fn parse_cond(ts: &[Tok]) -> Cond {
     if !ts.is_empty() && ts[0].is_word("not") { return Cond::Not(Box::new(parse_cond(&ts[1..]))); }
+    if !ts.is_empty() && ts[0].is_word("no") { return Cond::NotExpr(parse_expr(&ts[1..])); }
     if let Some(k)=find_word(ts,"or") { return Cond::Or(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if let Some(k)=find_word(ts,"and") { return Cond::And(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     for i in 0..ts.len() { if ts[i].t==4 { let o=ts[i].sval(); if matches!(o, ">"|"<"|">="|"<="|"!="|"==") {
@@ -269,16 +293,49 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         if ts.len()>=2 && ts[1].is_word("if") { return Stmt::ElseIf(parse_cond(&ts[2..]), Vec::new()); }
         return Stmt::Else(Vec::new());
     }
+    if first=="repeat" { return parse_repeat(ts); }
+    if first=="every" && ts.len()>=3 {
+        let n = if let TokVal::Num(n)=ts[1].v { n } else { 0.0 };
+        return Stmt::Every(n, ts[2].sval().to_string(), Vec::new());
+    }
+    if first=="when" { return parse_when(ts); }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
     if first=="remove" { if let Some(k)=find_word(ts,"from") { return Stmt::Remove(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
     if first=="double" && ts.len()>=2 { return Stmt::Simple("double", join_dot(&ts[1..])); }
     if first=="halve" && ts.len()>=2 { return Stmt::Simple("halve", join_dot(&ts[1..])); }
     if first=="toggle" && ts.len()>=2 { return Stmt::Simple("toggle", join_dot(&ts[1..])); }
+    if let Some(k)=find_word(ts,"are") {
+        let subject = tokens_to_ref(&ts[..k]);
+        let mut parts: Vec<&str> = Vec::new(); for t in &ts[k+1..] { parts.push(t.sval()); }
+        return Stmt::Tag(subject, parts.join(" ").to_lowercase());
+    }
     if let Some(k)=find_word(ts,"is") { return Stmt::Assign(tokens_to_ref(&ts[..k]), parse_expr(&ts[k+1..])); }
     call_fallback(ts)
 }
+fn parse_repeat(ts: &[Tok]) -> Stmt {
+    if ts.len()>=2 && ts[1].is_word("with") {
+        let var = ts.get(2).map(|t| t.sval().to_string()).unwrap_or_default();
+        if let (Some(fi), Some(ti)) = (find_word(ts,"from"), find_word(ts,"to")) {
+            return Stmt::RepeatRange(var, parse_expr(&ts[fi+1..ti]), parse_expr(&ts[ti+1..]), Vec::new());
+        }
+    }
+    if ts.len()>=2 && ts[1].is_word("while") { return Stmt::RepeatWhile(parse_cond(&ts[2..]), Vec::new()); }
+    if ts.len()>=2 && ts[1].is_word("until") { return Stmt::RepeatUntil(parse_cond(&ts[2..]), Vec::new()); }
+    if let Some(k)=find_word(ts,"times") { return Stmt::RepeatTimes(parse_expr(&ts[1..k]), Vec::new()); }
+    Stmt::Forever(Vec::new())
+}
+fn parse_when(ts: &[Tok]) -> Stmt {
+    let has = |w: &str| ts.iter().any(|t| t.is_word(w));
+    let last = || ts.last().map(|t| t.sval().to_string()).unwrap_or_default();
+    if has("picks") && has("up") { return Stmt::WhenPickup(last(), Vec::new()); }
+    if has("hits") { return Stmt::WhenHit(last(), Vec::new()); }
+    if has("defeated") { return Stmt::WhenDefeat(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default(), Vec::new()); }
+    call_fallback(ts)
+}
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
-    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,b)|Stmt::ElseIf(_,b)|Stmt::Else(b) => *b=body, _=>{} }
+    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,b)|Stmt::ElseIf(_,b)|Stmt::Else(b)
+        |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
+        |Stmt::Forever(b)|Stmt::Every(_,_,b)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
 fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
@@ -329,6 +386,9 @@ fn emit_expr(e: &Expr, out: &mut String) {
         Expr::Lit(l)=>emit_lit(l,out),
         Expr::Ref(n)=>{ out.push_str("{\"name\":"); json_str(n,out); out.push_str(",\"type\":\"ref\"}"); }
         Expr::Math(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"math\"}"); }
+        Expr::ListLit(items)=>{ out.push_str("{\"items\":["); for (i,e) in items.iter().enumerate(){ if i>0 {out.push(',');} emit_expr(e,out);} out.push_str("],\"type\":\"listliteral\"}"); }
+        Expr::Random(m)=>{ out.push_str("{\"max\":"); emit_expr(m,out); out.push_str(",\"type\":\"random\"}"); }
+        Expr::ItemOf(idx,l)=>{ out.push_str("{\"index\":"); emit_expr(idx,out); out.push_str(",\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"item_of\"}"); }
     }
 }
 fn emit_cond(c: &Cond, out: &mut String) {
@@ -336,6 +396,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
         Cond::Or(a,b)=>{ out.push_str("{\"left\":"); emit_cond(a,out); out.push_str(",\"right\":"); emit_cond(b,out); out.push_str(",\"type\":\"or\"}"); }
         Cond::And(a,b)=>{ out.push_str("{\"left\":"); emit_cond(a,out); out.push_str(",\"right\":"); emit_cond(b,out); out.push_str(",\"type\":\"and\"}"); }
         Cond::Not(a)=>{ out.push_str("{\"condition\":"); emit_cond(a,out); out.push_str(",\"type\":\"not\"}"); }
+        Cond::NotExpr(e)=>{ out.push_str("{\"expr\":"); emit_expr(e,out); out.push_str(",\"type\":\"not\"}"); }
         Cond::Eq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"eq\"}"); }
         Cond::Neq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"neq\"}"); }
         Cond::Cmp(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"cmp\"}"); }
@@ -364,6 +425,16 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::If(c,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":null,\"type\":\"if\"}"); }
         Stmt::ElseIf(c,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":null,\"type\":\"else_if\"}"); }
         Stmt::Else(body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"type\":\"else\"}"); }
+        Stmt::RepeatTimes(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"count\":"); emit_expr(c,out); out.push_str(",\"type\":\"repeat_times\"}"); }
+        Stmt::RepeatRange(v,f,t,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"from\":"); emit_expr(f,out); out.push_str(",\"to\":"); emit_expr(t,out); out.push_str(",\"type\":\"repeat_range\",\"varName\":"); json_str(v,out); out.push('}'); }
+        Stmt::RepeatWhile(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_while\"}"); }
+        Stmt::RepeatUntil(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_until\"}"); }
+        Stmt::Forever(b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"type\":\"forever\"}"); }
+        Stmt::Every(n,u,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"n\":"); json_num(*n,out); out.push_str(",\"type\":\"every\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Tag(s,t)=>{ out.push_str("{\"subject\":"); json_str(s,out); out.push_str(",\"tag\":"); json_str(t,out); out.push_str(",\"type\":\"tag\"}"); }
+        Stmt::WhenPickup(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_pickup\"}"); }
+        Stmt::WhenHit(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_hit\"}"); }
+        Stmt::WhenDefeat(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_defeat\"}"); }
     }
 }
 
