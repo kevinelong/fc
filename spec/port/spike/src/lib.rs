@@ -3,9 +3,43 @@
 //! little-endian, referencing the source bytes the host already holds (no string
 //! copying / no allocator needed). Differential-tested against the JS tokenizer.
 #![no_std]
+extern crate alloc;
 use core::panic::PanicInfo;
 use core::ptr::{addr_of, addr_of_mut};
+use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
 #[panic_handler] fn panic(_: &PanicInfo) -> ! { loop {} }
+
+// --- Step 0: bump global allocator over a static arena (dependency-free) -----
+// The AST + transient parse garbage are heap-bound and wasm32-unknown-unknown has
+// no default allocator. A bump allocator is ideal for parse: allocate freely, never
+// free, and reset_arena() between programs. (Chosen over the `talc` crate to keep
+// the build offline/zero-dependency.)
+const ARENA: usize = 4 * 1024 * 1024;
+static mut ARENA_MEM: [u8; ARENA] = [0; ARENA];
+struct Bump { off: UnsafeCell<usize> }
+unsafe impl Sync for Bump {}
+#[global_allocator]
+static ALLOC: Bump = Bump { off: UnsafeCell::new(0) };
+unsafe impl GlobalAlloc for Bump {
+    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+        let off = &mut *self.off.get();
+        let start = (*off + l.align() - 1) & !(l.align() - 1);
+        let end = start + l.size();
+        if end > ARENA { return core::ptr::null_mut(); }
+        *off = end;
+        (addr_of_mut!(ARENA_MEM) as *mut u8).add(start)
+    }
+    unsafe fn dealloc(&self, _p: *mut u8, _l: Layout) {}
+}
+#[no_mangle] pub extern "C" fn reset_arena() { unsafe { *ALLOC.off.get() = 0; } }
+
+// alloc self-test: sum of squares 0..99 via a heap Vec  (== 328350)
+#[no_mangle] pub extern "C" fn alloc_selftest() -> u32 {
+    let mut v: alloc::vec::Vec<u32> = alloc::vec::Vec::new();
+    for i in 0..100u32 { v.push(i * i); }
+    v.iter().sum()
+}
 
 const IN_CAP: usize = 8192;
 const TOK_CAP: usize = 16384;

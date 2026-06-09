@@ -16,7 +16,8 @@ cargo build --release --target wasm32-unknown-unknown
 |---|---|---|---|
 | 0. command-buffer ABI round-trip | ✅ | (host instantiate + decode) | 532 B wasm, buffer decodes correctly |
 | **1. lexer** (`tokenizeLine`) | ✅ | `node tokenize-diff.mjs` | **1036/1036 lines, 0 diff** · 1422 B wasm |
-| 2. parser (`parse` → AST) | ⬜ next | compare serialized AST vs JS `parse()` | — |
+| 2. parser (`parse` → AST) | 🔶 in progress | `node ast-diff.mjs` vs `ast-golden.json` (40 progs/2430 nodes) | step 0 done |
+| &nbsp;&nbsp;2.0 allocator | ✅ | `alloc_selftest`==328350; lexer still 1036/1036 | bump arena, 1982 B |
 | 3. runtime (`exec` → vars + command buffer) | ⬜ | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
 
 ## ABI (current)
