@@ -1,0 +1,3 @@
+door is "open"
+if door is "open"
+  hit is "yes"

@@ -1,0 +1,5 @@
+things is []
+if things
+  r is "t"
+else
+  r is "f"

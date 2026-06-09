@@ -1,0 +1,6 @@
+a is 0
+b is 0
+every 2 frames
+  add 1 to a
+every 3 frames
+  add 1 to b

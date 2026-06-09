@@ -1,0 +1,5 @@
+make coins
+coins are pickups
+score is 0
+when player picks up any coin
+  add 1 to score

@@ -1,0 +1,4 @@
+if 0
+  r is "t"
+else
+  r is "f"

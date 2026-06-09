@@ -1,0 +1,6 @@
+result is "none"
+repeat 1 times
+  if 1 > 5
+    result is "if"
+  else if 3 > 2
+    result is "elifbody"

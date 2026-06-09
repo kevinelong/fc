@@ -1,0 +1,5 @@
+make berries
+berries are pickups
+score is 0
+when player picks up any berry
+  add 1 to score

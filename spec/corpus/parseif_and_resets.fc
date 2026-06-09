@@ -1,0 +1,4 @@
+hp is 3
+shield is "up"
+if hp > 1 and shield is "up"
+  tag is "ok"

@@ -1,0 +1,6 @@
+a is 0
+b is ""
+if a is b
+  r is "equal"
+else
+  r is "notequal"

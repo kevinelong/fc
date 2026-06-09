@@ -1,0 +1,3 @@
+player.hp is 10
+if player.hp > 1
+  player.hp is 5

@@ -1,0 +1,5 @@
+a is "5"
+if a is 5
+  r is "equal"
+else
+  r is "notequal"

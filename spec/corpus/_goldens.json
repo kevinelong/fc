@@ -1,0 +1,254 @@
+{
+  "add_to_list_push.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "bag": [
+        "x",
+        "y"
+      ]
+    }
+  },
+  "add_to_number.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "n": 5
+    }
+  },
+  "add_to_string_concat.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "label": "score9"
+    }
+  },
+  "assign_dotted_autovivify.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "player": {
+        "hp": 5,
+        "x": 10
+      },
+      "score": 0
+    }
+  },
+  "divide_by_zero.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "q": 0,
+      "m": 0
+    }
+  },
+  "elseif_in_loop.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "result": "elifbody"
+    }
+  },
+  "eq_string_number.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": "5",
+      "r": "equal"
+    }
+  },
+  "eq_yes_boolean.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": true,
+      "r": "equal"
+    }
+  },
+  "eq_zero_emptystring.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": 0,
+      "b": "",
+      "r": "equal"
+    }
+  },
+  "every_two_blocks_line_keyed.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": 0,
+      "b": 0
+    }
+  },
+  "forward_ref_noop.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": 1
+    }
+  },
+  "ifelse_in_loop_false.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "result": "else"
+    }
+  },
+  "ifelse_in_loop_true.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "result": "then"
+    }
+  },
+  "ifelse_toplevel_false.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": 1,
+      "result": "else"
+    }
+  },
+  "ifelse_toplevel_true.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": 10,
+      "result": "then"
+    }
+  },
+  "item_one_based.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "list": [
+        "a",
+        "b",
+        "c"
+      ],
+      "first": "a",
+      "second": "b"
+    }
+  },
+  "parseif_and_resets.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "hp": 3,
+      "shield": "up",
+      "tag": "ok"
+    }
+  },
+  "parseif_compare_then_is.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 10,
+      "msg": "big"
+    }
+  },
+  "parseif_dotted_inline.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "player": {
+        "hp": 5
+      }
+    }
+  },
+  "parseif_is_compare_cond.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "door": "open",
+      "hit": "yes"
+    }
+  },
+  "plus_op_nonnumeric.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "r": 0
+    }
+  },
+  "plus_op_numeric.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "r": 7
+    }
+  },
+  "random_inclusive_bounds.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "lo": 3,
+      "hi": 1,
+      "ok": "yes"
+    }
+  },
+  "repeat_ascending.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "sum": 6,
+      "last": 3,
+      "n": 3
+    }
+  },
+  "repeat_descending.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "sum": 6,
+      "last": 1,
+      "n": 1
+    }
+  },
+  "set_make_noop.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": 2
+    }
+  },
+  "singularize_ies.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 0
+    }
+  },
+  "singularize_plain_s.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 0
+    }
+  },
+  "truthy_empty_list.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "things": [],
+      "r": "f"
+    }
+  },
+  "truthy_yes_no.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": "t",
+      "b": "t"
+    }
+  },
+  "truthy_zero.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "r": "f"
+    }
+  }
+}

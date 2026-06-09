@@ -1,0 +1,8 @@
+if yes
+  a is "t"
+else
+  a is "f"
+if no
+  b is "t"
+else
+  b is "f"

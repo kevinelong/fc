@@ -1,0 +1,7 @@
+lo is random 3
+hi is random 3
+ok is "yes"
+if lo < 0
+  ok is "no"
+if hi > 3
+  ok is "no"

@@ -1,0 +1,5 @@
+sum is 0
+last is 0
+repeat with n from 3 to 1
+  add n to sum
+  last is n

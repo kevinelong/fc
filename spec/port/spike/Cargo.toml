@@ -1,0 +1,15 @@
+[package]
+name = "fc_spike"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+# size-tuned: this is the inlined-into-single-file artifact, so bytes matter.
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1

@@ -1,0 +1,6 @@
+result is "none"
+repeat 1 times
+  if 10 > 5
+    result is "then"
+  else
+    result is "else"

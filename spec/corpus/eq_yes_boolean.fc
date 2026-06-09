@@ -1,0 +1,5 @@
+a is yes
+if a is yes
+  r is "equal"
+else
+  r is "notequal"
