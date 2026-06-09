@@ -16,8 +16,18 @@ cargo build --release --target wasm32-unknown-unknown
 |---|---|---|---|
 | 0. command-buffer ABI round-trip | ✅ | (host instantiate + decode) | 532 B wasm, buffer decodes correctly |
 | **1. lexer** (`tokenizeLine`) | ✅ | `node tokenize-diff.mjs` | **1036/1036 lines, 0 diff** · 1422 B wasm |
-| 2. parser (`parse` → AST) | 🔶 in progress | `node ast-diff.mjs` vs `ast-golden.json` (40 progs/2430 nodes) | step 0 done |
-| &nbsp;&nbsp;2.0 allocator | ✅ | `alloc_selftest`==328350; lexer still 1036/1036 | bump arena, 1982 B |
+| 2. parser (`parse` → AST) | 🔶 **18/40** | `node parse-ast.mjs && node ast-diff.mjs` | 64 KB wasm |
+| &nbsp;&nbsp;2.0 allocator | ✅ | `alloc_selftest`==328350; lexer still 1036/1036 | bump arena |
+| &nbsp;&nbsp;2.1 AST + contract JSON | ✅ | sorted keys / lineNum strip / int-no-decimal proven | serializer correct |
+| &nbsp;&nbsp;2.2 dispatch subset | ✅ | assign/add/remove/double/halve/toggle/call/funcdef/if/else(+if) | 18/40 |
+| &nbsp;&nbsp;2.3 expr/cond subset | ✅ | literal/ref/math · eq/cmp/and/or/not/neq/has | — |
+| &nbsp;&nbsp;**remaining diffs** | ⬜ | deferred constructs only (no crashes) | see below |
+
+**Remaining 22 diffs are all deferred, known constructs** (the contract + implemented
+nodes are correct): list/object/`random`/sprite/`list of`/`item of` expression atoms
+(`value.items`/`value.name`/`value.max`); `repeat*`/`each`/`every`/`when*`/`draw`/`write`
+/tag statements (currently `call` fallback → `.args` diff); and the bare-truthy condition
+wrapper (`condition.expr`). Each is "add the parse arm + emit, watch the count climb."
 | 3. runtime (`exec` → vars + command buffer) | ⬜ | compare `{say,vars,errors}` + per-frame cmds vs the corpus goldens | — |
 
 ## ABI (current)
