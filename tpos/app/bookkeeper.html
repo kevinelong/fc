@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Books · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Accounting</div>
+      <a class="on" href="#"><span class="ic">🧾</span> Invoices</a>
+      <a href="#"><span class="ic">💵</span> Payments</a>
+      <a href="#"><span class="ic">📥</span> AP / Bills</a>
+      <a href="#"><span class="ic">📊</span> Reports</a>
+      <div class="grp">Reference</div>
+      <a href="#"><span class="ic">🚚</span> Inventory</a>
+      <a href="#"><span class="ic">👤</span> Customers</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#5b7c99">AF</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Ada Fenwick</b><span style="color:#8b97a3;font-size:11px">Bookkeeper</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Books</div>
+        <div class="sub">AR · AP · cash · month-end</div>
+      </div>
+      <div class="search">🔍 Search invoices, customers, bills…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#5b7c99">AF</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+  const spacer = h => { const s=document.createElement('div'); s.style.height=(h||18)+'px'; return s; };
+
+  // ---- the bookkeeper sees inventory sales as AR invoices ----
+  const invoices = T.invoices;
+  const arInvoices = invoices.filter(i => !i.note || !/^AP/.test(i.note)); // customer AR (exclude AP-tagged)
+  const apBill = invoices.find(i => i.note && /^AP/.test(i.note));         // INV-4504 Cornerstone (AP recon parts)
+
+  const arDue     = arInvoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
+  const overdue   = invoices.filter(i=>i.status==='overdue').reduce((s,i)=>s+i.amount,0);
+  const cashHand  = 312000;
+  const grossMTD  = T.kpi.grossMTD; // 38,900
+
+  const stPill = { paid:'p-green', due:'p-amber', overdue:'p-red' };
+  const stLab  = { paid:'Paid', due:'Due', overdue:'Overdue' };
+
+  // days until/past due
+  function dueText(i){
+    if(i.status==='paid') return '—';
+    if(i.due==null) return '—';
+    const days = Math.round((i.due - Date.now())/864e5);
+    if(days < 0) return Math.abs(days)+'d overdue';
+    if(days === 0) return 'due today';
+    return 'in '+days+'d';
+  }
+  function dateStr(ts){ return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+
+  // ---- recent payments (received) ----
+  const payments = [
+    { id:'PMT-2210', cust:'TM Excavating',         ref:'INV-4501', amount:14800, method:'Wire',  ts:T.D(2) },
+    { id:'PMT-2209', cust:'Pruitt Logistics',      ref:'INV-4503', amount:6300,  method:'ACH',   ts:T.D(2), note:'Deposit' },
+    { id:'PMT-2208', cust:'Doyle Bros',            ref:'INV-4488', amount:2500,  method:'Card',  ts:T.D(5), note:'Hold fee refund-adj' },
+    { id:'PMT-2207', cust:'Lakeside Intermodal',   ref:'INV-4476', amount:11900, method:'Check', ts:T.D(8) },
+    { id:'PMT-2206', cust:'High Plains Logistics',  ref:'INV-4471', amount:27900, method:'Wire',  ts:T.D(11) },
+  ];
+
+  // ---- AP / bills to pay (vendor bills) ----
+  const apBills = [
+    { vendor:'Cornerstone Repairs', cat:'Recon parts · DT-6602', amount:1840, due:T.D(8),  status:'overdue', ref:apBill?apBill.id:'INV-4504' },
+    { vendor:'Roadway Transport',   cat:'Inbound freight · IN-5521', amount:1450, due:T.D(-3), status:'due', ref:'BILL-0907' },
+    { vendor:'Springfield P&L Insurance', cat:'Lot & liability premium', amount:2380, due:T.D(-9), status:'due', ref:'BILL-0904' },
+    { vendor:'Prairie State Utilities', cat:'Main Yard · electric/water', amount:642, due:T.D(-14), status:'due', ref:'BILL-0901' },
+  ];
+  const apTotal = apBills.reduce((s,b)=>s+b.amount,0);
+
+  // ---- month-end P&L (agrees with kpi: revenue 214.5k, gross 38.9k) ----
+  const pnl = (function(){
+    const revenue = T.kpi.revenueMTD;           // 214,500
+    const gross   = T.kpi.grossMTD;             // 38,900
+    const cogs    = revenue - gross;            // 175,600
+    const expenses = 24650;                     // operating expenses MTD
+    const net      = gross - expenses;          // 14,250
+    return { revenue, cogs, gross, expenses, net };
+  })();
+  const pnlLines = [
+    { lab:'Sales revenue',     val:pnl.revenue, kind:'rev' },
+    { lab:'Cost of goods sold',val:-pnl.cogs,   kind:'cogs' },
+    { lab:'Gross profit',      val:pnl.gross,   kind:'gross' },
+    { lab:'Operating expenses',val:-pnl.expenses, kind:'exp' },
+    { lab:'Net income',        val:pnl.net,     kind:'net' },
+  ];
+
+  // 6-month cash trend (current month last)
+  const cashTrend = [
+    { m:'Jan', v:241 }, { m:'Feb', v:268 }, { m:'Mar', v:255 },
+    { m:'Apr', v:289 }, { m:'May', v:301 }, { m:'Jun', v:312 },
+  ];
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['AR','Payments','P&L'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      { lab:'AR due',          ic:'🧾', num:T.money(arDue),   chg:'▲ '+arInvoices.filter(i=>i.status!=='paid').length+' open invoices', up:false },
+      { lab:'Overdue',         ic:'⚠️', num:T.money(overdue), chg:invoices.filter(i=>i.status==='overdue').length+' invoice past due', up:false },
+      { lab:'Cash on hand',    ic:'🏦', num:T.k(cashHand),    chg:'▲ $11k vs last month', up:true },
+      { lab:'Gross profit MTD',ic:'📈', num:T.k(grossMTD),    chg:'▲ '+T.kpi.avgMargin+'% avg margin', up:true },
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num num-c">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- AR invoices table ----
+  function arTable(){
+    const card = document.createElement('div'); card.className='card';
+    const order = { overdue:0, due:1, paid:2 };
+    const rows = arInvoices.slice().sort((a,b)=>order[a.status]-order[b.status]).map(i=>{
+      const u = i.stock ? T.inv(i.stock) : null;
+      const unit = u ? '<span class="strong">'+u.stock+'</span> <span class="mut sm">'+u.type+'</span>'
+                     : '<span class="mut sm">'+(i.note||'—')+'</span>';
+      return `<tr>
+        <td><div class="strong sm">${i.id}</div>${i.note?'<div class="mut xs">'+i.note+'</div>':''}</td>
+        <td class="strong sm">${i.cust}</td>
+        <td>${unit}</td>
+        <td class="num-c strong">${T.money(i.amount)}</td>
+        <td class="num-c mut sm">${dateStr(i.date)}</td>
+        <td class="num-c sm ${i.status==='overdue'?'':'mut'}" style="${i.status==='overdue'?'color:var(--red);font-weight:600':''}">${dueText(i)}</td>
+        <td><span class="pill ${stPill[i.status]}">${stLab[i.status]}</span></td>
+        <td class="num-c">${i.status==='paid'?'<span class="mut sm">'+(i.method||'—')+'</span>':'<button class="btn sm">Record payment</button>'}</td>
+      </tr>`;
+    }).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>Invoices (AR)</h3><span class="more">'+T.money(arDue)+' outstanding · '+arInvoices.length+' invoices</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Invoice</th><th>Customer</th><th>Unit / type</th><th class="num-c">Amount</th><th class="num-c">Date</th><th class="num-c">Due</th><th>Status</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- recent payments list ----
+  function paymentsList(){
+    const card = document.createElement('div'); card.className='card';
+    const rows = payments.map(p=>`
+      <div class="it">
+        <div class="av sm" style="background:#e6f7ef;color:#0f9b63;font-size:13px">✓</div>
+        <div class="gr">
+          <div class="row" style="gap:8px"><span class="strong sm">${p.cust}</span><span class="tag">${p.method}</span></div>
+          <div class="mut xs">${p.id} · ${p.ref}${p.note?' · '+p.note:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="strong sm num-c" style="color:var(--green)">+${T.money(p.amount)}</div>
+          <div class="mut xs">${T.ago(p.ts)}</div>
+        </div>
+      </div>`).join('');
+    const total = payments.reduce((s,p)=>s+p.amount,0);
+    card.innerHTML =
+      '<div class="hd"><h3>Recent payments</h3><span class="more">'+T.money(total)+' received</span></div>'+
+      '<div class="bd" style="padding:6px 16px"><div class="list">'+rows+'</div></div>';
+    return card;
+  }
+
+  // ---- AP / bills to pay ----
+  function apCard(){
+    const card = document.createElement('div'); card.className='card';
+    const rows = apBills.map(b=>{
+      const days = Math.round((b.due - Date.now())/864e5);
+      const overdueB = b.status==='overdue';
+      return `
+      <div class="it">
+        <div class="gr">
+          <div class="row" style="gap:8px"><span class="strong sm">${b.vendor}</span><span class="pill ${overdueB?'p-red':'p-amber'}">${overdueB?'Overdue':'Due'}</span></div>
+          <div class="mut xs">${b.ref} · ${b.cat}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="strong sm num-c">${T.money(b.amount)}</div>
+          <div class="xs ${overdueB?'':'mut'}" style="${overdueB?'color:var(--red)':''}">${days<0? Math.abs(days)+'d past':'in '+days+'d'}</div>
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>AP / bills to pay</h3><span class="more">'+T.money(apTotal)+' · '+apBills.length+' bills</span></div>'+
+      '<div class="bd" style="padding:6px 16px"><div class="list">'+rows+'</div>'+
+        '<div class="row between" style="padding:11px 0 4px"><span class="strong sm">Total payable</span><span class="strong num-c">'+T.money(apTotal)+'</span></div>'+
+        '<button class="btn gh sm" style="margin-top:8px;width:100%">Schedule payment run</button>'+
+      '</div>';
+    return card;
+  }
+
+  // ---- P&L summary ----
+  function pnlCard(){
+    const card = document.createElement('div'); card.className='card';
+    const lines = pnlLines.map(l=>{
+      const neg = l.val < 0;
+      const emph = (l.kind==='gross'||l.kind==='net');
+      const txt = (neg?'(':'')+T.money(Math.abs(l.val))+(neg?')':'');
+      return `<dt${emph?' style="color:var(--ink);font-weight:700"':''}>${l.lab}</dt>`+
+             `<dd class="num-c"${emph?' style="font-size:14px"':''}${neg?' style="color:var(--muted)"':''}>${txt}</dd>`;
+    }).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>Month-end P&amp;L</h3><span class="more">June · MTD</span></div>'+
+      '<div class="bd">'+
+        '<dl class="dl">'+lines+'</dl>'+
+        '<div class="divider"></div>'+
+        '<div class="row between"><span class="mut sm">Net margin</span><span class="strong num-c">'+(pnl.net/pnl.revenue*100).toFixed(1)+'%</span></div>'+
+        '<div class="row between" style="margin-top:6px"><span class="mut sm">Gross margin</span><span class="strong num-c">'+(pnl.gross/pnl.revenue*100).toFixed(1)+'%</span></div>'+
+      '</div>';
+    return card;
+  }
+
+  // ---- cash trend barchart ----
+  function cashCard(){
+    const card = document.createElement('div'); card.className='card';
+    const max = Math.max(...cashTrend.map(d=>d.v));
+    const bars = cashTrend.map((d,idx)=>{
+      const last = idx===cashTrend.length-1;
+      return `<div class="b"><i class="${last?'':'alt'}" style="height:${d.v/max*100}%"></i><span>${d.m}</span></div>`;
+    }).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>Cash on hand</h3><span class="more">6-month trend ($k)</span></div>'+
+      '<div class="bd">'+
+        '<div class="row between" style="margin-bottom:10px"><span class="strong num-c" style="font-size:24px">'+T.k(cashHand)+'</span><span class="pill p-green">▲ $11k MoM</span></div>'+
+        '<div class="barchart">'+bars+'</div>'+
+      '</div>';
+    return card;
+  }
+
+  // ---- aging mini (AR aging buckets) ----
+  function agingCard(){
+    const card = document.createElement('div'); card.className='card';
+    const buckets = [
+      { lab:'Current', amt:6300,  cls:'p-green' },
+      { lab:'1–30d',   amt:37650, cls:'p-amber' },
+      { lab:'31–60d',  amt:1840,  cls:'p-red' },
+      { lab:'60d+',    amt:0,     cls:'p-gray' },
+    ];
+    const tot = buckets.reduce((s,b)=>s+b.amt,0)||1;
+    const rows = buckets.map(b=>`
+      <div style="margin-bottom:11px">
+        <div class="row between" style="margin-bottom:5px"><span class="sm strong">${b.lab}</span><span class="num-c sm mut">${T.money(b.amt)}</span></div>
+        <div class="bar"><i style="width:${b.amt/tot*100}%;background:var(--${b.cls==='p-green'?'green':b.cls==='p-amber'?'amber':b.cls==='p-red'?'red':'faint'})"></i></div>
+      </div>`).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>AR aging</h3><span class="more">'+T.money(tot)+' total</span></div>'+
+      '<div class="bd">'+rows+'</div>';
+    return card;
+  }
+
+  // ---- month-end checklist ----
+  function closeCard(){
+    const card = document.createElement('div'); card.className='card';
+    const tasks = [
+      ['Reconcile bank — main operating', 1],
+      ['Reconcile floor-plan line', 1],
+      ['Post May depreciation', 1],
+      ['Match deposits to invoices', 0],
+      ['Clear AP for payment run', 0],
+      ['Draft P&L for owner review', 0],
+    ];
+    const done = tasks.filter(t=>t[1]).length;
+    const rows = tasks.map(t=>`
+      <div class="it">
+        <div class="av sm" style="background:${t[1]?'var(--green)':'var(--surface2)'};color:${t[1]?'#fff':'var(--muted)'};font-size:13px">${t[1]?'✓':'○'}</div>
+        <div class="gr"><div class="sm ${t[1]?'mut':'strong'}">${t[0]}</div></div>
+        <span class="pill ${t[1]?'p-green':'p-amber'}">${t[1]?'Done':'Open'}</span>
+      </div>`).join('');
+    card.innerHTML =
+      '<div class="hd"><h3>Month-end close</h3><span class="more">'+done+'/'+tasks.length+' done</span></div>'+
+      '<div class="bd" style="padding:6px 16px">'+
+        '<div class="bar" style="margin:6px 0 12px"><i style="width:'+(done/tasks.length*100)+'%"></i></div>'+
+        '<div class="list">'+rows+'</div>'+
+      '</div>';
+    return card;
+  }
+
+  // ---- render ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='AR'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      body.appendChild(arTable());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(paymentsList());
+      const right = document.createElement('div'); right.appendChild(apCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Payments'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(paymentsList());
+      const right = document.createElement('div'); right.appendChild(agingCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+      body.appendChild(spacer());
+      body.appendChild(apCard());
+    }
+    else if(tab==='P&L'){
+      const g = $('grid g2','');
+      g.appendChild(pnlCard());
+      g.appendChild(cashCard());
+      body.appendChild(g);
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(closeCard());
+      const right = document.createElement('div'); right.appendChild(agingCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('AR');
+})();
+</script>
+</body>
+</html>

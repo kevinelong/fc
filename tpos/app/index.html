@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TPOS · The operating system for trailer dealers</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+<style>
+  /* Marketing hub — leans on the shared system, adds only layout + the orange brand band */
+  body{background:var(--bg)}
+  .hub{max-width:1080px;margin:0 auto;padding:0 22px}
+  .hubtop{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .hubtop .in{max-width:1080px;margin:0 auto;height:60px;display:flex;align-items:center;gap:12px;padding:0 22px}
+  .hublogo{display:flex;align-items:center;gap:10px}
+  .hublogo .mk{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#101316;font-weight:900;display:grid;place-items:center;font-size:18px}
+  .hublogo b{font-size:17px;letter-spacing:.02em}
+  .hublogo small{display:block;font-size:9.5px;color:var(--faint);letter-spacing:.16em;margin-top:-3px}
+  .hubtop .links{margin-left:auto;display:flex;align-items:center;gap:18px;font-size:13.5px;font-weight:600;color:var(--muted)}
+  .hubtop .links a:hover{color:var(--ink)}
+  /* hero */
+  .hero{text-align:center;padding:62px 0 30px}
+  .hero .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent-d);font-weight:700;font-size:12.5px;padding:6px 13px;border-radius:20px;border:1px solid #ffd9b8}
+  .hero h1{font-size:46px;line-height:1.08;font-weight:850;letter-spacing:-.025em;margin:20px auto 0;max-width:760px}
+  .hero h1 .hl{color:var(--accent)}
+  .hero p.lead{font-size:17px;color:var(--muted);max-width:600px;margin:18px auto 0;line-height:1.55}
+  .hero .cta{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+  .hero .cta .btn{padding:12px 22px;font-size:14.5px}
+  .hero .proof{display:flex;gap:30px;justify-content:center;margin-top:34px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+  .hero .proof b{display:block;font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+  /* section heads */
+  .sec{padding:40px 0}
+  .sec-h{text-align:center;margin-bottom:28px}
+  .sec-h .kicker{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .sec-h h2{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:8px}
+  .sec-h p{color:var(--muted);margin-top:8px;font-size:14.5px}
+  /* role cards */
+  .roles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .rcard{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:17px;box-shadow:var(--shadow);display:flex;flex-direction:column;transition:border-color .12s,transform .12s}
+  .rcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .rcard .ricon{width:40px;height:40px;border-radius:10px;background:var(--accent-soft);display:grid;place-items:center;font-size:20px;margin-bottom:11px}
+  .rcard h3{font-size:15px;font-weight:750}
+  .rcard .who{font-size:11.5px;color:var(--faint);font-weight:600;margin-top:1px}
+  .rcard p{font-size:12.8px;color:var(--muted);margin-top:9px;line-height:1.5;flex:1}
+  .rcard .open{margin-top:13px;font-size:12.5px;font-weight:700;color:var(--accent)}
+  .rcard.store{background:linear-gradient(160deg,#141b22,#1d2730);border-color:#232c34}
+  .rcard.store .ricon{background:rgba(255,122,24,.16)}
+  .rcard.store h3{color:#fff}.rcard.store .who{color:#7e8b97}.rcard.store p{color:#aeb9c4}
+  .rcard.store:hover{border-color:var(--accent)}
+  /* pricing */
+  .prices{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+  .pcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .pcard.pop{border:2px solid var(--accent);box-shadow:0 8px 30px rgba(255,122,24,.18);position:relative}
+  .pcard .pop-tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#101316;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 12px;border-radius:20px;text-transform:uppercase}
+  .pcard .pname{font-size:14px;font-weight:800;letter-spacing:.02em}
+  .pcard .pdesc{font-size:12.5px;color:var(--muted);margin-top:4px;min-height:34px}
+  .pcard .pprice{margin:14px 0 4px}
+  .pcard .pprice b{font-size:38px;font-weight:850;letter-spacing:-.03em}
+  .pcard .pprice span{color:var(--muted);font-size:14px;font-weight:600}
+  .pcard ul{list-style:none;margin:16px 0;flex:1;display:flex;flex-direction:column;gap:9px}
+  .pcard li{font-size:13px;display:flex;gap:9px;align-items:flex-start;line-height:1.4}
+  .pcard li .ck{color:var(--green);font-weight:900;flex:0 0 auto}
+  .pcard .btn{width:100%;justify-content:center;padding:11px}
+  /* license callout */
+  .license{margin-top:18px;background:#141b22;color:#cfd8e0;border-radius:14px;padding:22px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .license .lc-txt{flex:1;min-width:240px}
+  .license h3{color:#fff;font-size:18px;font-weight:800}
+  .license p{color:#9aa7b4;font-size:13.5px;margin-top:6px;line-height:1.5}
+  .license .lc-opts{display:flex;gap:14px;flex-wrap:wrap}
+  .lopt{background:#1d2730;border:1px solid #2a343d;border-radius:11px;padding:14px 18px;min-width:150px}
+  .lopt .lo-p{font-size:24px;font-weight:850;color:#fff;letter-spacing:-.02em}
+  .lopt .lo-l{font-size:11.5px;color:#7e8b97;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+  .lopt .lo-s{font-size:12px;color:#aeb9c4;margin-top:6px}
+  /* footer */
+  .hubfoot{border-top:1px solid var(--line);margin-top:46px;padding:26px 0 40px;color:var(--faint);font-size:12.5px}
+  .hubfoot .in{max-width:1080px;margin:0 auto;padding:0 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .hubfoot a{color:var(--muted);font-weight:600}.hubfoot a:hover{color:var(--ink)}
+  .hubfoot .sp{margin-left:auto}
+  @media(max-width:880px){.roles,.prices{grid-template-columns:1fr 1fr}.hero h1{font-size:36px}}
+  @media(max-width:600px){.roles,.prices{grid-template-columns:1fr}.hubtop .links a.hide-sm{display:none}}
+</style>
+</head>
+<body>
+
+<header class="hubtop">
+  <div class="in">
+    <a class="hublogo" href="index.html">
+      <span class="mk">T</span>
+      <span><b>TPOS</b><small>TRAILER OS</small></span>
+    </a>
+    <nav class="links">
+      <a href="#roles" class="hide-sm">Roles</a>
+      <a href="#pricing">Pricing</a>
+      <a class="btn gh sm" href="../">View storefront ↗</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hub">
+
+  <!-- HERO -->
+  <section class="hero">
+    <span class="eyebrow">⛟ One platform · storefront + back office</span>
+    <h1>The operating system for <span class="hl">trailer dealers.</span></h1>
+    <p class="lead">TPOS runs a dealership's public storefront <b>and</b> its entire back office — inventory,
+      leads, sales, pricing, service, titles, books, and delivery — every role looking at the same shared data.</p>
+    <div class="cta">
+      <a class="btn" href="owner.html">Explore the demo →</a>
+      <a class="btn gh" href="#pricing">See pricing</a>
+    </div>
+    <div class="proof" id="proof">
+      <div><b id="p-dealers">—</b> dealerships hosted</div>
+      <div><b id="p-units">—</b> units under management</div>
+      <div><b id="p-roles">—</b> staff roles, one dataset</div>
+      <div><b id="p-mrr">—</b> platform MRR</div>
+    </div>
+  </section>
+
+  <!-- ROLES -->
+  <section class="sec" id="roles">
+    <div class="sec-h">
+      <div class="kicker">Pick a role</div>
+      <h2>Every seat, one source of truth</h2>
+      <p>The same trailer is inventory to the manager, a deal to sales, a work order to service,
+        an invoice to the bookkeeper, and a listing to the buyer. Open any lens.</p>
+    </div>
+    <div class="roles" id="roleGrid"></div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="sec" id="pricing">
+    <div class="sec-h">
+      <div class="kicker">Pricing</div>
+      <h2>Subscribe monthly, or own it outright</h2>
+      <p>Hosted plans scale with your lots and headcount. Prefer self-host? License it instead.</p>
+    </div>
+
+    <div class="prices">
+      <div class="pcard">
+        <div class="pname">STARTER</div>
+        <div class="pdesc">A single lot getting online and organized.</div>
+        <div class="pprice"><b>$199</b><span>/mo</span></div>
+        <ul>
+          <li><span class="ck">✓</span> Single lot, up to ~25 units</li>
+          <li><span class="ck">✓</span> Public storefront + listings</li>
+          <li><span class="ck">✓</span> Leads &amp; CRM pipeline</li>
+          <li><span class="ck">✓</span> Up to 5 staff seats</li>
+          <li><span class="ck">✓</span> Email support</li>
+        </ul>
+        <a class="btn gh" href="leadgen.html">Start with Starter</a>
+      </div>
+
+      <div class="pcard pop">
+        <span class="pop-tag">Most popular</span>
+        <div class="pname">GROWTH</div>
+        <div class="pdesc">Multi-lot dealers running the whole back office.</div>
+        <div class="pprice"><b>$499</b><span>/mo</span></div>
+        <ul>
+          <li><span class="ck">✓</span> Multi-lot, unlimited units</li>
+          <li><span class="ck">✓</span> Everything in Starter</li>
+          <li><span class="ck">✓</span> All 11 staff roles &amp; dashboards</li>
+          <li><span class="ck">✓</span> Financing, service &amp; dispatch</li>
+          <li><span class="ck">✓</span> Pricing &amp; margin analytics</li>
+          <li><span class="ck">✓</span> Up to 20 seats · priority email</li>
+        </ul>
+        <a class="btn" href="owner.html">Choose Growth</a>
+      </div>
+
+      <div class="pcard">
+        <div class="pname">ENTERPRISE</div>
+        <div class="pdesc">Large groups that need control and integration.</div>
+        <div class="pprice"><b>$1,290</b><span>/mo</span></div>
+        <ul>
+          <li><span class="ck">✓</span> Unlimited lots, units &amp; seats</li>
+          <li><span class="ck">✓</span> Everything in Growth</li>
+          <li><span class="ck">✓</span> Full REST API &amp; webhooks</li>
+          <li><span class="ck">✓</span> SSO / SAML &amp; audit log</li>
+          <li><span class="ck">✓</span> Custom roles &amp; permissions</li>
+          <li><span class="ck">✓</span> Priority support + onboarding</li>
+        </ul>
+        <a class="btn gh" href="platform.html">Talk to sales</a>
+      </div>
+    </div>
+
+    <!-- LICENSE / SELF-HOST -->
+    <div class="license">
+      <div class="lc-txt">
+        <h3>Prefer to own it?</h3>
+        <p>Run TPOS on your own infrastructure. Buy a yearly license, or purchase the software outright
+          with an annual support plan. Your data stays in-house.</p>
+      </div>
+      <div class="lc-opts">
+        <div class="lopt">
+          <div class="lo-p">$9,900<span style="font-size:13px;color:#7e8b97">/yr</span></div>
+          <div class="lo-l">Yearly license</div>
+          <div class="lo-s">Self-hosted · all features · updates included</div>
+        </div>
+        <div class="lopt">
+          <div class="lo-p">$24,000</div>
+          <div class="lo-l">One-time purchase</div>
+          <div class="lo-s">Own it forever · + $3k/yr support &amp; updates</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="hubfoot">
+  <div class="in">
+    <a class="hublogo" href="index.html"><span class="mk" style="width:24px;height:24px;font-size:14px">T</span><b style="font-size:14px">TPOS</b></a>
+    <span>· The operating system for trailer dealers</span>
+    <a href="../">Storefront</a>
+    <a href="owner.html">Demo</a>
+    <a href="#pricing">Pricing</a>
+    <span class="sp">© 2026 TPOS, Inc. · Demo tenant: Ironline Trailer Co.</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const T = window.TPOS;
+
+  // live proof numbers from the shared dataset
+  const totalUnits = T.tenants.reduce((s,t)=>s+t.units,0);
+  document.getElementById('p-dealers').textContent = T.tenants.length;
+  document.getElementById('p-units').textContent   = totalUnits.toLocaleString();
+  document.getElementById('p-roles').textContent   = T.users.length;
+  document.getElementById('p-mrr').textContent     = T.k(T.kpi.mrr);
+
+  // role cards — one per app screen
+  const roles = [
+    { f:'owner.html',     ic:'📊', t:'Owner / Dealer Principal', who:'Dale Withers', goal:'See the whole business at a glance — revenue, gross, inventory, team, and what needs attention today.' },
+    { f:'leadgen.html',   ic:'📥', t:'Lead Generation',         who:'Marcy Lane',   goal:'Capture inbound from web, TruckPaper & ads, qualify fast, and route hot leads to the right rep.' },
+    { f:'sales.html',     ic:'💰', t:'Salesperson',             who:'Rick Alvarez', goal:'Work my pipeline — quotes, follow-ups, and closing deals from lead to delivery.' },
+    { f:'salesmgr.html',  ic:'📈', t:'Sales Manager',           who:'Sam Ortiz',    goal:'Coach the team, watch win rates and aging deals, and forecast the month.' },
+    { f:'pricing.html',   ic:'🏷️', t:'Pricing Analyst',         who:'Priya Nair',   goal:'Set list & floor prices, protect margin, and reprice aged units against the market.' },
+    { f:'inventory.html', ic:'🚚', t:'Inventory Manager',       who:'Gus Pelletier',goal:'Track every unit from incoming to sold across lots, recon status, and days on lot.' },
+    { f:'service.html',   ic:'🔧', t:'Service Technician',      who:'Hector Ruiz',  goal:'Run the service bay — work orders, recon tasks, parts, and pre-delivery PMs.' },
+    { f:'office.html',    ic:'📑', t:'Office / Titles',         who:'Lori Kemp',    goal:'Handle paperwork — titles, registrations, deal docs, and customer files.' },
+    { f:'bookkeeper.html',ic:'🏦', t:'Bookkeeper',              who:'Ada Fenwick',  goal:'Keep the books — invoices, payments, AR/AP, and the cash picture.' },
+    { f:'dispatch.html',  ic:'📦', t:'Delivery Dispatch',       who:'Boone Carter', goal:'Schedule deliveries, assign drivers & routes, and keep customers updated.' },
+    { f:'customer.html',  ic:'👤', t:'Customer Account',        who:'Stiles & Sons',goal:'The buyer side — track my quote, financing, delivery, and documents in one place.' },
+    { f:'platform.html',  ic:'🛰️', t:'Platform Admin',          who:'TPOS Super-Admin',goal:'The SaaS view — every dealership tenant, plans, MRR, seats, and health.' },
+  ];
+
+  const grid = document.getElementById('roleGrid');
+  grid.innerHTML = roles.map(r=>`
+    <a class="rcard" href="${r.f}">
+      <div class="ricon">${r.ic}</div>
+      <h3>${r.t}</h3>
+      <div class="who">${r.who}</div>
+      <p>${r.goal}</p>
+      <div class="open">Open ${r.f} →</div>
+    </a>`).join('') + `
+    <a class="rcard store" href="../">
+      <div class="ricon">🛒</div>
+      <h3>Customer storefront</h3>
+      <div class="who">What buyers see</div>
+      <p>The public website TPOS hosts for the dealer — browse the live inventory, view listings, and request a quote.</p>
+      <div class="open">View storefront ↗</div>
+    </a>`;
+})();
+</script>
+</body>
+</html>

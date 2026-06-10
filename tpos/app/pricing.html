@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing &amp; Margin · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Pricing</div>
+      <a class="on" href="#"><span class="ic">⚖️</span> Repricer</a>
+      <a href="#"><span class="ic">📈</span> Margins</a>
+      <a href="#"><span class="ic">🔍</span> Market comps</a>
+      <a href="#"><span class="ic">✅</span> Approvals</a>
+      <div class="grp">Reference</div>
+      <a href="#"><span class="ic">🚚</span> Inventory</a>
+      <a href="#"><span class="ic">📊</span> Reports</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#c9a23a">PN</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Priya Nair</b><span style="color:#8b97a3;font-size:11px">Pricing Analyst</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Pricing &amp; Margin</div>
+        <div class="sub">Maximize margin and turn · repricer live</div>
+      </div>
+      <div class="search">🔍 Search stock #, type…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#c9a23a">PN</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  // ---- derived inventory pricing fields ----
+  const days = acq => Math.round((Date.now()-acq)/864e5);
+  const marginPct = u => u.list ? (u.list-u.cost)/u.list*100 : 0;
+  const pricedInv = T.inventory.filter(u=>u.status!=='sold' && u.status!=='incoming');
+  const avail = T.inventory.filter(u=>u.status==='available');
+
+  // Suggested-price engine: aged -> cut toward floor, high-demand -> hold/raise, else hold.
+  function suggest(u){
+    const d = days(u.acq), m = marginPct(u);
+    const demand = (u.leads||0) + (u.views||0)/120; // leads weighted, views supporting
+    if(u.aged || d>=90){
+      // aged: cut 4% but never below floor
+      const cut = Math.max(u.floor, Math.round(u.list*0.96/50)*50);
+      return {price:cut, dir:cut<u.list?'down':'flat', tag:'Aged', pill:'p-red',
+        reason:`${d} days on lot · cut ${T.money(u.list-cut)} to clear, floor ${T.money(u.floor)}`};
+    }
+    if(demand>=7 && d<35){
+      // hot: raise 2.5%
+      const raise = Math.round(u.list*1.025/50)*50;
+      return {price:raise, dir:'up', tag:'High demand', pill:'p-green',
+        reason:`${u.leads} leads · ${u.views} views in ${d}d — room to raise ${T.money(raise-u.list)}`};
+    }
+    if(m<18){
+      // thin margin & moving slow-ish: hold list, flag
+      return {price:u.list, dir:'flat', tag:'Thin margin', pill:'p-amber',
+        reason:`${m.toFixed(1)}% margin below 18% target — hold, do not discount`};
+    }
+    return {price:u.list, dir:'flat', tag:'On track', pill:'p-blue',
+      reason:`${m.toFixed(1)}% margin · ${d}d · pricing in band, hold`};
+  }
+
+  // ---- stat tiles ----
+  const belowFloor = pricedInv.filter(u=>suggest(u).price < u.floor - 1).length; // suggestions clamp at floor
+  const belowFloorNow = pricedInv.filter(u=>u.list < u.floor).length;
+  const agedUnits = pricedInv.filter(u=>u.aged || days(u.acq)>=90).length;
+
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'Avg margin', ic:'📈', num:'22.4%', chg:'▲ 0.8 pt vs last mo', up:true},
+      {lab:'Units below floor', ic:'⚠️', num:belowFloorNow, chg:belowFloorNow?'needs approval to discount':'all priced above floor', up:belowFloorNow===0},
+      {lab:'Aged units', ic:'🕓', num:agedUnits, chg:'90+ days on lot — reprice', up:false},
+      {lab:'Avg days on lot', ic:'🚚', num:'41', chg:'▼ 3 days vs last mo', up:true},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- repricer table ----
+  function repricer(){
+    const list = avail.slice().sort((a,b)=>days(b.acq)-days(a.acq));
+    const card = document.createElement('div'); card.className='card';
+    const rows = list.map(u=>{
+      const d = days(u.acq), m = marginPct(u), s = suggest(u);
+      const agePill = (u.aged||d>=90) ? 'p-red' : d>=60 ? 'p-amber' : 'p-gray';
+      const mPill = m>=22 ? 'p-green' : m>=18 ? 'p-blue' : 'p-amber';
+      const arrow = s.dir==='up'?'▲':s.dir==='down'?'▼':'=';
+      const arrowCls = s.dir==='up'?'up':s.dir==='down'?'down':'mut';
+      const delta = s.price-u.list;
+      return `<tr>
+        <td><div class="strong">${u.stock}</div><div class="mut xs">${u.year} ${u.type}</div></td>
+        <td class="num-c mut">${T.money(u.cost)}</td>
+        <td class="num-c strong">${T.money(u.list)}</td>
+        <td class="num-c mut">${T.money(u.floor)}</td>
+        <td><span class="pill ${mPill}">${m.toFixed(1)}%</span></td>
+        <td><span class="pill ${agePill}">${d}d</span></td>
+        <td class="num-c sm">${u.views} · <span class="mut">${u.leads}🎯</span></td>
+        <td>
+          <div class="row" style="gap:7px">
+            <span class="strong num-c">${T.money(s.price)}</span>
+            <span class="${arrowCls} xs num-c">${arrow}${delta?T.money(Math.abs(delta)):''}</span>
+          </div>
+          <div class="mut xs">${s.reason}</div>
+        </td>
+        <td class="num-c">${delta? '<button class="btn sm">Apply</button>' : '<button class="btn gh sm">Hold</button>'}</td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Repricer — available units</h3><span class="more">'+list.length+' units · '+agedUnits+' aged</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Unit</th><th>Cost</th><th>List</th><th>Floor</th><th>Margin</th><th>Days</th><th>Views · Leads</th><th>Suggested</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- margin by type barchart ----
+  function marginByType(){
+    const byType = {};
+    pricedInv.forEach(u=>{
+      if(!u.list) return;
+      (byType[u.type]=byType[u.type]||[]).push(marginPct(u));
+    });
+    const data = Object.entries(byType)
+      .map(([t,arr])=>({t, m: arr.reduce((s,x)=>s+x,0)/arr.length, n:arr.length}))
+      .sort((a,b)=>b.m-a.m);
+    const max = Math.max(...data.map(d=>d.m));
+    const card = document.createElement('div'); card.className='card';
+    const bars = data.map(d=>{
+      const h = Math.round(d.m/max*100);
+      const alt = d.m<18?' alt':'';
+      return `<div class="b" title="${d.m.toFixed(1)}% avg · ${d.n} unit${d.n>1?'s':''}">
+        <span class="strong xs">${d.m.toFixed(0)}%</span>
+        <i class="${alt}" style="height:${h}%"></i>
+        <span>${d.t.split(' ')[0]}</span>
+      </div>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Margin by type</h3><span class="more">avg gross %</span></div>'+
+      '<div class="bd"><div class="barchart">'+bars+'</div>'+
+      '<div class="row" style="gap:16px;margin-top:12px;font-size:11.5px"><span class="row" style="gap:6px"><span class="legend"><span class="sw" style="background:var(--accent);display:inline-block;width:10px;height:10px;border-radius:3px"></span></span> ≥18% target</span>'+
+      '<span class="row" style="gap:6px"><span class="sw" style="background:var(--blue);display:inline-block;width:10px;height:10px;border-radius:3px"></span> below target</span></div></div>';
+    return card;
+  }
+
+  // ---- market comps mini card (LB-3050) ----
+  function comps(){
+    const u = T.inv('LB-3050');
+    const m = marginPct(u), d = days(u.acq);
+    const comps = [
+      {src:'TruckPaper', desc:'2015 Manac 53\' RGN', price:43500, miles:'—', note:'Dealer · TX'},
+      {src:'Fastline', desc:'2016 Trail King 53\' RGN', price:39900, miles:'—', note:'Private · IL'},
+      {src:'MyLittleSalesman', desc:'2014 XL Spec 53\' RGN', price:37750, miles:'—', note:'Dealer · MO'},
+    ];
+    const avg = Math.round(comps.reduce((s,x)=>s+x.price,0)/comps.length);
+    const card = document.createElement('div'); card.className='card';
+    const rows = comps.map(x=>`
+      <div class="it">
+        <div class="gr">
+          <div class="strong sm">${x.desc}</div>
+          <div class="mut xs">${x.src} · ${x.note}</div>
+        </div>
+        <span class="strong num-c">${T.money(x.price)}</span>
+      </div>`).join('');
+    card.innerHTML = `
+      <div class="hd"><h3>Market comps</h3><span class="tag">${u.stock}</span></div>
+      <div class="bd">
+        <div class="strong">${u.year} ${u.make} ${u.type}</div>
+        <div class="mut sm" style="margin-bottom:10px">${u.len} · ${u.cond} · ${u.loc}</div>
+        <div class="row between" style="margin-bottom:4px"><span class="mut sm">Our list</span><span class="strong num-c">${T.money(u.list)}</span></div>
+        <div class="row between" style="margin-bottom:4px"><span class="mut sm">Floor</span><span class="num-c">${T.money(u.floor)}</span></div>
+        <div class="row between" style="margin-bottom:10px"><span class="mut sm">Margin</span><span class="pill ${m>=18?'p-blue':'p-amber'}">${m.toFixed(1)}%</span></div>
+        <div class="divider"></div>
+        <div class="mut xs" style="margin:2px 0 6px">3 comparable listings</div>
+        <div class="list">${rows}</div>
+        <div class="divider"></div>
+        <div class="row between"><span class="strong sm">Comp avg</span><span class="strong num-c">${T.money(avg)}</span></div>
+        <div class="note" style="margin-top:12px">Priced ${T.money(avg-u.list)} under market but ${d} days on lot — leads stalled at ${u.leads}. Suggest cut to ${T.money(Math.max(u.floor, Math.round(u.list*0.96/50)*50))} to clear.</div>
+        <div class="row" style="gap:8px;margin-top:12px"><button class="btn sm">Apply suggested</button><button class="btn gh sm">Refresh comps</button></div>
+      </div>`;
+    return card;
+  }
+
+  // ---- margins tab: summary table ----
+  function marginTable(){
+    const list = pricedInv.slice().sort((a,b)=>marginPct(a)-marginPct(b));
+    const card = document.createElement('div'); card.className='card';
+    const rows = list.map(u=>{
+      const m = marginPct(u), gross = u.list-u.cost, d=days(u.acq);
+      const mPill = m>=22 ? 'p-green' : m>=18 ? 'p-blue' : 'p-amber';
+      const stPill = {available:'p-green',pending:'p-blue',recon:'p-amber'}[u.status]||'p-gray';
+      return `<tr>
+        <td><div class="strong">${u.stock}</div><div class="mut xs">${u.year} ${u.type}</div></td>
+        <td class="num-c mut">${T.money(u.cost)}</td>
+        <td class="num-c">${T.money(u.list)}</td>
+        <td class="num-c strong">${T.money(gross)}</td>
+        <td><span class="pill ${mPill}">${m.toFixed(1)}%</span></td>
+        <td><span class="pill ${stPill}">${u.status}</span></td>
+        <td class="num-c sm mut">${d}d</td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Margin detail</h3><span class="more">'+list.length+' priced units</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Unit</th><th>Cost</th><th>List</th><th>Gross $</th><th>Margin</th><th>Status</th><th>Days</th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Repricer','Margins','Comps'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||18)+'px'; return s; }
+
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Repricer'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(repricer());
+      const right = document.createElement('div');
+      right.appendChild(marginByType());
+      right.appendChild(spacer());
+      right.appendChild(comps());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Margins'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(marginTable());
+      const right = document.createElement('div'); right.appendChild(marginByType());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Comps'){
+      const g = $('grid g2',''); g.appendChild(comps());
+      const side = document.createElement('div'); side.appendChild(marginByType());
+      g.appendChild(side);
+      body.appendChild(g);
+    }
+  }
+
+  render('Repricer');
+})();
+</script>
+</body>
+</html>

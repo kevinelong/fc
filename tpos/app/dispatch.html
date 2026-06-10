@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispatch · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Logistics</div>
+      <a class="on" href="#"><span class="ic">🗓️</span> Schedule</a>
+      <a href="#"><span class="ic">🚚</span> Loads</a>
+      <a href="#"><span class="ic">👷</span> Drivers</a>
+      <a href="#"><span class="ic">💵</span> Freight quotes</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#9a7a55">BC</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Boone Carter</b><span style="color:#8b97a3;font-size:11px">Delivery Dispatch</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Dispatch</div>
+        <div class="sub">Schedule &amp; track deliveries · assign drivers &amp; carriers</div>
+      </div>
+      <div class="search">🔍 Search loads, stock #, destination…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#9a7a55">BC</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+  const me = T.byId('u11');
+
+  // ---- delivery status config ----
+  const stPill  = {'scheduled':'p-amber','enroute':'p-blue','delivered':'p-green','unassigned':'p-gray'};
+  const stLabel = {'scheduled':'Scheduled','enroute':'En route','delivered':'Delivered','unassigned':'Unassigned'};
+
+  // ---- build the load list from REAL data ----
+  // deals in delivery/won + sold/pending units needing delivery. Keyed off shared records.
+  // carrier: 'self' = our truck (driver) | else 3rd-party carrier.
+  const LOADS = [
+    { stock:'ED-8801', cust:'Foster Sand & Gravel',  dest:'Sedalia, MO',     destMi:118, yard:'Main Yard', carrier:'Ironline Truck 1', driver:'u11', status:'enroute',     eta:T.D(-0), day:'Tue', note:'Live now · arriving 2:40p' },
+    { stock:'EQ-5140', cust:'TM Excavating',          dest:'Davenport, IA',   destMi:172, yard:'North Lot', carrier:'Roadway Transport', driver:null,  status:'scheduled',  eta:T.D(-1), day:'Wed', note:'3rd-party flatbed booked' },
+    { stock:'RF-7220', cust:'Pruitt Logistics',       dest:'Peoria, IL',      destMi:74,  yard:'North Lot', carrier:'Ironline Truck 2', driver:'u11', status:'scheduled',  eta:T.D(-2), day:'Thu', note:'After pre-delivery PM clears' },
+    { stock:'LV-3360', cust:'Holt Ag',                dest:'Decatur, IL',     destMi:39,  yard:'Main Yard', carrier:'Ironline Truck 1', driver:'u11', status:'scheduled',  eta:T.D(-0), day:'Tue', note:'Short hop · 1 driver day' },
+    { stock:'LB-3050', cust:'Stiles & Sons',          dest:'Evansville, IN',  destMi:191, yard:'North Lot', carrier:'Bluegrass Hauling', driver:null,  status:'scheduled',  eta:T.D(-3), day:'Fri', note:'Permit pending · oversize RGN' },
+    { stock:'TV-2901', cust:'Cornerstone Repairs',    dest:'Bloomington, IL', destMi:62,  yard:'Main Yard', carrier:'Ironline Truck 2', driver:'u11', status:'delivered',  eta:T.D(2),  day:'Mon', note:'POD signed · 9:15a' },
+    { stock:'DD-2277', cust:'Lakeside Intermodal',    dest:'Joliet, IL',      destMi:151, yard:'Main Yard', carrier:null,                driver:null,  status:'unassigned', eta:null,    day:null,  note:'Awaiting carrier quote' },
+  ];
+
+  const me_loads = LOADS.filter(l=>l.driver==='u11');
+  const thisWeek   = LOADS.filter(l=>l.day).length;
+  const inTransit  = LOADS.filter(l=>l.status==='enroute').length;
+  const scheduled  = LOADS.filter(l=>l.status==='scheduled').length;
+  const delivered  = LOADS.filter(l=>l.status==='delivered').length;
+
+  // freight lanes
+  const LANES = [
+    { from:'Springfield, IL', to:'Sedalia, MO',     mi:118, rate:512,  carrier:'Ironline' },
+    { from:'Springfield, IL', to:'Evansville, IN',  mi:191, rate:1085, carrier:'Bluegrass Hauling' },
+    { from:'Springfield, IL', to:'Davenport, IA',   mi:172, rate:780,  carrier:'Roadway Transport' },
+  ];
+
+  // tracking timeline for ED-8801
+  const TRACK = [
+    { label:'Order won · deal closed',     who:'Rick Alvarez',  ts:T.D(3), done:true },
+    { label:'Pickup scheduled · Main Yard', who:'Boone Carter',  ts:T.D(2), done:true },
+    { label:'Loaded & departed yard',       who:'Ironline Truck 1', ts:T.D(1), done:true },
+    { label:'En route · I-72 W toward Sedalia', who:'GPS ping · 41 mi out', ts:T.D(0), done:true, live:true },
+    { label:'Arrived · Foster Sand & Gravel',   who:'ETA 2:40p',     ts:null,   done:false },
+    { label:'POD signed · delivery complete',   who:'pending',       ts:null,   done:false },
+  ];
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Schedule','Load board','Freight'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||16)+'px'; return s; }
+
+  function unitLabel(stock){ const u=T.inv(stock); return u ? u.year+' '+u.make+' '+u.type : stock; }
+  function carrierTag(l){
+    if(l.driver) { const o=T.byId(l.driver); return `<span class="row" style="gap:6px"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${l.carrier}</span></span>`; }
+    if(l.carrier) return `<span class="sm">🚛 ${l.carrier}</span>`;
+    return `<span class="mut sm">—</span>`;
+  }
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'Deliveries this week', ic:'🚚', num:thisWeek, chg:'+2 vs last week', cls:'up'},
+      {lab:'In transit',          ic:'📍', num:inTransit, chg:'live on the road', cls:'mut'},
+      {lab:'Scheduled',           ic:'🗓️', num:scheduled, chg:'next 5 business days', cls:'mut'},
+      {lab:'Avg delivery time',   ic:'⏱️', num:'2.4 days', chg:'-0.3d vs target', cls:'up'},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.cls==='up'?'up':t.cls==='down'?'down':''}" style="${t.cls==='mut'?'color:var(--muted)':''}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- weekly schedule column board (Mon-Fri) ----
+  function weekBoardCard(){
+    const days = [['Mon','Jun 8'],['Tue','Jun 9'],['Wed','Jun 10'],['Thu','Jun 11'],['Fri','Jun 12']];
+    const board = $('board','');
+    days.forEach(([d,date])=>{
+      const items = LOADS.filter(l=>l.day===d);
+      const col = document.createElement('div'); col.className='col';
+      const today = d==='Tue'; // demo "today" = Tue Jun 9
+      col.innerHTML = `<div class="ch">${d}<span class="mut xs" style="font-weight:500;margin-left:4px">${date}</span><span class="ct">${items.length}</span></div>`;
+      items.forEach(l=>{
+        const tile=document.createElement('div'); tile.className='tile';
+        tile.innerHTML =
+          `<div class="row between">
+             <div class="tt">${l.stock}</div>
+             <span class="pill ${stPill[l.status]}" style="font-size:10px;padding:2px 7px">${stLabel[l.status]}</span>
+           </div>
+           <div class="tm">${l.cust}</div>
+           <div class="row" style="gap:6px;color:var(--muted);font-size:11.5px;margin-bottom:8px">📍 ${l.dest} · ${l.destMi} mi</div>
+           <div class="tf">${carrierTag(l)}<span class="mut xs">${l.yard}</span></div>`;
+        col.appendChild(tile);
+      });
+      if(!items.length) col.appendChild($('mut sm','<div style="padding:14px 4px;text-align:center">No deliveries</div>'));
+      board.appendChild(col);
+    });
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<div class="hd"><h3>This week — delivery schedule</h3><span class="more">${thisWeek} runs · Mon–Fri · drag to reschedule</span></div>`;
+    const bd=$('bd',''); bd.appendChild(board); card.appendChild(bd);
+    return card;
+  }
+
+  // ---- load board table ----
+  function loadBoardCard(){
+    const rows = LOADS.map(l=>{
+      const u=T.inv(l.stock);
+      const etaTxt = l.status==='delivered' ? `<span class="mut sm">Delivered ${T.ago(l.eta)}</span>`
+                   : l.eta!=null ? `<span class="strong">${l.day}</span> <span class="mut sm">${T.ago(l.eta)==='today'?'today':T.ago(l.eta).replace(' ago',' out')}</span>`
+                   : `<span class="mut sm">—</span>`;
+      return `<tr>
+        <td><span class="strong">${l.stock}</span><div class="mut sm">${u?u.type+' · '+u.len:''}</div></td>
+        <td>${l.cust}</td>
+        <td>📍 ${l.dest}<div class="mut sm num-c">${l.destMi} mi</div></td>
+        <td class="mut sm">${l.yard}</td>
+        <td>${carrierTag(l)}</td>
+        <td><span class="pill ${stPill[l.status]}">${stLabel[l.status]}</span></td>
+        <td class="num-c">${etaTxt}</td>
+      </tr>`;
+    }).join('');
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML = `<div class="hd"><h3>Load board</h3>
+        <span class="more">${LOADS.length} loads · ${inTransit} en route · ${LOADS.filter(l=>l.status==='unassigned').length} need carrier</span></div>
+      <div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+      <table><thead><tr><th>Unit</th><th>Customer</th><th>Destination</th><th>Pickup yard</th><th>Driver / carrier</th><th>Status</th><th>ETA</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+    return card;
+  }
+
+  // ---- freight quotes mini card ----
+  function freightCard(){
+    const rows = LANES.map(l=>`<div class="it">
+        <div class="gr">
+          <div class="strong sm">${l.from} → ${l.to}</div>
+          <div class="mut xs">${l.carrier} · ${l.mi} mi · ${(l.rate/l.mi).toFixed(2)}/mi</div>
+        </div>
+        <span class="tag">${T.money(l.rate)}</span>
+      </div>`).join('');
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML = `<div class="hd"><h3>Freight quotes</h3><span class="more">${LANES.length} lanes</span></div>
+      <div class="bd"><div class="list">${rows}</div>
+      <button class="btn gh sm" style="margin-top:12px;width:100%">+ Request new lane quote</button></div>`;
+    return card;
+  }
+
+  // ---- route / tracking card for ED-8801 ----
+  function trackingCard(){
+    const l = LOADS.find(x=>x.stock==='ED-8801');
+    const u = T.inv('ED-8801');
+    const o = T.byId(l.driver);
+    const doneN = TRACK.filter(t=>t.done).length;
+    const pct = Math.round(doneN/TRACK.length*100);
+    const steps = TRACK.map((t,i)=>{
+      const isLast = i===TRACK.length-1;
+      const dot = t.live ? 'var(--blue)' : t.done ? 'var(--green)' : 'var(--line)';
+      const ring = t.live ? 'box-shadow:0 0 0 4px #e8f1fc;' : '';
+      return `<div class="row" style="align-items:flex-start;gap:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto">
+            <span style="width:13px;height:13px;border-radius:50%;background:${dot};${ring}border:2px solid var(--surface)"></span>
+            ${isLast?'':`<span style="width:2px;flex:1;min-height:26px;background:${t.done?'var(--green)':'var(--line)'}"></span>`}
+          </div>
+          <div style="padding-bottom:14px">
+            <div class="${t.done?'strong':'mut'} sm">${t.label} ${t.live?'<span class="pill p-blue" style="font-size:9.5px;padding:1px 7px">LIVE</span>':''}</div>
+            <div class="mut xs">${t.who}${t.ts?' · '+T.ago(t.ts):''}</div>
+          </div>
+        </div>`;
+    }).join('');
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML = `<div class="hd"><h3>Route &amp; tracking — ${l.stock}</h3>
+        <span class="pill ${stPill[l.status]}" style="margin-left:8px">${stLabel[l.status]}</span></div>
+      <div class="bd">
+        <div class="row between wrap" style="gap:10px;margin-bottom:14px">
+          <div>
+            <div class="strong" style="font-size:15px">${l.cust}</div>
+            <div class="mut sm">${u.year} ${u.make} ${u.type} · ${u.len}</div>
+          </div>
+          <div class="row" style="gap:6px"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${l.carrier}</span></div>
+        </div>
+        <div class="dl" style="margin-bottom:14px">
+          <dt>Pickup</dt><dd>${l.yard}, Springfield IL</dd>
+          <dt>Destination</dt><dd>${l.dest}</dd>
+          <dt>Distance</dt><dd>${l.destMi} mi · ~2h 10m</dd>
+          <dt>ETA</dt><dd>Today · 2:40p</dd>
+        </div>
+        <div class="row between" style="margin-bottom:6px"><span class="strong sm">Trip progress</span><span class="mut xs">${doneN} of ${TRACK.length} · 41 mi out</span></div>
+        <div class="bar" style="height:10px;margin-bottom:16px"><i style="width:${pct}%;background:var(--blue)"></i></div>
+        <div class="strong sm" style="margin-bottom:10px">Status timeline</div>
+        ${steps}
+        <div class="note" style="margin-top:6px">Linked invoice <b>INV-4505</b> · ${T.money(1250)} delivery freight — releases on POD signature.</div>
+      </div>`;
+    return card;
+  }
+
+  // ---- my runs today (driver side) ----
+  function myRunsCard(){
+    const mine = LOADS.filter(l=>l.driver==='u11' && l.day==='Tue');
+    const rows = mine.map(l=>`<div class="it">
+        <div class="gr"><div class="strong sm">${l.stock} · ${l.cust}</div><div class="mut xs">📍 ${l.dest} · ${l.destMi} mi · from ${l.yard}</div></div>
+        <span class="pill ${stPill[l.status]}">${stLabel[l.status]}</span>
+      </div>`).join('');
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML = `<div class="hd"><h3>My runs · today</h3><span class="more">${T.byId('u11').name}</span></div>
+      <div class="bd"><div class="list">${rows}</div>
+      <div class="note" style="margin-top:12px">${mine.reduce((s,l)=>s+l.destMi,0)} loop miles today across ${mine.length} stops on Ironline Truck 1.</div></div>`;
+    return card;
+  }
+
+  // ---- renderers ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Schedule'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      body.appendChild(weekBoardCard());
+      body.appendChild(spacer(16));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(trackingCard());
+      const right=document.createElement('div'); right.appendChild(myRunsCard());
+      right.appendChild(spacer(16)); right.appendChild(freightCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Load board'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      body.appendChild(loadBoardCard());
+      body.appendChild(spacer(16));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(trackingCard());
+      const right=document.createElement('div'); right.appendChild(freightCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Freight'){
+      const g=$('grid g3','');
+      g.appendChild($('stat',`<div class="lab"><span class="ic">💵</span>Avg cost / mile</div><div class="num">$4.71</div><div class="chg" style="color:var(--muted)">across booked lanes</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">🚛</span>3rd-party loads</div><div class="num">${LOADS.filter(l=>l.carrier&&!l.driver).length}</div><div class="chg" style="color:var(--muted)">this week</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">📋</span>Open quote requests</div><div class="num">1</div><div class="chg down">DD-2277 awaiting</div>`));
+      body.appendChild(g);
+      body.appendChild(spacer(18));
+      const cols=$('cols','');
+      const left=document.createElement('div');
+      // full freight rate table
+      const lcard=document.createElement('div'); lcard.className='card';
+      const lrows=LANES.map(l=>`<tr><td class="strong">${l.from} → ${l.to}</td><td>${l.carrier}</td><td class="num-c">${l.mi} mi</td><td class="num-c">${(l.rate/l.mi).toFixed(2)}/mi</td><td class="num-c strong">${T.money(l.rate)}</td></tr>`).join('');
+      lcard.innerHTML=`<div class="hd"><h3>Lane rate sheet</h3><span class="more">current carrier quotes</span></div>
+        <div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+        <table><thead><tr><th>Lane</th><th>Carrier</th><th>Distance</th><th>Rate</th><th>Total</th></tr></thead><tbody>${lrows}</tbody></table></div></div>`;
+      left.appendChild(lcard);
+      const right=document.createElement('div'); right.appendChild(freightCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('Schedule');
+})();
+</script>
+</body>
+</html>

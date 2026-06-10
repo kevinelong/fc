@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Pipeline · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Selling</div>
+      <a class="on" href="#"><span class="ic">📊</span> Pipeline</a>
+      <a href="#"><span class="ic">🎯</span> My Leads</a>
+      <a href="#"><span class="ic">📄</span> Quotes</a>
+      <a href="#"><span class="ic">👤</span> Customers</a>
+      <div class="grp">Tools</div>
+      <a href="#"><span class="ic">🚚</span> Inventory</a>
+      <a href="#"><span class="ic">🧮</span> Quote builder</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#3ecf8e">RA</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Rick Alvarez</b><span style="color:#8b97a3;font-size:11px">Salesperson</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">My Pipeline</div>
+        <div class="sub">Work the board · follow up · close</div>
+      </div>
+      <div class="search">🔍 Search my deals, customers…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#3ecf8e">RA</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+  const ME = 'u3';
+
+  // ---- my records ----
+  const myDeals = T.deals.filter(d=>d.sales===ME);
+  const myLeads = T.leads.filter(l=>l.owner===ME);
+
+  // ---- pill maps ----
+  const probPill = p => p>=80?'p-green':p>=50?'p-blue':p>=30?'p-amber':'p-gray';
+  const leadPill = {new:'p-blue', working:'p-amber', quoted:'p-purple', won:'p-green', lost:'p-gray'};
+  const leadLabel = {new:'New', working:'Working', quoted:'Quoted', won:'Won', lost:'Lost'};
+
+  // ---- derived stats ----
+  const open = myDeals.filter(d=>!['won','lost'].includes(d.stage));
+  const pipeline$ = open.reduce((s,d)=>s+d.value,0);
+  const quotesOut = myDeals.filter(d=>d.stage==='quoted').length
+                  + myLeads.filter(l=>l.status==='quoted').length;
+  const wonMTD = myDeals.filter(d=>d.stage==='won' || d.stage==='delivery');
+  const wonValue = wonMTD.reduce((s,d)=>s+d.value,0);
+  const weighted = open.reduce((s,d)=>s+d.value*d.prob/100,0);
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Pipeline','Quotes','Customers'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||18)+'px'; return s; }
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'My open deals', ic:'📊', num:open.length, chg:'▲ '+myDeals.length+' active total', up:true},
+      {lab:'Pipeline value', ic:'💰', num:T.k(pipeline$), chg:T.k(weighted)+' weighted', up:true},
+      {lab:'Quotes out', ic:'📄', num:quotesOut, chg:'awaiting customer', up:true},
+      {lab:'Won MTD', ic:'🏆', num:T.money(wonValue), chg:'+'+wonMTD.length+' units this month', up:true},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- kanban board ----
+  function board(){
+    const stages = [
+      {key:'lead', label:'Lead', ic:'🌱'},
+      {key:'quoted', label:'Quoted', ic:'📄'},
+      {key:'negotiation', label:'Negotiation', ic:'🤝'},
+      {key:'financing', label:'Financing', ic:'🏦'},
+      {key:'delivery', label:'Delivery', ic:'🚚'},
+    ];
+    const wrap = $('board','');
+    stages.forEach(st=>{
+      const list = myDeals.filter(d=>d.stage===st.key).sort((a,b)=>a.updated-b.updated);
+      const sum = list.reduce((s,d)=>s+d.value,0);
+      const col = $('col','');
+      col.innerHTML = `<div class="ch"><span>${st.ic}</span> ${st.label} <span class="ct">${list.length}</span></div>`;
+      list.forEach(d=>{
+        const u = T.inv(d.stock);
+        const t = document.createElement('div'); t.className='tile';
+        t.innerHTML = `
+          <div class="tt">${d.cust}</div>
+          <div class="tm">${u? u.stock+' · '+u.year+' '+u.type : d.stock}</div>
+          <div class="row between" style="margin-bottom:7px">
+            <span class="strong num-c">${T.money(d.value)}</span>
+            <span class="pill ${probPill(d.prob)}">${d.prob}%</span>
+          </div>
+          <div class="bar" title="${d.prob}% probability"><i style="width:${d.prob}%"></i></div>
+          <div class="tf" style="margin-top:9px">
+            <span class="mut xs">${d.id}</span>
+            <span class="mut xs">${T.ago(d.updated)}</span>
+          </div>`;
+        col.appendChild(t);
+      });
+      if(!list.length){
+        col.appendChild($('mut xs','<div style="padding:14px 4px;text-align:center">No deals</div>'));
+      } else {
+        col.appendChild($('mut xs','<div style="padding:6px 4px 2px;text-align:right">'+T.k(sum)+'</div>'));
+      }
+      wrap.appendChild(col);
+    });
+    const card = document.createElement('div'); card.className='card';
+    card.innerHTML = '<div class="hd"><h3>My pipeline board</h3><span class="more">'+open.length+' open · '+T.k(pipeline$)+'</span></div>';
+    const bd = $('bd',''); bd.appendChild(wrap); card.appendChild(bd);
+    return card;
+  }
+
+  // ---- Today follow-ups ----
+  function followups(){
+    const items = [
+      {ic:'📞', pill:'p-red', tag:'Now', who:'Diane Pruitt · Pruitt Logistics',
+       what:'Collect signed credit app — RF-7220 financing', ref:'D-902'},
+      {ic:'✉️', pill:'p-amber', tag:'Today', who:'Owen Stiles · Stiles & Sons',
+       what:'Counter on LB-3050 — hold at $39,800 floor', ref:'D-901'},
+      {ic:'📞', pill:'p-blue', tag:'Today', who:'Cody Marsh · Marsh Hauling',
+       what:'New web lead — qualify & book FB-4410 walk', ref:'D-908'},
+      {ic:'🚚', pill:'p-green', tag:'Fri', who:'Gabe Foster · Foster Sand & Gravel',
+       what:'Confirm ED-8801 delivery window w/ dispatch', ref:'D-906'},
+    ];
+    const card = document.createElement('div'); card.className='card';
+    const rows = items.map(it=>`
+      <div class="it">
+        <div class="av sm" style="background:var(--surface2);color:var(--ink);font-size:14px">${it.ic}</div>
+        <div class="gr">
+          <div class="strong sm">${it.who}</div>
+          <div class="mut xs">${it.what}</div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="pill ${it.pill}">${it.tag}</span>
+          <span class="mut xs">${it.ref}</span>
+        </div>
+      </div>`).join('');
+    card.innerHTML = '<div class="hd"><h3>Today — follow-ups</h3><span class="more">'+items.length+' due</span></div>'+
+      '<div class="bd" style="padding:6px 16px"><div class="list">'+rows+'</div></div>';
+    return card;
+  }
+
+  // ---- Quote builder (FB-4410) ----
+  function quoteBuilder(){
+    const u = T.inv('FB-4410');
+    const price = u.list;          // 27900
+    const prep = 650;
+    const freight = 480;
+    const doc = 199;
+    const subtotal = price + prep + freight + doc;
+    const tax = Math.round(subtotal * 0.0625);
+    const total = subtotal + tax;
+    const card = document.createElement('div'); card.className='card';
+    card.innerHTML = `
+      <div class="hd"><h3>Quote builder</h3><span class="tag">${u.stock}</span></div>
+      <div class="bd">
+        <div class="strong">${u.year} ${u.make} ${u.type}</div>
+        <div class="mut sm" style="margin-bottom:12px">${u.len} · ${u.cond} · ${u.loc}</div>
+        <dl class="dl">
+          <dt>List price</dt><dd>${T.money(price)}</dd>
+          <dt>Prep / detail</dt><dd>${T.money(prep)}</dd>
+          <dt>Freight</dt><dd>${T.money(freight)}</dd>
+          <dt>Doc fee</dt><dd>${T.money(doc)}</dd>
+          <dt>Sales tax (6.25%)</dt><dd>${T.money(tax)}</dd>
+        </dl>
+        <div class="divider"></div>
+        <div class="row between"><span class="strong">Total</span><span class="strong num-c" style="font-size:18px">${T.money(total)}</span></div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn sm">Send quote</button>
+          <button class="btn gh sm">Save draft</button>
+        </div>
+      </div>`;
+    return card;
+  }
+
+  // ---- Quotes tab table ----
+  function quotesTable(){
+    const quotes = [
+      ...myDeals.filter(d=>['quoted','negotiation','financing','delivery'].includes(d.stage)),
+    ];
+    const card = document.createElement('div'); card.className='card';
+    const rows = quotes.sort((a,b)=>b.updated-a.updated).map(d=>{
+      const u = T.inv(d.stock);
+      const stPill = {quoted:'p-purple',negotiation:'p-amber',financing:'p-blue',delivery:'p-green'}[d.stage];
+      const stLab = {quoted:'Quoted',negotiation:'Negotiation',financing:'Financing',delivery:'Delivery'}[d.stage];
+      return `<tr>
+        <td class="mut sm num-c">${d.id}</td>
+        <td><div class="strong">${d.cust}</div></td>
+        <td>${u? '<span class="strong">'+u.stock+'</span> <span class="mut sm">'+u.year+' '+u.type+'</span>' : d.stock}</td>
+        <td class="num-c strong">${T.money(d.value)}</td>
+        <td><span class="pill ${probPill(d.prob)}">${d.prob}%</span></td>
+        <td><span class="pill ${stPill}">${stLab}</span></td>
+        <td class="num-c sm mut">${T.ago(d.updated)}</td>
+        <td class="num-c"><button class="btn gh sm">Open</button></td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Open quotes</h3><span class="more">'+quotes.length+' out</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Quote</th><th>Customer</th><th>Unit</th><th>Value</th><th>Prob</th><th>Stage</th><th>Updated</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- Customers tab ----
+  function customersTable(){
+    // build customer rows from my deals + my leads
+    const map = {};
+    const add = (name, info)=>{ if(!map[name]) map[name]={name, ...info, deals:0, value:0, items:[]}; };
+    myDeals.forEach(d=>{ add(d.cust,{}); map[d.cust].deals++; map[d.cust].value+=d.value; map[d.cust].items.push(d.stock); map[d.cust].stage=d.stage; });
+    myLeads.forEach(l=>{ add(l.co,{phone:l.phone, contact:l.name}); if(!map[l.co].contact)map[l.co].contact=l.name; map[l.co].phone=map[l.co].phone||l.phone; map[l.co].lstatus=l.status; });
+    // fill contacts/phones from leads where company matches deal cust loosely
+    myLeads.forEach(l=>{ if(map[l.co]){ map[l.co].contact=l.name; map[l.co].phone=l.phone; } });
+    const list = Object.values(map).sort((a,b)=>b.value-a.value);
+    const card = document.createElement('div'); card.className='card';
+    const rows = list.map(c=>{
+      const init = (c.contact||c.name).split(' ').map(w=>w[0]).slice(0,2).join('');
+      return `<tr>
+        <td><div class="row"><div class="av sm" style="background:#3ecf8e">${init}</div>
+          <div><div class="strong">${c.name}</div><div class="mut xs">${c.contact||'—'}</div></div></div></td>
+        <td class="num-c sm mut">${c.phone||'—'}</td>
+        <td class="num-c">${c.deals||0}</td>
+        <td>${c.items.length? '<span class="mut sm">'+c.items.join(', ')+'</span>' : '<span class="mut sm">—</span>'}</td>
+        <td class="num-c strong">${c.value? T.money(c.value) : '—'}</td>
+        <td class="num-c"><button class="btn gh sm">View</button></td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>My customers</h3><span class="more">'+list.length+' accounts</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Account</th><th>Phone</th><th>Deals</th><th>Units</th><th>Value</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- render ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Pipeline'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      body.appendChild(board());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(followups());
+      const right = document.createElement('div'); right.appendChild(quoteBuilder());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Quotes'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(quotesTable());
+      const right = document.createElement('div'); right.appendChild(quoteBuilder());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Customers'){
+      body.appendChild(customersTable());
+    }
+  }
+
+  render('Pipeline');
+})();
+</script>
+</body>
+</html>

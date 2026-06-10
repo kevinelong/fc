@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventory Control · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Inventory</div>
+      <a class="on" href="#"><span class="ic">🗃️</span> Stock board</a>
+      <a href="#"><span class="ic">🚚</span> Acquisitions</a>
+      <a href="#"><span class="ic">⏳</span> Aging</a>
+      <a href="#"><span class="ic">📍</span> Locations</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#6a7782">GP</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Gus Pelletier</b><span style="color:#8b97a3;font-size:11px">Inventory Manager</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Inventory Control</div>
+        <div class="sub">Source, recon, place and turn units</div>
+      </div>
+      <div class="search">🔍 Search stock #, make, type…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#6a7782">GP</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  // ---- status config ----
+  const STATUSES = ['incoming','recon','available','pending','sold'];
+  const statusLabel = {incoming:'Incoming', recon:'Recon', available:'Available', pending:'Pending', sold:'Sold'};
+  const statusPill  = {incoming:'p-blue', recon:'p-amber', available:'p-green', pending:'p-purple', sold:'p-gray'};
+  const statusIc    = {incoming:'🚚', recon:'🔧', available:'✅', pending:'🤝', sold:'📦'};
+
+  const inv = T.inventory;
+  const days = ts => Math.max(0, Math.round((Date.now() - ts)/864e5));
+  const onLot = inv.filter(t=>t.status!=='sold');
+
+  // ---- derived stat numbers ----
+  const incoming = inv.filter(t=>t.status==='incoming');
+  const recon    = inv.filter(t=>t.status==='recon');
+  const aged90   = onLot.filter(t=>days(t.acq) >= 90);
+
+  // ---- location rollup ----
+  const locOrder = ['Main Yard','North Lot','Service Bay'];
+  const locCount = {};
+  onLot.forEach(t=>{ const L = t.loc==='In transit' ? 'In transit' : t.loc; locCount[L]=(locCount[L]||0)+1; });
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Stock board','Aging','Acquisitions'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||16)+'px'; return s; }
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    g.style.gridTemplateColumns = 'repeat(5,1fr)';
+    const tiles = [
+      {lab:'Units in stock',  ic:'🗃️', num:T.kpi.unitsInStock, chg:T.kpi.available+' available now', up:true},
+      {lab:'Inventory value', ic:'💰', num:T.k(T.kpi.invValue), chg:'cost '+T.k(T.kpi.invCost), up:true},
+      {lab:'Incoming',        ic:'🚚', num:incoming.length, chg:'ETA '+Math.min(...incoming.map(t=>t.eta))+'–'+Math.max(...incoming.map(t=>t.eta))+'d', up:true},
+      {lab:'In recon',        ic:'🔧', num:recon.length, chg:T.kpi.openWO+' open work orders', up:true},
+      {lab:'Aged 90+',        ic:'⏳', num:aged90.length, chg:'avg '+T.kpi.avgDaysOnLot+'d on lot', up:false},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- kanban board ----
+  function boardEl(){
+    const board = $('board','');
+    STATUSES.forEach(st=>{
+      const units = inv.filter(t=>t.status===st)
+        .sort((a,b)=> st==='incoming' ? a.eta-b.eta : days(b.acq)-days(a.acq));
+      const col = document.createElement('div'); col.className='col';
+      const tiles = units.map(u=>{
+        let foot;
+        if(st==='incoming'){
+          foot = `<span class="mut sm">ETA ${u.eta}d</span><span class="strong sm num-c">${T.k(u.cost)} cost</span>`;
+        } else if(st==='sold'){
+          foot = `<span class="mut sm">sold ${T.ago(u.sold)}</span><span class="strong sm num-c">${T.k(u.list)}</span>`;
+        } else {
+          const d = days(u.acq);
+          const ageCls = d>=90 ? 'p-red' : d>=60 ? 'p-amber' : 'p-gray';
+          foot = `<span class="pill ${ageCls}">${d}d</span><span class="strong sm num-c">${T.k(u.list)}</span>`;
+        }
+        const loc = u.loc==='—' ? 'Delivered' : u.loc;
+        return `<div class="tile">
+          <div class="tt">${u.year} ${u.make} <span class="mut">${u.type}</span></div>
+          <div class="tm">${u.stock} · ${u.len} · 📍 ${loc}</div>
+          <div class="tf">${foot}</div>
+        </div>`;
+      }).join('') || '<div class="mut sm" style="padding:6px 2px">No units</div>';
+      col.innerHTML = `<div class="ch"><span>${statusIc[st]}</span> ${statusLabel[st]} <span class="ct">${units.length}</span></div>${tiles}`;
+      board.appendChild(col);
+    });
+    return board;
+  }
+
+  // ---- aging table ----
+  function agingCard(){
+    const card=document.createElement('div'); card.className='card';
+    const rows = onLot.filter(t=>t.status!=='incoming')
+      .map(t=>({...t, d:days(t.acq)}))
+      .sort((a,b)=>b.d-a.d)
+      .map(t=>{
+        const flagged = t.d>=90 || t.aged;
+        const ageCls = t.d>=90 ? 'p-red' : t.d>=60 ? 'p-amber' : 'p-green';
+        const dpl = t.leads ? (t.views/t.leads).toFixed(0) : '—';
+        return `<tr${flagged?' style="background:#fdeaec"':''}>
+          <td><span class="strong">${t.stock}</span> <span class="mut sm">${t.year} ${t.make} ${t.type}</span></td>
+          <td><span class="pill ${statusPill[t.status]}">${statusLabel[t.status]}</span></td>
+          <td class="num-c"><span class="pill ${ageCls}">${t.d}d</span></td>
+          <td class="num-c">${T.money(t.list)}</td>
+          <td class="num-c">${t.views}</td>
+          <td class="num-c">${t.leads}</td>
+          <td class="num-c mut">${dpl}</td>
+          <td>${flagged?'<span class="tag" style="color:#d23a4c;background:#fdeaec">🚩 Aged — markdown</span>':'<span class="mut sm">On pace</span>'}</td>
+        </tr>`;
+      }).join('');
+    card.innerHTML = `<div class="hd"><h3>Aging — oldest units first</h3><span class="more">${aged90.length} aged 90+ · avg ${T.kpi.avgDaysOnLot}d on lot</span></div>
+      <div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+      <table><thead><tr>
+        <th>Unit</th><th>Status</th><th>Days on lot</th><th>List</th><th>Views</th><th>Leads</th><th>Views/lead</th><th>Action</th>
+      </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    return card;
+  }
+
+  // ---- acquisitions / intake card ----
+  function intakeCard(){
+    const card=document.createElement('div'); card.className='card';
+    const items = incoming.map(u=>{
+      const wo = T.workOrders.find(w=>w.stock===u.stock);
+      const woTxt = wo ? `${wo.id} · ${wo.type} (${wo.status})` : 'No WO yet';
+      return `<div class="it" style="align-items:flex-start">
+        <div class="av" style="background:var(--blue)">🚚</div>
+        <div class="gr">
+          <div class="row between">
+            <div><span class="strong">${u.stock}</span> <span class="mut sm">— ${u.year} ${u.make} ${u.type} · ${u.len}</span></div>
+            <span class="pill p-blue">ETA ${u.eta}d</span>
+          </div>
+          <div class="dl" style="margin-top:9px;grid-template-columns:auto 1fr auto 1fr">
+            <dt>Cost</dt><dd class="num-c">${T.money(u.cost)}</dd>
+            <dt>Cond</dt><dd>${u.cond}</dd>
+            <dt>Acquired</dt><dd>${T.ago(u.acq)}</dd>
+            <dt>Intake WO</dt><dd class="sm">${wo?wo.id:'—'}</dd>
+          </div>
+          <div class="mut xs" style="margin-top:8px">In transit · ${woTxt} · arrives at Service Bay for inspection</div>
+        </div>
+      </div>`;
+    }).join('');
+    const totalCost = incoming.reduce((s,u)=>s+u.cost,0);
+    card.innerHTML = `<div class="hd"><h3>Acquisitions / intake</h3><span class="more">${incoming.length} inbound · ${T.k(totalCost)} cost</span></div>
+      <div class="bd" style="padding:6px 16px"><div class="list">${items}</div></div>`;
+    return card;
+  }
+
+  // ---- by-location mini card ----
+  function locationCard(){
+    const card=document.createElement('div'); card.className='card';
+    const max = Math.max(...locOrder.map(L=>locCount[L]||0), 1);
+    const rows = locOrder.map(L=>{
+      const n = locCount[L]||0;
+      const w = Math.round(n/max*100);
+      return `<div style="margin-bottom:13px">
+        <div class="row between" style="margin-bottom:5px">
+          <span class="strong sm">📍 ${L}</span>
+          <span class="strong num-c">${n}</span>
+        </div>
+        <div class="bar" style="height:11px"><i style="width:${w}%"></i></div>
+      </div>`;
+    }).join('');
+    const transit = locCount['In transit']||0;
+    card.innerHTML = `<div class="hd"><h3>By location</h3><span class="more">${onLot.length} units placed</span></div>
+      <div class="bd">${rows}
+        <div class="note" style="margin-top:6px">🚚 ${transit} in transit · Service Bay holds recon + intake. Shift available units to Main Yard for visibility.</div>
+      </div>`;
+    return card;
+  }
+
+  // ---- value-by-type mini (donut-ish via bars) ----
+  function typeMixCard(){
+    const card=document.createElement('div'); card.className='card';
+    const byType = {};
+    onLot.filter(t=>t.status==='available').forEach(t=>{ byType[t.type]=(byType[t.type]||0)+t.list; });
+    const entries = Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const max = Math.max(...entries.map(e=>e[1]),1);
+    const rows = entries.map(([type,val])=>{
+      const w = Math.round(val/max*100);
+      return `<div style="margin-bottom:11px">
+        <div class="row between" style="margin-bottom:4px"><span class="sm">${type}</span><span class="strong sm num-c">${T.k(val)}</span></div>
+        <div class="bar"><i style="width:${w}%"></i></div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Available value by type</h3><span class="more">${T.k(T.kpi.invValue)} listed</span></div>
+      <div class="bd">${rows}</div>`;
+    return card;
+  }
+
+  // ---- renderers ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Stock board'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      const bcard = $('card','');
+      bcard.innerHTML = '<div class="hd"><h3>Stock board</h3><span class="more">'+onLot.length+' on lot · drag to advance status</span></div>';
+      const bd = $('bd',''); bd.appendChild(boardEl()); bcard.appendChild(bd);
+      body.appendChild(bcard);
+      body.appendChild(spacer(18));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(intakeCard());
+      const right=document.createElement('div');
+      right.appendChild(locationCard());
+      right.appendChild(spacer(16));
+      right.appendChild(typeMixCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Aging'){
+      const g=$('grid g3','');
+      const agedVal = aged90.reduce((s,t)=>s+t.list,0);
+      g.appendChild($('stat',`<div class="lab"><span class="ic">⏳</span>Aged 90+ units</div><div class="num">${aged90.length}</div><div class="chg down">capital tied up</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">💰</span>Aged list value</div><div class="num">${T.k(agedVal)}</div><div class="chg down">candidates for markdown</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">📊</span>Avg days on lot</div><div class="num">${T.kpi.avgDaysOnLot}</div><div class="chg up">−3d vs last month</div>`));
+      body.appendChild(g);
+      body.appendChild(spacer(18));
+      body.appendChild(agingCard());
+    }
+    else if(tab==='Acquisitions'){
+      const g=$('grid g3','');
+      const totalCost = incoming.reduce((s,u)=>s+u.cost,0);
+      g.appendChild($('stat',`<div class="lab"><span class="ic">🚚</span>Inbound units</div><div class="num">${incoming.length}</div><div class="chg up">arriving this week</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">💵</span>Committed cost</div><div class="num">${T.k(totalCost)}</div><div class="chg up">floored / financed</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">🔧</span>Awaiting intake</div><div class="num">${T.workOrders.filter(w=>w.type==='Intake inspection'&&w.status!=='done').length}</div><div class="chg down">inspections queued</div>`));
+      body.appendChild(g);
+      body.appendChild(spacer(18));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(intakeCard());
+      const right=document.createElement('div'); right.appendChild(locationCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('Stock board');
+})();
+</script>
+</body>
+</html>

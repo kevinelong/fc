@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform Admin · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>TPOS Platform</b>Super Admin</div>
+    <nav class="nav">
+      <div class="grp">Platform</div>
+      <a class="on" href="platform.html"><span class="ic">🏢</span> Tenants</a>
+      <a href="#"><span class="ic">💰</span> Revenue</a>
+      <a href="#"><span class="ic">🧾</span> Billing</a>
+      <a href="#"><span class="ic">📊</span> Usage</a>
+      <a href="#"><span class="ic">🎧</span> Support</a>
+      <a href="#"><span class="ic">🖥️</span> System</a>
+    </nav>
+    <div class="me">
+      <div class="av" style="background:#7c5cd6">TP</div>
+      <div><b>TPOS Ops</b><br><span class="mut sm">Super Admin</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Platform Admin</div>
+        <div class="sub">6 tenants · 71 seats · 5 hosted, 1 self-host · June 2026</div>
+      </div>
+      <div class="search">🔍 Search tenants, invoices, accounts…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#7c5cd6">TP</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, money = T.money, k = T.k, ago = T.ago;
+  const el = document.getElementById('content');
+
+  const tenants = T.tenants;
+  const active = tenants.filter(t => t.status === 'active');
+  const trials = tenants.filter(t => t.status === 'trial');
+  const licensed = tenants.filter(t => t.status === 'licensed');
+  const mrr = tenants.reduce((s,t)=>s+t.mrr,0);                 // T.kpi.mrr
+  const arr = mrr * 12;
+  const paying = tenants.filter(t => t.mrr > 0);
+
+  const pill = (status) => {
+    const map = { active:'p-green', trial:'p-blue', licensed:'p-purple' };
+    return `<span class="pill ${map[status]||'p-gray'}">${status}</span>`;
+  };
+  const planPill = (plan) => {
+    const map = { 'Starter':'p-gray', 'Growth':'p-amber', 'Enterprise':'p-teal', 'License (self-host)':'p-purple' };
+    return `<span class="pill ${map[plan]||'p-gray'}">${plan.replace(' (self-host)','')}</span>`;
+  };
+  const sinceAge = (ts) => { const d = Math.round((Date.now()-ts)/864e5); return d >= 365 ? (d/365).toFixed(1)+'y' : d >= 30 ? Math.round(d/30)+'mo' : d+'d'; };
+
+  // --- MRR by plan tier (for donut) ---
+  const tierDefs = [
+    { key:'Starter',    label:'Starter',    color:'var(--faint)' },
+    { key:'Growth',     label:'Growth',     color:'var(--accent)' },
+    { key:'Enterprise', label:'Enterprise', color:'var(--teal)' },
+    { key:'License',    label:'License',    color:'var(--purple)' },
+  ];
+  const tierMrr = tierDefs.map(d => {
+    const grp = tenants.filter(t => (d.key==='License' ? t.plan.startsWith('License') : t.plan===d.key));
+    return { ...d, mrr: grp.reduce((s,t)=>s+t.mrr,0), n: grp.length };
+  });
+  const donutTotal = tierMrr.reduce((a,b)=>a+b.mrr,0) || 1;
+  let acc = 0;
+  const segs = tierMrr.filter(s=>s.mrr).map(s => {
+    const from = acc/donutTotal*360, to = (acc+s.mrr)/donutTotal*360; acc += s.mrr;
+    return `${s.color} ${from}deg ${to}deg`;
+  }).join(',');
+
+  // --- Net new MRR trend (last 8 months, $) ---
+  const months = ['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+  const mrrHist = [1786, 1985, 1985, 2184, 2484, 2484, 2686, 2686]; // $/mo
+  const netNew = mrrHist[mrrHist.length-1] - mrrHist[mrrHist.length-2];
+
+  // --- usage across all tenants (plausible, scales with units/seats) ---
+  const totalUnits = tenants.reduce((s,t)=>s+t.units,0);
+  const totalSeats = tenants.reduce((s,t)=>s+t.seats,0);
+  const usage = tenants.map(t => ({
+    t,
+    listed: t.units,
+    leads: Math.round(t.units * 4.3 + t.seats * 6),
+    views: Math.round(t.units * 540 + t.seats * 120),
+  }));
+  const totLeads = usage.reduce((s,u)=>s+u.leads,0);
+  const totViews = usage.reduce((s,u)=>s+u.views,0);
+  const maxViews = Math.max(...usage.map(u=>u.views));
+
+  // ---- TAB: Tenants ----
+  const tenantsTab = `
+    <div class="grid g4" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+      <div class="stat">
+        <div class="lab"><span class="ic">💵</span> MRR</div>
+        <div class="num">${money(mrr)}</div>
+        <div class="chg up">▲ ${money(netNew)} net new</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">📈</span> ARR</div>
+        <div class="num">${k(arr)}</div>
+        <div class="chg up">▲ run-rate</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">🏢</span> Active tenants</div>
+        <div class="num">${active.length}</div>
+        <div class="chg mut">${paying.length} paying · ${licensed.length} licensed</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">🧪</span> Trials</div>
+        <div class="num">${trials.length}</div>
+        <div class="chg mut">Keystone · day 12</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">➕</span> Net new MRR</div>
+        <div class="num">${money(netNew)}</div>
+        <div class="chg up">▲ vs last month</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">📉</span> Churn</div>
+        <div class="num">1.2%</div>
+        <div class="chg up">▼ logo · gross</div>
+      </div>
+    </div>
+
+    <div class="cols" style="margin-bottom:16px">
+      <div class="card">
+        <div class="hd"><h3>Tenants</h3><span class="more">${tenants.length} accounts · ${totalSeats} seats</span></div>
+        <div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+          <table>
+            <thead><tr><th>Tenant</th><th>Plan</th><th class="num-c">Seats</th><th class="num-c">Units</th><th class="num-c">MRR</th><th>Age</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              ${tenants.map(t=>`<tr>
+                <td><div class="strong">${t.name}</div><div class="mut sm">${t.city}</div></td>
+                <td>${planPill(t.plan)}</td>
+                <td class="num-c">${t.seats}</td>
+                <td class="num-c">${t.units}</td>
+                <td class="num-c strong">${t.mrr ? money(t.mrr) : '<span class="mut">—</span>'}</td>
+                <td class="mut sm">${sinceAge(t.since)}</td>
+                <td>${pill(t.status)}</td>
+                <td><button class="btn gh sm">Manage</button></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h3>MRR by plan</h3><span class="more">${money(mrr)}/mo</span></div>
+        <div class="bd row" style="gap:18px">
+          <div class="donut" style="background:conic-gradient(${segs})">
+            <div class="hole"><b>${k(mrr)}</b><span>MRR</span></div>
+          </div>
+          <div class="legend" style="flex:1">
+            ${tierMrr.map(s=>`<div><span class="sw" style="background:${s.color}"></span>${s.label}<span style="margin-left:auto;font-weight:700">${money(s.mrr)}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="hd"><h3>Trials &amp; onboarding</h3><span class="more">needs attention</span></div>
+        <div class="bd">
+          <div class="note" style="margin-bottom:14px">Keystone Hauling Supply is on <b>day 12 of 14</b> — trial ends in 2 days. No card on file yet. Assign a CSM to convert.</div>
+          <div class="list">
+            <div class="it">
+              <div class="av sm" style="background:var(--blue)">🧪</div>
+              <div class="gr">
+                <div class="row between"><b>Keystone Hauling Supply</b><span class="pill p-amber">day 12 / 14</span></div>
+                <div class="sm mut" style="margin-top:3px">Harrisburg, PA · Starter trial · 3 seats · 12 units listed</div>
+                <div class="bar" style="margin-top:6px"><i style="width:86%;background:var(--amber)"></i></div>
+              </div>
+            </div>
+            <div class="it">
+              <div class="av sm" style="background:var(--green)">🚀</div>
+              <div class="gr">
+                <div class="row between"><b>High Plains Trailers</b><span class="pill p-green">onboarding</span></div>
+                <div class="sm mut" style="margin-top:3px">Amarillo, TX · Growth · 61 units imported · go-live week 1</div>
+                <div class="bar" style="margin-top:6px"><i style="width:72%"></i></div>
+              </div>
+            </div>
+            <div class="it">
+              <div class="av sm" style="background:var(--purple)">🔌</div>
+              <div class="gr">
+                <div class="row between"><b>Delta Trailer Outlet</b><span class="pill p-purple">self-host</span></div>
+                <div class="sm mut" style="margin-top:3px">Memphis, TN · License renewal due in 64 days · v4.2 deployed</div>
+                <div class="bar" style="margin-top:6px"><i style="width:54%;background:var(--purple)"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h3>System health</h3><span class="more">last 24h</span></div>
+        <div class="bd">
+          <div class="dl" style="margin-bottom:14px">
+            <dt>Uptime (30d)</dt><dd class="up">99.98%</dd>
+            <dt>API latency p95</dt><dd>142 ms</dd>
+            <dt>API latency p99</dt><dd>318 ms</dd>
+            <dt>Job queue depth</dt><dd>14 jobs</dd>
+            <dt>Error rate</dt><dd class="up">0.03%</dd>
+            <dt>Storefront CDN</dt><dd class="up">Operational</dd>
+          </div>
+          <div class="row between sm mut" style="margin-bottom:4px"><span>Requests / min (last hour)</span><span>p95 142 ms</span></div>
+          <div class="spark">
+            ${[42,55,48,61,58,70,66,74,69,80,77,84,72,88,81,76].map(v=>`<i style="height:${v}%"></i>`).join('')}
+          </div>
+          <div class="divider"></div>
+          <div class="row between">
+            <span class="sm"><span class="pill p-green">All systems operational</span></span>
+            <button class="btn gh sm">Status page</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // ---- TAB: Revenue ----
+  const revenueTab = `
+    <div class="grid g4" style="margin-bottom:16px">
+      <div class="stat"><div class="lab"><span class="ic">💵</span> MRR</div><div class="num">${money(mrr)}</div><div class="chg up">▲ ${money(netNew)} net new</div></div>
+      <div class="stat"><div class="lab"><span class="ic">📈</span> ARR</div><div class="num">${k(arr)}</div><div class="chg up">▲ run-rate</div></div>
+      <div class="stat"><div class="lab"><span class="ic">🧮</span> ARPA</div><div class="num">${money(Math.round(mrr/paying.length))}</div><div class="chg mut">${paying.length} paying tenants</div></div>
+      <div class="stat"><div class="lab"><span class="ic">📉</span> Net churn</div><div class="num">1.2%</div><div class="chg up">▼ healthy</div></div>
+    </div>
+    <div class="cols" style="margin-bottom:16px">
+      <div class="card">
+        <div class="hd"><h3>MRR — last 8 months</h3><span class="more">+${money(mrrHist[mrrHist.length-1]-mrrHist[0])} since Nov</span></div>
+        <div class="bd">
+          <div class="barchart">
+            ${mrrHist.map((v,i)=>`<div class="b"><i class="${i===mrrHist.length-1?'':'alt'}" style="height:${v/Math.max(...mrrHist)*100}%"></i><span>${months[i]}</span></div>`).join('')}
+          </div>
+          <div class="row between sm mut" style="margin-top:10px">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);vertical-align:middle"></span> Current MRR ${money(mrr)}</span>
+            <span>ARR ${k(arr)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>Revenue by plan</h3></div>
+        <div class="bd row" style="gap:18px">
+          <div class="donut" style="background:conic-gradient(${segs})">
+            <div class="hole"><b>${k(arr)}</b><span>ARR</span></div>
+          </div>
+          <div class="legend" style="flex:1">
+            ${tierMrr.map(s=>`<div><span class="sw" style="background:${s.color}"></span>${s.label} <span class="mut sm">(${s.n})</span><span style="margin-left:auto;font-weight:700">${money(s.mrr*12)}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hd"><h3>Billing accounts</h3><span class="more">${paying.length} paying · ${licensed.length} licensed</span></div>
+      <div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+        <table>
+          <thead><tr><th>Tenant</th><th>Plan</th><th>Status</th><th class="num-c">MRR</th><th class="num-c">ARR</th><th>Next invoice</th></tr></thead>
+          <tbody>
+            ${tenants.map((t,i)=>`<tr>
+              <td class="strong">${t.name}</td>
+              <td>${planPill(t.plan)}</td>
+              <td>${pill(t.status)}</td>
+              <td class="num-c strong">${t.mrr?money(t.mrr):'<span class="mut">—</span>'}</td>
+              <td class="num-c">${t.mrr?money(t.mrr*12):'<span class="mut">flat</span>'}</td>
+              <td class="mut sm">${t.status==='trial'?'on trial conversion':t.status==='licensed'?'renewal in 64d':'Jul '+(1+i)+', 2026'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // ---- TAB: Usage ----
+  const usageTab = `
+    <div class="grid g4" style="margin-bottom:16px">
+      <div class="stat"><div class="lab"><span class="ic">🚚</span> Units listed</div><div class="num">${totalUnits}</div><div class="chg mut">across ${tenants.length} tenants</div></div>
+      <div class="stat"><div class="lab"><span class="ic">📥</span> Leads processed</div><div class="num">${totLeads.toLocaleString()}</div><div class="chg up">▲ this month</div></div>
+      <div class="stat"><div class="lab"><span class="ic">👁️</span> Storefront views</div><div class="num">${(totViews/1000).toFixed(0)}k</div><div class="chg up">▲ 9% MoM</div></div>
+      <div class="stat"><div class="lab"><span class="ic">🪑</span> Seats in use</div><div class="num">${totalSeats}</div><div class="chg mut">avg ${(totalSeats/tenants.length).toFixed(1)} / tenant</div></div>
+    </div>
+    <div class="cols">
+      <div class="card">
+        <div class="hd"><h3>Storefront views by tenant</h3><span class="more">last 30 days</span></div>
+        <div class="bd">
+          <div class="list">
+            ${usage.slice().sort((a,b)=>b.views-a.views).map(u=>`
+              <div class="it">
+                <div class="gr">
+                  <div class="row between"><b>${u.t.name}</b><span class="strong num-c">${u.views.toLocaleString()}</span></div>
+                  <div class="sm mut" style="margin-top:3px">${u.listed} units · ${u.leads} leads</div>
+                  <div class="bar" style="margin-top:6px"><i style="width:${u.views/maxViews*100}%"></i></div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>System health</h3><span class="more">platform</span></div>
+        <div class="bd">
+          <div class="dl">
+            <dt>Uptime (30d)</dt><dd class="up">99.98%</dd>
+            <dt>API latency p95</dt><dd>142 ms</dd>
+            <dt>Job queue depth</dt><dd>14 jobs</dd>
+            <dt>DB connections</dt><dd>61 / 200</dd>
+            <dt>Storage used</dt><dd>418 GB</dd>
+            <dt>Outbound email (24h)</dt><dd>3,102 sent</dd>
+          </div>
+          <div class="divider"></div>
+          <div class="note">Aggregated usage drives plan limits &amp; overage billing. High Plains is at <b>61 / 75</b> units on Growth — flag for upsell to Enterprise.</div>
+        </div>
+      </div>
+    </div>`;
+
+  const tabs = { tenants: tenantsTab, revenue: revenueTab, usage: usageTab };
+
+  function render(activeTab){
+    el.innerHTML = `
+      <div class="tabs">
+        <a data-t="tenants" class="${activeTab==='tenants'?'on':''}">Tenants</a>
+        <a data-t="revenue" class="${activeTab==='revenue'?'on':''}">Revenue</a>
+        <a data-t="usage" class="${activeTab==='usage'?'on':''}">Usage</a>
+      </div>
+      ${tabs[activeTab]}`;
+    el.querySelectorAll('.tabs a').forEach(a=>a.onclick=()=>render(a.dataset.t));
+  }
+  render('tenants');
+})();
+</script>
+</body>
+</html>

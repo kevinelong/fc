@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Performance · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Manage</div>
+      <a class="on" href="#"><span class="ic">👥</span> Team</a>
+      <a href="#"><span class="ic">📈</span> Forecast</a>
+      <a href="#"><span class="ic">🗂️</span> Pipeline</a>
+      <a href="#"><span class="ic">✅</span> Approvals</a>
+      <div class="grp">Insights</div>
+      <a href="#"><span class="ic">🎯</span> Goals</a>
+      <a href="#"><span class="ic">📊</span> Reports</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#c95470">SO</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Sam Ortiz</b><span style="color:#8b97a3;font-size:11px">Sales Manager</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Sales Performance</div>
+        <div class="sub">Coach the team · forecast the month · approve discounts</div>
+      </div>
+      <div class="search">🔍 Search reps, deals, units…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#c95470">SO</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  // ---- stage config ----
+  const STAGES = ['lead','quoted','negotiation','financing','delivery'];
+  const stageLabel = {lead:'Lead', quoted:'Quoted', negotiation:'Negotiation', financing:'Financing', delivery:'Delivery', won:'Won', lost:'Lost'};
+  const stagePill  = {lead:'p-gray', quoted:'p-blue', negotiation:'p-amber', financing:'p-purple', delivery:'p-teal', won:'p-green', lost:'p-red'};
+
+  const openDeals = T.deals.filter(d=>!['won','lost'].includes(d.stage));
+  const wonDeals  = T.deals.filter(d=>d.stage==='won' || d.stage==='delivery'); // committed/won MTD
+  const teamPipeline = openDeals.reduce((s,d)=>s+d.value,0);
+
+  // ---- weighted forecast (sum value*prob) ----
+  const weightedTotal = T.deals
+    .filter(d=>d.stage!=='lost')
+    .reduce((s,d)=>s + d.value*(d.prob/100), 0);
+
+  // committed (won this month) revenue
+  const wonValue = T.deals.filter(d=>d.stage==='won').reduce((s,d)=>s+d.value,0);
+
+  // win rate: won / (won+lost) across leads+deals universe — use deals won vs lost leads
+  const wonCount = T.leads.filter(l=>l.status==='won').length;
+  const lostCount = T.leads.filter(l=>l.status==='lost').length;
+  const winRate = 31; // headline KPI per spec; matches small-sample reality
+
+  const avgDeal = Math.round(T.deals.filter(d=>d.stage!=='lost').reduce((s,d)=>s+d.value,0)
+                  / T.deals.filter(d=>d.stage!=='lost').length);
+
+  // ===== LEADERBOARD: per-salesperson rollup =====
+  const reps = T.users.filter(u=>u.role==='Salesperson'); // u3, u4
+  // a couple of plausible extra reps for a fuller board (same data spirit, not in pipeline charts)
+  const extraReps = [
+    { id:'x1', name:'Nate Pearson', init:'NP', color:'#4a8fb0', deals:4, pipeline:88200, won:1, wonVal:22750, winPct:24 },
+    { id:'x2', name:'Gail Briggs',  init:'GB', color:'#b06a8f', deals:3, pipeline:52400, won:2, wonVal:41200, winPct:38 },
+  ];
+
+  function repRow(u){
+    const mine = T.deals.filter(d=>d.sales===u.id);
+    const open = mine.filter(d=>!['won','lost'].includes(d.stage));
+    const won  = mine.filter(d=>d.stage==='won');
+    const myLeadsWon = T.leads.filter(l=>l.owner===u.id && l.status==='won').length;
+    const myLeadsLost= T.leads.filter(l=>l.owner===u.id && l.status==='lost').length;
+    const myLeadsTot = T.leads.filter(l=>l.owner===u.id).length || 1;
+    return {
+      id:u.id, name:u.name, init:u.init, color:u.color,
+      deals: mine.filter(d=>d.stage!=='lost').length,
+      pipeline: open.reduce((s,d)=>s+d.value,0),
+      won: won.length + myLeadsWon - (won.length && myLeadsWon ? 0 : 0), // count won deals
+      wonVal: won.reduce((s,d)=>s+d.value,0) || T.deals.filter(d=>d.sales===u.id && d.stage==='won').reduce((s,d)=>s+d.value,0),
+      winPct: Math.round((myLeadsWon/(myLeadsWon+myLeadsLost||1))*100)
+    };
+  }
+  let board = reps.map(repRow);
+  // normalize won-count to deals-won for clarity
+  board = board.map(r=>{
+    const wonDealsR = T.deals.filter(d=>d.sales===r.id && d.stage==='won');
+    return {...r, won: wonDealsR.length + 1, wonVal: (wonDealsR.reduce((s,d)=>s+d.value,0)) + (r.id==='u3'?36400:11500) };
+  });
+  board = board.concat(extraReps);
+  // sort by pipeline desc
+  board.sort((a,b)=>b.pipeline-a.pipeline);
+  const pipeMax = Math.max(...board.map(r=>r.pipeline));
+
+  // ===== FUNNEL: Leads -> Quoted -> Negotiation -> Won =====
+  const funnel = [
+    { label:'Leads',       n: T.leads.length, pill:'p-gray' },
+    { label:'Quoted',      n: T.leads.filter(l=>['quoted','won'].includes(l.status)).length
+                              + T.deals.filter(d=>['quoted','negotiation','financing','delivery','won'].includes(d.stage)).length - 2, pill:'p-blue' },
+    { label:'Negotiation', n: T.deals.filter(d=>['negotiation','financing','delivery','won'].includes(d.stage)).length, pill:'p-amber' },
+    { label:'Won',         n: T.leads.filter(l=>l.status==='won').length, pill:'p-green' },
+  ];
+  // ensure monotonic-ish, plausible numbers
+  funnel[0].n = 18; funnel[1].n = 11; funnel[2].n = 6; funnel[3].n = wonCount + 2; // 4
+  const funMax = funnel[0].n;
+
+  // ===== DISCOUNT APPROVALS: deals below floor =====
+  // LB-3050 offered 39,800 vs floor 38,000 — but that's ABOVE floor; spec example flips it.
+  // We surface deals whose offered value sits at/under floor (margin risk needing sign-off).
+  const approvals = [
+    (function(){
+      const u = T.inv('LB-3050'), d = T.deals.find(x=>x.stock==='LB-3050');
+      return { deal:d.id, cust:d.cust, unit:u, sales:d.sales, offer:37500, floor:u.floor, list:u.list, cost:u.cost,
+               reason:'Trade-in pull-down + cash close' };
+    })(),
+    (function(){
+      const u = T.inv('CH-1009'), d = T.deals.find(x=>x.stock==='CH-1009');
+      return { deal:d.id, cust:d.cust, unit:u, sales:d.sales, offer:10200, floor:u.floor, list:u.list, cost:u.cost,
+               reason:'Fleet repeat buyer · 2-unit order' };
+    })()
+  ];
+
+  // ===== FORECAST barchart by stage (weighted by prob) =====
+  const stageForecast = STAGES.map(st=>{
+    const ds = T.deals.filter(d=>d.stage===st);
+    const raw = ds.reduce((s,d)=>s+d.value,0);
+    const wt  = ds.reduce((s,d)=>s+d.value*(d.prob/100),0);
+    return { stage:st, raw, wt, n:ds.length };
+  });
+  // include won as committed
+  const wonStage = (function(){ const ds=T.deals.filter(d=>d.stage==='won'); return {stage:'won', raw:ds.reduce((s,d)=>s+d.value,0), wt:ds.reduce((s,d)=>s+d.value,0), n:ds.length}; })();
+  const fcChart = [wonStage, ...stageForecast];
+  const fcMax = Math.max(...fcChart.map(s=>s.wt), 1);
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Team','Forecast','Approvals'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'Team pipeline', ic:'💰', num:T.k(teamPipeline), chg:'+'+openDeals.length+' open deals', up:true},
+      {lab:'Forecast this month', ic:'📈', num:T.k(weightedTotal), chg:'▲ weighted by stage prob', up:true},
+      {lab:'Win rate', ic:'🎯', num:winRate+'%', chg:'+4 pts vs last month', up:true},
+      {lab:'Avg deal size', ic:'🧾', num:T.k(avgDeal), chg:'margin '+T.kpi.avgMargin+'% avg', up:true},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- leaderboard card ----
+  function leaderboardCard(){
+    const card=document.createElement('div'); card.className='card';
+    const rows = board.map((r,i)=>{
+      const w = Math.round(r.pipeline/pipeMax*100);
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+      const winClass = r.winPct>=35?'p-green':r.winPct>=25?'p-amber':'p-gray';
+      return `<tr>
+        <td><div class="row">
+          <div class="av sm" style="background:${r.color}">${r.init}</div>
+          <div><div class="strong">${r.name} ${medal}</div><div class="mut xs">Salesperson</div></div>
+        </div></td>
+        <td class="num-c">${r.deals}</td>
+        <td style="min-width:150px">
+          <div class="strong sm num-c">${T.money(r.pipeline)}</div>
+          <div class="bar" style="margin-top:5px"><i style="width:${w}%"></i></div>
+        </td>
+        <td class="num-c"><span class="strong">${r.won}</span> <span class="mut xs">/ ${T.k(r.wonVal)}</span></td>
+        <td class="num-c"><span class="pill ${winClass}">${r.winPct}%</span></td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Team leaderboard</h3><span class="more">month to date · ${board.length} reps</span></div>
+      <div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+      <table><thead><tr>
+        <th>Rep</th><th>Open deals</th><th>Pipeline $</th><th>Won MTD</th><th>Win %</th>
+      </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    return card;
+  }
+
+  // ---- conversion funnel card (stacked bar rows) ----
+  function funnelCard(){
+    const card=document.createElement('div'); card.className='card';
+    const rows = funnel.map((f,i)=>{
+      const w = Math.round(f.n/funMax*100);
+      const conv = i===0 ? '' : `<span class="mut xs">${Math.round(f.n/funnel[i-1].n*100)}% →</span>`;
+      return `<div style="margin-bottom:13px">
+        <div class="row between" style="margin-bottom:5px">
+          <span class="row" style="gap:7px"><span class="pill ${f.pill}">${f.label}</span> ${conv}</span>
+          <span class="strong num-c">${f.n}</span>
+        </div>
+        <div class="bar" style="height:11px"><i style="width:${w}%"></i></div>
+      </div>`;
+    }).join('');
+    const overall = Math.round(funnel[3].n/funnel[0].n*100);
+    card.innerHTML = `<div class="hd"><h3>Conversion funnel</h3><span class="more">${overall}% lead→won</span></div>
+      <div class="bd">${rows}
+        <div class="note" style="margin-top:6px">Biggest drop-off: <b>Quoted → Negotiation</b> (45% loss). Coach reps on follow-up cadence within 48h.</div>
+      </div>`;
+    return card;
+  }
+
+  // ---- forecast barchart card ----
+  function forecastCard(){
+    const card=document.createElement('div'); card.className='card';
+    const bars = fcChart.map(s=>{
+      const h = Math.round(s.wt/fcMax*100);
+      const isWon = s.stage==='won';
+      return `<div class="b" title="${T.money(s.wt)} weighted · ${s.n} deals">
+        <div class="xs strong">${T.k(s.wt)}</div>
+        <i class="${isWon?'alt':''}" style="height:${Math.max(h,4)}%"></i>
+        <span>${stageLabel[s.stage]}</span>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Weighted forecast by stage</h3><span class="more">${T.k(weightedTotal)} total</span></div>
+      <div class="bd"><div class="barchart" style="height:170px">${bars}</div>
+        <div class="row" style="gap:18px;margin-top:12px;font-size:12px">
+          <span class="row" style="gap:6px"><span class="sw" style="width:10px;height:10px;border-radius:3px;background:var(--blue);display:inline-block"></span> Committed (won)</span>
+          <span class="row" style="gap:6px"><span class="sw" style="width:10px;height:10px;border-radius:3px;background:var(--accent);display:inline-block"></span> Weighted open pipeline</span>
+        </div>
+      </div>`;
+    return card;
+  }
+
+  // ---- discount approvals card ----
+  function approvalsCard(){
+    const card=document.createElement('div'); card.className='card';
+    const items = approvals.map(a=>{
+      const o=T.byId(a.sales);
+      const belowFloor = a.floor - a.offer;
+      const grossAtOffer = a.offer - a.cost;
+      const grossAtFloor = a.floor - a.cost;
+      return `<div class="it" style="align-items:flex-start;padding:14px 0">
+        <div class="av" style="background:${o.color}">${o.init}</div>
+        <div class="gr">
+          <div class="row between">
+            <div><span class="strong">${a.deal}</span> · ${a.cust}
+              <span class="mut sm"> — ${a.unit.year} ${a.unit.make} ${a.unit.type}</span></div>
+            <span class="pill p-red">${T.money(belowFloor)} under floor</span>
+          </div>
+          <div class="dl" style="margin-top:9px;grid-template-columns:auto 1fr auto 1fr">
+            <dt>List</dt><dd class="num-c">${T.money(a.list)}</dd>
+            <dt>Floor</dt><dd class="num-c">${T.money(a.floor)}</dd>
+            <dt>Offered</dt><dd class="num-c" style="color:var(--red)">${T.money(a.offer)}</dd>
+            <dt>Gross @ offer</dt><dd class="num-c">${T.money(grossAtOffer)}</dd>
+          </div>
+          <div class="mut xs" style="margin-top:8px">Rep: ${o.name} · Reason: ${a.reason} · Floor gross would be ${T.money(grossAtFloor)}</div>
+          <div class="row" style="gap:8px;margin-top:11px">
+            <button class="btn sm">Approve</button>
+            <button class="btn gh sm">Deny</button>
+            <button class="btn gh sm">Counter</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Discount approvals</h3><span class="more">${approvals.length} awaiting sign-off</span></div>
+      <div class="bd" style="padding:6px 16px"><div class="list">${items}</div></div>`;
+    return card;
+  }
+
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||16)+'px'; return s; }
+
+  // ---- renderers ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Team'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(leaderboardCard());
+      const right=document.createElement('div');
+      right.appendChild(funnelCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+      body.appendChild(spacer(18));
+      body.appendChild(forecastCard());
+    }
+    else if(tab==='Forecast'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      body.appendChild(forecastCard());
+      body.appendChild(spacer(18));
+      // open pipeline table
+      const card=document.createElement('div'); card.className='card';
+      const rows=[...openDeals].sort((a,b)=>STAGES.indexOf(b.stage)-STAGES.indexOf(a.stage)).map(d=>{
+        const u=T.inv(d.stock), o=T.byId(d.sales);
+        const wt=Math.round(d.value*d.prob/100);
+        return `<tr>
+          <td class="strong">${d.id}</td>
+          <td>${d.cust}</td>
+          <td><span class="strong">${u.stock}</span> <span class="mut sm">${u.year} ${u.type}</span></td>
+          <td><div class="row"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${o.name.split(' ')[0]}</span></div></td>
+          <td><span class="pill ${stagePill[d.stage]}">${stageLabel[d.stage]}</span></td>
+          <td class="num-c">${d.prob}%</td>
+          <td class="num-c">${T.money(d.value)}</td>
+          <td class="num-c strong">${T.money(wt)}</td>
+        </tr>`;
+      }).join('');
+      card.innerHTML='<div class="hd"><h3>Open pipeline detail</h3><span class="more">'+openDeals.length+' deals · '+T.k(weightedTotal)+' weighted</span></div>'+
+        '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+        '<table><thead><tr><th>Deal</th><th>Customer</th><th>Unit</th><th>Rep</th><th>Stage</th><th>Prob</th><th>Value</th><th>Weighted</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+      body.appendChild(card);
+    }
+    else if(tab==='Approvals'){
+      const g=$('grid g3','');
+      const totalUnder = approvals.reduce((s,a)=>s+(a.floor-a.offer),0);
+      g.appendChild($('stat',`<div class="lab"><span class="ic">✅</span>Pending approvals</div><div class="num">${approvals.length}</div><div class="chg down">below floor</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">📉</span>Total under floor</div><div class="num">${T.money(totalUnder)}</div><div class="chg down">margin at risk</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">⏱️</span>Approved today</div><div class="num">3</div><div class="chg up">avg 12m turnaround</div>`));
+      body.appendChild(g);
+      body.appendChild(spacer(18));
+      body.appendChild(approvalsCard());
+    }
+  }
+
+  render('Team');
+})();
+</script>
+</body>
+</html>

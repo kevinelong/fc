@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Bay · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Shop</div>
+      <a class="on" href="#"><span class="ic">🔧</span> Work orders</a>
+      <a href="#"><span class="ic">📋</span> My tasks</a>
+      <a href="#"><span class="ic">🔍</span> Inspections</a>
+      <a href="#"><span class="ic">📦</span> Parts</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#c97b3a">HR</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Hector Ruiz</b><span style="color:#8b97a3;font-size:11px">Service Technician</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Service Bay</div>
+        <div class="sub">Recon &amp; inspect units · log hours · order parts</div>
+      </div>
+      <div class="search">🔍 Search WOs, stock #, parts…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#c97b3a">HR</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  // ---- status config ----
+  const STATUSES = ['open','in-progress','waiting-parts','done'];
+  const statusLabel = {'open':'Open','in-progress':'In progress','waiting-parts':'Waiting parts','done':'Done'};
+  const statusPill  = {'open':'p-gray','in-progress':'p-blue','waiting-parts':'p-amber','done':'p-green'};
+  const colDot      = {'open':'var(--faint)','in-progress':'var(--blue)','waiting-parts':'var(--amber)','done':'var(--green)'};
+
+  const WOs = T.workOrders;
+  const me = T.byId('u8');
+
+  // ---- derived stat numbers ----
+  const openWOs   = WOs.filter(w=>w.status==='open').length;
+  const inProg    = WOs.filter(w=>w.status==='in-progress').length;
+  const waiting   = WOs.filter(w=>w.status==='waiting-parts').length;
+  const hoursToday = WOs.filter(w=>w.status!=='done').reduce((s,w)=>s+w.hrs,0); // logged on active jobs
+  const partsTotal = WOs.reduce((s,w)=>s+w.parts,0);
+
+  // small thumbnail svg for unit placeholders
+  function thumbSvg(){
+    return `<svg viewBox="0 0 52 36" xmlns="http://www.w3.org/2000/svg">
+      <rect width="52" height="36" fill="#10171c"/>
+      <rect x="6" y="11" width="34" height="11" rx="1.5" fill="#2b3942"/>
+      <rect x="6" y="9" width="3" height="13" fill="#3a4a55"/>
+      <circle cx="14" cy="25" r="3.2" fill="#566472"/><circle cx="22" cy="25" r="3.2" fill="#566472"/>
+      <circle cx="34" cy="25" r="3.2" fill="#566472"/>
+      <path d="M40 14 L46 14 L46 22 L40 22" fill="#c97b3a"/></svg>`;
+  }
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Work orders','Current job','Inspections'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||16)+'px'; return s; }
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'Open WOs', ic:'🔧', num:openWOs, chg:'awaiting start', up:false, cls:'mut'},
+      {lab:'In progress', ic:'⚙️', num:inProg, chg:'on the bay now', up:true},
+      {lab:'Waiting parts', ic:'📦', num:waiting, chg:'1 PO outstanding', up:false, down:true},
+      {lab:'Hours today', ic:'⏱️', num:hoursToday.toFixed(1)+'h', chg:'logged on active jobs', up:true},
+    ];
+    tiles.forEach(t=>{
+      const chgcls = t.down?'down':(t.up?'up':'mut');
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${chgcls}" style="${chgcls==='mut'?'color:var(--muted)':''}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- kanban board ----
+  function boardEl(){
+    const board = $('board','');
+    STATUSES.forEach(st=>{
+      const items = WOs.filter(w=>w.status===st);
+      const col = document.createElement('div'); col.className='col';
+      col.innerHTML = `<div class="ch"><span style="width:8px;height:8px;border-radius:50%;background:${colDot[st]};display:inline-block"></span>${statusLabel[st]}<span class="ct">${items.length}</span></div>`;
+      items.forEach(w=>{
+        const u = T.inv(w.stock), o = T.byId(w.tech);
+        const hpct = Math.min(100, Math.round(w.hrs/w.est*100));
+        const over = w.hrs>w.est;
+        const tile = document.createElement('div'); tile.className='tile';
+        tile.innerHTML =
+          `<div class="row between">
+             <div class="tt">${w.stock}</div>
+             <span class="pill ${statusPill[st]}" style="font-size:10px;padding:2px 7px">${w.id}</span>
+           </div>
+           <div class="tm">${u? u.year+' '+u.make+' '+u.type : w.type} · ${w.type}</div>
+           <div class="row between" style="margin-bottom:6px">
+             <span class="mut xs">Hours ${w.hrs} / ${w.est}h</span>
+             <span class="xs strong" style="${over?'color:var(--red)':'color:var(--muted)'}">${hpct}%</span>
+           </div>
+           <div class="bar"><i style="width:${hpct}%;${over?'background:var(--red)':''}"></i></div>
+           <div class="tf" style="margin-top:9px">
+             <div class="row" style="gap:6px"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="mut xs">${T.ago(w.opened)}</span></div>
+             <span class="tag">${w.parts? T.money(w.parts):'No parts'}</span>
+           </div>`;
+        col.appendChild(tile);
+      });
+      if(!items.length){ col.appendChild($('mut sm','<div style="padding:14px 4px;text-align:center">No work orders</div>')); }
+      board.appendChild(col);
+    });
+    return board;
+  }
+
+  // ---- current job detail (WO-7001 DT-6602 Recon) ----
+  function currentJobCard(){
+    const w = WOs.find(x=>x.id==='WO-7001');
+    const u = T.inv(w.stock), o = T.byId(w.tech);
+    const hpct = Math.min(100, Math.round(w.hrs/w.est*100));
+    const doneCount = w.tasks.filter(t=>t[1]).length;
+
+    const tasks = w.tasks.map((t,i)=>{
+      const done = !!t[1];
+      return `<label class="it" style="padding:9px 0;cursor:pointer">
+        <input type="checkbox" ${done?'checked':''} style="width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto">
+        <div class="gr"><span class="${done?'mut':'strong'}" style="${done?'text-decoration:line-through':''}">${t[0]}</span></div>
+        <span class="pill ${done?'p-green':'p-gray'}" style="font-size:10.5px">${done?'Done':'To do'}</span>
+      </label>`;
+    }).join('');
+
+    const parts = [
+      {name:'Hoist cylinder — 4" x 36" telescopic', qty:1, cost:1180, in:true},
+      {name:'Tarp system kit (electric)', qty:1, cost:460, in:true},
+      {name:'LED DOT light kit', qty:1, cost:120, in:false},
+      {name:'Box repaint — primer + topcoat', qty:1, cost:80, in:false},
+    ];
+    const partsRows = parts.map(p=>`<tr>
+        <td>${p.name}</td>
+        <td class="num-c">${p.qty}</td>
+        <td><span class="pill ${p.in?'p-green':'p-amber'}" style="font-size:10.5px">${p.in?'In stock':'On order'}</span></td>
+        <td class="num-c strong">${T.money(p.cost)}</td>
+      </tr>`).join('');
+
+    const photos = [1,2,3,4].map(()=>`<div class="thumb-mini" style="width:auto;aspect-ratio:3/2;height:auto">${thumbSvg()}</div>`).join('');
+
+    const card = document.createElement('div'); card.className='card';
+    card.innerHTML =
+      `<div class="hd">
+         <h3>Current job — ${w.id}</h3>
+         <span class="pill ${statusPill[w.status]}" style="margin-left:8px">${statusLabel[w.status]}</span>
+         <span class="more">${u.year} ${u.make} ${u.type} · ${w.type}</span>
+       </div>
+       <div class="bd">
+         <div class="row between wrap" style="gap:14px;margin-bottom:16px">
+           <div class="row" style="gap:12px">
+             <div class="thumb-mini" style="width:72px;height:50px">${thumbSvg()}</div>
+             <div>
+               <div class="strong" style="font-size:15px">${w.stock} · ${u.year} ${u.make}</div>
+               <div class="mut sm">${u.type} · ${u.len} · ${u.cond} · ${u.loc}</div>
+               <div class="row" style="gap:6px;margin-top:6px"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${o.name}</span><span class="mut xs">· opened ${T.ago(w.opened)}</span></div>
+             </div>
+           </div>
+           <div class="row" style="gap:8px">
+             <button class="btn sm">Log hours</button>
+             <button class="btn gh sm">Order parts</button>
+             <button class="btn gh sm">Mark done</button>
+           </div>
+         </div>
+
+         <div class="grid g2" style="gap:18px">
+           <div>
+             <div class="row between" style="margin-bottom:6px"><span class="strong sm">Hours logged</span><span class="mut xs">${w.hrs} of ${w.est}h est</span></div>
+             <div class="bar" style="height:12px"><i style="width:${hpct}%"></i></div>
+             <div class="mut xs" style="margin-top:5px">${(w.est-w.hrs).toFixed(1)}h remaining · ${hpct}% of estimate</div>
+           </div>
+           <div>
+             <div class="row between" style="margin-bottom:6px"><span class="strong sm">Tasks complete</span><span class="mut xs">${doneCount} of ${w.tasks.length}</span></div>
+             <div class="bar" style="height:12px"><i style="width:${Math.round(doneCount/w.tasks.length*100)}%"></i></div>
+             <div class="mut xs" style="margin-top:5px">Parts to date: ${T.money(w.parts)}</div>
+           </div>
+         </div>
+
+         <div class="divider"></div>
+         <div class="strong sm" style="margin-bottom:4px">Recon checklist</div>
+         <div class="list">${tasks}</div>
+
+         <div class="divider"></div>
+         <div class="row between" style="margin-bottom:8px"><span class="strong sm">Parts &amp; materials</span><span class="mut xs">${parts.length} lines · ${T.money(parts.reduce((s,p)=>s+p.cost,0))}</span></div>
+         <div class="t-wrap"><table>
+           <thead><tr><th>Part</th><th>Qty</th><th>Status</th><th>Cost</th></tr></thead>
+           <tbody>${partsRows}</tbody></table></div>
+
+         <div class="divider"></div>
+         <div class="row between" style="margin-bottom:8px"><span class="strong sm">Photos</span><span class="mut xs">before / after · 4 attached</span></div>
+         <div class="grid g4" style="gap:10px">${photos}</div>
+         <div class="note" style="margin-top:12px">Hold unit in <b>recon</b> until box repaint &amp; DOT brake test pass. Then flip to <b>available</b> for ${u.loc.includes('Service')?'Main Yard':'the lot'}.</div>
+       </div>`;
+    return card;
+  }
+
+  // ---- intake inspection checklist (WO-7002) ----
+  function inspectionCard(){
+    const w = WOs.find(x=>x.id==='WO-7002');
+    const u = T.inv(w.stock), o = T.byId(w.tech);
+    const rows = [
+      {sys:'Brakes', detail:'Lining 9/32" · slack adj OK · no air loss', res:'pass'},
+      {sys:'Tires', detail:'8/8 over 6/32" · 2 to monitor · DOT current', res:'monitor'},
+      {sys:'Lights', detail:'Left marker out · harness chafe at crossmember', res:'fail'},
+      {sys:'Floor & walls', detail:'Aluminum floor solid · no soft spots', res:'pass'},
+      {sys:'Reefer / PM', detail:'Carrier unit 9,840 hrs · PM due in 160h', res:'monitor'},
+      {sys:'Frame & welds', detail:'No cracks · landing gear smooth', res:'pass'},
+    ];
+    const pillFor = r => r==='pass'?'p-green':r==='monitor'?'p-amber':'p-red';
+    const labelFor = r => r==='pass'?'Pass':r==='monitor'?'Monitor':'Fail';
+    const tr = rows.map(r=>`<tr>
+        <td class="strong">${r.sys}</td>
+        <td class="mut sm">${r.detail}</td>
+        <td><span class="pill ${pillFor(r.res)}">${labelFor(r.res)}</span></td>
+      </tr>`).join('');
+    const passN = rows.filter(r=>r.res==='pass').length;
+    const failN = rows.filter(r=>r.res==='fail').length;
+
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML =
+      `<div class="hd"><h3>Intake inspection — ${w.id}</h3>
+        <span class="pill ${statusPill[w.status]}" style="margin-left:8px">${statusLabel[w.status]}</span>
+        <span class="more">${w.stock} · ${u.year} ${u.make} ${u.type}</span></div>
+       <div class="bd">
+         <div class="row between wrap" style="margin-bottom:14px;gap:10px">
+           <div class="row" style="gap:8px"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${o.name}</span><span class="mut xs">· ${u.eta!=null?u.eta+'d ETA · ':''}intake ${T.ago(w.opened)}</span></div>
+           <div class="row" style="gap:6px">
+             <span class="pill p-green">${passN} pass</span>
+             <span class="pill p-amber">${rows.filter(r=>r.res==='monitor').length} monitor</span>
+             <span class="pill p-red">${failN} fail</span>
+           </div>
+         </div>
+         <div class="t-wrap"><table>
+           <thead><tr><th>System</th><th>Finding</th><th>Result</th></tr></thead>
+           <tbody>${tr}</tbody></table></div>
+         <div class="note" style="margin-top:12px">${failN} fail item${failN===1?'':'s'} blocks listing: replace left marker &amp; repair harness chafe. Spin up a repair WO before this unit can go <b>available</b>.</div>
+       </div>`;
+    return card;
+  }
+
+  // ---- WO summary table (for inspections tab) ----
+  function woTableCard(){
+    const card=document.createElement('div'); card.className='card';
+    const rows = WOs.map(w=>{
+      const u=T.inv(w.stock), o=T.byId(w.tech);
+      const done=w.tasks.filter(t=>t[1]).length;
+      return `<tr>
+        <td class="strong">${w.id}</td>
+        <td><span class="strong">${w.stock}</span> <span class="mut sm">${u?u.year+' '+u.type:''}</span></td>
+        <td>${w.type}</td>
+        <td><span class="pill ${statusPill[w.status]}">${statusLabel[w.status]}</span></td>
+        <td class="num-c">${w.hrs} / ${w.est}h</td>
+        <td class="num-c">${done}/${w.tasks.length}</td>
+        <td class="num-c strong">${w.parts?T.money(w.parts):'—'}</td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>All work orders</h3><span class="more">${WOs.length} on the board · ${T.money(partsTotal)} parts</span></div>
+      <div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+      <table><thead><tr><th>WO</th><th>Unit</th><th>Type</th><th>Status</th><th>Hours</th><th>Tasks</th><th>Parts</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+    return card;
+  }
+
+  // ---- renderers ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Work orders'){
+      body.appendChild(statRow());
+      body.appendChild(spacer(18));
+      const card=document.createElement('div'); card.className='card';
+      card.innerHTML=`<div class="hd"><h3>Service board</h3><span class="more">${WOs.length} work orders · drag to advance</span></div>`;
+      const bd=$('bd',''); bd.appendChild(boardEl()); card.appendChild(bd);
+      body.appendChild(card);
+    }
+    else if(tab==='Current job'){
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(currentJobCard());
+      const right=document.createElement('div'); right.appendChild(inspectionCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Inspections'){
+      const g=$('grid g3','');
+      const u=T.inv('IN-5521');
+      g.appendChild($('stat',`<div class="lab"><span class="ic">🔍</span>Intake pending</div><div class="num">2</div><div class="chg" style="color:var(--muted)">incoming units</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">⚠️</span>Fail items</div><div class="num">1</div><div class="chg down">blocks listing</div>`));
+      g.appendChild($('stat',`<div class="lab"><span class="ic">✅</span>Cleared this week</div><div class="num">5</div><div class="chg up">ready for lot</div>`));
+      body.appendChild(g);
+      body.appendChild(spacer(18));
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(inspectionCard());
+      const right=document.createElement('div'); right.appendChild(woTableCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('Work orders');
+})();
+</script>
+</body>
+</html>

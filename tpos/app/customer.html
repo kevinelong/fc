@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Account · Stiles & Sons · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Your dealer</div>
+    <nav class="nav">
+      <div class="grp">My Account</div>
+      <a class="on" href="#"><span class="ic">🏠</span> Dashboard</a>
+      <a href="#"><span class="ic">📄</span> My Quotes</a>
+      <a href="#"><span class="ic">🏦</span> Financing</a>
+      <a href="#"><span class="ic">🚚</span> Delivery</a>
+      <a href="#"><span class="ic">📁</span> Documents</a>
+      <a href="#"><span class="ic">⭐</span> Saved</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#2f7ed8">OS</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Owen Stiles</b><span style="color:#8b97a3;font-size:11px">Stiles &amp; Sons</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">My Account · Stiles &amp; Sons</div>
+        <div class="sub">Your trailer purchase, all in one place</div>
+      </div>
+      <div class="search">🔍 Search quotes, documents…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#2f7ed8">OS</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var T = window.TPOS, money = T.money;
+  var deal = T.deals.find(function (d) { return d.id === 'D-901'; });
+  var unit = T.inv('LB-3050');
+  var rep  = T.byId(deal.sales);
+
+  // --- progress tracker for Negotiation stage ---
+  // Quote -> Financing -> Paperwork -> Delivery. Negotiation = quote done, on financing.
+  var steps = [
+    { label: 'Quote',     icon: '📄', state: 'done' },
+    { label: 'Financing', icon: '🏦', state: 'now'  },
+    { label: 'Paperwork', icon: '✍️', state: 'next' },
+    { label: 'Delivery',  icon: '🚚', state: 'next' }
+  ];
+
+  function tracker() {
+    var pct = 38; // between financing & paperwork
+    var dots = steps.map(function (s, i) {
+      var cls = s.state === 'done' ? 'p-green' : s.state === 'now' ? 'p-blue' : 'p-gray';
+      var sub = s.state === 'done' ? 'Complete' : s.state === 'now' ? 'In progress' : 'Up next';
+      return '<div style="flex:1;text-align:center;min-width:0">' +
+        '<div style="width:38px;height:38px;border-radius:50%;margin:0 auto 8px;display:grid;place-items:center;font-size:17px;' +
+        (s.state === 'done' ? 'background:#e6f7ef' : s.state === 'now' ? 'background:#e8f1fc;box-shadow:0 0 0 3px #d2e4f9' : 'background:#eef2f6;opacity:.7') +
+        '">' + (s.state === 'done' ? '✓' : s.icon) + '</div>' +
+        '<div class="strong" style="font-size:13px">' + s.label + '</div>' +
+        '<span class="pill ' + cls + '" style="margin-top:5px">' + sub + '</span>' +
+        '</div>';
+    }).join('');
+    return '<div style="position:relative;padding:4px 0 2px">' +
+      '<div style="position:absolute;left:8%;right:8%;top:23px;height:4px;background:var(--line2);border-radius:5px"></div>' +
+      '<div style="position:absolute;left:8%;top:23px;height:4px;width:' + pct + '%;background:var(--green);border-radius:5px"></div>' +
+      '<div style="display:flex;gap:8px;position:relative">' + dots + '</div></div>';
+  }
+
+  // --- header / welcome + deal card ---
+  function dealCard() {
+    return '<div class="card">' +
+      '<div class="hd"><h3>Your deal · ' + deal.id + '</h3><span class="more">Updated ' + T.ago(deal.updated) + '</span></div>' +
+      '<div class="bd">' +
+        '<div class="row between wrap" style="gap:16px;margin-bottom:18px">' +
+          '<div class="row" style="gap:14px">' +
+            '<div class="thumb-mini" style="width:84px;height:58px"><svg viewBox="0 0 84 58"><rect width="84" height="58" fill="#1b2733"/>' +
+              '<rect x="8" y="20" width="56" height="18" rx="2" fill="#2f7ed8"/><rect x="8" y="38" width="56" height="4" fill="#0f1822"/>' +
+              '<circle cx="20" cy="46" r="5" fill="#0f1822"/><circle cx="52" cy="46" r="5" fill="#0f1822"/><rect x="64" y="26" width="12" height="12" rx="2" fill="#3a4856"/></svg></div>' +
+            '<div>' +
+              '<div class="strong" style="font-size:17px">' + unit.year + ' ' + unit.make + ' ' + unit.type + '</div>' +
+              '<div class="mut sm">Stock ' + unit.stock + ' · ' + unit.len + ' · ' + unit.cond + ' · ' + unit.loc + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<div class="strong" style="font-size:24px;letter-spacing:-.02em">' + money(deal.value) + '</div>' +
+            '<span class="pill p-amber">Negotiation</span>' +
+          '</div>' +
+        '</div>' +
+        tracker() +
+        '<div class="note" style="margin-top:18px">Good news — your financing was approved. Next we\'ll prepare your paperwork for signature, then schedule delivery to your yard.</div>' +
+      '</div></div>';
+  }
+
+  // --- stat tiles ---
+  function tiles() {
+    var t = [
+      ['📄', 'Open quotes', '1', '<span class="mut sm">' + unit.stock + ' active</span>'],
+      ['🏦', 'Financing', '<span class="pill p-green" style="font-size:13px;padding:4px 11px">Approved</span>', '<span class="mut sm">$812/mo · 48 mo</span>'],
+      ['🚚', 'Delivery', '<span class="pill p-blue" style="font-size:13px;padding:4px 11px">Scheduled</span>', '<span class="mut sm">ETA in 4 days</span>'],
+      ['✍️', 'Documents', '1', '<span class="mut sm">to sign</span>']
+    ];
+    return '<div class="grid g4">' + t.map(function (x) {
+      return '<div class="stat"><div class="lab"><span class="ic">' + x[0] + '</span>' + x[1] + '</div>' +
+        '<div class="num" style="font-size:22px">' + x[2] + '</div><div class="chg" style="color:var(--muted);font-weight:500">' + x[3] + '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  // --- my quotes table (LB-3050 active, CH-1009 earlier) ---
+  function quotes() {
+    var lb = T.inv('LB-3050'), ch = T.inv('CH-1009');
+    var rows = [
+      { q: 'Q-901', unit: lb, total: deal.value, date: T.D ? null : 0, daysAgo: 4, status: 'p-blue', label: 'Active' },
+      { q: 'Q-880', unit: ch, total: 11500, daysAgo: 21, status: 'p-gray', label: 'Expired' }
+    ];
+    var body = rows.map(function (r) {
+      return '<tr>' +
+        '<td class="strong num-c">' + r.q + '</td>' +
+        '<td>' + r.unit.year + ' ' + r.unit.make + ' ' + r.unit.type + '<div class="mut xs">Stock ' + r.unit.stock + '</div></td>' +
+        '<td class="num-c strong">' + money(r.total) + '</td>' +
+        '<td class="mut sm">' + r.daysAgo + 'd ago</td>' +
+        '<td><span class="pill ' + r.status + '">' + r.label + '</span></td>' +
+        '<td style="text-align:right">' + (r.label === 'Active'
+            ? '<button class="btn sm">View quote</button>'
+            : '<button class="btn gh sm">Re-request</button>') + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="card"><div class="hd"><h3>My quotes</h3><span class="more">2 total</span></div>' +
+      '<div class="t-wrap" style="border:none;box-shadow:none;border-radius:0"><table>' +
+      '<thead><tr><th>Quote</th><th>Trailer</th><th>Total</th><th>Requested</th><th>Status</th><th></th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></div></div>';
+  }
+
+  // --- financing card ---
+  function financing() {
+    return '<div class="card"><div class="hd"><h3>Financing</h3><span class="pill p-green">Approved</span></div>' +
+      '<div class="bd">' +
+        '<dl class="dl">' +
+          '<dt>Amount financed</dt><dd>' + money(deal.value) + '</dd>' +
+          '<dt>Down payment</dt><dd>' + money(4000) + '</dd>' +
+          '<dt>Term</dt><dd>48 months</dd>' +
+          '<dt>APR</dt><dd>7.9%</dd>' +
+          '<dt>Est. payment</dt><dd>$812 / mo</dd>' +
+          '<dt>Lender</dt><dd>Springfield Equipment Finance</dd>' +
+        '</dl>' +
+        '<div class="divider"></div>' +
+        '<div class="row between"><span class="mut sm">Approval valid through Jul 8, 2026</span>' +
+        '<button class="btn sm">View terms</button></div>' +
+      '</div></div>';
+  }
+
+  // --- delivery card ---
+  function delivery() {
+    return '<div class="card"><div class="hd"><h3>Delivery</h3><span class="pill p-blue">Scheduled</span></div>' +
+      '<div class="bd">' +
+        '<dl class="dl">' +
+          '<dt>Deliver to</dt><dd>Your yard · Effingham, IL</dd>' +
+          '<dt>ETA</dt><dd>Jun 14, 2026 (in 4 days)</dd>' +
+          '<dt>Window</dt><dd>9:00 AM – 12:00 PM</dd>' +
+          '<dt>Driver</dt><dd>Boone Carter</dd>' +
+          '<dt>Freight</dt><dd>Included</dd>' +
+        '</dl>' +
+        '<div class="note" style="margin-top:14px">A 48-hour reminder text will be sent to the number on file. We\'ll confirm gate access before dispatch.</div>' +
+      '</div></div>';
+  }
+
+  // --- saved trailers mini (2 units) ---
+  function saved() {
+    var s = [T.inv('TK-9920'), T.inv('FB-4410')];
+    return '<div class="card"><div class="hd"><h3>Saved trailers</h3><span class="more">2</span></div>' +
+      '<div class="bd"><div class="list">' + s.map(function (u) {
+        return '<div class="it">' +
+          '<div class="thumb-mini"><svg viewBox="0 0 52 36"><rect width="52" height="36" fill="#1b2733"/><rect x="6" y="13" width="34" height="11" rx="2" fill="#2f7ed8"/><circle cx="14" cy="28" r="3" fill="#0f1822"/><circle cx="32" cy="28" r="3" fill="#0f1822"/></svg></div>' +
+          '<div class="gr"><div class="strong" style="font-size:13px">' + u.year + ' ' + u.make + ' ' + u.type + '</div>' +
+          '<div class="mut xs">' + u.stock + ' · ' + u.len + ' · ' + u.cond + '</div></div>' +
+          '<div style="text-align:right"><div class="strong num-c">' + money(u.list) + '</div>' +
+          '<button class="btn gh sm" style="margin-top:4px">Request quote</button></div>' +
+          '</div>';
+      }).join('') + '</div></div></div>';
+  }
+
+  // --- need help / rep card ---
+  function rep_card() {
+    return '<div class="card"><div class="hd"><h3>Your dealer contact</h3></div><div class="bd">' +
+      '<div class="row" style="gap:12px">' +
+        '<div class="av lg" style="background:' + rep.color + '">' + rep.init + '</div>' +
+        '<div class="gr"><div class="strong">' + rep.name + '</div><div class="mut sm">' + rep.role + ' · Ironline Trailer Co.</div>' +
+        '<div class="mut sm">📞 618-555-0173 · 📧 rick@ironlinetrailer.com</div></div>' +
+        '<button class="btn sm">Message</button>' +
+      '</div></div></div>';
+  }
+
+  // --- tabs ---
+  var TABS = ['Dashboard', 'Financing', 'Delivery'];
+  function render(tab) {
+    var nav = '<div class="tabs">' + TABS.map(function (t) {
+      return '<a class="' + (t === tab ? 'on' : '') + '" data-tab="' + t + '">' + t + '</a>';
+    }).join('') + '</div>';
+
+    var welcome = '<div class="page-h"><h1>Welcome back, Owen 👋</h1>' +
+      '<div class="acts"><button class="btn gh sm">Browse inventory</button><button class="btn sm">Sign documents (1)</button></div></div>';
+
+    var body;
+    if (tab === 'Dashboard') {
+      body =
+        tiles() +
+        '<div style="height:16px"></div>' +
+        dealCard() +
+        '<div style="height:16px"></div>' +
+        '<div class="cols">' +
+          quotes() +
+          '<div class="grid">' + saved() + rep_card() + '</div>' +
+        '</div>';
+    } else if (tab === 'Financing') {
+      body = '<div class="cols">' + financing() +
+        '<div class="grid">' +
+          '<div class="card"><div class="hd"><h3>Payment estimate</h3></div><div class="bd">' +
+            '<div class="num" style="font-size:30px;font-weight:800">$812<span class="mut" style="font-size:15px;font-weight:600">/mo</span></div>' +
+            '<div class="mut sm" style="margin-bottom:12px">48 payments · 7.9% APR</div>' +
+            '<div class="bar"><i style="width:38%"></i></div>' +
+            '<div class="mut xs" style="margin-top:6px">Approved · ' + money(deal.value) + ' financed</div>' +
+          '</div></div>' +
+          rep_card() +
+        '</div></div>';
+    } else {
+      body = '<div class="cols">' + delivery() +
+        '<div class="grid">' +
+          '<div class="card"><div class="hd"><h3>Delivery checklist</h3></div><div class="bd"><div class="list">' +
+            [['Financing approved', 1], ['Paperwork signed', 0], ['Final payment cleared', 0], ['Yard access confirmed', 0]].map(function (c) {
+              return '<div class="it"><span style="font-size:16px">' + (c[1] ? '✅' : '⬜') + '</span>' +
+                '<div class="gr"><span class="' + (c[1] ? 'strong' : 'mut') + '">' + c[0] + '</span></div></div>';
+            }).join('') +
+          '</div></div></div>' +
+          rep_card() +
+        '</div></div>';
+    }
+
+    document.getElementById('content').innerHTML = welcome + nav + body;
+    document.querySelectorAll('.tabs a').forEach(function (a) {
+      a.onclick = function () { render(a.getAttribute('data-tab')); };
+    });
+  }
+  render('Dashboard');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead Desk · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Prospecting</div>
+      <a class="on" href="#"><span class="ic">📥</span> Inbox</a>
+      <a href="#"><span class="ic">🎯</span> My Leads</a>
+      <a href="#"><span class="ic">📣</span> Campaigns</a>
+      <a href="#"><span class="ic">🌐</span> Sources</a>
+      <div class="grp">Automation</div>
+      <a href="#"><span class="ic">⚡</span> Sequences</a>
+      <a href="#"><span class="ic">📨</span> Templates</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#3a9bc9">ML</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Marcy Lane</b><span style="color:#8b97a3;font-size:11px">Lead Generation</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Lead Desk</div>
+        <div class="sub">Capture · respond fast · route to sales</div>
+      </div>
+      <div class="search">🔍 Search leads, companies…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#3a9bc9">ML</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  // ---- helpers ----
+  const statusPill = {new:'p-blue', working:'p-amber', quoted:'p-purple', won:'p-green', lost:'p-gray'};
+  const statusLabel = {new:'New', working:'Working', quoted:'Quoted', won:'Won', lost:'Lost'};
+  const srcPill = {'Web form':'p-teal','TruckPaper':'p-blue','Facebook':'p-purple','Google Ads':'p-amber','Referral':'p-green','Walk-in':'p-gray','Phone':'p-gray'};
+
+  // ---- derived metrics ----
+  const today = T.leads.filter(l=>T.ago(l.created)==='today');
+  const newToday = T.leads.filter(l=>l.status==='new' && T.ago(l.created)==='today');
+  const weekCount = T.leads.filter(l=>(Date.now()-l.created)<=7*864e5).length;
+  const quotedOrBeyond = T.leads.filter(l=>['quoted','won'].includes(l.status)).length;
+  const convToQuote = Math.round(quotedOrBeyond / T.leads.length * 100);
+
+  // source counts
+  const srcMap = {};
+  T.leads.forEach(l=>{ srcMap[l.src] = (srcMap[l.src]||0)+1; });
+  const srcOrder = ['Web form','TruckPaper','Facebook','Google Ads','Referral','Walk-in','Phone'];
+  const sources = srcOrder.filter(s=>srcMap[s]).map(s=>({src:s, n:srcMap[s]}));
+  const srcMax = Math.max(...sources.map(s=>s.n));
+
+  // campaigns (plausible, derived counts tie loosely to sources)
+  const campaigns = [
+    { name:'Google Ads — Heavy Haul', chan:'Google Ads', spend:1840, leads: srcMap['Google Ads']||1, pill:'p-amber' },
+    { name:'Facebook — Ag & Livestock', chan:'Facebook', spend:620, leads: srcMap['Facebook']||1, pill:'p-purple' },
+    { name:'TruckPaper Featured Listings', chan:'TruckPaper', spend:950, leads: srcMap['TruckPaper']||2, pill:'p-blue' },
+  ];
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Inbox','Campaigns','Sources'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'New leads today', ic:'📥', num:newToday.length, chg:'+'+today.length+' total in', up:true},
+      {lab:'Avg first-response', ic:'⏱️', num:'9m', chg:'▲ 2m faster vs last wk', up:true},
+      {lab:'Leads this week', ic:'📈', num:weekCount, chg:'+18% WoW', up:true},
+      {lab:'Conversion to quote', ic:'🎯', num:convToQuote+'%', chg:quotedOrBeyond+' of '+T.leads.length+' quoted+', up:true},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- lead inbox table ----
+  function inboxTable(){
+    const w = $('t-wrap','');
+    const rows = [...T.leads].sort((a,b)=>{
+      const ord={new:0,working:1,quoted:2,won:3,lost:4};
+      if(ord[a.status]!==ord[b.status]) return ord[a.status]-ord[b.status];
+      return b.created-a.created;
+    }).map(l=>{
+      const unit = T.inv(l.interest);
+      const o = T.byId(l.owner);
+      const ownerCell = l.owner==='u2'
+        ? `<span class="pill p-amber">Unassigned</span>`
+        : `<div class="row"><div class="av sm" style="background:${o.color}">${o.init}</div><span class="sm">${o.name.split(' ')[0]}</span></div>`;
+      const intCell = unit
+        ? `<span class="strong">${unit.stock}</span> <span class="mut sm">${unit.year} ${unit.type}</span>`
+        : `<span class="mut">${l.interest}</span>`;
+      const acts = l.owner==='u2'
+        ? `<button class="btn sm">Assign</button> <button class="btn gh sm">Call</button>`
+        : `<button class="btn gh sm">Call</button>`;
+      return `<tr>
+        <td><div class="strong">${l.name}</div><div class="mut xs">${l.phone}</div></td>
+        <td>${l.co}</td>
+        <td><span class="pill ${srcPill[l.src]||'p-gray'}">${l.src}</span></td>
+        <td>${intCell}</td>
+        <td class="num-c sm mut">${T.ago(l.created)}</td>
+        <td><span class="pill ${statusPill[l.status]}">${statusLabel[l.status]}</span></td>
+        <td>${ownerCell}</td>
+        <td class="num-c">${acts}</td>
+      </tr>`;
+    }).join('');
+    w.innerHTML = `<table>
+      <thead><tr>
+        <th>Lead</th><th>Company</th><th>Source</th><th>Interest</th><th>Age</th><th>Status</th><th>Owner</th><th>Actions</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+    return w;
+  }
+
+  // ---- sources card (barchart) ----
+  function sourcesCard(){
+    const card = document.createElement('div'); card.className='card';
+    const bars = sources.map(s=>{
+      const h = Math.round(s.n/srcMax*100);
+      return `<div class="b" title="${s.n} leads">
+        <div class="xs strong">${s.n}</div>
+        <i style="height:${h}%"></i>
+        <span>${s.src.replace(' form','').replace(' Ads','')}</span>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Lead sources</h3><span class="more">last 30 days</span></div>
+      <div class="bd"><div class="barchart">${bars}</div></div>`;
+    return card;
+  }
+
+  // ---- campaigns mini card ----
+  function campaignsCard(){
+    const card = document.createElement('div'); card.className='card';
+    const items = campaigns.map(c=>{
+      const cpl = Math.round(c.spend/c.leads);
+      return `<div class="it">
+        <span class="pill ${c.pill}">${c.chan}</span>
+        <div class="gr"><div class="strong sm">${c.name}</div>
+          <div class="mut xs">${T.money(c.spend)} spend · ${c.leads} leads</div></div>
+        <div style="text-align:right"><div class="strong">${T.money(cpl)}</div><div class="mut xs">CPL</div></div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="hd"><h3>Active campaigns</h3><span class="more">3 running</span></div>
+      <div class="bd"><div class="list">${items}</div></div>`;
+    return card;
+  }
+
+  // ---- renderers per tab ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Inbox'){
+      body.appendChild(statRow());
+      const sp=document.createElement('div'); sp.style.height='18px'; body.appendChild(sp);
+      const cols = $('cols','');
+      const left = document.createElement('div');
+      const inboxCard = document.createElement('div'); inboxCard.className='card';
+      inboxCard.innerHTML='<div class="hd"><h3>Lead inbox</h3><span class="more">'+T.leads.length+' open · '+newToday.length+' new today</span></div>';
+      const bd=document.createElement('div'); bd.className='bd'; bd.style.padding='0';
+      bd.appendChild(inboxTable()); inboxCard.appendChild(bd);
+      left.appendChild(inboxCard);
+      const right=document.createElement('div');
+      right.appendChild(sourcesCard());
+      const sp2=document.createElement('div'); sp2.style.height='16px'; right.appendChild(sp2);
+      right.appendChild(campaignsCard());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Campaigns'){
+      const grid=$('grid g3','');
+      campaigns.forEach(c=>{
+        const cpl=Math.round(c.spend/c.leads);
+        grid.appendChild($('stat',
+          `<div class="lab"><span class="ic">📣</span>${c.chan}</div>
+           <div class="num">${c.leads}<span class="mut" style="font-size:14px;font-weight:600"> leads</span></div>
+           <div class="chg up">${T.money(cpl)} CPL · ${T.money(c.spend)} spend</div>`));
+      });
+      body.appendChild(grid);
+      const sp=document.createElement('div'); sp.style.height='18px'; body.appendChild(sp);
+      const card=document.createElement('div'); card.className='card';
+      const rows=campaigns.map(c=>{
+        const cpl=Math.round(c.spend/c.leads);
+        return `<tr>
+          <td class="strong">${c.name}</td>
+          <td><span class="pill ${c.pill}">${c.chan}</span></td>
+          <td class="num-c">${T.money(c.spend)}</td>
+          <td class="num-c">${c.leads}</td>
+          <td class="num-c strong">${T.money(cpl)}</td>
+          <td><span class="pill p-green">Active</span></td>
+        </tr>`;
+      }).join('');
+      card.innerHTML='<div class="hd"><h3>Campaign performance</h3><span class="more">month to date</span></div>'+
+        '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+        '<table><thead><tr><th>Campaign</th><th>Channel</th><th>Spend</th><th>Leads</th><th>CPL</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+      body.appendChild(card);
+    }
+    else if(tab==='Sources'){
+      const cols=$('cols','');
+      const left=document.createElement('div'); left.appendChild(sourcesCard());
+      const card=document.createElement('div'); card.className='card';
+      const total=sources.reduce((s,x)=>s+x.n,0);
+      const rows=sources.map(s=>`<tr>
+        <td><span class="pill ${srcPill[s.src]||'p-gray'}">${s.src}</span></td>
+        <td class="num-c strong">${s.n}</td>
+        <td class="num-c mut">${Math.round(s.n/total*100)}%</td>
+      </tr>`).join('');
+      card.innerHTML='<div class="hd"><h3>Source breakdown</h3><span class="more">'+total+' leads</span></div>'+
+        '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+        '<table><thead><tr><th>Source</th><th>Leads</th><th>Share</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+      const right=document.createElement('div'); right.appendChild(card);
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('Inbox');
+})();
+</script>
+</body>
+</html>

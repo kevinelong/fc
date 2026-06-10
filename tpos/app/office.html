@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Front Office · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Office</div>
+      <a class="on" href="#"><span class="ic">🗂️</span> Deals desk</a>
+      <a href="#"><span class="ic">📋</span> Titles &amp; DMV</a>
+      <a href="#"><span class="ic">📄</span> Documents</a>
+      <a href="#"><span class="ic">📅</span> Appointments</a>
+      <div class="grp">Reference</div>
+      <a href="#"><span class="ic">🚚</span> Inventory</a>
+      <a href="#"><span class="ic">👤</span> Customers</a>
+    </nav>
+    <div class="me">
+      <div class="av sm" style="background:#3ac9a0">LK</div>
+      <span><b style="color:#e7edf3;display:block;font-size:12.5px">Lori Kemp</b><span style="color:#8b97a3;font-size:11px">Office / Titles</span></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Front Office</div>
+        <div class="sub">Paperwork · titles · scheduling</div>
+      </div>
+      <div class="search">🔍 Search deals, titles, customers…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#3ac9a0">LK</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, $ = (s,h)=>{const e=document.createElement('div');e.className=s;if(h!=null)e.innerHTML=h;return e;};
+  const c = document.getElementById('content');
+
+  function spacer(h){ const s=document.createElement('div'); s.style.height=(h||18)+'px'; return s; }
+
+  // ---- the office cares about deals heading to / past close ----
+  const paperDeals = T.deals.filter(d=>['financing','delivery','won'].includes(d.stage));
+
+  // Deterministic per-deal paperwork state (so screens are reproducible).
+  // checklist of the 4 docs the office collects; true = on file, false = missing.
+  const docState = {
+    'D-902': { Title:true,  'Bill of Sale':false, Financing:false, Insurance:true  }, // financing, RF-7220
+    'D-906': { Title:false, 'Bill of Sale':true,  Financing:true,  Insurance:false }, // delivery, ED-8801
+    'D-905': { Title:true,  'Bill of Sale':true,  Financing:true,  Insurance:true  }, // won, EQ-5140 (clean)
+  };
+  const docOrder = ['Title','Bill of Sale','Financing','Insurance'];
+  const missingDocs = id => docOrder.filter(k => docState[id] && docState[id][k]===false);
+
+  // Title / DMV tracking for units that are won or out for delivery.
+  // status: in-hand | applied | pending | lien-release
+  const titleRows = [
+    { stock:'EQ-5140', cust:'TM Excavating',          deal:'D-905', status:'in-hand',      state:'IA', days:2,  note:'Clean title received, ready to assign' },
+    { stock:'ED-8801', cust:'Foster Sand & Gravel',   deal:'D-906', status:'applied',      state:'MO', days:5,  note:'MO DOR application submitted 5d ago' },
+    { stock:'RF-7220', cust:'Pruitt Logistics',       deal:'D-902', status:'lien-release', state:'IL', days:9,  note:'Awaiting payoff letter from prior lienholder' },
+    { stock:'LB-3050', cust:'Stiles & Sons',          deal:'D-901', status:'pending',      state:'IL', days:1,  note:'Hold — deal in negotiation, not yet won' },
+  ];
+  const titlePill = { 'in-hand':'p-green', 'applied':'p-blue', 'pending':'p-amber', 'lien-release':'p-red' };
+  const titleLab  = { 'in-hand':'In hand', 'applied':'Applied', 'pending':'Pending', 'lien-release':'Lien release' };
+
+  // ---- stage pill maps ----
+  const stagePill = { financing:'p-blue', delivery:'p-green', won:'p-purple', negotiation:'p-amber', quoted:'p-teal' };
+  const stageLab  = { financing:'Financing', delivery:'Delivery', won:'Won', negotiation:'Negotiation', quoted:'Quoted' };
+
+  // ---- derived stats ----
+  const dealsNeedingDocs = paperDeals.filter(d=>missingDocs(d.id).length>0).length;
+  const titlesPending = titleRows.filter(t=>t.status!=='in-hand' && t.status!=='pending').length
+                      + titleRows.filter(t=>t.status==='pending').length; // all not-in-hand
+  const unsigned = paperDeals.reduce((s,d)=>s+ (docState[d.id]? docOrder.filter(k=>docState[d.id][k]===false).length : 0), 0);
+
+  // ---- appointments (today) ----
+  const appts = [
+    { time:'9:30 AM', ic:'✍️', pill:'p-purple', kind:'Signing',    who:'Marcus Bell · Bell Freight',        what:'Sign purchase docs — TK-9920 Polar tanker', staff:'u9', ref:'D-904' },
+    { time:'11:00 AM',ic:'🔍', pill:'p-blue',   kind:'Inspection', who:'Diane Pruitt · Pruitt Logistics',   what:'Pre-delivery walkthrough — RF-7220 reefer',  staff:'u8', ref:'D-902' },
+    { time:'1:15 PM', ic:'🚚', pill:'p-green',  kind:'Delivery',   who:'Foster Sand & Gravel',              what:'Hand-off ED-8801 dump — title + freight',    staff:'u11',ref:'D-906' },
+    { time:'3:45 PM', ic:'✍️', pill:'p-amber',  kind:'Signing',    who:'TM Excavating',                     what:'Final title assignment pickup — EQ-5140',    staff:'u9', ref:'D-905' },
+  ];
+
+  // ---- tabs ----
+  const tabs = $('tabs','');
+  ['Deals desk','Titles & DMV','Appointments'].forEach((t,i)=>{
+    const a=document.createElement('a'); a.textContent=t; if(i===0)a.className='on';
+    a.onclick=()=>{ render(t); [...tabs.children].forEach(x=>x.classList.remove('on')); a.classList.add('on'); };
+    tabs.appendChild(a);
+  });
+  const body = document.createElement('div');
+  c.appendChild(tabs); c.appendChild(body);
+
+  // ---- stat tiles ----
+  function statRow(){
+    const g = $('grid g4','');
+    const tiles = [
+      {lab:'Deals needing docs', ic:'🗂️', num:dealsNeedingDocs, chg:'▲ '+paperDeals.length+' near close', up:false},
+      {lab:'Titles pending',     ic:'📋', num:titleRows.filter(t=>t.status!=='in-hand').length, chg:titleRows.filter(t=>t.status==='in-hand').length+' in hand', up:false},
+      {lab:'Appointments today', ic:'📅', num:appts.length, chg:appts.filter(a=>a.kind==='Signing').length+' signings · '+appts.filter(a=>a.kind==='Delivery').length+' delivery', up:true},
+      {lab:'Unsigned documents', ic:'✍️', num:unsigned, chg:'across '+dealsNeedingDocs+' open deals', up:false},
+    ];
+    tiles.forEach(t=>{
+      g.appendChild($('stat',
+        `<div class="lab"><span class="ic">${t.ic}</span>${t.lab}</div>
+         <div class="num">${t.num}</div>
+         <div class="chg ${t.up?'up':'down'}">${t.chg}</div>`));
+    });
+    return g;
+  }
+
+  // ---- Deals needing paperwork ----
+  function paperTable(){
+    const card = document.createElement('div'); card.className='card';
+    const rows = paperDeals.sort((a,b)=>missingDocs(b.id).length-missingDocs(a.id).length).map(d=>{
+      const u = T.inv(d.stock);
+      const miss = missingDocs(d.id);
+      const onFile = docOrder.filter(k=>docState[d.id] && docState[d.id][k]===true);
+      const missHtml = miss.length
+        ? miss.map(m=>`<span class="pill p-red">${m}</span>`).join(' ')
+        : '<span class="pill p-green">Complete</span>';
+      return `<tr>
+        <td><div class="strong">${d.cust}</div><div class="mut xs">${d.id} · ${onFile.length}/${docOrder.length} on file</div></td>
+        <td>${u? '<span class="strong">'+u.stock+'</span> <span class="mut sm">'+u.year+' '+u.type+'</span>' : d.stock}</td>
+        <td><span class="pill ${stagePill[d.stage]}">${stageLab[d.stage]}</span></td>
+        <td><div class="row wrap" style="gap:6px">${missHtml}</div></td>
+        <td class="num-c sm mut">${T.ago(d.updated)}</td>
+        <td class="num-c"><button class="btn gh sm">Open</button></td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Deals needing paperwork</h3><span class="more">'+dealsNeedingDocs+' of '+paperDeals.length+' incomplete</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Customer</th><th>Unit</th><th>Stage</th><th>Missing documents</th><th>Updated</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- Title / DMV tracker ----
+  function titleTable(){
+    const card = document.createElement('div'); card.className='card';
+    const rows = titleRows.map(t=>{
+      const u = T.inv(t.stock);
+      return `<tr>
+        <td>${u? '<span class="strong">'+u.stock+'</span> <span class="mut sm">'+u.year+' '+u.type+'</span>' : t.stock}</td>
+        <td><div class="strong sm">${t.cust}</div><div class="mut xs">${t.deal}</div></td>
+        <td><span class="pill ${titlePill[t.status]}">${titleLab[t.status]}</span></td>
+        <td class="num-c"><span class="tag">${t.state}</span></td>
+        <td class="num-c">${t.days}d</td>
+        <td class="mut sm">${t.note}</td>
+      </tr>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Title / DMV tracker</h3><span class="more">'+titleRows.filter(x=>x.status!=='in-hand').length+' open</span></div>'+
+      '<div class="bd" style="padding:0"><div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">'+
+      '<table><thead><tr><th>Unit</th><th>Customer</th><th>Title status</th><th>State</th><th>Days</th><th>Note</th></tr></thead><tbody>'+
+      rows+'</tbody></table></div></div>';
+    return card;
+  }
+
+  // ---- Appointments today ----
+  function apptList(){
+    const card = document.createElement('div'); card.className='card';
+    const rows = appts.map(a=>{
+      const u = T.byId(a.staff);
+      return `
+      <div class="it">
+        <div class="av sm" style="background:var(--surface2);color:var(--ink);font-size:14px">${a.ic}</div>
+        <div class="gr">
+          <div class="row" style="gap:8px"><span class="strong sm">${a.who}</span><span class="pill ${a.pill}">${a.kind}</span></div>
+          <div class="mut xs">${a.what}</div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="strong sm num-c">${a.time}</span>
+          <span class="row" style="gap:5px;justify-content:flex-end"><span class="av sm" style="background:${u.color};width:18px;height:18px;font-size:9px">${u.init}</span><span class="mut xs">${a.ref}</span></span>
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML = '<div class="hd"><h3>Appointments today</h3><span class="more">Tue · '+appts.length+' scheduled</span></div>'+
+      '<div class="bd" style="padding:6px 16px"><div class="list">'+rows+'</div></div>';
+    return card;
+  }
+
+  // ---- Document checklist for one deal (ED-8801 delivery, D-906) ----
+  function docChecklist(){
+    const dealId = 'D-906';
+    const d = T.deals.find(x=>x.id===dealId);
+    const u = T.inv(d.stock);
+    const st = docState[dealId];
+    const meta = {
+      'Title':        'MO title applied · awaiting state',
+      'Bill of Sale': 'Signed by buyer & dealer',
+      'Financing':    'Cash deal — N/A, marked done',
+      'Insurance':    'COI requested from buyer',
+    };
+    const card = document.createElement('div'); card.className='card';
+    const items = docOrder.map(k=>{
+      const done = st[k]===true;
+      return `
+      <div class="it">
+        <div class="av sm" style="background:${done?'var(--green)':'var(--surface2)'};color:${done?'#fff':'var(--muted)'};font-size:13px">${done?'✓':'○'}</div>
+        <div class="gr">
+          <div class="strong sm">${k}</div>
+          <div class="mut xs">${meta[k]}</div>
+        </div>
+        <span class="pill ${done?'p-green':'p-amber'}">${done?'On file':'Needed'}</span>
+      </div>`;
+    }).join('');
+    const onFile = docOrder.filter(k=>st[k]===true).length;
+    card.innerHTML =
+      '<div class="hd"><h3>Document checklist</h3><span class="tag">'+u.stock+'</span></div>'+
+      '<div class="bd">'+
+        '<div class="strong">'+d.cust+'</div>'+
+        '<div class="mut sm" style="margin-bottom:10px">'+d.id+' · '+u.year+' '+u.make+' '+u.type+' · '+T.money(d.value)+'</div>'+
+        '<div class="bar" style="margin-bottom:4px"><i style="width:'+(onFile/docOrder.length*100)+'%"></i></div>'+
+        '<div class="mut xs" style="margin-bottom:6px">'+onFile+' of '+docOrder.length+' documents on file</div>'+
+        '<div class="list">'+items+'</div>'+
+        '<div class="divider"></div>'+
+        '<div class="note">Delivery scheduled today 1:15 PM — title still at MO DOR. Confirm temp tag &amp; COI before release.</div>'+
+        '<div class="row" style="gap:8px;margin-top:12px">'+
+          '<button class="btn sm">Mark signed</button>'+
+          '<button class="btn gh sm">Request COI</button>'+
+        '</div>'+
+      '</div>';
+    return card;
+  }
+
+  // ---- render ----
+  function render(tab){
+    body.innerHTML='';
+    if(tab==='Deals desk'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(paperTable());
+      const right = document.createElement('div'); right.appendChild(docChecklist());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+      body.appendChild(spacer());
+      body.appendChild(apptList());
+    }
+    else if(tab==='Titles & DMV'){
+      body.appendChild(statRow());
+      body.appendChild(spacer());
+      body.appendChild(titleTable());
+      body.appendChild(spacer());
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(paperTable());
+      const right = document.createElement('div'); right.appendChild(docChecklist());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+    else if(tab==='Appointments'){
+      const cols = $('cols','');
+      const left = document.createElement('div'); left.appendChild(apptList());
+      const right = document.createElement('div'); right.appendChild(docChecklist());
+      cols.appendChild(left); cols.appendChild(right);
+      body.appendChild(cols);
+    }
+  }
+
+  render('Deals desk');
+})();
+</script>
+</body>
+</html>

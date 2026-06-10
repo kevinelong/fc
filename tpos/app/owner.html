@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dealership Overview · TPOS</title>
+<link rel="stylesheet" href="app.css">
+<script src="data.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mk">T</span><span><b>TPOS</b><small>TRAILER OS</small></span></a>
+    <div class="tenant"><b>Ironline Trailer Co.</b>Growth · Hosted</div>
+    <nav class="nav">
+      <div class="grp">Overview</div>
+      <a class="on" href="owner.html"><span class="ic">📊</span> Dashboard</a>
+      <a href="#"><span class="ic">💰</span> Sales</a>
+      <a href="#"><span class="ic">🚚</span> Inventory</a>
+      <a href="#"><span class="ic">🏦</span> Money</a>
+      <div class="grp">Team</div>
+      <a href="#"><span class="ic">👥</span> People</a>
+      <a href="#"><span class="ic">📈</span> Performance</a>
+      <div class="grp">Settings</div>
+      <a href="#"><span class="ic">🏷️</span> Lots &amp; Pricing</a>
+      <a href="#"><span class="ic">⚙️</span> Account</a>
+    </nav>
+    <div class="me">
+      <div class="av" style="background:#ff7a18">DW</div>
+      <div><b>Dale Withers</b><br><span class="mut sm">Owner / Dealer Principal</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="h">Dealership Overview</div>
+        <div class="sub">Springfield, IL · Main Yard &amp; North Lot · June 2026</div>
+      </div>
+      <div class="search">🔍 Search inventory, deals, people…</div>
+      <div class="iconbtn">🔔<span class="dot"></span></div>
+      <div class="av" style="background:#ff7a18">DW</div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const T = window.TPOS, money = T.money, k = T.k, ago = T.ago;
+  const el = document.getElementById('content');
+
+  // ---- helpers ----
+  const inStock = T.inventory.filter(t => t.status !== 'sold');
+  const avail = T.inventory.filter(t => t.status === 'available');
+  const agedUnits = T.inventory.filter(t => t.aged);
+  const overdueInv = T.invoices.filter(i => i.status === 'overdue');
+  const dueInv = T.invoices.filter(i => i.status !== 'paid');
+  const openWO = T.workOrders.filter(w => w.status !== 'done');
+  const newLeads = T.leads.filter(l => l.status === 'new');
+  const openDeals = T.deals.filter(d => !['won','lost'].includes(d.stage));
+
+  // last 8 months revenue (current month = revenueMTD, plausible history)
+  const months = ['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+  const rev = [168, 152, 181, 174, 196, 188, 205, 214.5]; // $k
+
+  // inventory by status for donut
+  const statusOrder = [
+    { key:'available', label:'Available', color:'var(--green)' },
+    { key:'pending',   label:'Pending',   color:'var(--amber)' },
+    { key:'recon',     label:'Recon',     color:'var(--purple)' },
+    { key:'incoming',  label:'Incoming',  color:'var(--blue)' },
+    { key:'sold',      label:'Sold (MTD)',color:'var(--faint)' },
+  ];
+  const statCounts = statusOrder.map(s => ({...s, n: T.inventory.filter(t => t.status === s.key).length}));
+  const donutTotal = statCounts.reduce((a,b)=>a+b.n,0);
+  let acc = 0;
+  const segs = statCounts.filter(s=>s.n).map(s => {
+    const from = acc/donutTotal*360, to = (acc+s.n)/donutTotal*360; acc += s.n;
+    return `${s.color} ${from}deg ${to}deg`;
+  }).join(',');
+
+  // team this month — units sold + pipeline per salesperson
+  const wonDeals = T.deals.filter(d => d.stage === 'won' || d.stage === 'delivery');
+  const sellers = ['u3','u4','u5','u2'].map(uid => {
+    const u = T.byId(uid);
+    const sold = T.deals.filter(d => d.sales === uid && (d.stage==='won'||d.stage==='delivery')).length;
+    const pipe = T.deals.filter(d => d.sales === uid && !['won','lost'].includes(d.stage)).reduce((s,d)=>s+d.value,0);
+    const leadsCnt = T.leads.filter(l => l.owner === uid).length;
+    return { u, uid, sold, pipe, leadsCnt };
+  });
+  const maxPipe = Math.max(...sellers.map(s=>s.pipe), 1);
+
+  const pill = (status) => {
+    const map = { available:'p-green', pending:'p-amber', recon:'p-purple', incoming:'p-blue', sold:'p-gray',
+      paid:'p-green', due:'p-amber', overdue:'p-red',
+      open:'p-blue','in-progress':'p-amber','waiting-parts':'p-red',done:'p-green',
+      new:'p-blue', working:'p-amber', quoted:'p-purple', won:'p-green', lost:'p-gray',
+      lead:'p-gray', negotiation:'p-amber', financing:'p-blue', delivery:'p-teal' };
+    return `<span class="pill ${map[status]||'p-gray'}">${status}</span>`;
+  };
+
+  // ---- TAB: Dashboard ----
+  const dashboard = `
+    <div class="grid g4" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+      <div class="stat">
+        <div class="lab"><span class="ic">💵</span> Revenue MTD</div>
+        <div class="num">${k(T.kpi.revenueMTD)}</div>
+        <div class="chg up">▲ 12% vs last month</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">📈</span> Gross MTD</div>
+        <div class="num">${k(T.kpi.grossMTD)}</div>
+        <div class="chg up">▲ ${T.kpi.avgMargin}% avg margin</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">🚚</span> Units in stock</div>
+        <div class="num">${T.kpi.unitsInStock}</div>
+        <div class="chg mut">${T.kpi.available} available · ${T.kpi.soldMTD} sold MTD</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">🎯</span> Pipeline value</div>
+        <div class="num">${k(T.kpi.pipelineValue)}</div>
+        <div class="chg mut">${openDeals.length} open deals</div>
+      </div>
+      <div class="stat">
+        <div class="lab"><span class="ic">⏱️</span> Avg days on lot</div>
+        <div class="num">${T.kpi.avgDaysOnLot}</div>
+        <div class="chg down">▲ 3d vs target 38d</div>
+      </div>
+    </div>
+
+    <div class="cols" style="margin-bottom:16px">
+      <div class="card">
+        <div class="hd"><h3>Revenue — last 8 months</h3><span class="more">Total ${k(rev.reduce((a,b)=>a+b*1000,0))}</span></div>
+        <div class="bd">
+          <div class="barchart">
+            ${rev.map((v,i)=>`<div class="b"><i class="${i===rev.length-1?'':'alt'}" style="height:${v/Math.max(...rev)*100}%"></i><span>${months[i]}</span></div>`).join('')}
+          </div>
+          <div class="row between sm mut" style="margin-top:10px">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);vertical-align:middle"></span> Current month</span>
+            <span>Best month: Jun · ${k(214500)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>Inventory by status</h3></div>
+        <div class="bd row" style="gap:18px">
+          <div class="donut" style="background:conic-gradient(${segs})">
+            <div class="hole"><b>${T.kpi.unitsInStock}</b><span>in stock</span></div>
+          </div>
+          <div class="legend" style="flex:1">
+            ${statCounts.map(s=>`<div><span class="sw" style="background:${s.color}"></span>${s.label}<span style="margin-left:auto;font-weight:700">${s.n}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="hd"><h3>Team this month</h3><span class="more">${T.users.length} staff</span></div>
+        <div class="bd">
+          <div class="list">
+            ${sellers.map(s=>`
+              <div class="it">
+                <div class="av" style="background:${s.u.color}">${s.u.init}</div>
+                <div class="gr">
+                  <div class="row between"><b>${s.u.name}</b><span class="strong num-c">${money(s.pipe)}</span></div>
+                  <div class="row between sm mut" style="margin-top:4px">
+                    <span>${s.u.role} · ${s.sold} won · ${s.leadsCnt} leads</span>
+                  </div>
+                  <div class="bar" style="margin-top:6px"><i style="width:${s.pipe/maxPipe*100}%"></i></div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hd"><h3>Alerts</h3><span class="more">needs attention</span></div>
+        <div class="bd">
+          <div class="list">
+            <div class="it">
+              <div class="av sm" style="background:var(--amber)">⏳</div>
+              <div class="gr"><b>${agedUnits.length} aged units</b><div class="sm mut">${agedUnits.map(u=>u.stock).join(', ')} — 90+ days on lot</div></div>
+              <span class="pill p-amber">aged</span>
+            </div>
+            <div class="it">
+              <div class="av sm" style="background:var(--red)">💳</div>
+              <div class="gr"><b>${money(dueInv.reduce((a,b)=>a+b.amount,0))} AR outstanding</b><div class="sm mut">${overdueInv.length} overdue · ${dueInv.length-overdueInv.length} due soon</div></div>
+              <span class="pill p-red">${overdueInv.length} overdue</span>
+            </div>
+            <div class="it">
+              <div class="av sm" style="background:var(--blue)">🔧</div>
+              <div class="gr"><b>${openWO.length} open work orders</b><div class="sm mut">${openWO.filter(w=>w.status==='waiting-parts').length} waiting on parts · ${money(openWO.reduce((a,b)=>a+b.parts,0))} parts</div></div>
+              <span class="pill p-blue">service</span>
+            </div>
+            <div class="it">
+              <div class="av sm" style="background:var(--green)">🔥</div>
+              <div class="gr"><b>${newLeads.length} hot leads</b><div class="sm mut">${money(newLeads.reduce((a,b)=>a+b.value,0))} potential · unassigned today</div></div>
+              <span class="pill p-green">new</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // ---- TAB: Sales ----
+  const sales = `
+    <div class="grid g4" style="margin-bottom:16px">
+      <div class="stat"><div class="lab"><span class="ic">🎯</span> Open pipeline</div><div class="num">${k(T.kpi.pipelineValue)}</div><div class="chg mut">${openDeals.length} active deals</div></div>
+      <div class="stat"><div class="lab"><span class="ic">✅</span> Won MTD</div><div class="num">${T.kpi.soldMTD}</div><div class="chg up">▲ 2 vs last month</div></div>
+      <div class="stat"><div class="lab"><span class="ic">📥</span> New leads</div><div class="num">${T.kpi.newLeads}</div><div class="chg mut">today</div></div>
+      <div class="stat"><div class="lab"><span class="ic">💲</span> Avg margin</div><div class="num">${T.kpi.avgMargin}%</div><div class="chg up">▲ healthy</div></div>
+    </div>
+    <div class="card">
+      <div class="hd"><h3>Active deals</h3><span class="more">${openDeals.length} in pipeline</span></div>
+      <div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+        <table>
+          <thead><tr><th>Deal</th><th>Customer</th><th>Unit</th><th>Stage</th><th>Salesperson</th><th class="num-c">Value</th><th class="num-c">Prob</th><th>Updated</th></tr></thead>
+          <tbody>
+            ${T.deals.map(d=>{const u=T.byId(d.sales);const it=T.inv(d.stock)||{};return `<tr>
+              <td class="strong">${d.id}</td>
+              <td>${d.cust}</td>
+              <td class="mut">${d.stock} · ${it.year||''} ${it.make||''}</td>
+              <td>${pill(d.stage)}</td>
+              <td><span class="row" style="gap:7px"><span class="av sm" style="background:${u.color}">${u.init}</span>${u.name}</span></td>
+              <td class="num-c strong">${money(d.value)}</td>
+              <td class="num-c">${d.prob}%</td>
+              <td class="mut sm">${ago(d.updated)}</td>
+            </tr>`}).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // ---- TAB: Inventory ----
+  const inventoryTab = `
+    <div class="grid g4" style="margin-bottom:16px">
+      <div class="stat"><div class="lab"><span class="ic">🚚</span> In stock</div><div class="num">${T.kpi.unitsInStock}</div><div class="chg mut">${T.kpi.available} available</div></div>
+      <div class="stat"><div class="lab"><span class="ic">🏷️</span> List value</div><div class="num">${k(T.kpi.invValue)}</div><div class="chg mut">available units</div></div>
+      <div class="stat"><div class="lab"><span class="ic">📦</span> Inventory cost</div><div class="num">${k(T.kpi.invCost)}</div><div class="chg mut">floored capital</div></div>
+      <div class="stat"><div class="lab"><span class="ic">⏱️</span> Avg days on lot</div><div class="num">${T.kpi.avgDaysOnLot}</div><div class="chg down">▲ vs 38d target</div></div>
+    </div>
+    <div class="card">
+      <div class="hd"><h3>Inventory</h3><span class="more">${T.tenant.lots.join(' · ')}</span></div>
+      <div class="t-wrap" style="border:none;box-shadow:none;border-radius:0">
+        <table>
+          <thead><tr><th>Stock</th><th>Unit</th><th>Type</th><th>Status</th><th>Location</th><th class="num-c">Cost</th><th class="num-c">List</th><th class="num-c">Days</th><th class="num-c">Leads</th></tr></thead>
+          <tbody>
+            ${T.inventory.map(t=>{const days=Math.round((Date.now()-t.acq)/864e5);return `<tr>
+              <td class="strong">${t.stock}</td>
+              <td>${t.year} ${t.make} <span class="mut">${t.len}</span></td>
+              <td class="mut">${t.type}</td>
+              <td>${pill(t.status)}${t.aged?' <span class="tag">aged</span>':''}</td>
+              <td class="mut sm">${t.loc}</td>
+              <td class="num-c">${money(t.cost)}</td>
+              <td class="num-c strong">${t.list?money(t.list):'—'}</td>
+              <td class="num-c">${t.status==='incoming'?'ETA '+t.eta+'d':days}</td>
+              <td class="num-c">${t.leads||0}</td>
+            </tr>`}).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  const tabs = { dashboard, sales, inventory: inventoryTab };
+
+  function render(active){
+    el.innerHTML = `
+      <div class="tabs">
+        <a data-t="dashboard" class="${active==='dashboard'?'on':''}">Dashboard</a>
+        <a data-t="sales" class="${active==='sales'?'on':''}">Sales</a>
+        <a data-t="inventory" class="${active==='inventory'?'on':''}">Inventory</a>
+      </div>
+      ${tabs[active]}`;
+    el.querySelectorAll('.tabs a').forEach(a=>a.onclick=()=>render(a.dataset.t));
+  }
+  render('dashboard');
+})();
+</script>
+</body>
+</html>
