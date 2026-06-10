@@ -353,6 +353,34 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    // ---- tpos: trailer-portal sales inquiries (store + email notify) ----
+    if (p === '/api/tpos/inquiry' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const body = await readBody(req);
+      const clean = (v, n) => String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, n);
+      const name = clean(body.name, 80);
+      const phone = clean(body.phone, 40);
+      const email = clean(body.email, 120);
+      const subject = clean(body.subject, 140) || 'Trailer inquiry';
+      const message = String(body.message == null ? '' : body.message).trim().slice(0, 4000);
+      if (!name || (!phone && !email)) return json(res, 400, { error: 'name and a phone or email are required' });
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'invalid email' });
+      if (!db.tpos_inquiries) db.tpos_inquiries = [];
+      const inq = { id: crypto.randomBytes(6).toString('hex'), name, phone, email, subject, message, at: Date.now(), ua: clean(req.headers['user-agent'], 200) };
+      db.tpos_inquiries.push(inq);
+      if (db.tpos_inquiries.length > 2000) db.tpos_inquiries = db.tpos_inquiries.slice(-2000);
+      save();
+      const to = ENV.TPOS_SALES_EMAIL || MAIL_FROM;
+      if (mailer && to) {
+        mailer.sendMail({
+          from: MAIL_FROM, to, replyTo: email || undefined,
+          subject: `[TPOS] ${subject} — ${name}`,
+          text: `New trailer-portal inquiry\n\nSubject: ${subject}\nName:  ${name}\nPhone: ${phone || '—'}\nEmail: ${email || '—'}\n\n${message || '(no message)'}\n\n— sent ${new Date(inq.at).toISOString()}`,
+        }).catch(e => console.error('tpos mail failed', e.message));
+      }
+      return json(res, 200, { ok: true });
+    }
+
     return json(res, 404, { error: 'not found' });
   } catch (e) {
     console.error('handler error', e);
