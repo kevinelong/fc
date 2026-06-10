@@ -18,6 +18,7 @@
   li{margin:2pt 0}
   small,.mut{color:#5d6b78}
   code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:9.5pt;background:#f1f3f5;padding:1px 4px;border-radius:3px}
+  pre{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:8.4pt;line-height:1.45;background:#f6f8fa;border:0.5pt solid #dfe5ea;border-radius:4px;padding:7pt 9pt;white-space:pre-wrap;page-break-inside:avoid;margin:3pt 0 10pt;color:#1c2b38}
   .lead{font-size:12pt;color:#3a4a59}
   table.t{width:100%;border-collapse:collapse;font-size:9.5pt;margin:6pt 0 10pt}
   table.t th{background:#15202b;color:#fff;text-align:left;padding:5pt 7pt;font-weight:600}
@@ -72,6 +73,8 @@
   <li><a href="#nfr">Non-Functional Requirements</a></li>
   <li><a href="#acceptance">Acceptance Criteria</a></li>
   <li><a href="#glossary">Glossary</a></li>
+  <li><a href="#dd">Appendix A — Data Dictionary &amp; Relational Schema</a></li>
+  <li><a href="#api">Appendix B — API Reference</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -255,6 +258,112 @@
   <tr><td>Tenant</td><td>One dealership's isolated instance of the platform.</td></tr>
   <tr><td>MRR / ARR</td><td>Monthly / annual recurring revenue (operator metric).</td></tr>
 </table>
+
+<h2 id="dd" class="pgbreak">Appendix A · Data Dictionary &amp; Relational Schema</h2>
+<p>Recommended target: <b>PostgreSQL</b> (hosted / multi-tenant) with <b>Row-Level Security</b>; <b>SQLite</b> for single-tenant self-host installs behind the same data-access layer. Conventions applied to every tenant-scoped table:</p>
+<ul class="req">
+  <li>Primary key <code>id uuid</code>; audit columns <code>created_at</code>, <code>updated_at timestamptz</code>; optional <code>deleted_at</code> for soft delete.</li>
+  <li><code>tenant_id uuid NOT NULL → tenants(id)</code> on every business table, enforced by an RLS policy <code>USING (tenant_id = current_setting('app.tenant_id')::uuid)</code> — no query path can cross tenants. (Self-host keeps the column for parity and drops the policy.)</li>
+  <li>Money as <code>numeric(12,2)</code>; flexible attributes as <code>jsonb</code>; enums as Postgres enum types / CHECK constraints (see below).</li>
+  <li>Every mutation that matters (status, price, discount, payment, signature) writes a row to <code>activities</code> (immutable audit log).</li>
+</ul>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:16%">Table</th><th>Key columns (type)</th><th style="width:26%">Relationships &amp; indexes</th></tr>
+  <tr><td><b>tenants</b></td><td>name, plan(enum), status(enum), domain, branding(jsonb), billing_ref, lots(jsonb)</td><td>root of isolation; platform-managed</td></tr>
+  <tr><td><b>users</b></td><td>name, email, password_hash, roles(text[]), lot_scope(text[]), active(bool), last_login</td><td>→ tenants; RBAC subject; uniq(tenant_id,email)</td></tr>
+  <tr><td><b>units</b><br><span class="mut xs">(inventory — the spine)</span></td><td>stock_no, type, year, make, length, axles, capacity, condition, status(enum), lot_id, cost, list_price, floor_price, acquired_at, sold_at, views, lead_count, specs(jsonb)</td><td>uniq(tenant_id,stock_no); idx(tenant_id,status); → lots</td></tr>
+  <tr><td><b>unit_photos</b></td><td>unit_id, url, sort, is_cover(bool)</td><td>→ units (→ object storage)</td></tr>
+  <tr><td><b>leads</b></td><td>name, company, source, status(enum), value, phone, email, lost_reason</td><td>→ units (interest), → users (owner)</td></tr>
+  <tr><td><b>customers</b></td><td>name, company, phone, email, portal_user_id</td><td>buyer accounts; → users (portal)</td></tr>
+  <tr><td><b>deals</b></td><td>stage(enum), value, probability, financing_status</td><td>→ customers, → units, → users (salesperson)</td></tr>
+  <tr><td><b>quotes</b> / <b>quote_lines</b></td><td>quotes: total, valid_until, status · lines: kind(enum: price|prep|freight|tax|fee), label, amount</td><td>quotes → deals/units; lines → quotes</td></tr>
+  <tr><td><b>work_orders</b> / <b>wo_tasks</b></td><td>WO: type, status(enum), hours_est, hours_actual, parts_cost, opened_at, closed_at · task: label, done(bool), sort</td><td>WO → units, → users (tech); task → work_orders</td></tr>
+  <tr><td><b>invoices</b></td><td>kind(AR|AP), amount, status(enum), issued_at, due_at, note, vendor</td><td>→ customers / deals / units (nullable)</td></tr>
+  <tr><td><b>payments</b></td><td>amount, method, paid_at, reference</td><td>→ invoices; idempotent on reference</td></tr>
+  <tr><td><b>titles</b></td><td>status(enum), state, lien_holder, released_at</td><td>uniq(unit_id) → units</td></tr>
+  <tr><td><b>documents</b></td><td>kind, url, signed_at, signer, sign_request_id</td><td>→ deals / units; e-signature</td></tr>
+  <tr><td><b>deliveries</b></td><td>origin, destination, carrier, driver, status(enum), eta, freight_cost</td><td>→ deals, → units</td></tr>
+  <tr><td><b>activities</b><br><span class="mut xs">(audit log)</span></td><td>entity_type, entity_id, actor_id, action, detail(jsonb), at</td><td>append-only; idx(tenant_id,entity_type,entity_id)</td></tr>
+  <tr><td><b>tasks</b> / <b>notifications</b></td><td>tasks: assignee_id, title, due_at, done, link(entity) · notif: user_id, kind, payload(jsonb), read_at</td><td>cross-cutting; → users</td></tr>
+</table>
+<h4>Enumerations</h4>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:22%">Enum</th><th>Values</th></tr>
+  <tr><td>unit.status</td><td><code>incoming · recon · available · pending · sold</code></td></tr>
+  <tr><td>lead.status</td><td><code>new · working · quoted · won · lost</code></td></tr>
+  <tr><td>deal.stage</td><td><code>lead · quoted · negotiation · financing · delivery · won · lost</code></td></tr>
+  <tr><td>work_order.status</td><td><code>open · in_progress · waiting_parts · done</code></td></tr>
+  <tr><td>invoice.status</td><td><code>paid · due · overdue</code></td></tr>
+  <tr><td>title.status</td><td><code>in_hand · applied · pending · lien_release</code></td></tr>
+  <tr><td>delivery.status</td><td><code>scheduled · en_route · delivered</code></td></tr>
+  <tr><td>tenant.plan / .status</td><td><code>starter · growth · enterprise · license</code> &nbsp;/&nbsp; <code>active · trial · licensed · suspended</code></td></tr>
+</table>
+<h4>Platform control plane (hosted mode only — separate schema, no tenant RLS)</h4>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:22%">Table</th><th>Key columns</th></tr>
+  <tr><td>subscriptions</td><td>tenant_id, plan, mrr, seats, started_at, status, billing_provider_ref</td></tr>
+  <tr><td>usage_metrics</td><td>tenant_id, period, units, leads, storefront_views, api_calls (for metering &amp; billing)</td></tr>
+  <tr><td>support_tickets</td><td>tenant_id, subject, status, priority, opened_at</td></tr>
+  <tr><td>license_keys</td><td>key, owner, plan, seats, expires_at (validated by self-host installs)</td></tr>
+</table>
+
+<h2 id="api" class="pgbreak">Appendix B · API Reference</h2>
+<p>REST / JSON. <b>Namespaces:</b> <code>/api/v1/*</code> authenticated back-office (tenant from session/subdomain, every query tenant-scoped) · <code>/api/v1/portal/*</code> customer portal · <code>/api/public/*</code> storefront (no auth, tenant by host) · <code>/api/platform/*</code> operator control plane (super-admin, cross-tenant) · <code>/api/webhooks/*</code> inbound integrations. RBAC per endpoint (the §10 matrix); state-machine changes use explicit <code>…/transition</code> actions (validated + audited), not arbitrary PATCH; lists accept <code>?q=&amp;status=&amp;sort=&amp;page=&amp;limit=</code>; money/transition writes accept an <code>Idempotency-Key</code> header.</p>
+<h4>Auth &amp; session</h4>
+<pre>POST  /api/v1/auth/login            GET  /api/v1/auth/me
+POST  /api/v1/auth/logout           POST /api/v1/auth/sso/callback
+POST  /api/v1/auth/password/reset</pre>
+<h4>Inventory &amp; pricing</h4>
+<pre>GET   /api/v1/units                 list/filter (type,status,location,aged)
+POST  /api/v1/units                 intake / acquire
+GET   /api/v1/units/:id             full record ("all lenses")   PATCH /api/v1/units/:id
+POST  /api/v1/units/:id/transition  incoming→recon→available→pending→sold (guarded)
+POST  /api/v1/units/:id/photos      GET /api/v1/units/:id/timeline    GET /api/v1/units/aging
+PATCH /api/v1/units/:id/price       set list/floor (logged; may require approval)
+GET   /api/v1/pricing/repricer      GET /api/v1/pricing/comps?unit=:id
+GET   /api/v1/pricing/approvals     POST /api/v1/pricing/approvals/:id/decide</pre>
+<h4>Leads, customers, deals, quotes</h4>
+<pre>GET/POST /api/v1/leads              GET/PATCH /api/v1/leads/:id
+POST  /api/v1/leads/:id/assign      POST /api/v1/leads/:id/convert  →deal
+GET   /api/v1/sources               GET/POST /api/v1/campaigns
+GET/POST /api/v1/customers          GET/PATCH /api/v1/customers/:id
+GET/POST /api/v1/deals              GET/PATCH /api/v1/deals/:id
+POST  /api/v1/deals/:id/stage       advance pipeline
+POST  /api/v1/deals/:id/discount    POST /api/v1/deals/:id/approve  (manager RBAC)
+GET/POST /api/v1/quotes             POST /api/v1/quotes/:id/send | /accept
+GET   /api/v1/forecast              GET /api/v1/team/leaderboard</pre>
+<h4>Service · accounting · titles · delivery</h4>
+<pre>GET/POST /api/v1/workorders         POST /api/v1/workorders/:id/status
+PATCH /api/v1/workorders/:id/tasks/:t   POST …/hours  …/parts  …/photos
+GET/POST /api/v1/invoices           POST /api/v1/invoices/:id/payments (idempotent)
+GET/POST /api/v1/bills              GET /api/v1/accounting/pnl?period=   POST /accounting/export
+GET/PATCH /api/v1/titles/:unitId    GET/POST /api/v1/documents   POST /documents/:id/sign
+GET/POST /api/v1/deliveries         POST /api/v1/deliveries/:id/status   POST /deliveries/quote
+GET/POST /api/v1/appointments</pre>
+<h4>Cross-cutting &amp; tenant admin</h4>
+<pre>GET   /api/v1/search?q=             GET /api/v1/notifications  POST …/:id/read
+GET/POST /api/v1/tasks              GET /api/v1/activity        GET /api/v1/reports/:kpiSet
+GET/POST /api/v1/users              PATCH /api/v1/users/:id (roles, lot scope)
+GET/PATCH /api/v1/tenant/settings   branding · lots · config · billing</pre>
+<h4>Storefront (public) &amp; customer portal</h4>
+<pre>GET   /api/public/inventory         available units (filter/search/sort)
+GET   /api/public/inventory/:stock  detail (deep-linkable)
+POST  /api/public/inquiry           creates a Lead + notifies   ← implemented in prototype
+POST  /api/public/financing/prequalify
+GET   /api/v1/portal/me             GET /api/v1/portal/deals
+GET   /api/v1/portal/quotes/:id     POST …/accept
+POST  /api/v1/portal/financing/apply  GET …/status
+GET   /api/v1/portal/delivery/:id   GET /api/v1/portal/documents  POST …/:id/sign
+GET/POST /api/v1/portal/saved</pre>
+<h4>Platform control plane (hosted) &amp; webhooks</h4>
+<pre>GET/POST /api/platform/tenants      PATCH /api/platform/tenants/:id (plan/status)
+GET   /api/platform/revenue         GET /api/platform/usage    GET /api/platform/billing
+GET   /api/platform/support         GET /api/platform/health   POST /api/platform/license/verify
+POST  /api/webhooks/financing       lender decision → Deal/portal
+POST  /api/webhooks/payments        settled → reconcile invoice
+POST  /api/webhooks/freight         carrier status → delivery
+POST  /api/webhooks/syndication     listing-site lead → Lead
+POST  /api/webhooks/title           DMV/title callback</pre>
 
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
