@@ -22,7 +22,16 @@ cargo build --release --target wasm32-unknown-unknown
 | &nbsp;&nbsp;2.2 corpus statements + expr/cond | ✅ | assign/add/repeat/every/tag/when/if-else/math/listliteral/random/item_of/eq/cmp/and/or/not | all 31 corpus |
 | &nbsp;&nbsp;2.3 game sub-parsers | ✅ | sprite/object/list-of/count · draw/write/meter/button/each/move/follow/goto/rungame/clearscreen/play/def_sfx/damage/heal/knock/broadcast/net_join · when_key·button·mouse · inline `if` (parseIf heuristic) · splitOnAnd via two-pass userFuncs | **all 9 games** |
 | 3. runtime (`exec` → vars) | ✅ | `node exec-diff.mjs` vs `corpus/_goldens.json` | **31/31 corpus, 0 diff** · 133 KB wasm |
-| &nbsp;&nbsp;3b. game runtime (command buffer + frame loop) | ⬜ next | draw/sprite/collision per-frame cmds | — |
+| &nbsp;&nbsp;3b-i. render command buffer | ✅ | `node draw-diff.mjs` | **5/5 cmds** (clear/rect/circle/write+interp) |
+| &nbsp;&nbsp;3b-ii. game loop (update/draw frames + collision + input) | ⬜ next | per-frame cmd buffer + sprite blit | — |
+
+**3b-i** ports the render command buffer: `clearscreen`/`draw rect`/`draw circle`/`write`
+(with `{var}` interpolation) emit `Cmd`s; `COLORS`+`resolveColor` ported (palette→hex);
+camera offset handled. The JS oracle (`fc-core-record.mjs`) is the real lang core with
+**recording platform stubs** — a recording `ctx` + a `drawText` reassigned to record
+high-level text commands — so no interpreter edits are needed. 5/5 match on synthetic
+top-level-draw programs. Remaining 3b-ii: the frame loop (update/draw over N frames),
+movement/collision/camera, input, and host-side sprite blit — the visual/game-loop half.
 
 **Stage 3** ports the value model (`Num/Str/Bool/List(Rc<RefCell>)/Obj/Undef`),
 coercion (`parseFloat`/loose `==`/truthiness), dotted auto-vivify get/set, `eval`,

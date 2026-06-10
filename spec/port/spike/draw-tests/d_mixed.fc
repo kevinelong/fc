@@ -1,0 +1,3 @@
+clear screen to black
+draw rect at 3, 3 size 12, 4 in yellow
+draw circle at 100, 50 size 6 in cyan

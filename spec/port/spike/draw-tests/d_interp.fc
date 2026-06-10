@@ -1,0 +1,2 @@
+score is 42
+write "score {score}" at 2, 3 in white on hud

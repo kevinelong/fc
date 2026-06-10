@@ -876,9 +876,22 @@ fn loose_eq(a: &Val, b: &Val) -> bool {
     }
 }
 
-struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool }
+struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64 }
 impl Rt {
-    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false } }
+    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0 } }
+    fn interpolate(&self, s: &str) -> String {
+        // replace {expr} with the value of expr (a var path), like the JS engine
+        let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'{' { if let Some(close) = s[i+1..].find('}') {
+                let inner = &s[i+1..i+1+close];
+                out.push_str(&display(&self.get_var(inner.trim())));
+                i += close + 2; continue;
+            } }
+            out.push(bytes[i] as char); i += 1;
+        }
+        out
+    }
     fn rng(&mut self) -> f64 {
         self.seed = self.seed.wrapping_add(0x6D2B79F5);
         let a = self.seed;
@@ -1009,7 +1022,32 @@ impl Rt {
             }
             Stmt::Return(_) => { self.returning=true; }
             Stmt::Stop => { self.stopped=true; }
-            _ => {} // tag/when_*/draw/etc: no observable effect on {say,vars} in a single exec
+            Stmt::ClearScreen(color) => { let c = resolve_color(color); self.cmds.push(Cmd::Rect(0.0,0.0,128.0,128.0,c)); }
+            Stmt::Draw(a) => {
+                let (ox, oy) = if a.hud { (0.0,0.0) } else { self.camera };
+                let x = (if let Some(e)=&a.x { as_num(&self.eval(e)) } else { 0.0 }) - ox;
+                let y = (if let Some(e)=&a.y { as_num(&self.eval(e)) } else { 0.0 }) - oy;
+                let col = resolve_color(a.color.as_deref().unwrap_or(""));
+                match a.shape.as_str() {
+                    "rect" => { let w = if let Some(e)=&a.w { as_num(&self.eval(e)) } else { 8.0 }; let h = if let Some(e)=&a.h { as_num(&self.eval(e)) } else { w }; self.cmds.push(Cmd::Rect(x,y,w,h,col)); }
+                    "circle" => { let r = if let Some(e)=&a.w { as_num(&self.eval(e)) } else { 4.0 }; self.cmds.push(Cmd::Circle(x,y,r,col)); }
+                    "line" => {
+                        let x1=(if let Some(e)=&a.x1 {as_num(&self.eval(e))} else {0.0})-ox; let y1=(if let Some(e)=&a.y1 {as_num(&self.eval(e))} else {0.0})-oy;
+                        let x2=(if let Some(e)=&a.x2 {as_num(&self.eval(e))} else {0.0})-ox; let y2=(if let Some(e)=&a.y2 {as_num(&self.eval(e))} else {0.0})-oy;
+                        self.cmds.push(Cmd::Line(x1,y1,x2,y2,col));
+                    }
+                    _ => {} // sprite: deferred (host-side blit)
+                }
+            }
+            Stmt::Write(w) => {
+                let (ox, oy) = if w.hud { (0.0,0.0) } else { self.camera };
+                let tv = self.eval(&w.text); let txt = self.interpolate(&display(&tv));
+                let x = (if let Some(e)=&w.x { as_num(&self.eval(e)) } else { 0.0 }) - ox;
+                let y = (if let Some(e)=&w.y { as_num(&self.eval(e)) } else { 0.0 }) - oy;
+                let col = resolve_color(w.color.as_deref().unwrap_or(""));
+                self.cmds.push(Cmd::Text(txt, x, y, col));
+            }
+            _ => {} // tag/when_*/sprite/etc: no command in single-exec render slice
         }
     }
 }
@@ -1039,4 +1077,47 @@ fn emit_val(v: &Val, out: &mut String) {
         Val::Obj(o)=>{ out.push('{'); for (i,(k,x)) in o.borrow().iter().enumerate(){ if i>0 {out.push(',');} json_str(k,out); out.push(':'); emit_val(x,out);} out.push('}'); }
         Val::Undef=>out.push_str("null"),
     }
+}
+
+// --- stage 3b: render command buffer ---------------------------------------
+fn color_hex(n: &str) -> Option<&'static str> {
+    Some(match n {
+        "black"=>"#000000","dark blue"=>"#1d2b53","dark purple"=>"#7e2553","dark green"=>"#008751",
+        "brown"=>"#ab5236","dark gray"=>"#5f574f","dark grey"=>"#5f574f","light gray"=>"#c2c3c7","light grey"=>"#c2c3c7",
+        "white"=>"#fff1e8","red"=>"#ff004d","orange"=>"#ffa300","yellow"=>"#ffec27","green"=>"#00e436","blue"=>"#29adff",
+        "indigo"=>"#83769c","pink"=>"#ff77a8","peach"=>"#ffccaa","gray"=>"#8e8e8e","grey"=>"#8e8e8e","gold"=>"#ffd700",
+        "cyan"=>"#00ffff","magenta"=>"#ff00ff","purple"=>"#9b59b6","lime"=>"#aaff00","sky"=>"#87ceeb","coral"=>"#ff6f61",
+        _=>return None,
+    })
+}
+fn resolve_color(name: &str) -> String {
+    let n = name.trim().to_lowercase();
+    if let Some(h) = color_hex(&n) { return h.to_string(); }
+    if n.starts_with('#') || n.starts_with("rgb") { return n; }
+    "#fff1e8".to_string()
+}
+#[derive(Clone)]
+enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String) }
+fn emit_cmd(c: &Cmd, out: &mut String) {
+    match c {
+        Cmd::Rect(x,y,w,h,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"h\":"); json_num(*h,out); out.push_str(",\"op\":\"rect\",\"w\":"); json_num(*w,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
+        Cmd::Circle(x,y,r,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"circle\",\"r\":"); json_num(*r,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
+        Cmd::Line(x1,y1,x2,y2,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"line\",\"x1\":"); json_num(*x1,out); out.push_str(",\"x2\":"); json_num(*x2,out); out.push_str(",\"y1\":"); json_num(*y1,out); out.push_str(",\"y2\":"); json_num(*y2,out); out.push('}'); }
+        Cmd::Text(t,x,y,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"text\",\"text\":"); json_str(t,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
+    }
+}
+#[no_mangle] pub extern "C" fn parse_render(len: u32, seed: u32) -> u32 {
+    reset_arena();
+    let n = (len as usize).min(SRC_CAP);
+    let src = unsafe { core::slice::from_raw_parts(addr_of!(SRC) as *const u8, n) }.to_vec();
+    let program = parse_program(&src);
+    let mut rt = Rt::new(seed);
+    rt.exec_block(&program);
+    let mut s = String::new();
+    s.push('[');
+    for (i,c) in rt.cmds.iter().enumerate() { if i>0 {s.push(',');} emit_cmd(c,&mut s); }
+    s.push(']');
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
 }
