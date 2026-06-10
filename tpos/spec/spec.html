@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TPOS — Product Specification</title>
+<style>
+  @page { size: Letter; margin: 20mm 18mm 18mm 18mm; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:11pt/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b;}
+  h1,h2,h3,h4{line-height:1.2;color:#0d1620}
+  h1{font-size:22pt;margin:0 0 4pt}
+  h2{font-size:16pt;margin:26pt 0 8pt;padding-bottom:5pt;border-bottom:1.5pt solid #15202b;page-break-after:avoid}
+  h3{font-size:12.5pt;margin:16pt 0 5pt;page-break-after:avoid}
+  h4{font-size:11pt;margin:11pt 0 3pt;color:#3a4a59}
+  p{margin:0 0 7pt}
+  ul,ol{margin:0 0 8pt;padding-left:18pt}
+  li{margin:2pt 0}
+  small,.mut{color:#5d6b78}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:9.5pt;background:#f1f3f5;padding:1px 4px;border-radius:3px}
+  .lead{font-size:12pt;color:#3a4a59}
+  table.t{width:100%;border-collapse:collapse;font-size:9.5pt;margin:6pt 0 10pt}
+  table.t th{background:#15202b;color:#fff;text-align:left;padding:5pt 7pt;font-weight:600}
+  table.t td{border:0.5pt solid #cfd6dd;padding:4pt 7pt;vertical-align:top}
+  table.t tr:nth-child(even) td{background:#f6f8fa}
+  .kv{width:100%;border-collapse:collapse;font-size:10pt}
+  .kv td{padding:3pt 0;border-bottom:0.5pt solid #e3e8ed;vertical-align:top}
+  .kv td:first-child{width:30%;color:#5d6b78;font-weight:600}
+  .role{page-break-inside:avoid;margin-bottom:6pt}
+  .wf{border:0.75pt solid #c2cad2;background:#fff;margin:8pt 0;padding:0}
+  .wf svg{display:block;width:100%;height:auto}
+  .wf .cap{font-size:8.5pt;color:#5d6b78;padding:4pt 8pt;border-top:0.5pt solid #e3e8ed;background:#fafbfc}
+  .cover{height:235mm;display:flex;flex-direction:column;justify-content:center;page-break-after:always}
+  .cover .mk{width:54px;height:54px;border-radius:11px;background:#15202b;color:#fff;font-weight:800;font-size:26px;display:flex;align-items:center;justify-content:center}
+  .cover h1{font-size:34pt;margin-top:22pt}
+  .cover .sub{font-size:14pt;color:#3a4a59;margin-top:6pt;max-width:150mm}
+  .cover .meta{margin-top:30pt;font-size:10pt;color:#5d6b78}
+  .pgbreak{page-break-before:always}
+  .req{font-size:10pt}
+  .req li{margin:2.5pt 0}
+  .two{display:flex;gap:14pt}.two>div{flex:1}
+  .pill{display:inline-block;font-size:8pt;font-weight:700;padding:1px 6px;border:0.75pt solid #15202b;border-radius:9px;margin-right:3px}
+  .toc a{color:#15202b;text-decoration:none}
+  .toc li{margin:3pt 0}
+  .foot{position:running(f)}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="mk">T</div>
+  <h1>TPOS</h1>
+  <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
+  <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
+  <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
+  <div class="meta">Document v1.0 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Confidential draft</div>
+</section>
+
+<h2 id="toc">Contents</h2>
+<ol class="toc">
+  <li><a href="#vision">Product Vision &amp; Business Model</a></li>
+  <li><a href="#tenancy">Multi-Tenancy &amp; Deployment Modes</a></li>
+  <li><a href="#personas">Personas &amp; Roles</a></li>
+  <li><a href="#domain">Domain Model — One Record, Many Lenses</a></li>
+  <li><a href="#lifecycle">The Trailer Lifecycle</a></li>
+  <li><a href="#functional">Functional Specification by Role</a></li>
+  <li><a href="#storefront">Public Storefront</a></li>
+  <li><a href="#crosscut">Cross-Cutting Capabilities</a></li>
+  <li><a href="#reporting">Reporting &amp; KPIs</a></li>
+  <li><a href="#permissions">Roles &amp; Permissions Matrix</a></li>
+  <li><a href="#integrations">External Integrations</a></li>
+  <li><a href="#nfr">Non-Functional Requirements</a></li>
+  <li><a href="#acceptance">Acceptance Criteria</a></li>
+  <li><a href="#glossary">Glossary</a></li>
+</ol>
+
+<h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
+<p class="lead">TPOS is a vertical SaaS that gives an independent trailer dealership one system to run both its <b>public storefront</b> and its entire <b>back office</b> — acquisition, reconditioning, pricing, marketing, sales, financing, titling, delivery and bookkeeping — on a single shared record of truth.</p>
+<p>The market is fragmented small-to-mid dealers (used &amp; refurbished commercial trailers: dry vans, flatbeds, reefers, lowboys, dumps, tankers, chassis) who today stitch together a website builder, a generic CRM, spreadsheets, QuickBooks and listing sites (TruckPaper, Facebook). TPOS replaces that stack with a purpose-built, role-aware platform.</p>
+<h3>Revenue model</h3>
+<table class="t">
+  <tr><th>Offering</th><th>Pricing</th><th>For</th><th>Notes</th></tr>
+  <tr><td>Hosted — Starter</td><td>$199 / month</td><td>Single lot, ≤ ~25 units</td><td>Storefront + CRM + inventory; core roles</td></tr>
+  <tr><td>Hosted — Growth</td><td>$499 / month</td><td>Multi-lot dealers</td><td>All roles, financing, dispatch, reporting</td></tr>
+  <tr><td>Hosted — Enterprise</td><td>$1,290 / month</td><td>Large / multi-location</td><td>Unlimited units &amp; seats, API, SSO, priority support</td></tr>
+  <tr><td>Annual License</td><td>$9,900 / year</td><td>Dealers wanting to self-host</td><td>Right to run the software on own infrastructure; updates included</td></tr>
+  <tr><td>One-Time Purchase</td><td>$24,000 + $3,000/yr support</td><td>Buy-to-own</td><td>Perpetual self-host license; optional support &amp; updates</td></tr>
+</table>
+<p>The platform operator (TPOS, Inc.) additionally runs a <b>super-admin control plane</b> to provision tenants, meter usage, bill subscriptions, and support dealers (see §6.12).</p>
+<h3>Product principles</h3>
+<ul>
+  <li><b>One record, many lenses.</b> A trailer is simultaneously inventory, a deal, a work order, an invoice line, a title file, a delivery, and a public listing. Every role edits the <i>same</i> entity through a view shaped to its job — never a copy.</li>
+  <li><b>The storefront is generated, not separate.</b> Inventory marked <i>available</i> is automatically published to the dealer's branded public site and syndicated to listing channels.</li>
+  <li><b>Role-first, not module-first.</b> Each user lands on a workspace built around their daily goals and decisions, not a generic menu of tables.</li>
+  <li><b>Auditable by default.</b> Price changes, discounts, status transitions and money movement are logged with who/when/why.</li>
+</ul>
+
+<h2 id="tenancy">2 · Multi-Tenancy &amp; Deployment Modes</h2>
+<p>Each dealership is a <b>tenant</b> with isolated data, its own users, branding, lots, inventory and storefront domain. The system must support three deployment modes from one codebase:</p>
+<table class="t">
+  <tr><th>Mode</th><th>Hosting</th><th>Tenancy</th><th>Billing</th></tr>
+  <tr><td>Hosted (SaaS)</td><td>Operator-run cloud</td><td>Many tenants per deployment (logical isolation, per-tenant scoping on every query)</td><td>Recurring subscription, usage-metered</td></tr>
+  <tr><td>Licensed self-host</td><td>Dealer infrastructure</td><td>Typically single tenant; multi-tenant allowed</td><td>Annual license key, update channel</td></tr>
+  <tr><td>One-time self-host</td><td>Dealer infrastructure</td><td>Single tenant</td><td>Perpetual key; optional support plan</td></tr>
+</table>
+<p><b>Requirement.</b> Tenant isolation must be enforced at the data layer (no cross-tenant read/write possible), branding/config is per-tenant, and a tenant's storefront resolves on a custom domain or subdomain. The control plane (§6.12) exists only in hosted mode.</p>
+
+<h2 id="personas">3 · Personas &amp; Roles</h2>
+<p>TPOS serves twelve roles across the dealership, plus the dealership's own customers and the platform operator. Each persona has a primary goal and a small set of "jobs to be done" that the system must make fast.</p>
+<table class="t">
+  <tr><th>Role</th><th>Primary goal</th><th>Key jobs-to-be-done</th></tr>
+  <tr><td>Owner / Dealer Principal</td><td>Run a healthy, profitable business</td><td>See revenue, gross, turn &amp; pipeline at a glance; spot aged inventory, overdue AR, stalled deals; manage the team</td></tr>
+  <tr><td>Lead Generation / BDC</td><td>Capture &amp; route every inquiry fast</td><td>Triage the lead inbox, measure response time &amp; sources, run campaigns, assign to sales</td></tr>
+  <tr><td>Salesperson</td><td>Work the pipeline &amp; close</td><td>Advance deals through stages, build quotes, track follow-ups, manage customers</td></tr>
+  <tr><td>Sales Manager</td><td>Coach, forecast, approve</td><td>Compare rep performance, forecast the month, approve below-floor discounts</td></tr>
+  <tr><td>Pricing Analyst</td><td>Maximize margin &amp; turn</td><td>Reprice against age &amp; demand, monitor margin, compare market comps, approve changes</td></tr>
+  <tr><td>Inventory Manager</td><td>Source, recon, place &amp; turn units</td><td>Track stock by status &amp; location, manage intake &amp; aging, push units into recon &amp; to the lot</td></tr>
+  <tr><td>Service Technician</td><td>Recon &amp; inspect units quickly</td><td>Work the work-order board, complete inspection checklists, log hours &amp; parts</td></tr>
+  <tr><td>Office / Titles &amp; Admin</td><td>Keep paperwork clean &amp; legal</td><td>Track titles/DMV, collect deal documents, schedule signings &amp; deliveries</td></tr>
+  <tr><td>Bookkeeper / Accounting</td><td>AR/AP, cash, month-end</td><td>Issue &amp; collect invoices, record payments, pay bills, close the month, report P&amp;L</td></tr>
+  <tr><td>Delivery Dispatch</td><td>Move units to buyers</td><td>Schedule deliveries, assign drivers/carriers, quote freight, track in-transit</td></tr>
+  <tr><td>Customer (buyer)</td><td>Buy with confidence, self-serve</td><td>View quotes, apply for financing, track delivery, sign &amp; download documents</td></tr>
+  <tr><td>Platform Super-Admin</td><td>Operate the SaaS business</td><td>Provision &amp; bill tenants, watch MRR/churn, monitor usage &amp; system health, support dealers</td></tr>
+</table>
+
+<h2 id="domain" class="pgbreak">4 · Domain Model — One Record, Many Lenses</h2>
+<p>The data model is small and tightly linked. The <b>Trailer (Inventory Unit)</b> is the spine; everything references it.</p>
+<div class="wf"><div id="er"></div><div class="cap">Entity-relationship overview. One trailer threads through inventory, deals, work orders, invoices, title and delivery; each role reads the same graph.</div></div>
+<h3>Core entities</h3>
+<table class="t">
+  <tr><th>Entity</th><th>Purpose</th><th>Key attributes</th></tr>
+  <tr><td><b>Tenant</b></td><td>A dealership</td><td>name, plan, branding, lots[], storefront domain, billing</td></tr>
+  <tr><td><b>User</b></td><td>A staff member</td><td>name, role(s), permissions, lot scope</td></tr>
+  <tr><td><b>Inventory Unit (Trailer)</b></td><td>The spine</td><td>stock #, type, year, make, length, axles, capacity, condition, photos, <b>cost</b>, <b>list</b>, <b>floor</b>, status, location, acquired/sold dates, views, lead-count</td></tr>
+  <tr><td><b>Lead</b></td><td>An inbound prospect</td><td>name, company, source, interest→Unit, status, owner→User, value, created</td></tr>
+  <tr><td><b>Customer</b></td><td>A buyer account</td><td>name, company, contacts, deals[], documents[]</td></tr>
+  <tr><td><b>Deal</b></td><td>A sales opportunity</td><td>customer, unit, stage, value, probability, salesperson, financing</td></tr>
+  <tr><td><b>Quote</b></td><td>A priced offer</td><td>unit, line items (price, prep, freight, tax), total, validity</td></tr>
+  <tr><td><b>Work Order</b></td><td>Recon / inspection / repair</td><td>unit, type, status, technician, tasks[], parts cost, hours est/actual</td></tr>
+  <tr><td><b>Invoice / Payment</b></td><td>Money in &amp; out (AR/AP)</td><td>customer/vendor, unit, amount, status, dates, method</td></tr>
+  <tr><td><b>Title / Document</b></td><td>Legal &amp; DMV paperwork</td><td>unit, title status, state, lien, document checklist &amp; signatures</td></tr>
+  <tr><td><b>Delivery</b></td><td>Logistics of handoff</td><td>unit, deal, origin, destination, driver/carrier, status, ETA, freight cost</td></tr>
+</table>
+<h3>The status machine</h3>
+<p>An Inventory Unit moves through: <code>incoming → recon → available → pending → sold</code>. Status is the single field that re-shapes the unit across roles — e.g. <i>available</i> publishes it to the storefront; <i>pending</i> hides it from new leads; <i>sold</i> moves it to delivery &amp; books revenue. The system must guard valid transitions and log each one.</p>
+
+<h2 id="lifecycle">5 · The Trailer Lifecycle</h2>
+<p>The end-to-end flow ties every role together. Each stage hands the same unit to the next role.</p>
+<div class="wf"><div id="flow"></div><div class="cap">Trailer lifecycle — the same unit handed role to role from acquisition through booking the sale.</div></div>
+
+<h2 id="functional" class="pgbreak">6 · Functional Specification by Role</h2>
+<p>Each role below states its <b>goal</b>, the <b>screens</b> it owns, its <b>functional requirements</b> (what the system must let it do), and a <b>wireframe</b> of the primary workspace. Wireframes define information architecture and layout only — visual design, components and stack are the build team's choice.</p>
+
+<div id="roles"></div>
+
+<h2 id="storefront" class="pgbreak">7 · Public Storefront</h2>
+<p>Every tenant gets a branded, mobile-first public website auto-generated from its <i>available</i> inventory. It is the demand engine that feeds the Lead Desk.</p>
+<h4>Functional requirements</h4>
+<ul class="req">
+  <li>Inventory grid with filter (type, condition, status), keyword search and sort (featured / price / year); each unit shows photos, key specs, price, location and a status badge.</li>
+  <li>Deep-linkable, shareable detail pages per unit (full specs, photos, description) with status (Available / Pending / Sold).</li>
+  <li>Lead capture: "Request a quote" and "Sell your trailer" forms create a <b>Lead</b> in the tenant's back office and notify staff; financing pre-qualification entry point.</li>
+  <li>Informational pages (financing, about, contact) and tenant branding (logo, colors, phone, address).</li>
+  <li>Units automatically appear/disappear as their status changes; optional syndication to external listing channels.</li>
+</ul>
+<div class="wf"><div id="store"></div><div class="cap">Public storefront — generated from available inventory; forms create leads in the back office.</div></div>
+
+<h2 id="crosscut">8 · Cross-Cutting Capabilities</h2>
+<ul>
+  <li><b>Global search</b> across units, leads, customers, deals, invoices and documents, scoped to the tenant and the user's permissions.</li>
+  <li><b>Notifications</b> (in-app + email/SMS) for new leads, approvals needed, overdue AR, delivery updates and title actions.</li>
+  <li><b>Activity log / audit trail</b> on every entity: status changes, price changes, discounts, payments, document signatures — who, when, why.</li>
+  <li><b>Comments &amp; @mentions</b> on units, deals and work orders so roles hand off context.</li>
+  <li><b>Tasks &amp; follow-ups</b> assignable to users, surfaced on each role's dashboard.</li>
+  <li><b>Document storage &amp; e-signature</b> for titles, bills of sale, financing and delivery receipts.</li>
+</ul>
+
+<h2 id="reporting">9 · Reporting &amp; KPIs</h2>
+<p>All dashboards derive from the shared record so figures reconcile across roles. Core KPIs the system must compute:</p>
+<table class="t">
+  <tr><th>Domain</th><th>KPIs</th></tr>
+  <tr><td>Sales</td><td>Pipeline value, weighted forecast, win rate, average deal, units sold (period), revenue, gross profit, sales-cycle length</td></tr>
+  <tr><td>Inventory</td><td>Units in stock by status, inventory value &amp; cost, average days on lot, aged units (90+), turn rate, by-location counts</td></tr>
+  <tr><td>Pricing</td><td>Average margin %, units below floor, margin by type, reprice impact</td></tr>
+  <tr><td>Marketing</td><td>Leads by source, cost per lead, first-response time, lead→quote→won conversion</td></tr>
+  <tr><td>Service</td><td>Open/in-progress/waiting work orders, recon cost &amp; cycle time, hours utilization</td></tr>
+  <tr><td>Money</td><td>AR aging, AP due, cash position, gross margin, monthly P&amp;L</td></tr>
+  <tr><td>Platform (operator)</td><td>MRR / ARR, net-new MRR, churn, trials &amp; conversions, seats &amp; units per tenant, usage, uptime</td></tr>
+</table>
+
+<h2 id="permissions">10 · Roles &amp; Permissions Matrix</h2>
+<p>Access is role-based and tenant-scoped. A user may hold multiple roles (common in small dealers). Sample matrix (✓ = full, ◑ = own records, · = read-only, blank = none):</p>
+<table class="t" style="font-size:8.5pt">
+  <tr><th>Capability</th><th>Owner</th><th>Lead</th><th>Sales</th><th>S.Mgr</th><th>Price</th><th>Inv</th><th>Svc</th><th>Office</th><th>Books</th><th>Disp</th><th>Cust</th></tr>
+  <tr><td>View inventory</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>✓</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>·</td><td>store</td></tr>
+  <tr><td>Edit price / floor</td><td>✓</td><td></td><td></td><td>◑</td><td>✓</td><td>·</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Work leads</td><td>·</td><td>✓</td><td>◑</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Advance deals</td><td>·</td><td></td><td>◑</td><td>✓</td><td></td><td></td><td></td><td>·</td><td>·</td><td>·</td><td>own</td></tr>
+  <tr><td>Approve discount</td><td>✓</td><td></td><td></td><td>✓</td><td>◑</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Work orders</td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>✓</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Titles / documents</td><td>·</td><td></td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>·</td><td>·</td><td>own</td></tr>
+  <tr><td>Invoices / payments</td><td>·</td><td></td><td></td><td></td><td></td><td></td><td></td><td>·</td><td>✓</td><td></td><td>own</td></tr>
+  <tr><td>Schedule delivery</td><td>·</td><td></td><td>·</td><td></td><td></td><td>·</td><td></td><td>·</td><td></td><td>✓</td><td>·</td></tr>
+  <tr><td>Manage users / billing</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<p class="mut" style="font-size:9pt">The Platform Super-Admin operates above all tenants and is not on this per-tenant matrix.</p>
+
+<h2 id="integrations">11 · External Integrations</h2>
+<table class="t">
+  <tr><th>Integration</th><th>Purpose</th></tr>
+  <tr><td>Financing / lenders</td><td>Soft-pull pre-qualification, application submission, decision status into Deal &amp; Customer portal</td></tr>
+  <tr><td>Listing syndication</td><td>Push available units to TruckPaper, Facebook Marketplace, Google; pull leads back</td></tr>
+  <tr><td>Title / DMV &amp; e-sign</td><td>Title status, lien release, electronic signing of titles &amp; bills of sale</td></tr>
+  <tr><td>Payments</td><td>Deposits, payoffs, ACH/wire/card; reconcile to invoices</td></tr>
+  <tr><td>Freight / carriers</td><td>Freight rate quotes, dispatch, in-transit tracking</td></tr>
+  <tr><td>Accounting export</td><td>Sync to QuickBooks / Xero (invoices, payments, journal entries)</td></tr>
+  <tr><td>Email &amp; SMS</td><td>Lead notifications, customer comms, delivery/title updates</td></tr>
+  <tr><td>Platform billing</td><td>Subscription billing &amp; metering for the SaaS operator (hosted mode)</td></tr>
+</table>
+
+<h2 id="nfr" class="pgbreak">12 · Non-Functional Requirements</h2>
+<table class="t">
+  <tr><th>Area</th><th>Requirement</th></tr>
+  <tr><td>Multi-tenancy</td><td>Strict per-tenant data isolation enforced at the data layer; no cross-tenant access possible by any query path.</td></tr>
+  <tr><td>Security</td><td>Authentication with sessions/SSO; role-based authorization on every action; encrypted secrets; audit log of sensitive actions; PII &amp; financing data protected.</td></tr>
+  <tr><td>Availability</td><td>Hosted SLA target 99.9%; storefront cached/CDN-served; graceful degradation if back-office services are down.</td></tr>
+  <tr><td>Performance</td><td>Dashboards load &lt; 2 s on typical tenant volumes; storefront fast on mobile; search responsive.</td></tr>
+  <tr><td>Scalability</td><td>Hundreds of tenants, tens of thousands of units &amp; leads per tenant, without per-tenant degradation.</td></tr>
+  <tr><td>Portability</td><td>Same codebase deploys hosted (multi-tenant) and self-host (single-tenant) via configuration/license; no operator-only assumptions in tenant features.</td></tr>
+  <tr><td>Data &amp; backups</td><td>Per-tenant export of all data; regular backups; tenant offboarding returns/erases data.</td></tr>
+  <tr><td>Observability</td><td>Logs, metrics, error tracking; per-tenant usage metering for billing; uptime &amp; API latency dashboards (operator).</td></tr>
+  <tr><td>Accessibility &amp; responsive</td><td>Internal tools usable on tablet; storefront fully responsive; WCAG-AA color/contrast for storefront.</td></tr>
+  <tr><td>Auditability</td><td>Immutable history of status/price/discount/payment/document events with actor, timestamp and reason.</td></tr>
+</table>
+
+<h2 id="acceptance">13 · Acceptance Criteria</h2>
+<p>The rebuild is "done" when the following end-to-end scenarios pass for a tenant, with figures reconciling across roles:</p>
+<ol class="req">
+  <li><b>Acquire→list.</b> Inventory Manager adds an incoming unit; Service completes intake &amp; recon; Pricing sets list/floor; status flips to <i>available</i> and the unit appears on the storefront and syndication.</li>
+  <li><b>Lead→quote.</b> A storefront "Request a quote" creates a Lead in the Lead Desk within seconds, routes to a salesperson, who builds a Quote tied to the unit.</li>
+  <li><b>Negotiate→approve.</b> A below-floor offer requires Sales Manager approval, which is logged; the Deal advances to financing.</li>
+  <li><b>Finance→title→deliver.</b> Customer applies for financing in the portal and sees status; Office tracks title to "in hand"; Dispatch schedules and tracks delivery to "delivered."</li>
+  <li><b>Book.</b> Bookkeeper issues the invoice, records payment, and the sale appears in revenue/gross KPIs that match the Owner dashboard.</li>
+  <li><b>Operate (hosted).</b> Super-Admin provisions a new tenant, sees it billed, and watches MRR/usage update.</li>
+</ol>
+
+<h2 id="glossary">14 · Glossary</h2>
+<table class="kv">
+  <tr><td>Floor price</td><td>The lowest price a unit may be sold at without manager approval; protects margin.</td></tr>
+  <tr><td>Days on lot</td><td>Days since acquisition; drives aging &amp; reprice decisions.</td></tr>
+  <tr><td>Recon</td><td>Reconditioning — the service work to make an acquired unit retail-ready.</td></tr>
+  <tr><td>Pipeline (value)</td><td>Sum of open-deal values; "weighted" multiplies each by win probability.</td></tr>
+  <tr><td>AR / AP</td><td>Accounts receivable (money owed to the dealer) / payable (money the dealer owes).</td></tr>
+  <tr><td>Syndication</td><td>Auto-publishing inventory to external listing channels.</td></tr>
+  <tr><td>Tenant</td><td>One dealership's isolated instance of the platform.</td></tr>
+  <tr><td>MRR / ARR</td><td>Monthly / annual recurring revenue (operator metric).</td></tr>
+</table>
+
+<script>
+/* ---- B&W vector wireframe generator (pure SVG) ---- */
+const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
+function r(x,y,w,h,f){return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f||'none'}" stroke="${ST}" stroke-width="1.3"/>`}
+function rf(x,y,w,h,f){return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" stroke="none"/>`}
+function tx(x,y,s,o){o=o||{};return `<text x="${x}" y="${y}" font-family="Helvetica,Arial,sans-serif" font-size="${o.s||8}" font-weight="${o.b?'700':'400'}" fill="${o.g?GR:ST}" ${o.a?'text-anchor="'+o.a+'"':''}>${s}</text>`}
+function tl(x,y,w){return `<rect x="${x}" y="${y-4}" width="${w}" height="3.2" rx="1.6" fill="${GR}"/>`} // text placeholder
+function cross(x,y,w,h){return r(x,y,w,h)+`<line x1="${x}" y1="${y}" x2="${x+w}" y2="${y+h}" stroke="${GR}" stroke-width="1"/><line x1="${x+w}" y1="${y}" x2="${x}" y2="${y+h}" stroke="${GR}" stroke-width="1"/>`}
+const W=900,H=560,SX=132,CX=144,CW=W-CX-14;
+
+function screen(title, nav, blocks){
+  let s=r(0,0,W,H);
+  // sidebar
+  s+=rf(0,0,SX,H,MG)+r(0,0,SX,H);
+  s+=rf(10,12,16,16,LG)+tx(32,24,'TPOS',{b:1,s:10});
+  nav.forEach((n,i)=>{const yy=42+i*19; if(n.on){s+=rf(6,yy-11,SX-12,16,LG);} s+=(n.g?tx(10,yy,n.g.toUpperCase(),{s:6,g:1}):tx(14,yy,n.t,{s:7.4,b:n.on,g:!n.on}));});
+  s+=rf(8,H-26,16,16,LG)+tx(30,H-14,'You',{s:7,g:1});
+  // topbar
+  s+=rf(SX,0,W-SX,32,'#fff')+r(SX,0,W-SX,32);
+  s+=tx(CX,20,title,{b:1,s:11});
+  s+=r(W-150,7,110,18)+tx(W-144,19,'Search…',{s:7,g:1})+rf(W-28,7,18,18,LG);
+  // content blocks (vertical stack)
+  let y=44;
+  const ctx={
+    add(h){const yy=y;y+=h;return yy;},
+    stats(labels){const n=labels.length,gw=(CW-(n-1)*8)/n,yy=this.add(48+10);labels.forEach((l,i)=>{const x=CX+i*(gw+8);s+=r(x,yy,gw,48)+tx(x+7,yy+15,l,{s:6.4,g:1})+rf(x+7,yy+24,Math.min(gw*0.5,46),12,LG);});},
+    region(ti,h,x,w){x=x===undefined?CX:x;w=w||CW;const yy=this.add(h+10);s+=r(x,yy,w,h)+tx(x+9,yy+15,ti,{b:1,s:8.6})+`<line x1="${x}" y1="${yy+22}" x2="${x+w}" y2="${yy+22}" stroke="${LG}"/>`;return {x,y:yy,w,h};},
+    table(ti,cols,rows,h,x,w){const g=this.region(ti,h,x,w);const colW=g.w/cols;for(let c=1;c<cols;c++)s+=`<line x1="${g.x+c*colW}" y1="${g.y+22}" x2="${g.x+c*colW}" y2="${g.y+g.h}" stroke="${LG}"/>`;for(let c=0;c<cols;c++)s+=tl(g.x+8+c*colW,g.y+34,colW*0.5);for(let rI=0;rI<rows;rI++){const ry=g.y+30+(rI+1)*((g.h-30)/(rows+0.3));s+=`<line x1="${g.x}" y1="${ry}" x2="${g.x+g.w}" y2="${ry}" stroke="${LG}"/>`;for(let c=0;c<cols;c++)s+=tl(g.x+8+c*colW,ry-4,colW*0.62);}return g;},
+    kanban(ti,colNames,h){const g=this.region(ti,h,CX,CW);const n=colNames.length,cw=(g.w-16-(n-1)*8)/n;colNames.forEach((cn,i)=>{const x=g.x+8+i*(cw+8),yy=g.y+30;s+=rf(x,yy,cw,h-38,MG)+r(x,yy,cw,h-38)+tx(x+6,yy+13,cn,{s:6.6,b:1});for(let k=0;k<2;k++){const ty=yy+20+k*((h-38-24)/2);s+=rf(x+5,ty,cw-10,((h-38-30)/2),'#fff')+r(x+5,ty,cw-10,((h-38-30)/2));s+=tl(x+11,ty+12,cw*0.5)+tl(x+11,ty+20,cw*0.7);}});return g;},
+    bars(ti,x,w){const g=this.region(ti,118,x,w);const n=8,bw=(g.w-20)/n;for(let i=0;i<n;i++){const bh=24+((i*37)%70);s+=rf(g.x+10+i*bw+2,g.y+g.h-10-bh,bw-6,bh,LG)+r(g.x+10+i*bw+2,g.y+g.h-10-bh,bw-6,bh);}return g;},
+    donut(ti,x,w){const g=this.region(ti,118,x,w);const cxp=g.x+g.w/2,cyp=g.y+66,rad=34;s+=`<circle cx="${cxp}" cy="${cyp}" r="${rad}" fill="none" stroke="${ST}" stroke-width="14"/><circle cx="${cxp}" cy="${cyp}" r="${rad}" fill="none" stroke="${LG}" stroke-width="14" stroke-dasharray="70 200" transform="rotate(-90 ${cxp} ${cyp})"/><circle cx="${cxp}" cy="${cyp}" r="22" fill="#fff" stroke="${ST}" stroke-width="1"/>`;return g;},
+    list(ti,n,x,w){const g=this.region(ti,28+n*20,x,w);for(let i=0;i<n;i++){const ly=g.y+30+i*20;s+=rf(g.x+9,ly+2,12,12,LG)+tl(g.x+28,ly+10,g.w*0.5)+tl(g.x+28,ly+17,g.w*0.3);}return g;},
+    _get(){return y;}, _set(v){y=v;},
+    pair(lf,L,R){const gap=8,lw=CW*lf-gap/2,rw=CW*(1-lf)-gap/2,rx=CX+CW*lf+gap/2,y0=y;L(CX,lw);const yl=y;y=y0;R(rx,rw);y=Math.max(yl,y);},
+  };
+  // a block plan is [type,...args]; supports a "side-by-side" via x/w
+  blocks(ctx);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+// side-by-side helper: run two block fns at the same y
+function row2(ctx, leftFn, rightFn, leftFrac){
+  const startY=ctx.add(0); // peek current y without advancing
+  // we need manual control; re-implement using region x/w at same y:
+}
+
+/* ---- per-role wireframes ---- */
+const ROLE_WF = {
+  owner: () => screen('Dealership Overview',
+    [{g:'Overview'},{t:'Dashboard',on:1},{t:'Sales'},{t:'Inventory'},{t:'Money'},{g:'Team'},{t:'People'},{g:'Settings'},{t:'Tenant'}],
+    c=>{c.stats(['Revenue MTD','Gross MTD','Units in stock','Pipeline','Avg days on lot']);
+        c.pair(0.6,(x,w)=>c.bars('Revenue — last 8 months',x,w),(x,w)=>c.donut('Inventory by status',x,w));
+        c.list('Alerts — aged units · overdue AR · open WOs · hot leads',3);}),
+  leadgen: () => screen('Lead Desk',
+    [{g:'Prospecting'},{t:'Inbox',on:1},{t:'My Leads'},{t:'Campaigns'},{t:'Sources'},{g:'Automation'},{t:'Sequences'}],
+    c=>{c.stats(['New today','First-response','Leads / week','→ Quote %']);
+        c.pair(0.62,(x,w)=>c.table('Lead inbox',6,5,150,x,w),(x,w)=>c.bars('Lead sources',x,w));}),
+  sales: () => screen('My Pipeline',
+    [{g:'Selling'},{t:'Pipeline',on:1},{t:'My Leads'},{t:'Quotes'},{t:'Customers'},{g:'Tools'},{t:'Inventory'}],
+    c=>{c.stats(['Open deals','Pipeline $','Quotes out','Won MTD']);
+        c.kanban('Pipeline — by stage',['Lead','Quoted','Negotiation','Financing','Delivery'],150);
+        c.list('Today — follow-ups',3);}),
+  salesmgr: () => screen('Sales Performance',
+    [{g:'Manage'},{t:'Team',on:1},{t:'Forecast'},{t:'Pipeline'},{t:'Approvals'}],
+    c=>{c.stats(['Team pipeline','Forecast','Win rate','Avg deal']);
+        c.table('Rep leaderboard',5,4,120);
+        c.pair(0.55,(x,w)=>c.bars('Weighted forecast by stage',x,w),(x,w)=>c.list('Discount approvals — below floor',2,x,w));}),
+  pricing: () => screen('Pricing & Margin',
+    [{g:'Pricing'},{t:'Repricer',on:1},{t:'Margins'},{t:'Market comps'},{t:'Approvals'}],
+    c=>{c.stats(['Avg margin','Below floor','Aged units','Avg days on lot']);
+        c.table('Repricer — cost · list · floor · margin · days · suggested',7,6,170);
+        c.pair(0.55,(x,w)=>c.bars('Margin by type',x,w),(x,w)=>c.list('Market comps',2,x,w));}),
+  inventory: () => screen('Inventory Control',
+    [{g:'Inventory'},{t:'Stock board',on:1},{t:'Acquisitions'},{t:'Aging'},{t:'Locations'}],
+    c=>{c.stats(['In stock','Inventory value','Incoming','In recon','Aged 90+']);
+        c.kanban('Stock board — by status',['Incoming','Recon','Available','Pending','Sold'],150);
+        c.table('Aging — oldest units',5,3,120);}),
+  service: () => screen('Service Bay',
+    [{g:'Shop'},{t:'Work orders',on:1},{t:'My tasks'},{t:'Inspections'},{t:'Parts'}],
+    c=>{c.stats(['Open WOs','In progress','Waiting parts','Hours today']);
+        c.kanban('Work orders — by status',['Open','In progress','Waiting parts','Done'],140);
+        c.pair(0.55,(x,w)=>c.list('Current job — task checklist',3,x,w),(x,w)=>c.list('Intake inspection',2,x,w));}),
+  office: () => screen('Front Office',
+    [{g:'Office'},{t:'Deals desk',on:1},{t:'Titles & DMV'},{t:'Documents'},{t:'Appointments'}],
+    c=>{c.stats(['Need docs','Titles pending','Appts today','Unsigned']);
+        c.table('Deals needing paperwork',5,4,120);
+        c.pair(0.6,(x,w)=>c.table('Title / DMV tracker',5,3,110,x,w),(x,w)=>c.list('Appointments today',3,x,w));}),
+  bookkeeper: () => screen('Books',
+    [{g:'Accounting'},{t:'Invoices',on:1},{t:'Payments'},{t:'AP / Bills'},{t:'Reports'}],
+    c=>{c.stats(['AR due','Overdue','Cash on hand','Gross MTD']);
+        c.pair(0.62,(x,w)=>c.table('Invoices (AR)',6,5,150,x,w),(x,w)=>c.list('P&L — month to date',4,x,w));}),
+  dispatch: () => screen('Dispatch',
+    [{g:'Logistics'},{t:'Schedule',on:1},{t:'Loads'},{t:'Drivers'},{t:'Freight quotes'}],
+    c=>{c.stats(['This week','In transit','Scheduled','Avg delivery']);
+        c.table('Load board',6,4,130);
+        c.kanban('Weekly schedule',['Mon','Tue','Wed','Thu','Fri'],120);}),
+  customer: () => screen('My Account · Stiles & Sons',
+    [{g:'My Account'},{t:'Dashboard',on:1},{t:'My Quotes'},{t:'Financing'},{t:'Delivery'},{t:'Documents'},{t:'Saved'}],
+    c=>{c.stats(['Open quotes','Financing','Delivery','Docs to sign']);
+        c.region('Your deal — 2015 Manac Lowboy · progress tracker  (Quote → Financing → Paperwork → Delivery)',70);
+        c.pair(0.55,(x,w)=>c.table('My quotes',4,2,90,x,w),(x,w)=>c.list('Financing & delivery',3,x,w));}),
+  platform: () => screen('Platform Admin',
+    [{g:'Platform'},{t:'Tenants',on:1},{t:'Revenue'},{t:'Billing'},{t:'Usage'},{t:'Support'},{t:'System'}],
+    c=>{c.stats(['MRR','ARR','Active tenants','Trials','Net-new MRR','Churn']);
+        c.pair(0.62,(x,w)=>c.table('Tenants — plan · seats · units · MRR · status',6,5,150,x,w),(x,w)=>c.donut('MRR by plan',x,w));}),
+};
+const ROLE_META = [
+  ['owner','6.1 Owner / Dealer Principal','Run a healthy, profitable business at a glance.',['Executive dashboard: revenue, gross, units, pipeline, days-on-lot.','Cross-role alert feed: aged inventory, overdue AR, open work orders, hot/new leads.','Drill into Sales and Inventory; manage team &amp; tenant settings &amp; billing.']],
+  ['leadgen','6.2 Lead Generation / BDC','Capture every inquiry and route it fast.',['Unified lead inbox (web, listing sites, phone, walk-in) with age &amp; first-response timers.','Assign/route leads to salespeople; one-click call/email.','Source &amp; campaign analytics: volume, cost-per-lead, conversion to quote.']],
+  ['sales','6.3 Salesperson','Work the pipeline and close deals.',['Kanban pipeline of own deals across stages with probability &amp; last-touch.','Quote builder tied to a unit (price, prep, freight, tax → total).','Daily follow-up tasks; customer accounts and history.']],
+  ['salesmgr','6.4 Sales Manager','Coach the team, forecast, approve.',['Rep leaderboard (deals, pipeline, won, win-rate) and conversion funnel.','Weighted forecast by stage.','Approve/deny/counter below-floor discounts — logged with reason.']],
+  ['pricing','6.5 Pricing Analyst','Maximize margin and turn.',['Repricer over available units: cost/list/floor/margin/days/demand with a suggested price &amp; reason.','Margin monitoring by type; aged-unit reprice prompts.','Market comparables; price-change approval queue.']],
+  ['inventory','6.6 Inventory Manager','Source, recon, place and turn units.',['Stock board by status (incoming→recon→available→pending→sold) and by location/lot.','Acquisition intake with ETA &amp; cost; push units into recon and onto the lot.','Aging report and turn metrics; trigger reprice/clearance.']],
+  ['service','6.7 Service Technician','Recondition and inspect units quickly.',['Work-order board by status with hours-vs-estimate and parts cost.','Per-job task checklist; intake inspection checklists (brakes/tires/lights/floor).','Log hours, parts and photos against the unit.']],
+  ['office','6.8 Office / Titles &amp; Admin','Keep paperwork clean and legal.',['Deals-needing-documents queue with missing-doc flags (title, bill of sale, financing, insurance).','Title / DMV tracker by unit (in hand / applied / pending / lien release) per state.','Appointments &amp; signings; document checklist &amp; e-signature.']],
+  ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net); accounting export.']],
+  ['dispatch','6.10 Delivery Dispatch','Move sold units to buyers.',['Load board of units needing delivery with destination, carrier/driver and status.','Weekly delivery schedule; assign drivers/carriers.','Freight rate quotes by lane; in-transit tracking with ETA.']],
+  ['customer','6.11 Customer (Buyer) Portal','Buy with confidence, self-serve.',['Deal progress tracker (quote → financing → paperwork → delivery).','View/accept quotes; apply for financing and see decision status.','Track delivery; review, e-sign and download documents; saved trailers.']],
+  ['platform','6.12 Platform Super-Admin','Operate the SaaS business (hosted mode).',['Tenant directory with plan, seats, units, MRR and status; provision &amp; manage.','Revenue (MRR/ARR/net-new/churn), MRR-by-plan, trials &amp; onboarding.','Cross-tenant usage metering, support queue and system-health monitoring.']],
+];
+
+// inject role sections
+const rolesEl = document.getElementById('roles');
+rolesEl.innerHTML = ROLE_META.map(([key,h,goal,reqs])=>`
+  <div class="role"><h3>${h}</h3>
+  <p><b>Goal.</b> ${goal}</p>
+  <h4>Functional requirements</h4><ul class="req">${reqs.map(r=>`<li>${r}</li>`).join('')}</ul>
+  <div class="wf">${ROLE_WF[key]()}<div class="cap">Wireframe — ${h.replace(/^[0-9.]+\s*/,'')} primary workspace (layout &amp; IA only).</div></div></div>`).join('');
+
+// storefront wireframe
+document.getElementById('store').innerHTML = (function(){
+  let s=r(0,0,W,480);
+  s+=rf(0,0,W,40,MG)+r(0,0,W,40)+rf(16,12,16,16,LG)+tx(40,24,'TPOS · DEALER STOREFRONT',{b:1,s:9})+tx(W-200,24,'Inventory   Financing   About   Contact',{s:7.5,g:1})+rf(W-44,11,30,18,ST);
+  s+=tx(40,80,'Heavy-duty trailers, ready to roll.',{b:1,s:16})+tl(40,98,260)+tl(40,108,200);
+  s+=r(40,124,300,26)+tx(48,141,'Search make, type, stock #…',{s:7.5,g:1})+rf(348,124,70,26,ST);
+  // filter bar
+  s+=r(40,172,W-80,26)+tx(48,189,'All types   ▾   Condition ▾   Status ▾   Sort ▾',{s:7.5,g:1});
+  // inventory grid 4x2
+  for(let i=0;i<8;i++){const col=i%4,row=Math.floor(i/4),cw=(W-80-3*14)/4,x=40+col*(cw+14),y=212+row*128;s+=r(x,y,cw,118)+cross(x+1,y+1,cw-2,62)+tl(x+8,y+78,cw*0.5)+tl(x+8,y+90,cw*0.7)+tx(x+8,y+110,'$00,000',{b:1,s:9})+rf(x+8,y+6,28,11,'#fff')+r(x+8,y+6,28,11);}
+  return `<svg viewBox="0 0 ${W} 480" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+// ER diagram
+document.getElementById('er').innerHTML = (function(){
+  const box=(x,y,w,t,sub)=>r(x,y,w,38)+tx(x+8,y+16,t,{b:1,s:8.5})+(sub?tx(x+8,y+29,sub,{s:6.5,g:1}):'');
+  const link=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ST}" stroke-width="1.1"/>`;
+  let s='';
+  const cxp=370, cyp=150;
+  s+=link(cxp+60,cyp-10,200,70)+link(cxp+60,cyp,540,70)+link(cxp+60,cyp+20,200,232)+link(cxp+60,cyp+30,540,232)+link(cxp+130,cyp+18,650,150)+link(cxp-10,cyp+18,170,150);
+  s+=rf(cxp,cyp-6,140,46,LG)+box(cxp,cyp-6,140,'INVENTORY UNIT','the spine: stock, status, cost/list/floor');
+  s+=box(150,52,130,'LEAD','source → unit, owner');
+  s+=box(490,52,150,'DEAL','customer, stage, value');
+  s+=box(150,214,130,'WORK ORDER','recon · inspection');
+  s+=box(490,214,150,'INVOICE / PAYMENT','AR / AP');
+  s+=box(40,132,120,'TENANT / USER','dealership · staff');
+  s+=box(660,132,130,'TITLE · DELIVERY','docs · logistics');
+  s+=box(490,300,150,'CUSTOMER','buyer account, portal');
+  s+=link(540,250,560,300);
+  return `<svg viewBox="0 0 820 350" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+// lifecycle flow
+document.getElementById('flow').innerHTML = (function(){
+  const stages=[['Acquire','Inventory Mgr'],['Recon','Service'],['Price','Pricing'],['List','Storefront'],['Lead','Lead Desk'],['Quote','Sales'],['Approve','Sales Mgr'],['Finance','Customer'],['Title','Office'],['Deliver','Dispatch'],['Book','Bookkeeper']];
+  let s='';const n=stages.length,bw=70,gap=(820-n*bw)/(n-1);
+  stages.forEach(([a,b],i)=>{const x=i*(bw+gap),y=40;s+=rf(x,y,bw,30,i%2?'#fff':MG)+r(x,y,bw,46)+tx(x+bw/2,y+18,a,{b:1,s:8,a:'middle'})+tx(x+bw/2,y+30,b,{s:6,g:1,a:'middle'})+tx(x+bw/2,y+72,'status',{s:5.5,g:1,a:'middle'});if(i<n-1){const ax=x+bw;s+=`<line x1="${ax}" y1="${y+23}" x2="${ax+gap}" y2="${y+23}" stroke="${ST}" stroke-width="1.2"/><path d="M${ax+gap-5},${y+19} L${ax+gap},${y+23} L${ax+gap-5},${y+27} Z" fill="${ST}"/>`;}});
+  s+=tx(0,118,'A single Inventory Unit flows left→right; each stage hands the same record to the next role.',{s:7,g:1});
+  return `<svg viewBox="0 0 820 130" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+</script>
+</body>
+</html>
