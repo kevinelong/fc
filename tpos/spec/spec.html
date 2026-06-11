@@ -54,11 +54,65 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–N &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v1.2 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–N &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
+</section>
+
+<section style="page-break-after:always;line-height:1.42">
+<h2 id="overview" style="margin-top:0">Executive Overview</h2>
+<p style="font-size:11pt;color:#2a3742;margin-bottom:9pt">TPOS is a multi-tenant vertical SaaS that runs an independent trailer dealership’s entire operation — its <b>public storefront</b> and its whole <b>back office</b> — on one shared record of truth, where a single trailer is seen through <b>12 role lenses</b> (inventory → deal → work order → invoice → title → delivery → listing). Sold <b>hosted</b> (monthly), <b>licensed</b> (annual), or <b>self-hosted</b> (one-time). The Phase-1 MVP is ≈ <b>6–12 months</b> across <b>5 delivery stages</b> (demo → GA).</p>
+
+<div class="two">
+  <div>
+    <h4 style="margin:4pt 0 3pt">The product</h4>
+    <ul class="req">
+      <li><b>Who:</b> small-to-mid used/refurbished commercial-trailer dealers, replacing a website builder + CRM + spreadsheets + QuickBooks + listing sites with one role-aware platform.</li>
+      <li><b>Core loop:</b> acquire → recondition → price → list → lead → quote → finance → title → deliver → book — each stage hands the <i>same</i> record to the next role.</li>
+      <li><b>Pricing:</b> Hosted $199–$1,290/mo · annual license · one-time self-host.</li>
+    </ul>
+    <h4 style="margin:9pt 0 3pt">Delivery stages (Appendix N)</h4>
+    <ul class="req">
+      <li><b>A · Internal demo</b> — prototype, mock data <i>(already built)</i>.</li>
+      <li><b>B · Sales demo</b> — polished facade to win design partners (~1–3 pw).</li>
+      <li><b>C · Alpha</b> — real architecture, core sell-loop, 1–2 partner dealers.</li>
+      <li><b>D · Beta</b> — real PII + money; pen-test + GLBA Safeguards baseline.</li>
+      <li><b>E · Release 1.0</b> — self-serve signup, live billing, 99.9% SLA.</li>
+    </ul>
+    <h4 style="margin:9pt 0 3pt">The bid envelope (Appendices J–M)</h4>
+    <ul class="req">
+      <li><b>Scope priced:</b> Phase-1 MVP cutline — core sell-loop, hosted-only.</li>
+      <li><b>Effort:</b> ≈ <b>95–175 person-weeks</b> (~3–4 FTE + designer + PM) — a planning range, not a quote.</li>
+      <li><b>Tightens once 4 levers fixed:</b> scope · delivery model · design ownership · jurisdiction.</li>
+    </ul>
+  </div>
+  <div>
+    <h4 style="margin:4pt 0 3pt">Tech stack at a glance (Appendix D)</h4>
+    <table class="t" style="font-size:8.5pt;margin-top:2pt">
+      <tr><td style="width:30%;color:#5d6b78">Database</td><td><b>PostgreSQL</b> + Row-Level Security (SQLite per self-host tenant)</td></tr>
+      <tr><td style="color:#5d6b78">Isolation</td><td>Shared schema · <code>tenant_id</code> everywhere · <code>FORCE RLS</code> + <code>SET LOCAL</code></td></tr>
+      <tr><td style="color:#5d6b78">App</td><td><b>Modular monolith</b> — Django/DRF <i>or</i> NestJS + Next.js</td></tr>
+      <tr><td style="color:#5d6b78">Data path</td><td>PgBouncer txn-pooling · thin typed SQL on hot paths</td></tr>
+      <tr><td style="color:#5d6b78">Reads</td><td>Materialized read models (CQRS-lite) + replicas + cache</td></tr>
+      <tr><td style="color:#5d6b78">Storefront</td><td>SSR + edge/CDN cache · S3 object storage (MinIO self-host)</td></tr>
+      <tr><td style="color:#5d6b78">Integrations</td><td>Stripe Connect · Twilio · Postmark · e-sign · QuickBooks (file→API)</td></tr>
+      <tr><td style="color:#5d6b78">Security</td><td>Argon2id · MFA · audit log · KMS · TLS + at-rest encryption</td></tr>
+      <tr><td style="color:#5d6b78">Scaling</td><td>Single primary + replicas · HASH(<code>tenant_id</code>) partitions · defer Citus</td></tr>
+    </table>
+    <h4 style="margin:9pt 0 3pt">Reading guide</h4>
+    <table class="t" style="font-size:8.5pt;margin-top:2pt">
+      <tr><td style="width:30%;color:#5d6b78">Product &amp; requirements</td><td>§1–14</td></tr>
+      <tr><td style="color:#5d6b78">Data &amp; API</td><td>App. A–B · <code>schema.sql</code> · <code>openapi.yaml</code></td></tr>
+      <tr><td style="color:#5d6b78">Architecture</td><td>App. C (scaling) · D (decisions)</td></tr>
+      <tr><td style="color:#5d6b78">Build-critical</td><td>App. E security · F onboarding · G formulas · H notifications · I accounting</td></tr>
+      <tr><td style="color:#5d6b78">Bid &amp; delivery</td><td>App. J scope · K integrations · L RACI · M estimate · N stages</td></tr>
+    </table>
+  </div>
+</div>
+<p style="font-size:8.5pt;color:#5d6b78;margin-top:8pt">Implementation-agnostic: stack choices are load-bearing recommendations <i>with rationale</i> (Appendix D), not mandates — the build team owns the final call. Effort/cost figures are order-of-magnitude planning guidance.</p>
 </section>
 
 <h2 id="toc">Contents</h2>
 <ol class="toc">
+  <li style="list-style:none;margin-left:-18pt"><a href="#overview"><b>Executive Overview</b></a></li>
   <li><a href="#vision">Product Vision &amp; Business Model</a></li>
   <li><a href="#tenancy">Multi-Tenancy &amp; Deployment Modes</a></li>
   <li><a href="#personas">Personas &amp; Roles</a></li>
