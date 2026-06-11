@@ -3,7 +3,7 @@
 **TPOS** ("Trailer Portal Operating System") is a multi-tenant vertical-SaaS spec/prototype for
 **industrial-trailer-resale dealerships**: one platform runs a dealer's public storefront **and**
 entire back office (inventory → leads → deals → quotes → recon → titles → invoicing → delivery),
-"one record, many lenses" across 12 roles. Sold hosted (monthly), licensed (annual), or self-host
+"one record, many lenses" across 13 roles (incl. rentals). Sold hosted (monthly), licensed (annual), or self-host
 (one-time). Lives under `/home/kevin/codeonline/tpos`, served at `https://codeonline.io/tpos/`.
 Git repo root: `/home/kevin/codeonline` (branch `main`).
 
@@ -15,6 +15,7 @@ Git repo root: `/home/kevin/codeonline` (branch `main`).
 3. [docs/02-architecture-decisions.md](docs/02-architecture-decisions.md) — proposed backend stack, scaling, real-time
 4. [docs/03-frontend-stack.md](docs/03-frontend-stack.md) — frontend/UX technology discussion (JS vs Rust/WASM, Leptos vs Dioxus, data-grid filtering, real-time)
 5. [docs/04-research-findings.md](docs/04-research-findings.md) — cited research: security/compliance, accounting export, onboarding, formulas
+6. [docs/06-rental-research.md](docs/06-rental-research.md) — trailer-rental research + what was added where
 6. [docs/05-build-and-render.md](docs/05-build-and-render.md) — how to render the PDFs, file inventory, environment
 7. `docs/_moved-architecture-appendices.html` — raw HTML of the old API/Performance/Architecture-Decisions appendices (lift into the **Proposal**)
 8. `docs/_moved-bid-appendices.html` — raw HTML of the old Scope/Integration-register/RACI/Estimate/Delivery-stages appendices (lift into the **Bid & Delivery Pack**)

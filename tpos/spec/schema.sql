@@ -13,7 +13,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;       -- gen_random_uuid()
 
 -- ----- enumerations (match spec Appendix A) ---------------------------------
-CREATE TYPE unit_status     AS ENUM ('incoming','recon','available','pending','sold');
+CREATE TYPE unit_status     AS ENUM ('incoming','recon','available','reserved','on_rent','in_inspection','pending','sold');
 CREATE TYPE lead_status     AS ENUM ('new','working','quoted','won','lost');
 CREATE TYPE deal_stage      AS ENUM ('lead','quoted','negotiation','financing','delivery','won','lost');
 CREATE TYPE wo_status       AS ENUM ('open','in_progress','waiting_parts','done');
@@ -24,6 +24,9 @@ CREATE TYPE delivery_status AS ENUM ('scheduled','en_route','delivered');
 CREATE TYPE tenant_plan     AS ENUM ('starter','growth','enterprise','license');
 CREATE TYPE tenant_status   AS ENUM ('active','trial','licensed','suspended');
 CREATE TYPE quote_line_kind AS ENUM ('price','prep','freight','tax','fee');
+CREATE TYPE rental_status    AS ENUM ('reserved','on_rent','off_rent','in_inspection','closed','cancelled');
+CREATE TYPE maintenance_plan AS ENUM ('full_service','net');
+CREATE TYPE deposit_state    AS ENUM ('held','applied','refunded');
 
 -- ----- control plane (NOT tenant-scoped; hosted mode) -----------------------
 CREATE TABLE tenants (
@@ -89,6 +92,9 @@ CREATE TABLE units (                                -- inventory: the spine
   acquired_at timestamptz, recon_started_at timestamptz,            -- the five date clocks (spec App. D)
   frontline_ready_at timestamptz, sold_at timestamptz, delivered_at timestamptz,
   external_ref text,                                                -- legacy/DMS key; import idempotency (spec App. C)
+  oec numeric(12,2),                                                -- original equipment cost (dollar utilization)
+  rental_pool boolean NOT NULL DEFAULT false,                       -- unit is in the rental fleet
+  annual_inspection_due date,                                       -- FMCSA 49 CFR 396.17
   views int NOT NULL DEFAULT 0, lead_count int NOT NULL DEFAULT 0,
   specs jsonb NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -210,6 +216,65 @@ CREATE TABLE deliveries (
   status delivery_status NOT NULL DEFAULT 'scheduled', eta date, freight_cost numeric(12,2)
 );
 
+CREATE TABLE rental_rates (                          -- the rate book (seasonal rows override base)
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  type text NOT NULL, lot text,
+  daily numeric(12,2), weekly numeric(12,2), monthly numeric(12,2),
+  mileage_allowance int, mileage_overage numeric(6,3),
+  season_start date, season_end date,                -- NULL = base rate
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE coi_records (                           -- certificate of insurance; expiry gates check-out
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  insurer text, policy_no text,
+  liability_limit numeric(12,2), physical_damage boolean NOT NULL DEFAULT false,
+  additional_insured boolean NOT NULL DEFAULT false, loss_payee boolean NOT NULL DEFAULT false,
+  effective_at date, expires_at date NOT NULL,
+  document_id uuid REFERENCES documents(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE rental_agreements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL REFERENCES customers(id),
+  unit_id uuid NOT NULL REFERENCES units(id),
+  status rental_status NOT NULL DEFAULT 'reserved',
+  start_at timestamptz, end_at timestamptz,
+  off_rent_at timestamptz, returned_at timestamptz,  -- billing stops at off_rent; liability runs to returned
+  billing_cycle text NOT NULL DEFAULT 'calendar_month',  -- or 'cycle_28'
+  rate_daily numeric(12,2), rate_weekly numeric(12,2), rate_monthly numeric(12,2),  -- snapshot at signing
+  mileage_allowance int, mileage_overage numeric(6,3), miles_out int, miles_in int,
+  deposit_amount numeric(12,2), deposit_kind text,   -- cash | card_hold (hold = no GL entry)
+  deposit_state deposit_state,
+  waiver_elected boolean NOT NULL DEFAULT false, waiver_pct numeric(5,2),
+  coi_id uuid REFERENCES coi_records(id),            -- required unless waiver_elected
+  maintenance_plan maintenance_plan NOT NULL DEFAULT 'full_service',
+  holdover_pct numeric(5,2) NOT NULL DEFAULT 50,
+  casualty_value numeric(12,2), return_lot text,
+  rpo boolean NOT NULL DEFAULT false,                -- rental purchase option
+  rpo_credit_schedule jsonb,                         -- e.g. [{months:"1-3",pct:100},{months:"4-12",pct:70}]
+  rpo_cap_months int, rpo_option_price numeric(12,2),
+  telematics_consent boolean NOT NULL DEFAULT false,
+  external_ref text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE inspections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  unit_id uuid NOT NULL REFERENCES units(id),
+  rental_agreement_id uuid REFERENCES rental_agreements(id),
+  kind text NOT NULL,                                -- check_out | check_in | annual_fmcsa
+  hub_miles int, reefer_hours numeric(8,1),
+  checklist jsonb NOT NULL DEFAULT '{}', photos jsonb NOT NULL DEFAULT '[]',
+  inspector_id uuid REFERENCES users(id),
+  at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE consent_records (                       -- e-sign consent (ESIGN/UETA; spec App. B)
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -264,6 +329,8 @@ CREATE TABLE notifications (
   read_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE invoices ADD COLUMN rental_agreement_id uuid REFERENCES rental_agreements(id);
+
 -- ----- indexes: every hot index LEADS with tenant_id (makes RLS ~free) -------
 CREATE INDEX ix_units_tenant_status   ON units      (tenant_id, status);
 CREATE INDEX ix_units_tenant_acquired ON units      (tenant_id, acquired_at);
@@ -283,6 +350,13 @@ CREATE UNIQUE INDEX ux_customers_tenant_extref ON customers (tenant_id, external
 CREATE UNIQUE INDEX ux_leads_tenant_extref     ON leads     (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
 CREATE UNIQUE INDEX ux_deals_tenant_extref     ON deals     (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
 CREATE INDEX ix_expitems_tenant_entity ON export_batch_items (tenant_id, entity_type, entity_id);
+CREATE INDEX ix_rentals_tenant_status ON rental_agreements (tenant_id, status, end_at);
+CREATE UNIQUE INDEX ux_rentals_tenant_extref ON rental_agreements (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX ix_coi_tenant_expiry     ON coi_records (tenant_id, expires_at);
+CREATE INDEX ix_insp_tenant_unit      ON inspections (tenant_id, unit_id, at DESC);
+-- one active agreement per unit at a time
+CREATE UNIQUE INDEX ux_rentals_unit_active ON rental_agreements (tenant_id, unit_id)
+  WHERE status IN ('reserved','on_rent','off_rent','in_inspection');
 
 -- ----- Row-Level Security: one policy per tenant-scoped table ----------------
 -- The app does `SET LOCAL app.tenant_id = '<uuid>'` per transaction (txn-pool safe).
@@ -291,7 +365,8 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['users','units','unit_photos','customers','leads','deals','quotes',
       'quote_lines','work_orders','wo_tasks','invoices','payments','titles','documents',
-      'deliveries','consent_records','retention_policies','export_batches','export_batch_items',
+      'deliveries','rental_rates','rental_agreements','coi_records','inspections',
+      'consent_records','retention_policies','export_batches','export_batch_items',
       'activities','tasks','notifications']
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
@@ -319,5 +394,21 @@ SELECT tenant_id,
                 FILTER (WHERE status = 'available'),0)::int             AS avg_days_on_lot
 FROM units GROUP BY tenant_id;
 CREATE UNIQUE INDEX ON kpi_inventory (tenant_id);
+
+CREATE MATERIALIZED VIEW kpi_rentals AS
+SELECT t.tenant_id,
+       count(*) FILTER (WHERE u.rental_pool)                                        AS fleet_units,
+       count(*) FILTER (WHERE u.status = 'on_rent')                                 AS on_rent,
+       count(*) FILTER (WHERE r.status = 'on_rent' AND r.end_at < now())            AS overdue,
+       count(*) FILTER (WHERE c.expires_at < now() + interval '30 days')            AS coi_expiring_30d,
+       round(100.0 * count(*) FILTER (WHERE u.status = 'on_rent')
+             / NULLIF(count(*) FILTER (WHERE u.rental_pool), 0), 1)                 AS pct_fleet_on_rent
+FROM (SELECT DISTINCT tenant_id FROM units) t
+LEFT JOIN units u  ON u.tenant_id = t.tenant_id
+LEFT JOIN rental_agreements r ON r.tenant_id = t.tenant_id AND r.unit_id = u.id
+       AND r.status IN ('reserved','on_rent','off_rent','in_inspection')
+LEFT JOIN coi_records c ON c.tenant_id = t.tenant_id AND c.id = r.coi_id
+GROUP BY t.tenant_id;
+CREATE UNIQUE INDEX ON kpi_rentals (tenant_id);
 
 COMMIT;

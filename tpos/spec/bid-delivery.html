@@ -114,6 +114,7 @@
   <tr><td>Global search</td><td><b>SHOULD</b></td><td>Postgres full-text at MVP; dedicated engine later</td></tr>
   <tr><td>Reporting depth beyond core KPIs</td><td><b>SHOULD</b></td><td>Materialized core KPIs in MUST; ad-hoc/BI → Could</td></tr>
   <tr><td>Financing automation + soft credit pull</td><td><b>COULD</b></td><td>Manual financing status at MVP; rails are heavy (§3)</td></tr>
+  <tr><td>Trailer rentals module (calendar, agreements, cycle billing, inspections, COI gates, utilization)</td><td><b>SHOULD</b> (Phase 2)</td><td>A second revenue stream and a sizeable module (recurring billing + its own state machine + ASC 842 treatment) — keep out of the Phase-1 cutline unless rentals are the dealer's core business, in which case it swaps in and something else moves out</td></tr>
   <tr><td>QBO REST-API accounting push</td><td><b>COULD</b></td><td>File export ships first (Proposal §10); API needs review</td></tr>
   <tr><td>Per-jurisdiction tax/title engine (multi-state)</td><td><b>COULD</b></td><td>Launch in 1–2 states; generalize later</td></tr>
   <tr><td>Self-host single-tenant delivery</td><td><b>WON’T</b> (now)</td><td>~Doubles release/test/support surface — defer (§4)</td></tr>
@@ -197,6 +198,7 @@
   <tr><td>Office/titles (basic) + customer portal (basic)</td><td>4 – 7</td><td>Low</td></tr>
   <tr><td>Bookkeeper invoices/payments + QuickBooks file export (Proposal §10 v1)</td><td>4 – 7</td><td>Medium — GL mapping + idempotency</td></tr>
   <tr><td>Public storefront (SSR + edge cache, detail, lead forms)</td><td>4 – 7</td><td>Medium — SEO + responsive</td></tr>
+  <tr><td style="color:#5d6b78">Rental module — <b>Phase 2, NOT in the Phase-1 rollup</b> (availability calendar + agreements state machine + cycle billing + check-out/in inspections + COI gates + deposits + utilization KPIs + ASC 842 export buckets)</td><td style="color:#5d6b78">10 – 18</td><td style="color:#5d6b78">High — recurring billing, its own state machine, lessor accounting</td></tr>
   <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Cross-cutting</b></td></tr>
   <tr><td>Permissions enforcement + field-level masking</td><td>2 – 4</td><td>Medium — pervasive</td></tr>
   <tr><td>Notifications (core transactional set, Spec App. E)</td><td>3 – 5</td><td>Low</td></tr>
@@ -214,7 +216,7 @@
   <tr><td>PM / coordination / ceremonies (≈ 15–20% applied to the above)</td><td>+ overhead</td><td>—</td></tr>
 </table>
 <p><b>Phase-1 rollup (engineering, excl. PM overhead):</b> ≈ <b>80 – 150 person-weeks</b>. With PM overhead, ≈ <b>95 – 175 pw</b> → roughly <b>6 – 12 calendar months</b> with a delivery team of ~3–4 FTE, plus a designer and part-time PM. <b>Cost</b> is deliberately omitted — multiply by the client’s confirmed blended rate. The range is wide on purpose: it tightens dramatically once the four levers in §4 (scope cutline, delivery model, design ownership, launch jurisdiction) are fixed.</p>
-<p style="font-size:8.6pt;color:#5d6b78"><b>Estimation basis &amp; caveats.</b> Ranges assume the recommended stack (Postgres + RLS, modular monolith, batteries-included framework — Proposal §11); a senior team familiar with multi-tenant SaaS; integrations limited to the MVP subset (§3) with the rest stubbed; and the §4 assumptions holding. They exclude: self-host, the deferred integrations, market-comp data, native mobile, multi-state tax/title, i18n, and ongoing run-cost. These are <b>planning figures to scope a bid</b>, not a fixed-price commitment.</p>
+<p style="font-size:8.6pt;color:#5d6b78"><b>Estimation basis &amp; caveats.</b> Ranges assume the recommended stack (Postgres + RLS, modular monolith, batteries-included framework — Proposal §11); a senior team familiar with multi-tenant SaaS; integrations limited to the MVP subset (§3) with the rest stubbed; and the §4 assumptions holding. They exclude: self-host, the deferred integrations, the Phase-2 rental module (priced separately above), market-comp data, native mobile, multi-state tax/title, i18n, and ongoing run-cost. These are <b>planning figures to scope a bid</b>, not a fixed-price commitment.</p>
 
 
 <!-- ===================== APPENDIX N — DELIVERY STAGES ===================== -->
@@ -290,7 +292,7 @@ document.getElementById('roadmap').innerHTML = (function(){
   let s='';
   const cols=[
     ['PHASE 1 · Hosted MVP','the core sell-loop, live',['Multi-tenant foundation + RLS + auth/RBAC','Inventory · lead inbox · pipeline + quotes','Public storefront (SSR + edge cache)','Owner dashboard + core KPIs','Bookkeeper invoices + QuickBooks file export','Customer portal + basic titles/office','Onboarding + data import wizard','Payments + e-sign + email/SMS','Security baseline + audit log + pen test']],
-    ['PHASE 2 · Operate & optimize','depth per role',['Sales manager — forecast & approvals','Pricing repricer + margin tools','Service work orders + recon','Delivery dispatch + scheduling','QBO REST-API push (automated)','Financing soft-pull + lender rails','Reporting & notification depth']],
+    ['PHASE 2 · Operate & optimize','depth per role',['Sales manager — forecast & approvals','Pricing repricer + margin tools','Service work orders + recon','Delivery dispatch + scheduling','Rentals — calendar · agreements · utilization','QBO REST-API push (automated)','Financing soft-pull + lender rails','Reporting & notification depth']],
     ['PHASE 3 · Scale & extend','new markets & models',['Self-host packaging & updates','Platform super-admin — billing/metering','Other accounting systems (Xero/Sage)','Market-comp pricing data feed','Mobile / PWA field app','Multi-jurisdiction tax/title engine','i18n / multi-currency']],
   ];
   cols.forEach(([h,sub,items],ci)=>{const x=18+ci*268,w=248;

@@ -112,6 +112,7 @@
   <li>The app connects as a <b>non-owner, non-superuser, non-<code>BYPASSRLS</code></b> role; migration lint asserts every tenant table has RLS enabled <i>and</i> a policy.</li>
   <li><b>CI negative test</b> (the Spec's provability requirement): seed tenants A and B; assert A cannot read/update/delete B's rows and cannot insert rows as B — at the SQL layer <i>and</i> through the API; any leak fails the build.</li>
   <li><b>Spec-driven schema features:</b> <code>external_ref</code> + per-tenant unique partial indexes on units/customers/leads/deals (import idempotency); append-only <code>activities</code> (audit) and <code>consent_records</code> (e-sign evidence) with <code>UPDATE/DELETE</code> revoked; customer address incl. <code>state</code> (per-state breach fan-out); <code>retention_policies</code> (legal floors vs the 2-year disposal default); the five unit date clocks + <code>recon_cost</code>/<code>transport_cost</code>; deal gross-input columns; <code>export_batches</code>/<code>export_batch_items</code> (accounting idempotency, §10).</li>
+  <li><b>Rental fleet (Spec §4–§6, App. D.5):</b> <code>rental_agreements</code> carries the full contract state machine (reserved → on-rent → off-rent → in-inspection → closed, with off-rent and physical-return timestamps split so billing and liability end at different moments); <code>rental_rates</code> is the seasonal rate book; <code>coi_records</code> gates check-out on insurance expiry; <code>inspections</code> stores check-out/check-in evidence (meter readings, checklists, photos) plus the FMCSA annual inspection; units gain <code>oec</code> (dollar-utilization basis), <code>rental_pool</code> and <code>annual_inspection_due</code>; a partial unique index enforces <b>one active agreement per unit</b>; <code>kpi_rentals</code> materializes the fleet dashboard.</li>
   <li>Self-host parity: same DDL; the single-tenant install keeps <code>tenant_id</code> columns (schema parity for upgrades) and may skip the policy block.</li>
 </ul>
 
@@ -149,6 +150,14 @@ GET/POST /api/v1/bills              GET /api/v1/accounting/pnl?period=   POST /a
 GET/PATCH /api/v1/titles/:unitId    GET/POST /api/v1/documents   POST /documents/:id/sign
 GET/POST /api/v1/deliveries         POST /api/v1/deliveries/:id/status   POST /deliveries/quote
 GET/POST /api/v1/appointments</pre>
+<h4>Rentals &amp; fleet</h4>
+<pre>GET/POST /api/v1/rentals            reservations (conflict-checked)   GET /api/v1/rentals/availability
+GET/PATCH /api/v1/rentals/:id       POST /api/v1/rentals/:id/transition   reserved→on_rent (GATED on credit
+                                    + valid COI or waiver)→off_rent→in_inspection→closed (guarded + audited)
+POST  /api/v1/rentals/:id/inspections   check-out / check-in (meter readings + photos, multipart)
+GET/PUT /api/v1/rental-rates        rate book (base + seasonal windows)
+GET/POST /api/v1/customers/:id/coi  certificates of insurance (expiry gates dispatch)
+GET   /api/public/rentals           storefront rental listings        GET /api/v1/portal/rentals</pre>
 <h4>Cross-cutting &amp; tenant admin</h4>
 <pre>GET   /api/v1/search?q=             GET /api/v1/notifications  POST …/:id/read
 GET/POST /api/v1/tasks              GET /api/v1/activity        GET /api/v1/reports/:kpiSet
@@ -309,6 +318,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td><b>Listing syndication</b></td><td>Adapter per channel (TruckPaper, Facebook, …): push <i>available</i> units, pull leads back via <code>/api/webhooks/syndication</code></td><td>Storefront/status rules in Spec §7 — units appear/disappear with status</td></tr>
   <tr><td><b>Financing / credit pull</b></td><td>Stub-first: manual financing status at MVP; vendor rails (soft-pull, lender submission) added per the Bid Pack phases</td><td>FCRA/GLBA scope only enters when the vendor is wired (Spec App. B)</td></tr>
   <tr><td><b>Freight</b></td><td>Manual rate entry at MVP; carrier-API adapter later</td><td>—</td></tr>
+  <tr><td><b>Telematics / GPS</b> (rental fleet)</td><td>Adapter per tracker vendor: position, geofence-exit alerts on overdue units, tamper events; consent clause flagged on the agreement</td><td>Tracking disclosed in the contract; recovery workflow for overdue/non-return (Spec §4, App. B FMCSA row)</td></tr>
   <tr><td><b>Platform billing</b></td><td>Subscription provider (Stripe Billing class) driving the operator control plane; usage metering from <code>usage_metrics</code></td><td>Hosted mode only (Spec §2)</td></tr>
 </table>
 <p class="mut" style="font-size:9pt">Vendor choices, build-vs-stub per phase, account ownership and review lead-times are a bid concern — the full register lives in the <b>Bid &amp; Delivery Pack</b>.</p>
@@ -321,6 +331,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <li><b>v1 — file adapters (ships first):</b> manual, on-demand <b>summary journal-entry</b> export as <b>CSV</b> (QuickBooks Online) and <b>IIF</b> (Desktop). Needs no OAuth and no Intuit production review; sidesteps QBO's invoice-CSV sales-tax block and 100-row cap. Trade-off accepted: GL-accurate books, but no invoice-level AR aging inside QuickBooks until the API phase.</li>
   <li><b>GL mapping wizard (one-time, per dealer):</b> map system buckets — trailer revenue, COGS, AR, sales-tax payable, fees, customer deposits — to the dealer's own accounts (<code>GET/PUT /api/v1/accounting/mapping</code>). File targets need exact account-name matches; the API target resolves and stores QuickBooks Account Ids.</li>
   <li><b>Idempotency:</b> every run creates an <code>export_batch</code>; exported records are marked via <code>export_batch_items</code> so a re-run never re-emits them. On the API path, the invoice number becomes QuickBooks <code>DocNumber</code> + query-before-insert (QuickBooks has no native idempotency key).</li>
+  <li><b>Rental money (ASC 842 lessor accounting).</b> Operating-lease rental income is recognized <b>straight-line over the term</b> (ASC 842-30-25-11) while the unit stays in fleet PP&amp;E and depreciates — so the canonical export model carries the rental GL buckets (<i>Rental Revenue, Fleet Depreciation, Fleet Maintenance, Customer Deposits, Deferred/Accrued Rent</i>) alongside the sale set. Variable charges (mileage overage, damage) recognize in the period incurred; security deposits are liabilities until applied or refunded (<i>Indianapolis Power &amp; Light</i>); card pre-auth holds are not money received and post no GL entry. An <b>RPO becomes a sales-type lease</b> when exercise is “reasonably certain” (ASC 842-10-25-2) — the system then derecognizes the unit, recognizes selling profit, and switches remaining income to interest; that conversion is an explicit, audited workflow step. Sales tax computes <b>per recurring invoice</b> with contract duration and equipment class as inputs (e.g. Texas taxes trailer rentals at 10% ≤30 days / 6.25% to 180 days under motor-vehicle gross-rental rules, and several states changed regimes mid-2025) — jurisdiction tables, per the Spec.</li>
   <li><b>Phases 2–4</b> (triggered by demand, sized in the Bid Pack): QBO REST-API push (OAuth2 + Intuit review) → Web Connector/qbXML for Desktop detail → additional systems via new adapters, or a unified-API aggregator once targets exceed ~2.</li>
 </ul>
 
@@ -385,6 +396,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Appendix C Onboarding &amp; import (idempotent bulk, error reports)</td><td>§3 (<code>external_ref</code>), §4 (<code>/bulk</code>, <code>/imports</code>)</td></tr>
   <tr><td>Appendix D Derived-field formulas (one engine, identical results)</td><td>§3 (date clocks, cost &amp; gross columns), §6.1 (shared WASM formula module)</td></tr>
   <tr><td>Appendix E Notification &amp; document catalog</td><td>§5 (in-app), §9 (email/SMS service)</td></tr>
+  <tr><td>Rentals — §3–§7 role/lifecycle/storefront, §9 KPIs, §10 matrix, App. D.5 formulas, App. E notifications</td><td>§3 (rental tables), §4 (rentals API + COI gate), §9 (telematics), §10 (ASC 842 treatment) + all three contract files</td></tr>
   <tr><td>Appendix F Accounting-system export</td><td>§10 + <code>schema.sql</code> (<code>export_batches</code>) + <code>openapi.yaml</code> (<code>/accounting/*</code>)</td></tr>
   <tr><td>§13 Acceptance criteria (end-to-end scenarios)</td><td>The integration of all of the above; delivery gates in the Bid Pack</td></tr>
 </table>

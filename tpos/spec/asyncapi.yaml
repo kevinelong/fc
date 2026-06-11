@@ -108,10 +108,10 @@ components:
           description: Monotonic per-tenant sequence; clients resume with ?cursor=<seq>.
         topic:
           type: string
-          enum: [units, leads, deals, invoices, deliveries, workorders, titles, notifications]
+          enum: [units, leads, deals, invoices, deliveries, workorders, titles, rentals, notifications]
         entity_type:
           type: string
-          description: Entity kind (unit, lead, deal, invoice, payment, delivery, work_order, title).
+          description: Entity kind (unit, lead, deal, invoice, payment, delivery, work_order, title, rental_agreement, coi).
         entity_id:
           type: string
           format: uuid

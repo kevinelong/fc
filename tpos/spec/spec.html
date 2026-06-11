@@ -59,14 +59,14 @@
 
 <section style="page-break-after:always;line-height:1.42">
 <h2 id="overview" style="margin-top:0">Executive Overview</h2>
-<p style="font-size:11pt;color:#2a3742;margin-bottom:9pt">TPOS is a multi-tenant vertical SaaS that runs an independent trailer dealership’s entire operation — its <b>public storefront</b> and its whole <b>back office</b> — on one shared record of truth, where a single trailer is seen through <b>12 role lenses</b> (inventory → deal → work order → invoice → title → delivery → listing). Sold <b>hosted</b> (monthly), <b>licensed</b> (annual), or <b>self-hosted</b> (one-time).</p>
+<p style="font-size:11pt;color:#2a3742;margin-bottom:9pt">TPOS is a multi-tenant vertical SaaS that runs an independent trailer dealership’s entire operation — its <b>public storefront</b> and its whole <b>back office</b> — on one shared record of truth, where a single trailer is seen through <b>13 role lenses</b> (inventory → deal <i>or</i> rental → work order → invoice → title → delivery → listing). Sold <b>hosted</b> (monthly), <b>licensed</b> (annual), or <b>self-hosted</b> (one-time).</p>
 
 <div class="two">
   <div>
     <h4 style="margin:4pt 0 3pt">The product</h4>
     <ul class="req">
       <li><b>Who:</b> small-to-mid used/refurbished commercial-trailer dealers, replacing a website builder + CRM + spreadsheets + accounting + listing sites with one role-aware platform.</li>
-      <li><b>Core loop:</b> acquire → recondition → price → list → lead → quote → finance → title → deliver → book — each stage hands the <i>same</i> record to the next role.</li>
+      <li><b>Core loops:</b> <i>sell</i> — acquire → recondition → price → list → lead → quote → finance → title → deliver → book; <i>rent</i> — reserve → check-out → on-rent (cycle billing) → return → inspect → available again. Each stage hands the <i>same</i> record to the next role.</li>
       <li><b>Pricing:</b> Hosted $199–$1,290/mo · annual license · one-time self-host.</li>
     </ul>
     <h4 style="margin:9pt 0 3pt">Key qualities (§12)</h4>
@@ -124,7 +124,7 @@
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
-<p class="lead">TPOS is a vertical SaaS that gives an independent trailer dealership one system to run both its <b>public storefront</b> and its entire <b>back office</b> — acquisition, reconditioning, pricing, marketing, sales, financing, titling, delivery and bookkeeping — on a single shared record of truth.</p>
+<p class="lead">TPOS is a vertical SaaS that gives an independent trailer dealership one system to run both its <b>public storefront</b> and its entire <b>back office</b> — acquisition, reconditioning, pricing, marketing, sales, <b>rentals</b>, financing, titling, delivery and bookkeeping — on a single shared record of truth.</p>
 <p>The market is fragmented small-to-mid dealers (used &amp; refurbished commercial trailers: dry vans, flatbeds, reefers, lowboys, dumps, tankers, chassis) who today stitch together a website builder, a generic CRM, spreadsheets, QuickBooks and listing sites (TruckPaper, Facebook). TPOS replaces that stack with a purpose-built, role-aware platform.</p>
 <h3>Revenue model</h3>
 <table class="t">
@@ -135,10 +135,10 @@
   <tr><td>Annual License</td><td>$9,900 / year</td><td>Dealers wanting to self-host</td><td>Right to run the software on own infrastructure; updates included</td></tr>
   <tr><td>One-Time Purchase</td><td>$24,000 + $3,000/yr support</td><td>Buy-to-own</td><td>Perpetual self-host license; optional support &amp; updates</td></tr>
 </table>
-<p>The platform operator (TPOS, Inc.) additionally runs a <b>super-admin control plane</b> to provision tenants, meter usage, bill subscriptions, and support dealers (see §6.12).</p>
+<p>The platform operator (TPOS, Inc.) additionally runs a <b>super-admin control plane</b> to provision tenants, meter usage, bill subscriptions, and support dealers (see §6.13).</p>
 <h3>Product principles</h3>
 <ul>
-  <li><b>One record, many lenses.</b> A trailer is simultaneously inventory, a deal, a work order, an invoice line, a title file, a delivery, and a public listing. Every role edits the <i>same</i> entity through a view shaped to its job — never a copy.</li>
+  <li><b>One record, many lenses.</b> A trailer is simultaneously inventory, a deal <i>or a rental agreement</i>, a work order, an invoice line, a title file, a delivery, and a public listing. Every role edits the <i>same</i> entity through a view shaped to its job — never a copy.</li>
   <li><b>The storefront is generated, not separate.</b> Inventory marked <i>available</i> is automatically published to the dealer's branded public site and syndicated to listing channels.</li>
   <li><b>Role-first, not module-first.</b> Each user lands on a workspace built around their daily goals and decisions, not a generic menu of tables.</li>
   <li><b>Auditable by default.</b> Price changes, discounts, status transitions and money movement are logged with who/when/why.</li>
@@ -152,10 +152,10 @@
   <tr><td>Licensed self-host</td><td>Dealer infrastructure</td><td>Typically single tenant; multi-tenant allowed</td><td>Annual license key, update channel</td></tr>
   <tr><td>One-time self-host</td><td>Dealer infrastructure</td><td>Single tenant</td><td>Perpetual key; optional support plan</td></tr>
 </table>
-<p><b>Requirement.</b> Tenant isolation must be enforced at the data layer (no cross-tenant read/write possible), branding/config is per-tenant, and a tenant's storefront resolves on a custom domain or subdomain. The control plane (§6.12) exists only in hosted mode.</p>
+<p><b>Requirement.</b> Tenant isolation must be enforced at the data layer (no cross-tenant read/write possible), branding/config is per-tenant, and a tenant's storefront resolves on a custom domain or subdomain. The control plane (§6.13) exists only in hosted mode.</p>
 
 <h2 id="personas">3 · Personas &amp; Roles</h2>
-<p>TPOS serves twelve roles across the dealership, plus the dealership's own customers and the platform operator. Each persona has a primary goal and a small set of "jobs to be done" that the system must make fast.</p>
+<p>TPOS serves thirteen roles across the dealership, plus the dealership's own customers and the platform operator. Each persona has a primary goal and a small set of "jobs to be done" that the system must make fast.</p>
 <table class="t">
   <tr><th>Role</th><th>Primary goal</th><th>Key jobs-to-be-done</th></tr>
   <tr><td>Owner / Dealer Principal</td><td>Run a healthy, profitable business</td><td>See revenue, gross, turn &amp; pipeline at a glance; spot aged inventory, overdue AR, stalled deals; manage the team</td></tr>
@@ -168,6 +168,7 @@
   <tr><td>Office / Titles &amp; Admin</td><td>Keep paperwork clean &amp; legal</td><td>Track titles/DMV, collect deal documents, schedule signings &amp; deliveries</td></tr>
   <tr><td>Bookkeeper / Accounting</td><td>AR/AP, cash, month-end</td><td>Issue &amp; collect invoices, record payments, pay bills, close the month, report P&amp;L</td></tr>
   <tr><td>Delivery Dispatch</td><td>Move units to buyers</td><td>Schedule deliveries, assign drivers/carriers, quote freight, track in-transit</td></tr>
+  <tr><td>Rental Manager</td><td>Keep the rental fleet earning</td><td>Run the availability calendar &amp; reservations; gate check-out on credit + insurance; check-out/in inspections; cycle billing, off-rent &amp; overdue; utilization &amp; retire-to-retail</td></tr>
   <tr><td>Customer (buyer)</td><td>Buy with confidence, self-serve</td><td>View quotes, apply for financing, track delivery, sign &amp; download documents</td></tr>
   <tr><td>Platform Super-Admin</td><td>Operate the SaaS business</td><td>Provision &amp; bill tenants, watch MRR/churn, monitor usage &amp; system health, support dealers</td></tr>
 </table>
@@ -189,9 +190,13 @@
   <tr><td><b>Invoice / Payment</b></td><td>Money in &amp; out (AR/AP)</td><td>customer/vendor, unit, amount, status, dates, method</td></tr>
   <tr><td><b>Title / Document</b></td><td>Legal &amp; DMV paperwork</td><td>unit, title status, state, lien, document checklist &amp; signatures</td></tr>
   <tr><td><b>Delivery</b></td><td>Logistics of handoff</td><td>unit, deal, origin, destination, driver/carrier, status, ETA, freight cost</td></tr>
+  <tr><td><b>Rental Agreement</b></td><td>A unit out earning</td><td>customer, unit, status (reserved→on-rent→off-rent→returned→closed), term, rate tiers &amp; billing cycle, deposit, waiver election, insurance (COI), maintenance plan, mileage out/in, RPO terms, holdover %</td></tr>
+  <tr><td><b>Rental Rate (book)</b></td><td>Pricing the fleet</td><td>trailer type, location, daily/weekly/monthly tiers, mileage allowance &amp; overage, seasonal date-range overrides</td></tr>
+  <tr><td><b>Inspection</b></td><td>Condition evidence</td><td>unit, agreement, kind (check-out / check-in / annual), meter readings, checklist, photos, inspector, timestamp</td></tr>
+  <tr><td><b>Certificate of Insurance</b></td><td>Renter compliance</td><td>customer, insurer, policy #, limits, additional-insured / loss-payee flags, expiry (alerts + check-out block)</td></tr>
 </table>
 <h3>The status machine</h3>
-<p>An Inventory Unit moves through: <code>incoming → recon → available → pending → sold</code>. Status is the single field that re-shapes the unit across roles — e.g. <i>available</i> publishes it to the storefront; <i>pending</i> hides it from new leads; <i>sold</i> moves it to delivery &amp; books revenue. The system must guard valid transitions and log each one.</p>
+<p>An Inventory Unit moves through the <b>sale path</b> <code>incoming → recon → available → pending → sold</code>, and — when flagged into the rental pool — the <b>rental loop</b> <code>available → reserved → on-rent → (overdue) → in-inspection → available</code>. Status is the single field that re-shapes the unit across roles — e.g. <i>available</i> publishes it to the storefront; <i>pending</i> hides it from new leads; <i>sold</i> moves it to delivery &amp; books revenue; <i>on-rent</i> starts cycle billing. Two timestamps matter at rental end: <b>off-rent</b> (billing stops) precedes <b>returned</b> (liability transfers). A rental unit can be <b>retired to retail</b> at any point — the same record simply re-enters the sale path with its cost basis and history intact. The system must guard valid transitions and log each one.</p>
 
 <h2 id="lifecycle">5 · The Trailer Lifecycle</h2>
 <p>The end-to-end flow ties every role together. Each stage hands the same unit to the next role.</p>
@@ -211,6 +216,7 @@
   <li>Lead capture: "Request a quote" and "Sell your trailer" forms create a <b>Lead</b> in the tenant's back office and notify staff; financing pre-qualification entry point.</li>
   <li>Informational pages (financing, about, contact) and tenant branding (logo, colors, phone, address).</li>
   <li>Units automatically appear/disappear as their status changes; optional syndication to external listing channels.</li>
+  <li><b>Rentals (when the dealer runs a fleet):</b> a Rent section listing rental units with daily/weekly/monthly rates and availability; a “Request a rental” form creates a rental lead. Sale and rental listings draw from the same inventory records.</li>
 </ul>
 <div class="wf"><div id="store"></div><div class="cap">Public storefront — generated from available inventory; forms create leads in the back office.</div></div>
 
@@ -233,24 +239,26 @@
   <tr><td>Pricing</td><td>Average margin %, units below floor, margin by type, reprice impact</td></tr>
   <tr><td>Marketing</td><td>Leads by source, cost per lead, first-response time, lead→quote→won conversion</td></tr>
   <tr><td>Service</td><td>Open/in-progress/waiting work orders, recon cost &amp; cycle time, hours utilization</td></tr>
-  <tr><td>Money</td><td>AR aging, AP due, cash position, gross margin, monthly P&amp;L</td></tr>
+  <tr><td>Rentals</td><td><b>Time utilization</b> (days on rent ÷ available days), <b>dollar utilization</b> (annualized rental revenue ÷ original equipment cost), revenue per unit, on-rent / due-back / overdue counts, COI lapses, fleet age, RPO conversions</td></tr>
+  <tr><td>Money</td><td>AR aging, AP due, cash position, gross margin, monthly P&amp;L (sale revenue and <b>rental revenue as separate streams</b>)</td></tr>
   <tr><td>Platform (operator)</td><td>MRR / ARR, net-new MRR, churn, trials &amp; conversions, seats &amp; units per tenant, usage, uptime</td></tr>
 </table>
 
 <h2 id="permissions">10 · Roles &amp; Permissions Matrix</h2>
 <p>Access is role-based and tenant-scoped. A user may hold multiple roles (common in small dealers). Sample matrix (✓ = full, ◑ = own records, · = read-only, blank = none):</p>
 <table class="t" style="font-size:8.5pt">
-  <tr><th>Capability</th><th>Owner</th><th>Lead</th><th>Sales</th><th>S.Mgr</th><th>Price</th><th>Inv</th><th>Svc</th><th>Office</th><th>Books</th><th>Disp</th><th>Cust</th></tr>
-  <tr><td>View inventory</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>✓</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>·</td><td>store</td></tr>
-  <tr><td>Edit price / floor</td><td>✓</td><td></td><td></td><td>◑</td><td>✓</td><td>·</td><td></td><td></td><td></td><td></td><td></td></tr>
-  <tr><td>Work leads</td><td>·</td><td>✓</td><td>◑</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-  <tr><td>Advance deals</td><td>·</td><td></td><td>◑</td><td>✓</td><td></td><td></td><td></td><td>·</td><td>·</td><td>·</td><td>own</td></tr>
-  <tr><td>Approve discount</td><td>✓</td><td></td><td></td><td>✓</td><td>◑</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-  <tr><td>Work orders</td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>✓</td><td></td><td></td><td></td><td></td></tr>
-  <tr><td>Titles / documents</td><td>·</td><td></td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>·</td><td>·</td><td>own</td></tr>
-  <tr><td>Invoices / payments</td><td>·</td><td></td><td></td><td></td><td></td><td></td><td></td><td>·</td><td>✓</td><td></td><td>own</td></tr>
-  <tr><td>Schedule delivery</td><td>·</td><td></td><td>·</td><td></td><td></td><td>·</td><td></td><td>·</td><td></td><td>✓</td><td>·</td></tr>
-  <tr><td>Manage users / billing</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>Capability</th><th>Owner</th><th>Lead</th><th>Sales</th><th>S.Mgr</th><th>Price</th><th>Inv</th><th>Svc</th><th>Office</th><th>Books</th><th>Disp</th><th>Rent</th><th>Cust</th></tr>
+  <tr><td>View inventory</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>✓</td><td>✓</td><td>·</td><td>·</td><td>·</td><td>·</td><td>✓</td><td>store</td></tr>
+  <tr><td>Edit price / floor</td><td>✓</td><td></td><td></td><td>◑</td><td>✓</td><td>·</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Work leads</td><td>·</td><td>✓</td><td>◑</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td>◑</td><td></td></tr>
+  <tr><td>Advance deals</td><td>·</td><td></td><td>◑</td><td>✓</td><td></td><td></td><td></td><td>·</td><td>·</td><td>·</td><td></td><td>own</td></tr>
+  <tr><td>Approve discount</td><td>✓</td><td></td><td></td><td>✓</td><td>◑</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Work orders</td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>✓</td><td></td><td></td><td></td><td>·</td><td></td></tr>
+  <tr><td>Rental agreements &amp; fleet board</td><td>·</td><td></td><td>·</td><td></td><td></td><td>·</td><td></td><td>·</td><td>·</td><td>·</td><td>✓</td><td>own</td></tr>
+  <tr><td>Titles / documents</td><td>·</td><td></td><td>·</td><td></td><td></td><td></td><td></td><td>✓</td><td>·</td><td>·</td><td>·</td><td>own</td></tr>
+  <tr><td>Invoices / payments</td><td>·</td><td></td><td></td><td></td><td></td><td></td><td></td><td>·</td><td>✓</td><td></td><td>◑</td><td>own</td></tr>
+  <tr><td>Schedule delivery</td><td>·</td><td></td><td>·</td><td></td><td></td><td>·</td><td></td><td>·</td><td></td><td>✓</td><td>·</td><td>·</td></tr>
+  <tr><td>Manage users / billing</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
 <p class="mut" style="font-size:9pt">The Platform Super-Admin operates above all tenants and is not on this per-tenant matrix.</p>
 
@@ -262,6 +270,7 @@
   <tr><td>Title / DMV &amp; e-sign</td><td>Title status, lien release, electronic signing of titles &amp; bills of sale</td></tr>
   <tr><td>Payments</td><td>Deposits, payoffs, ACH/wire/card; reconcile to invoices</td></tr>
   <tr><td>Freight / carriers</td><td>Freight rate quotes, dispatch, in-transit tracking</td></tr>
+  <tr><td>Telematics / GPS</td><td>Trailer tracking for the rental fleet — position, geofence-exit alerts, recovery of overdue units (tracking disclosed in the rental agreement)</td></tr>
   <tr><td>Accounting export</td><td>Export invoices, payments &amp; journal entries to the dealer's accounting system (QuickBooks first; others later)</td></tr>
   <tr><td>Email &amp; SMS</td><td>Lead notifications, customer comms, delivery/title updates</td></tr>
   <tr><td>Platform billing</td><td>Subscription billing &amp; metering for the SaaS operator (hosted mode)</td></tr>
@@ -294,6 +303,7 @@
   <li><b>Negotiate→approve.</b> A below-floor offer requires Sales Manager approval, which is logged; the Deal advances to financing.</li>
   <li><b>Finance→title→deliver.</b> Customer applies for financing in the portal and sees status; Office tracks title to "in hand"; Dispatch schedules and tracks delivery to "delivered."</li>
   <li><b>Book.</b> Bookkeeper issues the invoice, records payment, and the sale appears in revenue/gross KPIs that match the Owner dashboard.</li>
+  <li><b>Reserve→rent→return.</b> Rental Manager reserves an available rental-pool unit; check-out is <i>blocked</i> until the customer has credit approval and a current certificate of insurance (or elects the damage waiver); a check-out inspection (photos + meter reading) is captured; the unit goes <i>on-rent</i> and a cycle invoice is generated; the customer calls off-rent (billing stops) and returns the unit (liability transfers); a check-in inspection assesses damage, the deposit is applied/released with an itemized statement, and the unit re-enters <i>available</i>; utilization KPIs update and rental revenue books as its own stream.</li>
   <li><b>Operate (hosted).</b> Super-Admin provisions a new tenant, sees it billed, and watches MRR/usage update.</li>
 </ol>
 
@@ -306,6 +316,12 @@
   <tr><td>AR / AP</td><td>Accounts receivable (money owed to the dealer) / payable (money the dealer owes).</td></tr>
   <tr><td>Syndication</td><td>Auto-publishing inventory to external listing channels.</td></tr>
   <tr><td>Tenant</td><td>One dealership's isolated instance of the platform.</td></tr>
+  <tr><td>OEC</td><td>Original equipment cost — the basis for dollar utilization on a rental unit.</td></tr>
+  <tr><td>Time / dollar utilization</td><td>Days on rent ÷ available days; annualized rental revenue ÷ OEC — the two standard rental-fleet metrics.</td></tr>
+  <tr><td>RPO</td><td>Rental purchase option — a share of paid rent credits toward buying the unit (schedule &amp; cap configurable).</td></tr>
+  <tr><td>COI</td><td>Certificate of insurance — renter's proof of coverage naming the dealer additional insured / loss payee; expiry blocks check-out.</td></tr>
+  <tr><td>Damage waiver</td><td>A priced product (a % of rental charges) the renter may elect instead of physical-damage insurance. Not insurance.</td></tr>
+  <tr><td>Off-rent / holdover</td><td>Off-rent stops billing before physical return; holdover is the escalated rate charged past the agreed term.</td></tr>
   <tr><td>MRR / ARR</td><td>Monthly / annual recurring revenue (operator metric).</td></tr>
 </table>
 
@@ -322,7 +338,7 @@
   <tr><th style="width:16%">Table</th><th>Key attributes</th><th style="width:26%">Relationships</th></tr>
   <tr><td><b>tenants</b></td><td>name, plan(enum), status(enum), domain, branding(jsonb), billing_ref, lots(jsonb)</td><td>root of isolation; platform-managed</td></tr>
   <tr><td><b>users</b></td><td>name, email, password_hash, roles(text[]), lot_scope(text[]), active(bool), last_login</td><td>→ tenants; RBAC subject; uniq(tenant_id,email)</td></tr>
-  <tr><td><b>units</b><br><span class="mut xs">(inventory — the spine)</span></td><td>stock_no, type, year, make, length, axles, capacity, condition, status(enum), lot_id, cost, list_price, floor_price, acquired_at, sold_at, views, lead_count, specs(jsonb)</td><td>uniq(tenant_id,stock_no); idx(tenant_id,status); → lots</td></tr>
+  <tr><td><b>units</b><br><span class="mut xs">(inventory — the spine)</span></td><td>stock_no, type, year, make, length, axles, capacity, condition, status(enum), lot_id, cost, list_price, floor_price, acquired_at, sold_at, views, lead_count, specs(jsonb), <b>OEC</b>, rental_pool(bool), annual_inspection_due</td><td>uniq(tenant_id,stock_no); idx(tenant_id,status); → lots</td></tr>
   <tr><td><b>unit_photos</b></td><td>unit_id, url, sort, is_cover(bool)</td><td>→ units (→ object storage)</td></tr>
   <tr><td><b>leads</b></td><td>name, company, source, status(enum), value, phone, email, lost_reason</td><td>→ units (interest), → users (owner)</td></tr>
   <tr><td><b>customers</b></td><td>name, company, phone, email, portal_user_id</td><td>buyer accounts; → users (portal)</td></tr>
@@ -334,13 +350,18 @@
   <tr><td><b>titles</b></td><td>status(enum), state, lien_holder, released_at</td><td>uniq(unit_id) → units</td></tr>
   <tr><td><b>documents</b></td><td>kind, url, signed_at, signer, sign_request_id</td><td>→ deals / units; e-signature</td></tr>
   <tr><td><b>deliveries</b></td><td>origin, destination, carrier, driver, status(enum), eta, freight_cost</td><td>→ deals, → units</td></tr>
+  <tr><td><b>rental_rates</b></td><td>type, lot, daily, weekly, monthly, mileage_allowance, mileage_overage, season_start/end (NULL = base rate)</td><td>rate book; seasonal overrides win when dated</td></tr>
+  <tr><td><b>rental_agreements</b></td><td>status(enum), start/end, off_rent_at, returned_at, billing_cycle, rate snapshot, mileage out/in, deposit (amount·kind·state), waiver_elected + pct, maintenance_plan, holdover_pct, casualty_value, RPO (flag·credit schedule·cap·option price), telematics_consent</td><td>→ customers, → units, → coi_records</td></tr>
+  <tr><td><b>coi_records</b></td><td>insurer, policy_no, liability_limit, physical_damage, additional_insured, loss_payee, effective/expires, document</td><td>→ customers; expiry gates check-out</td></tr>
+  <tr><td><b>inspections</b></td><td>kind (check_out·check_in·annual_fmcsa), hub_miles, reefer_hours, checklist(jsonb), photos, inspector, at</td><td>→ units, → rental_agreements</td></tr>
   <tr><td><b>activities</b><br><span class="mut xs">(audit log)</span></td><td>entity_type, entity_id, actor_id, action, detail(jsonb), at</td><td>append-only; idx(tenant_id,entity_type,entity_id)</td></tr>
   <tr><td><b>tasks</b> / <b>notifications</b></td><td>tasks: assignee_id, title, due_at, done, link(entity) · notif: user_id, kind, payload(jsonb), read_at</td><td>cross-cutting; → users</td></tr>
 </table>
 <h4>Enumerations</h4>
 <table class="t" style="font-size:8.6pt">
   <tr><th style="width:22%">Enum</th><th>Values</th></tr>
-  <tr><td>unit.status</td><td><code>incoming · recon · available · pending · sold</code></td></tr>
+  <tr><td>unit.status</td><td><code>incoming · recon · available · reserved · on_rent · in_inspection · pending · sold</code> (rental loop states apply to rental-pool units)</td></tr>
+  <tr><td>rental.status</td><td><code>reserved · on_rent · off_rent · in_inspection · closed · cancelled</code> (+ an <i>overdue</i> flag while on_rent past term)</td></tr>
   <tr><td>lead.status</td><td><code>new · working · quoted · won · lost</code></td></tr>
   <tr><td>deal.stage</td><td><code>lead · quoted · negotiation · financing · delivery · won · lost</code></td></tr>
   <tr><td>work_order.status</td><td><code>open · in_progress · waiting_parts · done</code></td></tr>
@@ -375,6 +396,7 @@
   <tr><td><b>State breach-notification</b> (50 states + DC)</td><td>Compromise of defined PII</td><td>Per affected resident’s state</td><td>Fan out per-jurisdiction notices; store residency to query the set</td></tr>
   <tr><td><b>ESIGN / UETA</b> — 15 U.S.C. 7001</td><td>Any e-signed finance/sale document</td><td>Platform e-sign flow</td><td>Consent gate + tamper-evident, reproducible records</td></tr>
   <tr><td><b>ECOA / Reg B</b> retention — 12 CFR 1002.12</td><td>Credit applications</td><td>Dealer</td><td>Honor 25-month retention floor in disposal policy</td></tr>
+  <tr><td><b>FMCSA leasing &amp; inspection</b> — 49 CFR 376 / 396.17</td><td>Renting trailers for over-the-road use</td><td>Dealer</td><td>Written lease with exclusive-possession clause travels with the unit; renter operates under its own DOT authority (capture DOT/MC #); annual inspection per unit, report retained 14 months</td></tr>
 </table>
 
 <div class="note" style="border:0.75pt solid #15202b;background:#f6f8fa;padding:7pt 9pt;border-radius:4px;font-size:9.5pt;margin:6pt 0 10pt"><b>Requirement — the #1 risk is cross-tenant data disclosure.</b> Tenant context must be derived server-side (never from a client-supplied identifier) and isolation enforced <i>in depth</i> — at the authorization layer and again at the data layer — so no request can read or write another tenant’s data, even with a code bug. Provable by an automated negative test. The concrete mechanism is proposed in the Functional Specification Proposal.</div>
@@ -459,7 +481,7 @@
   <li>Server-side URL fetches restricted to prevent server-side request forgery.</li>
 </ul>
 <h3>B.6 Data-model requirements</h3>
-<p>To satisfy the above, the data model must additionally carry: an <b>immutable audit log</b> (append-only, tenant-scoped); <b>e-signature consent records</b> (consent + document hash + signer / timestamp / address); <b>customer residency</b> (to drive per-state breach notice); and a <b>retention policy</b> (per-record-type disposal floors versus the 2-year default). Payment instruments store <b>only a token + last4 + brand</b>, never full numbers.</p>
+<p>To satisfy the above, the data model must additionally carry: an <b>immutable audit log</b> (append-only, tenant-scoped); <b>e-signature consent records</b> (consent + document hash + signer / timestamp / address); <b>customer residency</b> (to drive per-state breach notice); a <b>retention policy</b> (per-record-type disposal floors versus the 2-year default); and <b>certificate-of-insurance records</b> with expiry dates (the check-out gate). Payment instruments store <b>only a token + last4 + brand</b>, never full numbers.</p>
 <h3>B.7 Primary sources</h3>
 <ul class="req" style="font-size:8.6pt;color:#3a4a59">
   <li>FTC Safeguards Rule — 16 CFR 314.3–314.6 (eCFR; Cornell LII 314.4); FTC <i>“Safeguards Rule: What Your Business Needs to Know”</i> and <i>Automobile Dealers Safeguards FAQs</i>.</li>
@@ -598,8 +620,23 @@
   <tr><td>Revenue recognition</td><td>at <b>delivery</b> (ASC 606, point-in-time)</td><td>“Sale date” ≠ “recognition date”; voided delivery reverses revenue + gross + commission</td></tr>
 </table>
 
-<h3>D.5 “Configurable” register</h3>
-<p>Every legitimately-variable choice — expose as a tenant setting, not a constant: aging-bucket boundaries · turn basis (cost vs unit) &amp; averaging method · cost-basis inclusions · holding rate + 360/365 day-basis · all commission parameters (pack, rate, mini, tiers, commissionable base) · conversion attribution window &amp; dedup · tax/fee jurisdiction tables · DSO period length &amp; denominator · the global “sold” trigger.</p>
+<h3>D.5 Rental &amp; fleet</h3>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
+  <tr><td>Time utilization</td><td><code>days_on_rent / days_available</code> (period)</td><td>Healthy ≈ 60–75%; per unit, class &amp; location</td></tr>
+  <tr><td>Dollar utilization</td><td><code>annualized_rental_revenue / OEC</code></td><td>≈ 55–65% benchmark; needs OEC per unit</td></tr>
+  <tr><td>Rate tiers</td><td><code>weekly ≈ 3 × daily; monthly ≈ 3 × weekly</code></td><td>Multipliers <b>configurable</b>; seasonal overrides by date range; best-rate auto-select</td></tr>
+  <tr><td>Cycle billing</td><td>calendar-month <i>or</i> 28-day cycles (13 periods/yr)</td><td>Mode configurable; prorate the final partial period</td></tr>
+  <tr><td>Billing window</td><td><code>start_at → off_rent_at</code> (not returned_at)</td><td>Off-rent stops billing; liability runs to physical return</td></tr>
+  <tr><td>Holdover</td><td><code>rate × (1 + holdover_pct)</code> past term</td><td>+50% is the common clause; configurable</td></tr>
+  <tr><td>Mileage overage</td><td><code>max(0, miles_in − miles_out − allowance) × overage_rate</code></td><td>Variable charge — recognize when incurred</td></tr>
+  <tr><td>Damage waiver fee</td><td><code>waiver_pct × gross rental charges</code></td><td>~10–15% typical; mutually exclusive with COI physical-damage requirement</td></tr>
+  <tr><td>RPO credit</td><td><code>Σ (paid_rent × credit_pct(month band))</code>, capped</td><td>e.g. 100% of months 1–3, 70% to month 12; schedule/cap configurable; conversion applies credit to the sale</td></tr>
+  <tr><td>Rental revenue recognition</td><td><b>Straight-line over the term</b> (operating lease, ASC 842); unit stays on the books and depreciates</td><td>≠ sale revenue (point-in-time at delivery); deferred-rent account when billing ≠ recognition; an RPO that becomes “reasonably certain” converts to a sales-type lease — see Appendix F</td></tr>
+</table>
+
+<h3>D.6 “Configurable” register</h3>
+<p>Every legitimately-variable choice — expose as a tenant setting, not a constant: aging-bucket boundaries · turn basis (cost vs unit) &amp; averaging method · cost-basis inclusions · holding rate + 360/365 day-basis · all commission parameters (pack, rate, mini, tiers, commissionable base) · conversion attribution window &amp; dedup · tax/fee jurisdiction tables · DSO period length &amp; denominator · the global “sold” trigger · rental rate multipliers &amp; seasonal windows · mileage clause &amp; rates · waiver % · insurance minimums · billing-cycle mode · holdover % · RPO credit schedule &amp; caps · maintenance plan (full-service vs net) · retire-to-retail triggers (age / utilization).</p>
 <p><b>Schema delta.</b> <code>units</code> today has only <code>acquired_at</code>/<code>sold_at</code> and a single <code>cost</code>; add <code>recon_started_at</code>, <code>frontline_ready_at</code>, <code>delivered_at</code> and the cost components <code>recon_cost</code>/<code>transport_cost</code>. <code>deals</code> needs a front/back-gross + fees/tax/pack breakdown beyond the single <code>value</code>.</p>
 <h4 style="margin-top:9pt">Primary sources</h4>
 <ul class="req" style="font-size:8.6pt;color:#3a4a59">
@@ -622,6 +659,12 @@
   <tr><td>Title cleared / lien released</td><td>Email + in-app</td><td>Office, customer</td><td>unit, title_status, state</td><td>Transactional</td></tr>
   <tr><td>Delivery scheduled / en-route / delivered</td><td>SMS + email + portal</td><td>Customer, dispatch</td><td>unit, eta, carrier, tracking</td><td>Transactional</td></tr>
   <tr><td>Invoice due / overdue</td><td>Email</td><td>Customer, bookkeeper</td><td>invoice_no, amount, due_at, days_overdue, pay_link</td><td>Transactional</td></tr>
+  <tr><td>Rental reservation confirmed</td><td>Email + portal</td><td>Customer, rental mgr</td><td>unit, term, rates, requirements (COI/waiver)</td><td>Transactional</td></tr>
+  <tr><td>Rental cycle invoice issued</td><td>Email</td><td>Customer, bookkeeper</td><td>agreement, period, amount, due_at, pay_link</td><td>Transactional</td></tr>
+  <tr><td>COI expiring / lapsed</td><td>Email + in-app</td><td>Customer, rental mgr</td><td>policy, expires_at, blocked_agreements</td><td>Transactional</td></tr>
+  <tr><td>Due-back reminder / overdue &amp; holdover</td><td>SMS + email + in-app</td><td>Customer, rental mgr</td><td>unit, due_at, days_over, holdover_rate</td><td>Transactional</td></tr>
+  <tr><td>Off-rent confirmed / deposit released</td><td>Email</td><td>Customer, bookkeeper</td><td>off_rent_at, final charges (itemized), deposit_disposition</td><td>Transactional</td></tr>
+  <tr><td>Annual inspection due (49 CFR 396.17)</td><td>In-app</td><td>Rental mgr, service</td><td>unit, due date</td><td>Transactional</td></tr>
   <tr><td>Marketing / re-engagement</td><td>Email</td><td>Customer (opted-in)</td><td>saved_units, new_matches</td><td><b>Marketing</b> — opt-out applies</td></tr>
 </table>
 <h3>E.1 Compliance documents</h3>
@@ -644,6 +687,7 @@
   <li>A <b>one-time chart-of-accounts mapping</b> per dealer (the system's revenue / COGS / AR / sales-tax / fees / deposits → the dealer's own accounts).</li>
   <li><b>No duplicate postings</b> on re-export — each exported batch is idempotent and marked as exported.</li>
   <li>The baseline export must work <b>without granting the system third-party access it cannot govern</b> and without depending on an external approval gate.</li>
+  <li><b>Rental money is a distinct stream and must export as one.</b> Rental (operating-lease) revenue is recognized <b>straight-line over the term</b> — never through the sale pipeline; the rented unit stays on the books and depreciates. Required GL buckets beyond the sale set: <i>Rental Revenue</i>, <i>Fleet Depreciation</i>, <i>Fleet Maintenance</i>, <i>Customer Deposits (liability)</i>, <i>Deferred/Accrued Rent</i> (when billing ≠ recognition). Variable charges (mileage overage, damage) recognize when incurred. Security deposits are liabilities until applied (itemized) or refunded — never revenue. An RPO that becomes “reasonably certain” to exercise converts the contract to a <i>sales-type</i> event (the proposed mechanics live in the Functional Specification Proposal). Sales tax applies <b>per recurring rental invoice</b> and is jurisdiction- and duration-dependent — configurable, like all tax.</li>
 </ul>
 <p style="font-size:9pt;color:#5d6b78">The format choices (file vs API), the QuickBooks-specific constraints, and the canonical-model + per-target-adapter design that keeps "other systems later" cheap are analyzed and recommended in the <b>Functional Specification Proposal</b>.</p>
 
@@ -743,6 +787,11 @@ const ROLE_WF = {
     c=>{c.stats(['This week','In transit','Scheduled','Avg delivery']);
         c.table('Load board',6,4,130);
         c.kanban('Weekly schedule',['Mon','Tue','Wed','Thu','Fri'],120);}),
+  rental: () => screen('Rental Desk',
+    [{g:'Rentals'},{t:'Fleet board',on:1},{t:'Calendar'},{t:'Agreements'},{t:'Check-in / out'},{t:'COI & credit'},{t:'Utilization'}],
+    c=>{c.stats(['On rent','Time util %','Due back today','Overdue','COI expiring']);
+        c.kanban('Fleet board — rental pool',['Available','Reserved','On rent','Overdue','Inspection'],150);
+        c.pair(0.6,(x,w)=>c.table('Due back / off-rent calls',5,3,110,x,w),(x,w)=>c.list('Compliance — COI expiry · annual inspection',3,x,w));}),
   customer: () => screen('My Account · Stiles & Sons',
     [{g:'My Account'},{t:'Dashboard',on:1},{t:'My Quotes'},{t:'Financing'},{t:'Delivery'},{t:'Documents'},{t:'Saved'}],
     c=>{c.stats(['Open quotes','Financing','Delivery','Docs to sign']);
@@ -764,8 +813,9 @@ const ROLE_META = [
   ['office','6.8 Office / Titles &amp; Admin','Keep paperwork clean and legal.',['Deals-needing-documents queue with missing-doc flags (title, bill of sale, financing, insurance).','Title / DMV tracker by unit (in hand / applied / pending / lien release) per state.','Appointments &amp; signings; document checklist &amp; e-signature.']],
   ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net).','Manual, on-demand <b>accounting export</b> — QuickBooks first, other systems later (Appendix F).']],
   ['dispatch','6.10 Delivery Dispatch','Move sold units to buyers.',['Load board of units needing delivery with destination, carrier/driver and status.','Weekly delivery schedule; assign drivers/carriers.','Freight rate quotes by lane; in-transit tracking with ETA.']],
-  ['customer','6.11 Customer (Buyer) Portal','Buy with confidence, self-serve.',['Deal progress tracker (quote → financing → paperwork → delivery).','View/accept quotes; apply for financing and see decision status.','Track delivery; review, e-sign and download documents; saved trailers.']],
-  ['platform','6.12 Platform Super-Admin','Operate the SaaS business (hosted mode).',['Tenant directory with plan, seats, units, MRR and status; provision &amp; manage.','Revenue (MRR/ARR/net-new/churn), MRR-by-plan, trials &amp; onboarding.','Cross-tenant usage metering, support queue and system-health monitoring.']],
+  ['rental','6.11 Rental Manager','Keep the rental fleet earning — reserve, dispatch, return, collect.',['Availability calendar &amp; fleet board (available → reserved → on-rent → overdue → inspection); reservation conflicts prevented.','Check-out gated on credit approval + a current COI (or damage-waiver election); check-out/check-in inspections with photos &amp; meter readings; off-rent (billing stops) distinct from physical return (liability transfers).','Cycle billing (calendar-month or 28-day), holdover escalation on overdue units, deposits held → applied (itemized) → released.','Utilization &amp; fleet KPIs (time/dollar utilization on OEC), RPO credit tracking, one-click retire-to-retail into sales inventory.']],
+  ['customer','6.12 Customer (Buyer) Portal','Buy with confidence, self-serve.',['Deal progress tracker (quote → financing → paperwork → delivery).','View/accept quotes; apply for financing and see decision status.','Track delivery; review, e-sign and download documents; saved trailers.']],
+  ['platform','6.13 Platform Super-Admin','Operate the SaaS business (hosted mode).',['Tenant directory with plan, seats, units, MRR and status; provision &amp; manage.','Revenue (MRR/ARR/net-new/churn), MRR-by-plan, trials &amp; onboarding.','Cross-tenant usage metering, support queue and system-health monitoring.']],
 ];
 
 // inject role sections
@@ -805,6 +855,8 @@ document.getElementById('er').innerHTML = (function(){
   s+=box(660,132,130,'TITLE · DELIVERY','docs · logistics');
   s+=box(490,300,150,'CUSTOMER','buyer account, portal');
   s+=link(540,250,560,300);
+  s+=box(660,20,130,'RENTAL AGREEMENT','reserve · on-rent · return');
+  s+=link(cxp+138,cyp-4,660,46);
   return `<svg viewBox="0 0 820 350" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 

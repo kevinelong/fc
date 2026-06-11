@@ -24,6 +24,7 @@ tags:
   - { name: service }
   - { name: accounting }
   - { name: titles-delivery }
+  - { name: rentals }
   - { name: crosscut }
   - { name: import }
   - { name: realtime }
@@ -85,6 +86,32 @@ paths:
     get:  { tags: [service], summary: List work orders, responses: { "200": { $ref: '#/components/responses/Ok' } } }
     post: { tags: [service], summary: Open a work order, responses: { "201": { $ref: '#/components/responses/Ok' } } }
   /api/v1/workorders/{id}/status: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [service], summary: Change WO status, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/rentals:
+    get:  { tags: [rentals], summary: List rental agreements (status, due-back, overdue filters), parameters: [ {$ref: '#/components/parameters/q'}, {$ref: '#/components/parameters/page'} ], responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [rentals], summary: Create a reservation (conflict-checked against the unit's calendar), parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/rentals/availability: { get: { tags: [rentals], summary: Availability calendar, parameters: [ { name: type, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date } }, { name: to, in: query, schema: { type: string, format: date } } ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/rentals/{id}:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:   { tags: [rentals], summary: Full agreement (rates, deposit, COI/waiver, inspections, billing), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    patch: { tags: [rentals], summary: Edit terms (extension, return lot, RPO), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/rentals/{id}/transition:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    post: { tags: [rentals], summary: "reserved→on_rent (check-out; GATED on credit + valid COI or waiver election)→off_rent→in_inspection→closed; guarded + audited", parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "200": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/rentals/{id}/inspections:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    post:
+      tags: [rentals]
+      summary: Record a check-out / check-in inspection (meter readings + photos)
+      requestBody: { content: { multipart/form-data: { schema: { type: object, properties: { kind: { type: string, enum: [check_out, check_in] }, hub_miles: { type: integer }, checklist: { type: string }, photos: { type: array, items: { type: string, format: binary } } }, required: [kind] } } } }
+      responses: { "201": { $ref: '#/components/responses/Ok' } }
+  /api/v1/rental-rates:
+    get: { tags: [rentals], summary: Rate book (base + seasonal windows), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [rentals], summary: Update rate book, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/customers/{id}/coi:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:  { tags: [rentals], summary: Certificates of insurance on file (expiry status), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [rentals], summary: Record a COI (limits, additional-insured/loss-payee, expiry, document), responses: { "201": { $ref: '#/components/responses/Ok' } } }
 
   /api/v1/invoices:
     get:  { tags: [accounting], summary: List invoices (AR/AP), responses: { "200": { $ref: '#/components/responses/Ok' } } }
@@ -152,9 +179,9 @@ paths:
       description: >
         The stream itself (transports, message schemas, resume semantics) is contract-defined in
         the companion **asyncapi.yaml** — this entry documents only the HTTP entry point.
-      parameters: [ { name: topics, in: query, schema: { type: string }, description: "Comma-separated: units, leads, deals, invoices, deliveries, notifications" }, { name: cursor, in: query, schema: { type: string }, description: Resume after a missed window } ]
+      parameters: [ { name: topics, in: query, schema: { type: string }, description: "Comma-separated: units, leads, deals, invoices, deliveries, rentals, notifications" }, { name: cursor, in: query, schema: { type: string }, description: Resume after a missed window } ]
       responses: { "200": { description: "text/event-stream of {topic, entity_type, entity_id, action, at} events" } }
-  /api/v1/reports/{kpiSet}: { parameters: [ { name: kpiSet, in: path, required: true, schema: { type: string, enum: [sales, inventory, money, marketing, service] } } ], get: { tags: [crosscut], summary: Dashboard KPI bundle, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/reports/{kpiSet}: { parameters: [ { name: kpiSet, in: path, required: true, schema: { type: string, enum: [sales, inventory, money, marketing, service, rentals] } } ], get: { tags: [crosscut], summary: Dashboard KPI bundle, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/users:
     get:  { tags: [crosscut], summary: List users, responses: { "200": { $ref: '#/components/responses/Ok' } } }
     post: { tags: [crosscut], summary: Invite user, responses: { "201": { $ref: '#/components/responses/User' } } }
@@ -166,12 +193,14 @@ paths:
   /api/public/inventory/{stock}: { parameters: [ { name: stock, in: path, required: true, schema: { type: string } } ], get: { tags: [storefront], summary: Listing detail (deep-linkable), security: [], responses: { "200": { $ref: '#/components/responses/Unit' } } } }
   /api/public/inquiry: { post: { tags: [storefront], summary: Submit inquiry -> creates a Lead + notifies (IMPLEMENTED in prototype), security: [], requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Inquiry' } } } }, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/public/financing/prequalify: { post: { tags: [storefront], summary: Soft-pull pre-qualification, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/public/rentals: { get: { tags: [storefront], summary: "Rental listings (daily/weekly/monthly rates, availability; no auth, tenant by Host)", security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
 
   /api/v1/portal/me: { get: { tags: [portal], summary: Customer profile, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/portal/deals: { get: { tags: [portal], summary: My deals/quotes, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/portal/financing/apply: { post: { tags: [portal], summary: Apply for financing, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/portal/delivery/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [portal], summary: Delivery tracking, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/portal/documents: { get: { tags: [portal], summary: My documents, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/portal/rentals: { get: { tags: [portal], summary: "My rentals (term, charges, due-back, deposit state)", responses: { "200": { $ref: '#/components/responses/Ok' } } } }
 
   /api/platform/tenants:
     get:  { tags: [platform], summary: List dealerships, responses: { "200": { $ref: '#/components/responses/Ok' } } }
@@ -210,6 +239,16 @@ webhooks:
   lead.created:
     post:
       summary: A new lead was captured (storefront, syndication or manual)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+  rental.overdue:
+    post:
+      summary: A rental went past its term without off-rent (holdover billing began)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+  coi.expiring:
+    post:
+      summary: A customer's certificate of insurance expires within the alert window
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
       responses: { "200": { description: Acknowledge with any 2xx } }
 

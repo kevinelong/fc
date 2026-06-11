@@ -18,6 +18,9 @@ Contract-first suite completed (2026-06-12): `asyncapi.yaml` (AsyncAPI 3.0, real
 0 parser errors), openapi.yaml gained outbound `webhooks` (unit.status_changed/deal.won/
 invoice.paid/lead.created) + multipart/CSV/IIF content types; Proposal §4.1 documents the suite.
 The decision-summary one-pager was re-captioned as the Proposal's summary sheet.
+**Rentals added across all docs (2026-06-12)** — see `06-rental-research.md`: 13th role, rental
+state machine, rate book/COI/inspections, ASC 842 treatment, Phase-2 scope row; spec 46pp /
+proposal 23pp / bid 13pp; schema 26 RLS tables; openapi 75 paths.
 
 ## Remaining / nice-to-have ⏳
 - The four **lever decisions** are still the client's call (scope cutline, hosted-vs-self-host,
