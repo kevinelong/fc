@@ -54,7 +54,7 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.0 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–H &nbsp;·&nbsp; Confidential draft</div>
 </section>
 
 <h2 id="toc">Contents</h2>
@@ -77,6 +77,10 @@
   <li><a href="#api">Appendix B — API Reference</a></li>
   <li><a href="#perf">Appendix C — Performance &amp; Scaling</a></li>
   <li><a href="#adr">Appendix D — Architecture Decisions &amp; Roads Not Taken</a></li>
+  <li><a href="#sec">Appendix E — Security, Privacy &amp; Compliance</a></li>
+  <li><a href="#onboard">Appendix F — Onboarding &amp; Data Import</a></li>
+  <li><a href="#formulas">Appendix G — Derived-Field Formulas</a></li>
+  <li><a href="#notif">Appendix H — Notification &amp; Document Catalog</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -461,6 +465,285 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>9</td><td>TechEmpower Framework Benchmarks</td><td>Independent benchmark</td><td>DB-query rounds collapse framework gaps; Rust leads only plaintext/JSON (#8)</td></tr>
 </table>
 
+
+<!-- ===================== APPENDIX E — SECURITY, PRIVACY & COMPLIANCE ===================== -->
+<h2 id="sec" class="pgbreak">Appendix E · Security, Privacy &amp; Compliance</h2>
+<p class="lead">A trailer dealer that <b>arranges or extends financing</b> is a “financial institution” under the Gramm-Leach-Bliley Act — which pulls the FTC <b>Safeguards Rule</b> (16 CFR Part 314) onto every tenant, and onto TPOS as their service provider. These are <b>binding legal requirements</b>, not optional hardening. This appendix maps the regime to platform controls and a threat model.</p>
+<div class="note" style="border:0.75pt solid #15202b;background:#f6f8fa;padding:7pt 9pt;border-radius:4px;font-size:9.5pt;margin:6pt 0 10pt">
+  <b>Not legal advice.</b> Items marked <span class="pill">COUNSEL</span> turn on facts a lawyer must confirm (whether a given dealer’s financing model triggers GLBA, FTC-vs-CFPB privacy applicability, per-state titling/lien law, and contractual liability allocation). Figures and citations are accurate as researched; verify against primary text before relying on them.
+</div>
+
+<h3>E.1 Regulatory surface</h3>
+<table class="t">
+  <tr><th style="width:21%">Regime</th><th style="width:30%">Trigger</th><th style="width:21%">Owner</th><th>TPOS role</th></tr>
+  <tr><td>GLBA <b>Safeguards Rule</b> — 16 CFR 314</td><td>Dealer arranges/extends financing → “financial institution”</td><td>Dealer (tenant)</td><td>§314.4(f) <b>service provider</b> — must safeguard by contract, support audits</td></tr>
+  <tr><td>GLBA <b>Privacy Rule</b> — 16 CFR 313 / Reg P</td><td>Same</td><td>Dealer</td><td>Generate/deliver privacy notices; track opt-outs <span class="pill">COUNSEL</span></td></tr>
+  <tr><td><b>FTC Red Flags Rule</b> — 16 CFR 681</td><td>Dealer = “creditor” with “covered accounts”</td><td>Dealer</td><td>Supply identity-theft detection signals + logging</td></tr>
+  <tr><td><b>Safeguards breach reporting</b> — 16 CFR 314.5</td><td>≥ 500 consumers’ <i>unencrypted</i> info</td><td>Dealer files FTC ≤ 30 days from discovery</td><td>Detect, count affected, start the clock, assemble the report</td></tr>
+  <tr><td><b>State breach-notification</b> (50 states + DC)</td><td>Compromise of defined PII</td><td>Per affected resident’s state</td><td>Fan out per-jurisdiction notices; store residency to query the set</td></tr>
+  <tr><td><b>ESIGN / UETA</b> — 15 U.S.C. 7001</td><td>Any e-signed finance/sale document</td><td>Platform e-sign flow</td><td>Consent gate + tamper-evident, reproducible records</td></tr>
+  <tr><td><b>ECOA / Reg B</b> retention — 12 CFR 1002.12</td><td>Credit applications</td><td>Dealer</td><td>Honor 25-month retention floor in disposal policy</td></tr>
+</table>
+
+<div class="wf"><div id="isolation"></div><div class="cap">Defense in depth for the #1 risk — cross-tenant data disclosure. Tenant context is derived server-side, enforced at the API (object-ownership / BOLA check) and again in the database (RLS <code>FORCE</code> + per-transaction <code>SET LOCAL</code>). Neither layer trusts a client-supplied tenant id.</div></div>
+
+<h3>E.2 Safeguards Rule control map (16 CFR 314.4)</h3>
+<p>Each required element of the written information-security program, mapped to the platform control that satisfies it. The §314.6 partial exemption (&lt; 5,000 consumers) relaxes four sub-elements for small dealers; TPOS implements the full set regardless.</p>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:26%">§314.4 element</th><th>TPOS control</th></tr>
+  <tr><td>(a) Qualified Individual</td><td>Named security owner per tenant; TPOS may serve as the QI by contract for hosted tenants</td></tr>
+  <tr><td>(b) Written risk assessment</td><td>Tenant-facing risk-assessment template + periodic review prompt</td></tr>
+  <tr><td>(c)(1) Access controls</td><td>Least-privilege RBAC across the 12 roles; field-level masking of PII / title / payment data</td></tr>
+  <tr><td>(c)(2) Data inventory</td><td>Catalog of systems/fields holding customer info (this spec + data dictionary)</td></tr>
+  <tr><td>(c)(3) <b>Encryption</b> in transit &amp; at rest</td><td>TLS everywhere; encrypted volumes; column-level encryption / tokenization for tokens &amp; PII</td></tr>
+  <tr><td>(c)(4) Secure development</td><td>Secure SDLC; dependency &amp; secret scanning in CI</td></tr>
+  <tr><td>(c)(5) <b>MFA</b></td><td>MFA required on every login (mandatory for admin / title / payment roles)</td></tr>
+  <tr><td>(c)(6) <b>Secure disposal</b></td><td>Retention engine: default purge of unused PII ≤ 2 years, overridden by legal-hold floors (ECOA 25 mo., title/finance records)</td></tr>
+  <tr><td>(c)(7) Change management</td><td>Reviewed, audited deploy pipeline; migration lint gates (RLS present, see E.4)</td></tr>
+  <tr><td>(c)(8) <b>Monitoring / logging</b></td><td>Immutable, append-only audit log of who-did-what-to-which-record-when, incl. tenant_id</td></tr>
+  <tr><td>(d) Testing</td><td>Annual penetration test + vulnerability assessment ≥ every 6 months (absent continuous monitoring)</td></tr>
+  <tr><td>(e) Training</td><td>Security-awareness training; qualified security staff</td></tr>
+  <tr><td>(f) <b>Service-provider oversight</b></td><td>The clause that binds TPOS: contractual security commitment, right to assess, breach-cost allocation</td></tr>
+  <tr><td>(g) Keep current</td><td>Re-evaluate program on testing results, material change, new threats</td></tr>
+  <tr><td>(h) Written incident-response plan</td><td>Documented IRP (roles, comms, remediation, post-mortem) wired to E.5</td></tr>
+  <tr><td>(i) Annual board report</td><td>QI’s written annual report — exportable from the platform</td></tr>
+</table>
+<p><b>Liability.</b> Primary duty is the dealer’s, and using a provider does not relieve it (§314.4(f)). But the FTC <i>has</i> acted directly against auto-dealer software providers (2019 settlement), so TPOS carries real exposure and allocates it by contract (MSA/DPA). <span class="pill">COUNSEL</span></p>
+
+<h3>E.3 Privacy, e-signature &amp; breach response</h3>
+<ul class="req">
+  <li><b>Privacy Rule.</b> The dealer issues the notice + opt-out; TPOS generates/delivers notices and tracks opt-outs. The §313.13 <b>service-provider exception</b> (a contractual use-restriction) is what lets the dealer share customer NPI with TPOS without an opt-out — so that clause must be in the contract. <i>Note: privacy rulemaking splits FTC (vehicle dealers) vs CFPB Reg P (others) — cite FTC 16 CFR 313 for dealers.</i> <span class="pill">COUNSEL</span></li>
+  <li><b>E-signature (ESIGN/UETA).</b> Capture intent-to-sign; run the consumer-consent gate (affirmative consent + demonstrated ability to access the electronic form + the required pre-consent disclosures + a withdrawal mechanism); store tamper-evident, reproducible records (signer identity, timestamp, IP, document hash). <b>Title documents are carved out</b> — UETA §3 and many state codes exclude documents of title; treat titling as per-DMV, not generic e-sign.</li>
+  <li><b>Breach response.</b> Instrument detection to count affected consumers and whether data was encrypted; auto-start the <b>≤ 30-day FTC clock</b> (16 CFR 314.5) and fan out <b>state notifications by the affected resident’s state</b>. Capture residency in the data model so the per-state affected set is queryable — the same per-jurisdiction pattern as titling.</li>
+</ul>
+
+<h3>E.4 Threat model — STRIDE × asset</h3>
+<p>Highest-priority cells shaded conceptually below; <b>Information disclosure × tenant data</b> (cross-tenant leak) is the single dominant risk.</p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:20%">Asset \ STRIDE</th><th>Spoofing</th><th>Tampering</th><th>Repudiation</th><th>Info disclosure</th><th>DoS</th><th>Elevation</th></tr>
+  <tr><td><b>Tenant business data</b></td><td>—</td><td>RLS WITH CHECK</td><td>Audit log</td><td><b>RLS + API authz ◆</b></td><td>Rate limit</td><td>FORCE RLS; non-owner role</td></tr>
+  <tr><td><b>Staff sessions</b></td><td><b>Cookie flags, MFA ◆</b></td><td>Signed/rotated</td><td>Audit log</td><td>HttpOnly/Secure</td><td>Throttle login</td><td>Re-auth on priv change</td></tr>
+  <tr><td><b>Portal / API tokens</b></td><td>Short-lived, scoped</td><td>Signature verify</td><td>Token id in log</td><td>No token in logs</td><td>Per-token limit</td><td>Scope = role</td></tr>
+  <tr><td><b>Payment tokens</b></td><td>—</td><td><b>Tokenize ◆</b></td><td>Audit log</td><td>Column encryption</td><td>—</td><td>Role-masked</td></tr>
+  <tr><td><b>Titles / PII</b></td><td>—</td><td>Integrity hash</td><td>Audit log</td><td>Encrypt + mask</td><td>—</td><td>Field-level authz</td></tr>
+  <tr><td><b>Uploaded files</b></td><td>—</td><td>Magic-byte check</td><td>Audit log</td><td>Off-webroot store</td><td>Size limit</td><td>Re-encode images</td></tr>
+  <tr><td><b>Public storefront</b></td><td>—</td><td>Read-only view</td><td>—</td><td>Published view only</td><td><b>Edge cache ◆</b></td><td>—</td></tr>
+  <tr><td><b>Audit log itself</b></td><td>—</td><td><b>Append-only ◆</b></td><td>n/a</td><td>Restricted read</td><td>—</td><td>Separate write role</td></tr>
+</table>
+
+<h3>E.5 Controls checklist (hard gates)</h3>
+<div class="two">
+  <div>
+    <h4>Tenant isolation — the #1 risk</h4>
+    <ul class="req">
+      <li>App connects as a <b>non-owner, non-superuser, non-<code>BYPASSRLS</code></b> role.</li>
+      <li><code>FORCE ROW LEVEL SECURITY</code> on every tenant table.</li>
+      <li><code>SET LOCAL app.tenant_id</code> per transaction — never session <code>SET</code> under PgBouncer transaction pooling.</li>
+      <li><code>WITH CHECK (tenant_id = …)</code> on every write policy (block insert-as-wrong-tenant).</li>
+      <li>Migration lint: every tenant table has RLS enabled <i>and</i> a policy.</li>
+      <li>Derive tenant_id from session/token server-side; <b>never</b> from a client param (OWASP API #1, BOLA/IDOR). UUID resource ids.</li>
+      <li><b>CI negative test:</b> tenant A cannot read / update / delete / insert-as tenant B — at the DB <i>and</i> API layer; fail the build on any leak.</li>
+    </ul>
+  </div>
+  <div>
+    <h4>AuthN / AuthZ (OWASP ASVS)</h4>
+    <ul class="req">
+      <li>Cookies: <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code>, <code>__Host-</code> prefix; session id ≥ 64-bit entropy; regenerate on login; idle + absolute timeouts; server-side logout.</li>
+      <li>Passwords: <b>Argon2id</b> (m=19 MiB, t=2, p=1); bcrypt ≥ 10 only for legacy.</li>
+      <li>MFA; login throttle/lockout; safe reset (single-use, time-limited, no enumeration).</li>
+      <li>Tokens: short-lived, scoped, signature/issuer/audience/expiry validated.</li>
+      <li>CSRF: synchronizer or HMAC double-submit for cookie auth; custom header on the bearer API.</li>
+      <li><b>RBAC</b> (roles → permission sets) over <b>ABAC</b> (tenant_id + field sensitivity).</li>
+    </ul>
+  </div>
+</div>
+<h4>Cross-cutting</h4>
+<ul class="req">
+  <li>Secrets in a managed KMS/secret store, never in VCS; rotate DB &amp; token-signing keys.</li>
+  <li>TLS in transit; encryption at rest for DB + object storage; column encryption / tokenization for payment tokens &amp; PII.</li>
+  <li>Immutable, append-only audit log (the Repudiation control).</li>
+  <li>Rate limiting per IP / token / tenant on auth, API and upload.</li>
+  <li>Server-side input validation &amp; parameterized queries everywhere.</li>
+  <li>Secure upload: magic-byte (not Content-Type) validation, UUID filenames, off-webroot, malware scan, image re-encode.</li>
+  <li>SSRF allow-listing on any server-side URL fetch (block RFC1918 / link-local / 169.254.169.254; validate resolved IP).</li>
+</ul>
+
+<h3>E.6 Schema deltas this requires</h3>
+<p>To satisfy the above, the relational schema (Appendix A / <code>schema.sql</code>) needs: an <b>immutable <code>audit_log</code></b> table (append-only, tenant-scoped); a <b><code>consent_records</code></b> table (e-sign consent + document hash + signer/timestamp/IP); a <b>residency field</b> on customers (state, to drive breach fan-out); and a <b>retention-policy</b> configuration (per record-type disposal floors vs the 2-year default). Payment instruments store <b>token + last4 + brand only</b> (see Appendix B / payments).</p>
+
+<h3>E.7 Primary sources</h3>
+<ul class="req" style="font-size:8.6pt;color:#3a4a59">
+  <li>FTC Safeguards Rule — 16 CFR 314.3–314.6 (eCFR; Cornell LII 314.4); FTC <i>“Safeguards Rule: What Your Business Needs to Know”</i> and <i>Automobile Dealers Safeguards FAQs</i>.</li>
+  <li>Breach reporting — 16 CFR 314.5; FTC <i>“Safeguards Rule notification requirement now in effect”</i> (2024).</li>
+  <li>Privacy Rule — 16 CFR Part 313 (esp. 313.13 service-provider exception); FTC <i>Privacy Rule &amp; Auto Dealers FAQs</i>. Red Flags — 16 CFR 681.1 + App. A.</li>
+  <li>ESIGN — 15 U.S.C. 7001(a)(c)(d), 7006; UETA §§2,3,12 (Uniform Law Commission).</li>
+  <li>State breach laws — NCSL <i>Security Breach Notification Laws</i>. Retention — 12 CFR 1002.12 (Reg B).</li>
+  <li>Threat model — OWASP API Security Top 10 (API1:2023 BOLA), OWASP ASVS Cheat Sheets (Session, Password Storage, CSRF, File Upload); PostgreSQL RLS docs; Supabase RLS guidance; Microsoft STRIDE.</li>
+</ul>
+
+
+<!-- ===================== APPENDIX F — ONBOARDING & DATA IMPORT ===================== -->
+<h2 id="onboard" class="pgbreak">Appendix F · Onboarding &amp; Data Import</h2>
+<p class="lead">How a dealership goes from signup to live — and imports its existing book of inventory, customers and deals. Sales/CRM products have the <b>slowest time-to-first-value precisely because of import friction</b>, and B2B median activation is only ~37.5%; past <b>14 days</b> the great majority of signups have already churned. The import wizard <i>is</i> the onboarding bottleneck, and the highest-leverage thing to build well.</p>
+
+<h3>F.1 Tenant provisioning — one automated path, branches on plan tier</h3>
+<table class="t">
+  <tr><th style="width:5%">#</th><th style="width:28%">Step</th><th>Detail</th></tr>
+  <tr><td>1</td><td>Account + tenant_id</td><td>Self-serve and assisted requests enter the same registration service</td></tr>
+  <tr><td>2</td><td>Subdomain + branding</td><td>Logo, colors; custom domain is a later tier</td></tr>
+  <tr><td>3</td><td>First admin in central IdP</td><td>tenant_id / tier / roles stamped as claims</td></tr>
+  <tr><td>4</td><td>IaC provisioning</td><td>Schema, default roles — scripted, zero hand-config</td></tr>
+  <tr><td>5</td><td>Defaults</td><td>Lots/locations, deal stages, unit statuses, tax/fee defaults</td></tr>
+  <tr><td>6</td><td>Sample data</td><td>Seed explorable demo data the dealer can wipe before real import</td></tr>
+  <tr><td>7</td><td>Team invites</td><td>Role-based invitations</td></tr>
+  <tr><td>8</td><td>Billing — <b>async</b></td><td>Non-blocking; dealer reaches a working dashboard before billing finishes</td></tr>
+  <tr><td>9</td><td>Land on import wizard</td><td>First in-app action; <b>activation event</b> = “first 10 units live + first deal created”</td></tr>
+</table>
+
+<div class="wf"><div id="flow-import"></div><div class="cap">The import pipeline. Clean rows commit; rows with <i>warnings</i> still commit; rows with <i>errors</i> are held and returned as an annotated report for the fix-and-reupload loop. Every row is keyed on <code>external_ref</code> so re-uploading the same file upserts rather than duplicating.</div></div>
+
+<h3>F.2 Import pipeline specification</h3>
+<h4>Column mapping</h4>
+<ul class="req">
+  <li>Fuzzy <b>auto-map</b> to canonical fields (target ~95% auto-matched), with manual remap.</li>
+  <li>Show, per canonical field, an inline <b>description + sample value</b>; allow split/merge (one “Customer Name” → first/last).</li>
+  <li><b>Persist the mapping profile</b> keyed to the dealer’s source DMS so repeat uploads are seamless.</li>
+</ul>
+<h4>Validation — three layers</h4>
+<ul class="req">
+  <li><b>Per-column:</b> type, required, enum. <b>Normalize</b> messy legacy values (“sold”, “SOLD”, “S” → canonical <code>unit_status</code>/<code>deal_stage</code>) via a mapping table; infer date formats (MM/DD vs DD/MM).</li>
+  <li><b>Referential:</b> import in dependency order (units + customers <i>before</i> deals); reject a deal whose unit/customer key doesn’t resolve.</li>
+  <li><b>De-duplication:</b> units by VIN / serial / stock_no, customers by email / phone — <b>surface collisions, never silently merge</b>.</li>
+</ul>
+<h4>Preview, commit, errors, re-runs</h4>
+<ul class="req">
+  <li><b>Errors vs warnings</b> split — the partial-success mechanism (warnings commit; errors hold).</li>
+  <li>Row-level inline errors with a “show only problem rows” filter, in-app fix, undo; <b>downloadable annotated error file</b> for re-upload.</li>
+  <li>Failed rows → staging queue, never abort the whole file.</li>
+  <li><b>Idempotent</b> re-runs: every row keyed on a stable <code>external_ref</code>; the bulk API accepts an <code>Idempotency-Key</code>.</li>
+  <li>Robust parsing: BOM/encoding detection, Excel-CSV quirks, embedded commas/newlines; async background worker with an <code>import_id</code>; chunk 50–500 rows (MVP may cap row count).</li>
+</ul>
+
+<h3>F.3 Migration strategy</h3>
+<ul class="req">
+  <li>Split <b>static/master</b> (units, customers — migrate days ahead) from <b>dynamic/transactional</b> (open deals/WIP — migrate at cutover).</li>
+  <li>Advise dealers to <b>“drain the line”</b> (~2 weeks) so open WIP is minimal at go-live.</li>
+  <li><b>Migrate active data only; archive closed history as CSV</b> (not live records).</li>
+  <li><b>Reconciliation screen</b> before go-live: source-vs-target counts per entity + a sampled spot-check (e.g. 10 units, 5 customers).</li>
+  <li><b>Rollback triggers:</b> a hard-stop time and a <b>&gt; 0.5% record-count variance auto-revert</b>; keep the old DMS read-accessible through cutover.</li>
+  <li>One-time migration is the default; live two-way sync with a legacy DMS is out of scope. Offer a no-commit <b>dry-run</b>.</li>
+</ul>
+
+<h3>F.4 Import templates &amp; bulk endpoint</h3>
+<p>Ship one downloadable template per entity, <b>generated from the canonical schema so they never drift</b>, plus a <code>/api/v1/bulk/{entity}</code> upsert endpoint (external_ref-keyed, idempotent) mirroring the wizard. Suggested columns (reconcile against Appendix A):</p>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:14%">Entity</th><th>Template columns</th></tr>
+  <tr><td><b>units</b></td><td><code>external_ref, vin_serial, stock_no, year, make, model, type, length, axles, capacity, mileage_hours, condition, cost, recon_cost, transport_cost, list_price, floor_price, status, lot, acquired_at, photos_ref</code></td></tr>
+  <tr><td><b>customers</b></td><td><code>external_ref, first_name, last_name, company, email, phone, address1, address2, city, state, zip, notes</code></td></tr>
+  <tr><td><b>leads</b></td><td><code>external_ref, customer_external_ref, source, status, interest_unit_ref, assigned_to, created_at, notes</code></td></tr>
+  <tr><td><b>deals</b></td><td><code>external_ref, unit_external_ref, customer_external_ref, stage, sale_price, fees, taxes, down_payment, financing_terms, salesperson, opened_at</code></td></tr>
+</table>
+<p><b>Schema delta.</b> Add an <code>external_ref</code> column to every importable entity (absent today) so import is idempotent and legacy ids are preserved.</p>
+<h4 style="margin-top:9pt">Primary sources</h4>
+<ul class="req" style="font-size:8.6pt;color:#3a4a59">
+  <li>AWS Well-Architected SaaS Lens — <i>Tenant Onboarding Best Practices</i>; multi-tenant provisioning write-ups (IaC, async billing).</li>
+  <li>Time-to-value data — DigitalApplied <i>SaaS TTV Framework</i> (median ~1.5-day TTFV; &gt;14-day “lost” cohort; 37.5% B2B activation).</li>
+  <li>Import UX — OneSchema (<i>Building a CSV Uploader</i>, <i>Advanced Features</i>), Flatfile (fuzzy auto-match), Domo ETL (staging dedup), Salesforce Bulk API 2.0 (upsert-by-external-id), idempotency-key guidance.</li>
+  <li>DMS migration — LotPulse <i>Switch Your DMS</i>, P2-Innovate <i>static-vs-dynamic cutover</i>, Concentrus <i>cutover plan</i> (reconciliation, 0.5% rollback threshold).</li>
+</ul>
+
+
+<!-- ===================== APPENDIX G — DERIVED-FIELD FORMULAS ===================== -->
+<h2 id="formulas" class="pgbreak">Appendix G · Derived-Field Formulas</h2>
+<p class="lead">Unambiguous formula definitions so two independent rebuilds compute identical numbers. The single biggest source of divergence is the <b>age clock</b>; it is resolved by persisting separate date stamps per unit and naming which clock each metric uses.</p>
+
+<h3>G.0 Conventions (state once, apply everywhere)</h3>
+<ul class="req">
+  <li>One <b>day-count convention</b> (inclusive vs exclusive of endpoints), applied uniformly to age, days-to-sell, recon, DSO and aging buckets.</li>
+  <li><b>Every “%” field declares its denominator</b> (price vs cost vs market).</li>
+  <li>One global <b>“sold” trigger</b> — booked / funded / <b>delivered</b>; default <b>delivered</b> (ASC 606). It propagates to units-sold, velocity, conversion and revenue recognition.</li>
+  <li>Persist five date clocks per unit: <code>acquired_at</code>, <code>recon_started_at</code>, <code>frontline_ready_at</code>, <code>sold_at</code> (booked), <code>delivered_at</code>.</li>
+</ul>
+
+<div class="wf"><div id="clocks"></div><div class="cap">The five date stamps a unit must carry, and the spans derived from them. Most aging/turn ambiguity disappears once these are stored separately rather than collapsed into one “date”.</div></div>
+
+<h3>G.1 Inventory &amp; aging</h3>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
+  <tr><td>Days on Lot (age)</td><td><code>(sold_at | today) − acquired_at</code></td><td>Floor-plan/aging clock; from acquisition</td></tr>
+  <tr><td>Days to Sell</td><td><code>sold_at − frontline_ready_at</code></td><td>Retail speed; excludes recon — store <b>both</b></td></tr>
+  <tr><td>Aging buckets</td><td>assign <code>age_days</code> to <code>[lo, hi)</code></td><td>Default 0–30/31–60/61–90/90+ — <b>configurable</b></td></tr>
+  <tr><td>Inventory turn (cost)</td><td><code>COGS / avg_inventory_value</code></td><td>Annualize × (365 / days_in_period)</td></tr>
+  <tr><td>Inventory turn (unit)</td><td><code>units_sold / avg_units_in_stock</code></td><td>Non-equivalent to cost turn — label which is shown</td></tr>
+  <tr><td>Total cost basis</td><td><code>acquisition + recon + transport + capitalizable_fees</code></td><td>“All-in”; provisional until recon RO closes</td></tr>
+  <tr><td>Recon cycle (ADR)</td><td><code>frontline_ready_at − recon_started_at</code></td><td>vs Time-to-line <code>frontline_ready_at − acquired_at</code></td></tr>
+</table>
+
+<h3>G.2 Pricing &amp; profit</h3>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
+  <tr><td>Front-end gross</td><td><code>sale_price − total_cost_basis − pack</code></td><td>Excludes F&amp;I, holdback, incentives (configurable)</td></tr>
+  <tr><td>Back-end gross (F&amp;I)</td><td><code>finance_reserve + warranty + GAP + other_FI</code></td><td>Each = price_to_customer − cost_to_dealer</td></tr>
+  <tr><td>Total gross / margin %</td><td><code>(front + back); total_gross / sale_price × 100</code></td><td>Margin is on <b>selling price</b></td></tr>
+  <tr><td>Margin vs markup</td><td><code>margin% = (p−c)/p; markup% = (p−c)/c</code></td><td>Not interchangeable — declare denominator</td></tr>
+  <tr><td>Holding cost / day</td><td><code>(amount_financed × rate)/360</code> &nbsp;or fully-loaded NADA/Cox</td><td>360 vs 365 configurable; ~$40–50/day used-unit benchmark</td></tr>
+  <tr><td>Age-adjusted gross</td><td><code>front_end_gross − holding_per_day × age_days</code></td><td>Shows margin erosion as a unit ages</td></tr>
+  <tr><td>Price/Cost-to-market</td><td><code>price (or basis) / avg_market_like × 100</code></td><td>Needs external comp feed — flag data-dependent</td></tr>
+</table>
+
+<h3>G.3 Sales &amp; deal</h3>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
+  <tr><td>Commission</td><td><b>rules engine</b>, not a constant</td><td>flat / %-of-gross-after-pack / mini-floor / tiered + spiffs — all configurable</td></tr>
+  <tr><td>Conversion (by stage)</td><td><code>stage_outcomes / stage_inputs × 100</code></td><td>Define lead dedup + attribution window; unwind reverts the count</td></tr>
+  <tr><td>Avg sale price / velocity</td><td><code>Σ sale_price / units; units / days_in_period</code></td><td>Exclude voided/unwound; “sold” per the global trigger</td></tr>
+  <tr><td>Sales tax &amp; fees</td><td><b>jurisdiction table</b></td><td>Never hard-coded; base/rate/doc-fee vary by locale</td></tr>
+</table>
+
+<h3>G.4 Money &amp; AR</h3>
+<table class="t" style="font-size:9pt">
+  <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
+  <tr><td>DSO</td><td><code>(avg_AR / net_credit_sales) × days_in_period</code></td><td>Pair with AR aging; period/denominator configurable</td></tr>
+  <tr><td>AR aging</td><td>bucket by <code>today − invoice_date</code></td><td>Contracts-in-transit = its own AR sub-ledger</td></tr>
+  <tr><td>Balance due</td><td><code>total_price − deposits − trade − rebates</code></td><td>Deposit is a <b>liability</b> until delivery</td></tr>
+  <tr><td>Revenue recognition</td><td>at <b>delivery</b> (ASC 606, point-in-time)</td><td>“Sale date” ≠ “recognition date”; voided delivery reverses revenue + gross + commission</td></tr>
+</table>
+
+<h3>G.5 “Configurable” register</h3>
+<p>Every legitimately-variable choice — expose as a tenant setting, not a constant: aging-bucket boundaries · turn basis (cost vs unit) &amp; averaging method · cost-basis inclusions · holding rate + 360/365 day-basis · all commission parameters (pack, rate, mini, tiers, commissionable base) · conversion attribution window &amp; dedup · tax/fee jurisdiction tables · DSO period length &amp; denominator · the global “sold” trigger.</p>
+<p><b>Schema delta.</b> <code>units</code> today has only <code>acquired_at</code>/<code>sold_at</code> and a single <code>cost</code>; add <code>recon_started_at</code>, <code>frontline_ready_at</code>, <code>delivered_at</code> and the cost components <code>recon_cost</code>/<code>transport_cost</code>. <code>deals</code> needs a front/back-gross + fees/tax/pack breakdown beyond the single <code>value</code>.</p>
+<h4 style="margin-top:9pt">Primary sources</h4>
+<ul class="req" style="font-size:8.6pt;color:#3a4a59">
+  <li>Inventory/turn/aging — NADA <i>Analyze Your Inventory</i> &amp; Slide Guide, acvmax, NetSuite, Wall Street Prep (turnover, sell-through), Lightspeed.</li>
+  <li>Recon/T2L — Cartuul, AutoSuccess (ADR). Profit — Nimble (front/back gross), Edmunds, AccountingTools / Consero (margin vs markup), Cox Automotive / NextGear (floor-plan &amp; holding cost), vAuto (PTM / market-days-supply).</li>
+  <li>Commission &amp; conversion — myCommissionCalc, Demand Local, Foureyes, evox. AR &amp; rev-rec — Wall Street Prep / CFI / AccountingTools (DSO), Versapay, RevenueHub &amp; Deloitte DART (ASC 606 point-in-time), Wipfli.</li>
+</ul>
+
+
+<!-- ===================== APPENDIX H — NOTIFICATION & DOCUMENT CATALOG ===================== -->
+<h2 id="notif" class="pgbreak">Appendix H · Notification &amp; Document Catalog</h2>
+<p class="lead">Every system-generated message and legal document: its trigger, channel, recipient and template variables. <b>Transactional</b> messages (tied to a transaction the recipient is party to) are exempt from marketing opt-out; <b>marketing</b> messages intersect the GLBA Privacy Rule opt-out (Appendix E.3) and CAN-SPAM/TCPA.</p>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:20%">Event</th><th style="width:14%">Channel</th><th style="width:16%">Recipient</th><th style="width:32%">Template variables</th><th>Type</th></tr>
+  <tr><td>Lead received</td><td>Email + in-app</td><td>Assigned salesperson, lead desk</td><td>lead_name, source, interest_unit, contact</td><td>Transactional</td></tr>
+  <tr><td>Quote sent</td><td>Email (+ portal)</td><td>Customer</td><td>unit, price, prep, freight, tax, total, valid_until, accept_link</td><td>Transactional</td></tr>
+  <tr><td>Financing decision</td><td>Email + portal</td><td>Customer, salesperson</td><td>decision, terms, next_step</td><td>Transactional</td></tr>
+  <tr><td>Deposit / payment received</td><td>Email</td><td>Customer, bookkeeper</td><td>amount, method (last4), invoice_no, balance_due</td><td>Transactional</td></tr>
+  <tr><td>Work-order status</td><td>In-app</td><td>Service mgr, inventory mgr</td><td>unit, wo_status, hours, parts</td><td>Transactional</td></tr>
+  <tr><td>Title cleared / lien released</td><td>Email + in-app</td><td>Office, customer</td><td>unit, title_status, state</td><td>Transactional</td></tr>
+  <tr><td>Delivery scheduled / en-route / delivered</td><td>SMS + email + portal</td><td>Customer, dispatch</td><td>unit, eta, carrier, tracking</td><td>Transactional</td></tr>
+  <tr><td>Invoice due / overdue</td><td>Email</td><td>Customer, bookkeeper</td><td>invoice_no, amount, due_at, days_overdue, pay_link</td><td>Transactional</td></tr>
+  <tr><td>Marketing / re-engagement</td><td>Email</td><td>Customer (opted-in)</td><td>saved_units, new_matches</td><td><b>Marketing</b> — opt-out applies</td></tr>
+</table>
+<h3>H.1 Compliance documents</h3>
+<ul class="req">
+  <li><b>Privacy notice</b> (GLBA/Reg P) — generated, delivered, opt-out tracked (E.3).</li>
+  <li><b>E-sign consent record</b> — consent + document hash + signer/timestamp/IP (E.3).</li>
+  <li><b>Breach notice</b> — FTC report (≤30 days, ≥500 consumers) + per-state consumer notices (E.1/E.5).</li>
+  <li><b>Adverse-action / Red Flags</b> notices where financing is declined or identity flags fire (E.1).</li>
+</ul>
+
+
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
 const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
@@ -628,6 +911,61 @@ document.getElementById('flow').innerHTML = (function(){
   stages.forEach(([a,b],i)=>{const x=i*(bw+gap),y=40;s+=rf(x,y,bw,30,i%2?'#fff':MG)+r(x,y,bw,46)+tx(x+bw/2,y+18,a,{b:1,s:8,a:'middle'})+tx(x+bw/2,y+30,b,{s:6,g:1,a:'middle'})+tx(x+bw/2,y+72,'status',{s:5.5,g:1,a:'middle'});if(i<n-1){const ax=x+bw;s+=`<line x1="${ax}" y1="${y+23}" x2="${ax+gap}" y2="${y+23}" stroke="${ST}" stroke-width="1.2"/><path d="M${ax+gap-5},${y+19} L${ax+gap},${y+23} L${ax+gap-5},${y+27} Z" fill="${ST}"/>`;}});
   s+=tx(0,118,'A single Inventory Unit flows left→right; each stage hands the same record to the next role.',{s:7,g:1});
   return `<svg viewBox="0 0 820 130" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix E: tenant-isolation defense-in-depth ---- */
+function arrowR(x,y,len){return `<line x1="${x}" y1="${y}" x2="${x+len}" y2="${y}" stroke="${ST}" stroke-width="1.3"/><path d="M${x+len-6},${y-4} L${x+len},${y} L${x+len-6},${y+4} Z" fill="${ST}"/>`}
+document.getElementById('isolation').innerHTML = (function(){
+  let s='';
+  const cap=(x,y,t)=>tx(x,y,t,{s:7,g:1});
+  s+=`<line x1="278" y1="14" x2="278" y2="196" stroke="${GR}" stroke-width="1" stroke-dasharray="4 4"/>`+tx(284,26,'trust boundary',{s:6.5,g:1});
+  // browser
+  s+=r(20,46,190,86)+tx(30,66,'BROWSER / CLIENT',{b:1,s:9});
+  s+=cap(30,84,'Request + session cookie /')+cap(30,96,'bearer token.')+cap(30,114,'Client-supplied tenant id')+cap(30,126,'is never trusted.');
+  s+=arrowR(210,89,82);
+  // API
+  s+=r(296,46,210,86)+tx(306,66,'API SERVICE',{b:1,s:9});
+  s+=cap(306,84,'tenant_id ← session (server).')+cap(306,96,'Per-object ownership check')+cap(306,114,'(OWASP API #1 — BOLA/IDOR).')+cap(306,126,'RBAC roles → permissions.');
+  s+=arrowR(506,89,78);
+  // DB
+  s+=r(592,26,210,150)+tx(602,46,'POSTGRESQL',{b:1,s:9});
+  s+=cap(602,62,'FORCE ROW LEVEL SECURITY')+cap(602,74,'SET LOCAL app.tenant_id (txn)')+cap(602,86,'WITH CHECK on every write');
+  s+=rf(602,98,190,32,MG)+r(602,98,190,32)+tx(610,118,'Tenant A rows',{s:7.5,b:1});
+  s+=rf(602,136,190,32,'#fff')+r(602,136,190,32)+tx(610,156,'Tenant B rows',{s:7.5,b:1});
+  s+=tx(797,128,'isolated',{s:6,g:1,a:'end'});
+  return `<svg viewBox="0 0 820 196" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix F: data-import pipeline ---- */
+document.getElementById('flow-import').innerHTML = (function(){
+  const st=['Upload','Parse','Map','Validate','Preview','Commit'];
+  let s='';const n=st.length,bw=104,gap=(820-n*bw)/(n-1);
+  st.forEach((t,i)=>{const x=i*(bw+gap),y=30;s+=rf(x,y,bw,40,i%2?'#fff':MG)+r(x,y,bw,40)+tx(x+bw/2,y+24,t,{b:1,s:9,a:'middle'});
+    if(i<n-1){const ax=x+bw;s+=arrowR(ax+2,y+20,gap-4);}});
+  // error branch under Validate (index 3)
+  const vx=3*(bw+gap)+bw/2;
+  s+=`<line x1="${vx}" y1="70" x2="${vx}" y2="96" stroke="${ST}" stroke-width="1.2"/><path d="M${vx-4},92 L${vx},97 L${vx+4},92 Z" fill="${ST}"/>`;
+  s+=rf(vx-95,98,190,30,MG)+r(vx-95,98,190,30)+tx(vx,118,'Errors → annotated report',{b:1,s:8,a:'middle'});
+  // loop back to Upload
+  const ux=bw/2;
+  s+=`<line x1="${vx-95}" y1="113" x2="${ux}" y2="113" stroke="${ST}" stroke-width="1.1"/><line x1="${ux}" y1="113" x2="${ux}" y2="72" stroke="${ST}" stroke-width="1.1"/><path d="M${ux-4},78 L${ux},72 L${ux+4},78 Z" fill="${ST}"/>`;
+  s+=tx(ux+10,110,'fix & re-upload (idempotent on external_ref)',{s:7,g:1});
+  s+=tx(0,18,'Clean rows commit · warnings commit · errors held',{s:7,g:1});
+  return `<svg viewBox="0 0 820 138" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix G: unit date-clock timeline ---- */
+document.getElementById('clocks').innerHTML = (function(){
+  let s='';const AY=118;
+  const marks=[[40,'Acquired'],[200,'Recon start'],[380,'Front-line ready'],[580,'Sold (booked)'],[770,'Delivered']];
+  s+=`<line x1="40" y1="${AY}" x2="780" y2="${AY}" stroke="${ST}" stroke-width="1.3"/>`;
+  marks.forEach(([x,t])=>{s+=`<line x1="${x}" y1="${AY-5}" x2="${x}" y2="${AY+5}" stroke="${ST}" stroke-width="1.3"/><circle cx="${x}" cy="${AY}" r="2.4" fill="${ST}"/>`+tx(x,AY+18,t,{s:7,a:'middle',b:1});});
+  const span=(x1,x2,y,label,down)=>{const t=down?6:-6;let o=`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${GR}" stroke-width="1.1"/>`;o+=`<line x1="${x1}" y1="${y}" x2="${x1}" y2="${y-t}" stroke="${GR}" stroke-width="1.1"/><line x1="${x2}" y1="${y}" x2="${x2}" y2="${y-t}" stroke="${GR}" stroke-width="1.1"/>`;o+=tx((x1+x2)/2,down?y+12:y-4,label,{s:7,a:'middle',g:1});return o;};
+  s+=span(40,580,44,'Days on Lot (age)',false);
+  s+=span(380,580,74,'Days to Sell',false);
+  s+=span(40,380,158,'Time-to-line (T2L)',true);
+  s+=span(200,380,182,'Recon cycle (ADR)',true);
+  return `<svg viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 </script>
 </body>
