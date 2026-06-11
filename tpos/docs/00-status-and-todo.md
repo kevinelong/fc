@@ -40,9 +40,20 @@ spec and answering with the recommended technology. Fold in the three stack area
   `SET LOCAL`, Argon2id, PgBouncer, hardened cookies) as the *proposed* solution to the security
   *requirements*.
 - Reuse SVG diagrams: tenant-isolation (`#isolation`), accounting canonical-model+adapters
-  (`#acctmap`). Their generators were removed from `spec.html` — recover them from git
-  (`git show 4298694~1:tpos/spec/spec.html`) or rebuild (code is in the commit history / the
-  conversation). Keep `arrowR`, `r`, `rf`, `tx`, `tl`, `cross` helper functions.
+  (`#acctmap`). Both the **divs and the generators** were removed from `spec.html` (the divs were
+  replaced by prose requirement notes; they are NOT in the `_moved-*.html` files either) — recover
+  both from git (`git show 4298694~1:tpos/spec/spec.html`). Keep `arrowR`, `r`, `rf`, `tx`, `tl`,
+  `cross` helper functions.
+- **⚠ Reconcile `schema.sql` + `openapi.yaml` (verified drift, 2026-06-11).** Both were generated
+  *before* the appendix E–I research and now lag the spec's requirements — none of these exist in
+  them yet: `external_ref` on importable entities (import idempotency, spec App. C); immutable
+  `audit_log` + `consent_records` tables, customer **residency**, retention config (App. B.6);
+  the five unit date stamps (`recon_started_at`, `frontline_ready_at`, `delivered_at`) + cost
+  components (`recon_cost`, `transport_cost`) + a deal front/back-gross breakdown (App. D);
+  `/bulk/{entity}` upsert endpoints (App. C); a real-time push channel (§12 NFR); accounting-export
+  endpoints beyond the single `POST /accounting/export`. Since these two files become the
+  Proposal's concrete artifacts, fix them *while* building the Proposal or it will contradict the
+  Spec it answers.
 
 ### 2. Build the **Bid & Delivery Pack** (`spec/bid-delivery.html` → PDF)
 Lift verbatim from `docs/_moved-bid-appendices.html`:

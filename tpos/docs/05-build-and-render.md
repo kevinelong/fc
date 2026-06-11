@@ -54,7 +54,7 @@ https://codeonline.io/tpos/spec/<file>.pdf`.
 
 ## Git & safety
 - Repo `/home/kevin/codeonline`, branch `main`. Commit footer:
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+  the current model’s co-author footer (now `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`).
 - Never stage/commit `apid/.env`, `apid/data/`, `node_modules`, secrets.
 - `apid` = the backend (Node `http`, no framework, 127.0.0.1:8092, nginx proxies `/api/`, flat
   JSON store, OpenRC service). The only live endpoint for TPOS is `/api/tpos/inquiry` (lead capture).

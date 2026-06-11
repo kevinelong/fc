@@ -29,5 +29,5 @@ content to build them from is preserved in `docs/_moved-*.html`. See `docs/00-st
 
 ## Conventions
 - HTML→PDF docs are self-contained print-styled HTML rendered with headless Chromium (Playwright). See `docs/05-build-and-render.md`.
-- Commit messages end with: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
+- Commit messages end with the current model's co-author footer (now: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`).
 - Never commit secrets / `apid/.env` / `apid/data/` / `node_modules`.
