@@ -1,0 +1,153 @@
+<h2 id="api" class="pgbreak">Appendix B · API Reference</h2>
+<p>REST / JSON. <b>Namespaces:</b> <code>/api/v1/*</code> authenticated back-office (tenant from session/subdomain, every query tenant-scoped) · <code>/api/v1/portal/*</code> customer portal · <code>/api/public/*</code> storefront (no auth, tenant by host) · <code>/api/platform/*</code> operator control plane (super-admin, cross-tenant) · <code>/api/webhooks/*</code> inbound integrations. RBAC per endpoint (the §10 matrix); state-machine changes use explicit <code>…/transition</code> actions (validated + audited), not arbitrary PATCH; lists accept <code>?q=&amp;status=&amp;sort=&amp;page=&amp;limit=</code>; money/transition writes accept an <code>Idempotency-Key</code> header.</p>
+<h4>Auth &amp; session</h4>
+<pre>POST  /api/v1/auth/login            GET  /api/v1/auth/me
+POST  /api/v1/auth/logout           POST /api/v1/auth/sso/callback
+POST  /api/v1/auth/password/reset</pre>
+<h4>Inventory &amp; pricing</h4>
+<pre>GET   /api/v1/units                 list/filter (type,status,location,aged)
+POST  /api/v1/units                 intake / acquire
+GET   /api/v1/units/:id             full record ("all lenses")   PATCH /api/v1/units/:id
+POST  /api/v1/units/:id/transition  incoming→recon→available→pending→sold (guarded)
+POST  /api/v1/units/:id/photos      GET /api/v1/units/:id/timeline    GET /api/v1/units/aging
+PATCH /api/v1/units/:id/price       set list/floor (logged; may require approval)
+GET   /api/v1/pricing/repricer      GET /api/v1/pricing/comps?unit=:id
+GET   /api/v1/pricing/approvals     POST /api/v1/pricing/approvals/:id/decide</pre>
+<h4>Leads, customers, deals, quotes</h4>
+<pre>GET/POST /api/v1/leads              GET/PATCH /api/v1/leads/:id
+POST  /api/v1/leads/:id/assign      POST /api/v1/leads/:id/convert  →deal
+GET   /api/v1/sources               GET/POST /api/v1/campaigns
+GET/POST /api/v1/customers          GET/PATCH /api/v1/customers/:id
+GET/POST /api/v1/deals              GET/PATCH /api/v1/deals/:id
+POST  /api/v1/deals/:id/stage       advance pipeline
+POST  /api/v1/deals/:id/discount    POST /api/v1/deals/:id/approve  (manager RBAC)
+GET/POST /api/v1/quotes             POST /api/v1/quotes/:id/send | /accept
+GET   /api/v1/forecast              GET /api/v1/team/leaderboard</pre>
+<h4>Service · accounting · titles · delivery</h4>
+<pre>GET/POST /api/v1/workorders         POST /api/v1/workorders/:id/status
+PATCH /api/v1/workorders/:id/tasks/:t   POST …/hours  …/parts  …/photos
+GET/POST /api/v1/invoices           POST /api/v1/invoices/:id/payments (idempotent)
+GET/POST /api/v1/bills              GET /api/v1/accounting/pnl?period=   POST /accounting/export
+GET/PATCH /api/v1/titles/:unitId    GET/POST /api/v1/documents   POST /documents/:id/sign
+GET/POST /api/v1/deliveries         POST /api/v1/deliveries/:id/status   POST /deliveries/quote
+GET/POST /api/v1/appointments</pre>
+<h4>Cross-cutting &amp; tenant admin</h4>
+<pre>GET   /api/v1/search?q=             GET /api/v1/notifications  POST …/:id/read
+GET/POST /api/v1/tasks              GET /api/v1/activity        GET /api/v1/reports/:kpiSet
+GET/POST /api/v1/users              PATCH /api/v1/users/:id (roles, lot scope)
+GET/PATCH /api/v1/tenant/settings   branding · lots · config · billing</pre>
+<h4>Storefront (public) &amp; customer portal</h4>
+<pre>GET   /api/public/inventory         available units (filter/search/sort)
+GET   /api/public/inventory/:stock  detail (deep-linkable)
+POST  /api/public/inquiry           creates a Lead + notifies   ← implemented in prototype
+POST  /api/public/financing/prequalify
+GET   /api/v1/portal/me             GET /api/v1/portal/deals
+GET   /api/v1/portal/quotes/:id     POST …/accept
+POST  /api/v1/portal/financing/apply  GET …/status
+GET   /api/v1/portal/delivery/:id   GET /api/v1/portal/documents  POST …/:id/sign
+GET/POST /api/v1/portal/saved</pre>
+<h4>Platform control plane (hosted) &amp; webhooks</h4>
+<pre>GET/POST /api/platform/tenants      PATCH /api/platform/tenants/:id (plan/status)
+GET   /api/platform/revenue         GET /api/platform/usage    GET /api/platform/billing
+GET   /api/platform/support         GET /api/platform/health   POST /api/platform/license/verify
+POST  /api/webhooks/financing       lender decision → Deal/portal
+POST  /api/webhooks/payments        settled → reconcile invoice
+POST  /api/webhooks/freight         carrier status → delivery
+POST  /api/webhooks/syndication     listing-site lead → Lead
+POST  /api/webhooks/title           DMV/title callback</pre>
+
+<h2 id="perf" class="pgbreak">Appendix C · Performance &amp; Scaling</h2>
+<p>TPOS is <b>database-bound CRUD</b>: requests spend their time waiting on Postgres, not on application code. The performance and tenant-density wins therefore live in the <b>data layer and the connection pool</b>, not in an exotic runtime or premature sharding. This appendix is one optimization profile; apply it only to the degree the product needs.</p>
+<div class="note"><b>Define the dimension first.</b> "High performance" is not one thing, and the lever order changes with it. Decide which of these dominates before optimizing — over-investing in the wrong one is wasted complexity.</div>
+<table class="t">
+  <tr><th>If the goal is…</th><th>Dominant levers, in order</th></tr>
+  <tr><td><b>p99 read latency</b> (dashboards feel instant)</td><td>Materialized read models → cache hot reads → <code>tenant_id</code>-leading indexes → read replicas</td></tr>
+  <tr><td><b>Write / transaction throughput</b></td><td>Index discipline → prepared statements &amp; batching → hash-partition hot tables → pool sizing</td></tr>
+  <tr><td><b>Tenants per server</b> (density)</td><td>PgBouncer transaction pooling → edge-offload the storefront → shared-schema low footprint → async runtime</td></tr>
+</table>
+
+<h3>C.1 Indexing &amp; query design — the foundation (and what makes RLS cheap)</h3>
+<ul class="req">
+  <li>Every hot index <b>leads with <code>tenant_id</code></b>, then the query's predicates: <code>(tenant_id,status)</code>, <code>(tenant_id,stock_no)</code>, <code>(tenant_id,due_at)</code>, <code>(tenant_id,stage)</code>, etc.</li>
+  <li><b>Keep Row-Level Security.</b> With the right composite index the planner pushes the policy predicate into the index scan, so RLS is cheap (reported order-of-magnitude: ~0.3 ms policy evaluation at 50 M rows / 10 K tenants; ~1–5% vs. app-level filtering). <b>The 100× penalty comes from a missing <code>tenant_id</code>-leading index, not from RLS itself.</b> Database-enforced isolation is worth the few percent — one cross-tenant leak is existential, and it protects you even when application code has a bug.</li>
+  <li>Eliminate N+1s; use prepared statements; keep working sets index-resident.</li>
+</ul>
+
+<h3>C.2 Partitioning — secondary, and use HASH not list</h3>
+<ul class="req">
+  <li>Partitioning is a lever only for the largest tables (e.g. <code>activities</code>, <code>units</code> at very high volume); the composite index above does most of the work first.</li>
+  <li>With thousands of tenants, partition by <b><code>HASH(tenant_id)</code> into a fixed number of partitions</b> (e.g. 16–64) for cache locality and scan pruning. <b>Do NOT list-partition one-per-tenant</b> — thousands of partitions blow up planner time and DDL. Time-range sub-partitioning suits the audit log.</li>
+</ul>
+
+<h3>C.3 Connection pooling — the real density lever</h3>
+<ul class="req">
+  <li>Postgres is process-per-connection (~5 MB + context-switch per connection), so density comes from <b>PgBouncer in transaction-pooling mode</b> multiplexing many clients onto a small pool sized to roughly <b>3–5 backend connections per CPU core</b>.</li>
+  <li><b>Gotcha that interacts with RLS:</b> under transaction pooling a session-level <code>SET app.tenant_id</code> does not persist across statements. Set the tenant <b>per-transaction</b> with <code>SET LOCAL app.tenant_id = …</code> (or <code>set_config('app.tenant_id', …, true)</code>) so RLS still applies. Also avoid session-scoped prepared-statement / session-feature assumptions in transaction mode.</li>
+</ul>
+
+<h3>C.4 Read path — precompute the dashboards (CQRS-lite)</h3>
+<ul class="req">
+  <li>The KPI dashboards (§9) aggregate across many rows. Precompute them into <b>materialized views / rollup tables</b> refreshed incrementally by the background worker, so a dashboard load is an O(1) indexed read, not a per-request fan-out join. This is the single biggest internal-latency win.</li>
+  <li>Cache hot reads (Redis / Dragonfly or in-process) with event-driven invalidation on writes; route all dashboard/report traffic to <b>read replicas</b>.</li>
+</ul>
+
+<h3>C.5 Storefront at the edge</h3>
+<p>The public storefront's "available inventory" is the highest-volume, most cacheable traffic. Serve it from a <b>CDN / ISR edge</b>, invalidated when a unit's status changes. This removes the largest read load from the origin entirely and is often the cheapest way to raise effective tenants-per-server.</p>
+
+<h3>C.6 Runtime — a minor lever for DB-bound work</h3>
+<p>Framework benchmarks show per-request gaps <b>collapse once Postgres is in the loop</b> (compiled runtimes dominate only the compute-bound plaintext/JSON rounds). For DB-bound CRUD you will not get throughput from switching language — choose the runtime for its <b>concurrency model and your team</b>, not per-query speed. Where it touches density: an async / light-concurrency runtime (<b>Go, .NET, Node, or Elixir</b> for connection-heavy/real-time) holds more in-flight requests per box than a process-per-worker Python/Ruby setup. <b>Rust is not required</b> here and its productivity cost rarely pays back on this workload.</p>
+
+<h3>C.7 Scaling ladder — earn each step</h3>
+<ol class="req">
+  <li>Vertical scaling + PgBouncer (handles a large share of workloads on its own).</li>
+  <li>Add read replicas for the read/report load.</li>
+  <li>Hash-partition the few largest tables.</li>
+  <li><b>Only</b> once a single primary is genuinely exhausted (commonly hundreds of GB+), shard with <b>Citus</b> co-located by <code>tenant_id</code>. Keep the schema partition-ready (<code>tenant_id</code> on every table) so this migration is cheap — but <b>defer it</b>; vanilla Postgres + replicas goes much further than teams expect.</li>
+</ol>
+
+<div class="note"><b>Caveat — treat the numbers as order-of-magnitude.</b> The RLS timing figures come from a single practitioner benchmark and the single-node size thresholds are partly vendor framing. Use them for intuition; <b>benchmark on your own schema, queries and data</b> before treating any figure as a constant. Sources: practitioner RLS-at-scale benchmarks, PgBouncer pooling guides (connection-cost &amp; per-core sizing), single-node-Postgres scaling write-ups, and the TechEmpower framework benchmarks (database-query rounds).</div>
+
+<h2 id="adr" class="pgbreak">Appendix D · Architecture Decisions &amp; Roads Not Taken</h2>
+<p>Every significant fork weighed for the rebuild — the options considered, what was chosen, what was rejected and why. Decisions are advisory; the build team owns the final call. Several were <b>revised mid-review as evidence came in</b> — those are flagged <span class="pill">REVISED</span> and recorded honestly rather than quietly replaced. Bracketed numbers reference the sources in §D.2.</p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:4%">#</th><th style="width:17%">Decision</th><th style="width:21%">Options considered</th><th style="width:18%">Chosen</th><th>Roads not taken — reasoning</th></tr>
+  <tr><td>1</td><td>Prototype persistence</td><td>Flat JSON file · real database</td><td>JSON file + in-browser mock</td><td>The prototype is a UI/IA demo; only the storefront lead endpoint is live. A real DB was out of scope for a front-end mock.</td></tr>
+  <tr><td>2</td><td>Production database</td><td>PostgreSQL · document/NoSQL · MySQL · SQLite-only</td><td><b>PostgreSQL</b> (hosted) + SQLite per self-host tenant</td><td>NoSQL rejected — the domain is intensely relational (one-record-many-lenses = foreign keys), needs transactions (booking a sale) and joins. MySQL viable; Postgres preferred for RLS, jsonb, partitioning, extensions. SQLite-only rejected for hosted (concurrency) but ideal for a single self-host tenant. [1]</td></tr>
+  <tr><td>3</td><td>Multi-tenant isolation</td><td>Shared schema + RLS · schema-per-tenant · database-per-tenant · app-level filtering only</td><td><b>Shared schema + RLS</b>, <code>tenant_id</code> on every table</td><td>DB-per-tenant rejected — poor density, heavy ops. Schema-per-tenant rejected — migration/ops complexity at scale. App-filtering-only rejected — one forgotten <code>WHERE</code> leaks data; isolation belongs in the database. RLS gives DB-enforced safety at ~1–5% when indexed. [1][2][3][4]</td></tr>
+  <tr><td>4</td><td>Service topology</td><td>Modular monolith · microservices</td><td><b>Modular monolith</b> (one deployable)</td><td>Microservices rejected — the self-host requirement wants one artifact, the team is small, and network hops hurt DB-bound latency. Extract a service later only if a piece proves it needs it.</td></tr>
+  <tr><td>5</td><td>App framework (pragmatic profile)</td><td>Django/DRF · Rails · NestJS+Next.js · Go · .NET · Elixir</td><td><b>Django/DRF</b> (lead) or <b>NestJS+Next.js</b> (JS-first)</td><td>Go/.NET/Rust rejected as the default — more boilerplate for CRUD/admin and no free admin plane. Chosen for batteries-included CRUD, migrations, RBAC, Postgres-first tooling, and clean self-host packaging.</td></tr>
+  <tr><td>6</td><td>Media storage</td><td>S3-compatible object storage (MinIO self-host) · blobs in Postgres</td><td><b>S3-compatible</b> object storage</td><td>Blobs-in-DB rejected — bloats the database and slows backups/replication; photos &amp; signed documents belong in object storage.</td></tr>
+  <tr><td>7</td><td>Storefront rendering</td><td>Edge/CDN (ISR) · in-app SSR · SPA</td><td><b>SSR + edge-cache</b> available inventory</td><td>Pure SPA rejected for the public site — SEO &amp; first-paint matter. Internal dashboards stay SPA/API (or SSR-with-enhancement).</td></tr>
+  <tr><td>8</td><td>Runtime under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Rust · Go · .NET · Elixir · keep pragmatic</td><td>Async/light-concurrency (<b>Go/.NET/Elixir</b>); <b>Rust not required</b></td><td>Initially proposed Rust for raw throughput. Evidence: framework gaps <b>collapse once Postgres is in the loop</b>; Rust leads only compute-bound rounds. For DB-bound CRUD the runtime is a minor lever — choose for concurrency model + team, not per-query speed. [9]</td></tr>
+  <tr><td>9</td><td>RLS under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Keep RLS (indexed) · move isolation to app/partitioning for speed</td><td><b>Keep RLS</b> + <code>tenant_id</code>-leading composite indexes</td><td>Initially suggested moving isolation out of RLS for speed. Evidence: RLS ~0.3 ms at 50 M rows / 10 K tenants <i>with the right composite index</i>; the 100× penalty is the <b>missing index</b>, not RLS. Keep it — the safety is worth ~1–5%. [2][3]</td></tr>
+  <tr><td>10</td><td>Horizontal sharding <span class="pill">REVISED</span></td><td>Citus early (ease later migration) · single-node + replicas, defer</td><td><b>Single node + replicas; defer Citus</b>, keep schema shard-ready</td><td>Initially put Citus "on the table." Evidence: vanilla Postgres + pooling handles most workloads under ~500 GB; replicas/partitioning extend into the terabytes before sharding is warranted. Defer until one primary is genuinely exhausted. [5][6]</td></tr>
+  <tr><td>11</td><td>Partitioning</td><td>HASH(tenant_id) fixed N · list/partition-per-tenant</td><td><b>HASH(tenant_id)</b> into 16–64 partitions (large tables only)</td><td>Partition-per-tenant rejected — thousands of tenants blow up planner time &amp; DDL. Partitioning is a <i>secondary</i> lever after the composite index. [6]</td></tr>
+  <tr><td>12</td><td>Connection management</td><td>PgBouncer transaction pooling · session pooling · none</td><td><b>PgBouncer (transaction mode)</b> ~3–5/core + <code>SET LOCAL</code> tenant</td><td>No/session pooling rejected for density — process-per-connection (~5 MB each). Transaction mode requires <code>SET LOCAL app.tenant_id</code> per-transaction so the RLS variable survives (session <code>SET</code> silently breaks under it). [7][8]</td></tr>
+  <tr><td>13</td><td>Data access (perf paths)</td><td>Heavy ORM · thin typed SQL</td><td><b>Thin typed SQL</b> (sqlx/sqlc/Dapper/Ecto) on hot paths</td><td>Heavy ORM rejected on hot paths — per-query overhead and hidden N+1s. ORM is fine for cold CRUD.</td></tr>
+  <tr><td>14</td><td>Dashboard read path</td><td>Per-request aggregation · materialized read models</td><td><b>Materialized views / rollups</b> (CQRS-lite) + replicas + cache</td><td>Per-request big-join aggregation rejected for dashboards — precompute and serve an O(1) indexed read.</td></tr>
+</table>
+
+<h3>D.1 What we changed our minds about (and why)</h3>
+<p>Three decisions from the first "performance-first" pass were corrected once benchmark evidence was reviewed — recorded here so the reasoning is auditable, not lost:</p>
+<ul class="req">
+  <li><b>#8 — Rust is not the lever.</b> For DB-bound CRUD, runtime choice barely moves throughput; the language win is real only on compute-bound paths. [9]</li>
+  <li><b>#9 — Don't drop RLS for speed.</b> The cost is the missing <code>tenant_id</code>-leading index, not the policy; keep DB-enforced isolation. [2][3]</li>
+  <li><b>#10 — Don't shard early.</b> A single Postgres primary + replicas + partitioning goes much further than expected; defer Citus. [5][6]</li>
+</ul>
+
+<h3>D.2 References &amp; evidence quality</h3>
+<p>Sources consulted, with their nature flagged. <b>Several are vendor or single-practitioner sources; all numeric figures are order-of-magnitude guidance — benchmark on your own schema, queries and data before treating any as a constant.</b></p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:5%">#</th><th style="width:34%">Source</th><th style="width:23%">Nature</th><th>Informs</th></tr>
+  <tr><td>1</td><td>PostgreSQL docs — Row Security Policies</td><td>Official documentation</td><td>RLS canonical reference (#2,#3)</td></tr>
+  <tr><td>2</td><td>RLS-at-scale benchmark (DEV Community)</td><td>Single-practitioner benchmark</td><td>~0.3 ms at 50 M/10 K with <code>tenant_id</code>-leading index; missing index = 100× (#3,#9)</td></tr>
+  <tr><td>3</td><td>RLS overhead write-up (Wellally)</td><td>Practitioner</td><td>~1–5% vs app-level filtering; planner push-down (#3,#9)</td></tr>
+  <tr><td>4</td><td>Tenant-isolation rationale (OneUptime); Crunchy Data RLS-for-tenants</td><td>Vendor / practitioner</td><td>DB-enforced isolation protects against app bugs (#3)</td></tr>
+  <tr><td>5</td><td>Single-node Postgres scaling (Velodb)</td><td>Practitioner / vendor</td><td>Vertical + pooling under ~500 GB; OpenAI on Postgres; replicas+partitioning to TB (#10)</td></tr>
+  <tr><td>6</td><td>Citus multi-tenant sharding docs &amp; blog</td><td>Vendor framing</td><td>Shard by <code>tenant_id</code>, co-location; "~100 GB" threshold (#10,#11)</td></tr>
+  <tr><td>7</td><td>Connection scaling (PlanetScale); sizing (Akamai)</td><td>Vendor</td><td>Process-per-connection cost; PgBouncer multiplexing; ~3–5 conns/core (#12)</td></tr>
+  <tr><td>8</td><td>"PgBouncer … fraught with peril" (JP Camara)</td><td>Practitioner deep-dive</td><td>Transaction-pooling gotchas; <code>SET LOCAL</code> / session-feature caveats (#12)</td></tr>
+  <tr><td>9</td><td>TechEmpower Framework Benchmarks</td><td>Independent benchmark</td><td>DB-query rounds collapse framework gaps; Rust leads only plaintext/JSON (#8)</td></tr>
+</table>
+
+
