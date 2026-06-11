@@ -83,8 +83,12 @@ CREATE TABLE units (                                -- inventory: the spine
   type text NOT NULL, year int, make text, length text, axles text, capacity text, condition text,
   status unit_status NOT NULL DEFAULT 'incoming',
   lot text,
-  cost numeric(12,2), list_price numeric(12,2), floor_price numeric(12,2),
-  acquired_at timestamptz, sold_at timestamptz,
+  cost numeric(12,2), recon_cost numeric(12,2) NOT NULL DEFAULT 0,
+  transport_cost numeric(12,2) NOT NULL DEFAULT 0,                  -- total cost basis = cost + recon + transport (App. D)
+  list_price numeric(12,2), floor_price numeric(12,2),
+  acquired_at timestamptz, recon_started_at timestamptz,            -- the five date clocks (spec App. D)
+  frontline_ready_at timestamptz, sold_at timestamptz, delivered_at timestamptz,
+  external_ref text,                                                -- legacy/DMS key; import idempotency (spec App. C)
   views int NOT NULL DEFAULT 0, lead_count int NOT NULL DEFAULT 0,
   specs jsonb NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -102,7 +106,9 @@ CREATE TABLE customers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name text NOT NULL, company text, phone text, email text,
+  address1 text, address2 text, city text, state text, zip text,    -- state = residency, drives per-state breach notice (App. B)
   portal_user_id uuid REFERENCES users(id),
+  external_ref text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE leads (
@@ -113,6 +119,7 @@ CREATE TABLE leads (
   status lead_status NOT NULL DEFAULT 'new',
   owner_id uuid REFERENCES users(id),
   value numeric(12,2), phone text, email text, lost_reason text,
+  external_ref text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE deals (
@@ -122,8 +129,11 @@ CREATE TABLE deals (
   unit_id uuid REFERENCES units(id),
   stage deal_stage NOT NULL DEFAULT 'lead',
   value numeric(12,2), probability int CHECK (probability BETWEEN 0 AND 100),
+  sale_price numeric(12,2), fees numeric(12,2), taxes numeric(12,2), -- gross inputs (App. D):
+  pack numeric(12,2), back_gross numeric(12,2),                      -- front gross = sale_price − unit cost basis − pack
   salesperson_id uuid REFERENCES users(id),
   financing_status text,
+  external_ref text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -200,6 +210,39 @@ CREATE TABLE deliveries (
   status delivery_status NOT NULL DEFAULT 'scheduled', eta date, freight_cost numeric(12,2)
 );
 
+CREATE TABLE consent_records (                       -- e-sign consent (ESIGN/UETA; spec App. B)
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  document_id uuid REFERENCES documents(id),
+  signer_name text NOT NULL, signer_email text,
+  consent_text_version text NOT NULL,
+  document_hash text NOT NULL,                       -- tamper evidence
+  ip text, user_agent text,
+  consented_at timestamptz NOT NULL DEFAULT now(),
+  withdrawn_at timestamptz
+);
+CREATE TABLE retention_policies (                    -- disposal floors vs the 2-yr default (App. B)
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  record_type text NOT NULL,                         -- e.g. credit_application (25-mo ECOA floor), title_doc
+  min_keep_months int NOT NULL,
+  purge_after_months int,
+  PRIMARY KEY (tenant_id, record_type)
+);
+CREATE TABLE export_batches (                        -- accounting export idempotency (spec App. F)
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  target text NOT NULL,                              -- e.g. quickbooks_csv | quickbooks_iif | qbo_api
+  params jsonb NOT NULL DEFAULT '{}',
+  created_by uuid REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE export_batch_items (                    -- marks records as exported; re-export = no duplicates
+  batch_id uuid NOT NULL REFERENCES export_batches(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  entity_type text NOT NULL, entity_id uuid NOT NULL,
+  PRIMARY KEY (batch_id, entity_type, entity_id)
+);
+
 CREATE TABLE activities (                            -- immutable audit log
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -234,6 +277,12 @@ CREATE INDEX ix_pay_tenant_invoice    ON payments   (tenant_id, invoice_id);
 CREATE INDEX ix_deliv_tenant_status   ON deliveries (tenant_id, status);
 CREATE INDEX ix_act_tenant_entity     ON activities (tenant_id, entity_type, entity_id, at DESC);
 CREATE INDEX ix_tasks_tenant_assignee ON tasks      (tenant_id, assignee_id, done);
+-- import idempotency: one legacy key per tenant per entity (NULLs exempt)
+CREATE UNIQUE INDEX ux_units_tenant_extref     ON units     (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE UNIQUE INDEX ux_customers_tenant_extref ON customers (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE UNIQUE INDEX ux_leads_tenant_extref     ON leads     (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE UNIQUE INDEX ux_deals_tenant_extref     ON deals     (tenant_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX ix_expitems_tenant_entity ON export_batch_items (tenant_id, entity_type, entity_id);
 
 -- ----- Row-Level Security: one policy per tenant-scoped table ----------------
 -- The app does `SET LOCAL app.tenant_id = '<uuid>'` per transaction (txn-pool safe).
@@ -242,14 +291,20 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['users','units','unit_photos','customers','leads','deals','quotes',
       'quote_lines','work_orders','wo_tasks','invoices','payments','titles','documents',
-      'deliveries','activities','tasks','notifications']
+      'deliveries','consent_records','retention_policies','export_batches','export_batch_items',
+      'activities','tasks','notifications']
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);  -- even the table owner is policed (App. B)
     EXECUTE format($f$CREATE POLICY tenant_isolation ON %I
         USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
         WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);$f$, t);
   END LOOP;
 END $$;
+
+-- ----- append-only guards: the audit log & consent records are immutable -----
+-- (run as the migration role; the app role gets INSERT/SELECT only)
+REVOKE UPDATE, DELETE ON activities, consent_records FROM PUBLIC;
 
 -- ----- example materialized read model (CQRS-lite) for dashboards -----------
 -- Refresh incrementally from the background worker (REFRESH MATERIALIZED VIEW

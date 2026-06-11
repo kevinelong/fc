@@ -1,6 +1,28 @@
 # 00 · Status & TODO (START HERE)
 
-## Where we are
+## Where we are — ALL THREE DOCUMENTS BUILT ✅ (2026-06-12)
+The three-document restructure is **complete**. All deliverables are rendered, committed, and live:
+1. **Product Specification** (technology-neutral requirements) — `spec/spec.html` →
+   `TPOS-Product-Specification.pdf` (v2.0, 40 pp).
+2. **Functional Specification Proposal** (requirement → proposed solution; the `.echo` boxes quote
+   the spec sections each proposal answers; traceability table in §12) — `spec/proposal.html` →
+   `TPOS-Functional-Specification-Proposal.pdf` (19 pp; diagrams: #isolation, #realtime, #acctmap).
+3. **Bid & Delivery Pack** (four levers, scope matrix, integration register, RACI, WBS estimate,
+   delivery stages) — `spec/bid-delivery.html` → `TPOS-Bid-and-Delivery-Pack.pdf` (13 pp;
+   diagrams: #roadmap, #stages-dia).
+Also done: `schema.sql` + `openapi.yaml` reconciled with the spec (external_ref + unique partial
+indexes, consent_records, retention_policies, export_batches/items, customer address/residency,
+five unit date clocks, recon/transport cost, deal gross columns, FORCE RLS + append-only revokes;
+API adds /bulk/{entity}, /imports, /events SSE, /accounting/mapping + /exports — 66 paths, valid).
+The decision-summary one-pager was re-captioned as the Proposal's summary sheet.
+
+## Remaining / nice-to-have ⏳
+- The four **lever decisions** are still the client's call (scope cutline, hosted-vs-self-host,
+  design ownership, jurisdiction) — Bid Pack §1.
+- Optional: per-role secondary screens, notification template copy, jurisdiction tax/title tables —
+  flagged in the docs as future work.
+
+## Historical context (how we got here)
 The TPOS deliverable is being restructured from one large spec into **three documents**
 (see `01-document-plan.md`). Decided with the user explicitly:
 - **3 documents** (not 2): Requirements Spec · Functional Spec Proposal · Bid & Delivery Pack.
@@ -20,7 +42,7 @@ The TPOS deliverable is being restructured from one large spec into **three docu
     new Executive Overview describing the 3-doc set.
   - Verified: 0 JS errors; 6 retained SVG diagrams render (roles, er, flow, store, flow-import, clocks).
 
-## TODO ⏳ (next session)
+## (Completed) build plan that was executed
 ### 1. Build the **Functional Specification Proposal** (`spec/proposal.html` → PDF)
 Structure as **requirement → proposed technical solution**, echoing each requirement area of the
 spec and answering with the recommended technology. Fold in the three stack areas:

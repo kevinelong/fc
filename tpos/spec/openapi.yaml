@@ -25,6 +25,8 @@ tags:
   - { name: accounting }
   - { name: titles-delivery }
   - { name: crosscut }
+  - { name: import }
+  - { name: realtime }
   - { name: storefront }
   - { name: portal }
   - { name: platform }
@@ -80,6 +82,13 @@ paths:
     post: { tags: [accounting], summary: Issue invoice, responses: { "201": { $ref: '#/components/responses/Ok' } } }
   /api/v1/invoices/{id}/payments: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [accounting], summary: Record a payment (idempotent), parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/accounting/pnl: { get: { tags: [accounting], summary: P&L for a period, parameters: [ { name: period, in: query, schema: { type: string } } ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/accounting/mapping:
+    get: { tags: [accounting], summary: GL account mapping (system buckets → dealer's chart of accounts), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [accounting], summary: Save GL account mapping (one-time wizard), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/accounting/exports:
+    get:  { tags: [accounting], summary: List export batches (what was exported, when, to which target), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [accounting], summary: Create an export batch (target = quickbooks_csv | quickbooks_iif | …); marks records exported, returns a file; idempotent, parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/accounting/exports/{id}/file: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [accounting], summary: Download an export batch file, responses: { "200": { description: The export file (CSV/IIF) } } } }
 
   /api/v1/titles/{unitId}:  { parameters: [ { name: unitId, in: path, required: true, schema: { type: string } } ], get: { tags: [titles-delivery], summary: Title/DMV status, responses: { "200": { $ref: '#/components/responses/Ok' } }, patch: { tags: [titles-delivery], summary: Update title status, responses: { "200": { $ref: '#/components/responses/Ok' } } } } }
   /api/v1/documents/{id}/sign: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [titles-delivery], summary: e-sign a document, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
@@ -90,6 +99,26 @@ paths:
   /api/v1/deliveries/quote: { post: { tags: [titles-delivery], summary: Freight rate by lane, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
 
   /api/v1/search: { get: { tags: [crosscut], summary: Global search (tenant- & permission-scoped), parameters: [ {$ref: '#/components/parameters/q'} ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/bulk/{entity}:
+    parameters: [ { name: entity, in: path, required: true, schema: { type: string, enum: [units, customers, leads, deals] } } ]
+    post:
+      tags: [import]
+      summary: Bulk upsert keyed on external_ref (create if new, update if seen) — idempotent re-runs never duplicate
+      parameters: [ { $ref: '#/components/parameters/idem' } ]
+      responses: { "200": { $ref: '#/components/responses/Ok' } }
+  /api/v1/imports:
+    get:  { tags: [import], summary: List import jobs, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [import], summary: Start an import job (upload → map → validate → commit); async with an import id, responses: { "202": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/imports/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [import], summary: "Import job status: counts, row-level errors vs warnings, annotated error report", responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/imports/{id}/errors.csv: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [import], summary: Downloadable annotated error rows for fix-and-reupload, responses: { "200": { description: CSV of failed rows with reasons } } } }
+
+  /api/v1/events:
+    get:
+      tags: [realtime]
+      summary: Real-time change feed (server push; SSE or upgraded WebSocket) — tenant-scoped topics; no client polling
+      parameters: [ { name: topics, in: query, schema: { type: string }, description: "Comma-separated: units, leads, deals, invoices, deliveries, notifications" }, { name: cursor, in: query, schema: { type: string }, description: Resume after a missed window } ]
+      responses: { "200": { description: "text/event-stream of {topic, entity_type, entity_id, action, at} events" } }
   /api/v1/reports/{kpiSet}: { parameters: [ { name: kpiSet, in: path, required: true, schema: { type: string, enum: [sales, inventory, money, marketing, service] } } ], get: { tags: [crosscut], summary: Dashboard KPI bundle, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/users:
     get:  { tags: [crosscut], summary: List users, responses: { "200": { $ref: '#/components/responses/Ok' } } }

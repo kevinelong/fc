@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TPOS — Functional Specification Proposal</title>
+<style>
+  @page { size: Letter; margin: 20mm 18mm 18mm 18mm; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:11pt/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b;}
+  h1,h2,h3,h4{line-height:1.2;color:#0d1620}
+  h1{font-size:22pt;margin:0 0 4pt}
+  h2{font-size:16pt;margin:26pt 0 8pt;padding-bottom:5pt;border-bottom:1.5pt solid #15202b;page-break-after:avoid}
+  h3{font-size:12.5pt;margin:16pt 0 5pt;page-break-after:avoid}
+  h4{font-size:11pt;margin:11pt 0 3pt;color:#3a4a59}
+  p{margin:0 0 7pt}
+  ul,ol{margin:0 0 8pt;padding-left:18pt}
+  li{margin:2pt 0}
+  small,.mut{color:#5d6b78}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:9.5pt;background:#f1f3f5;padding:1px 4px;border-radius:3px}
+  pre{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:8.4pt;line-height:1.45;background:#f6f8fa;border:0.5pt solid #dfe5ea;border-radius:4px;padding:7pt 9pt;white-space:pre-wrap;page-break-inside:avoid;margin:3pt 0 10pt;color:#1c2b38}
+  .lead{font-size:12pt;color:#3a4a59}
+  table.t{width:100%;border-collapse:collapse;font-size:9.5pt;margin:6pt 0 10pt}
+  table.t th{background:#15202b;color:#fff;text-align:left;padding:5pt 7pt;font-weight:600}
+  table.t td{border:0.5pt solid #cfd6dd;padding:4pt 7pt;vertical-align:top}
+  table.t tr:nth-child(even) td{background:#f6f8fa}
+  .kv{width:100%;border-collapse:collapse;font-size:10pt}
+  .kv td{padding:3pt 0;border-bottom:0.5pt solid #e3e8ed;vertical-align:top}
+  .kv td:first-child{width:30%;color:#5d6b78;font-weight:600}
+  .role{page-break-inside:avoid;margin-bottom:6pt}
+  .wf{border:0.75pt solid #c2cad2;background:#fff;margin:8pt 0;padding:0}
+  .wf svg{display:block;width:100%;height:auto}
+  .wf .cap{font-size:8.5pt;color:#5d6b78;padding:4pt 8pt;border-top:0.5pt solid #e3e8ed;background:#fafbfc}
+  .cover{height:235mm;display:flex;flex-direction:column;justify-content:center;page-break-after:always}
+  .cover .mk{width:54px;height:54px;border-radius:11px;background:#15202b;color:#fff;font-weight:800;font-size:26px;display:flex;align-items:center;justify-content:center}
+  .cover h1{font-size:34pt;margin-top:22pt}
+  .cover .sub{font-size:14pt;color:#3a4a59;margin-top:6pt;max-width:150mm}
+  .cover .meta{margin-top:30pt;font-size:10pt;color:#5d6b78}
+  .pgbreak{page-break-before:always}
+  .req{font-size:10pt}
+  .req li{margin:2.5pt 0}
+  .two{display:flex;gap:14pt}.two>div{flex:1}
+  .pill{display:inline-block;font-size:8pt;font-weight:700;padding:1px 6px;border:0.75pt solid #15202b;border-radius:9px;margin-right:3px}
+  .toc a{color:#15202b;text-decoration:none}
+  .toc li{margin:3pt 0}
+  .foot{position:running(f)}
+
+  .echo{background:#f6f8fa;border-left:3pt solid #15202b;padding:6pt 9pt;font-size:9.5pt;margin:4pt 0 10pt;color:#2a3742}
+  .note{background:#fff7ec;border:0.75pt solid #d9b27c;border-radius:4px;padding:7pt 9pt;font-size:9.5pt;margin:6pt 0 10pt;color:#5a4632}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="mk">T</div>
+  <h1>TPOS</h1>
+  <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
+  <h1 style="font-size:26pt;margin-top:34pt">Functional Specification Proposal</h1>
+  <div class="sub">Companion ② of three. For each requirement in the <b>Product Specification</b>, this document echoes the requirement and proposes a concrete technical solution — architecture, data, API, frontend, real-time, scaling, security, integrations and accounting export — with the reasoning and the roads not taken.</div>
+  <div class="meta">Document v1.0 &nbsp;·&nbsp; <b>Non-normative</b> — the Specification states the requirements; everything here is the proposed answer, and the build team owns the final call &nbsp;·&nbsp; Companions: ① Product Specification · ③ Bid &amp; Delivery Pack &nbsp;·&nbsp; Confidential draft</div>
+</section>
+
+<h2 id="toc">Contents</h2>
+<ol class="toc">
+  <li><a href="#read">How to Read This Document</a></li>
+  <li><a href="#glance">Proposed Architecture at a Glance</a></li>
+  <li><a href="#data">Data &amp; Persistence — Tenant Isolation</a></li>
+  <li><a href="#api">API Design</a></li>
+  <li><a href="#realtime">Real-Time Updates</a></li>
+  <li><a href="#frontend">Frontend &amp; UX</a></li>
+  <li><a href="#perf">Performance &amp; Scaling</a></li>
+  <li><a href="#security">Security Mechanisms</a></li>
+  <li><a href="#integrations">Integrations</a></li>
+  <li><a href="#accounting">Accounting Export</a></li>
+  <li><a href="#adr">Architecture Decisions &amp; Roads Not Taken</a></li>
+  <li><a href="#trace">Requirement → Proposal Traceability</a></li>
+</ol>
+
+<h2 id="read" class="pgbreak">1 · How to Read This Document</h2>
+<p class="lead">The <b>Product Specification</b> is deliberately technology-neutral: it states <i>what</i> must be true. This Proposal answers each of those requirements with a <i>proposed</i> technology and design, plus the reasoning. The pattern throughout:</p>
+<div class="echo"><b>Requirements echoed.</b> Each section opens with a box like this one, quoting the Specification sections it answers — so every proposal is traceable to a requirement, and §12 closes the loop with a full traceability table.</div>
+<ul class="req">
+  <li><b>Advisory, not mandated.</b> A rebuild team may substitute equivalents (the Specification is the contract; this document is the recommended route). Decisions that were genuinely contested — including three we reversed when the evidence said so — are recorded honestly in §11.</li>
+  <li><b>Machine-readable companions:</b> <code>schema.sql</code> (the reference PostgreSQL DDL, kept reconciled with the Specification's data-model requirements) and <code>openapi.yaml</code> (the API contract, 66 paths). Both live beside this document.</li>
+  <li><b>Numbers are order-of-magnitude.</b> Benchmark figures cited here come from practitioner and vendor sources (§11.2) — use them for intuition and <i>benchmark your own schema and queries</i> before treating any as a constant.</li>
+</ul>
+
+<h2 id="glance">2 · Proposed Architecture at a Glance</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §2 (three deployment modes from one product), §12 (isolation, density, portability, availability).</div>
+<table class="t">
+  <tr><th style="width:22%">Layer</th><th style="width:42%">Proposal</th><th>Why (short)</th></tr>
+  <tr><td>Database</td><td><b>PostgreSQL</b> (hosted) · <b>SQLite</b> per self-host tenant behind one data-access layer</td><td>Intensely relational domain; transactions + joins; RLS, jsonb, partitioning</td></tr>
+  <tr><td>Tenant isolation</td><td><b>Shared schema + Row-Level Security</b>, <code>tenant_id</code> on every table</td><td>Database-enforced; survives app bugs; ~1–5% when indexed (§3, §7)</td></tr>
+  <tr><td>Topology</td><td><b>Modular monolith</b> — one deployable</td><td>Self-host wants one artifact; no network hops on DB-bound paths</td></tr>
+  <tr><td>App framework</td><td><b>Django/DRF</b> (pragmatic lead) or <b>NestJS + Next.js</b> (JS-first)</td><td>Batteries-included CRUD, migrations, RBAC, admin</td></tr>
+  <tr><td>Connections</td><td><b>PgBouncer</b> transaction pooling, ~3–5 backend conns/core</td><td>The tenant-density lever (§7.3)</td></tr>
+  <tr><td>Reads</td><td><b>Materialized read models</b> (CQRS-lite) + replicas + cache</td><td>Dashboards become O(1) indexed reads (§7.4)</td></tr>
+  <tr><td>Real-time</td><td>DB change feed → pub/sub → <b>server-push (SSE/WebSocket)</b></td><td>No polling; tenant-scoped topics (§5)</td></tr>
+  <tr><td>Frontend</td><td><b>JS-first</b> (Next.js / htmx); SSR + edge-cached storefront; WASM modules for hot logic</td><td>Component ecosystem + SEO; §6 has the full reasoning incl. the Rust/WASM alternative</td></tr>
+  <tr><td>Media</td><td><b>S3-compatible object storage</b> (MinIO self-host)</td><td>Photos/docs out of the DB</td></tr>
+  <tr><td>Scaling path</td><td>Single primary + replicas → HASH(<code>tenant_id</code>) partitions → defer sharding</td><td>Earn each step (§7.7)</td></tr>
+</table>
+<p>Deployment modes: <b>hosted</b> runs the monolith multi-tenant behind the pooler with the operator control plane enabled; <b>self-host</b> ships the same artifact configured single-tenant (SQLite or local Postgres), control plane disabled, license-key validated. No tenant feature may assume operator-only services (Spec §12 portability).</p>
+
+<h2 id="data" class="pgbreak">3 · Data &amp; Persistence — Tenant Isolation</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §12 (strict per-tenant isolation at the data layer, provable by an automated negative test), Appendix A (logical data dictionary), Appendix B.5–B.6 (isolation outcomes; audit log, consent records, residency, retention), Appendix C (import idempotency), Appendix D (five date clocks, cost components).</div>
+<p>The reference DDL is <code>schema.sql</code> — PostgreSQL 15+, generated from Appendix A and kept reconciled with the later appendices. The isolation mechanism, in depth:</p>
+<div class="wf"><div id="isolation"></div><div class="cap">Defense in depth for the #1 risk — cross-tenant data disclosure. Tenant context is derived server-side, enforced at the API (object-ownership check) and again in the database (row-level security). Neither layer trusts a client-supplied tenant id.</div></div>
+<ul class="req">
+  <li><b>Row-Level Security on every tenant table</b>, <code>ENABLE</code> + <code>FORCE</code> (even the table owner is policed), with a <code>tenant_isolation</code> policy: <code>USING / WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid)</code> — reads filter and writes are constrained to the acting tenant.</li>
+  <li><b><code>SET LOCAL app.tenant_id</code> per transaction</b> — transaction-scoped, so it is safe under PgBouncer transaction pooling (a session-level <code>SET</code> silently leaks across pooled clients; §7.3).</li>
+  <li>The app connects as a <b>non-owner, non-superuser, non-<code>BYPASSRLS</code></b> role; migration lint asserts every tenant table has RLS enabled <i>and</i> a policy.</li>
+  <li><b>CI negative test</b> (the Spec's provability requirement): seed tenants A and B; assert A cannot read/update/delete B's rows and cannot insert rows as B — at the SQL layer <i>and</i> through the API; any leak fails the build.</li>
+  <li><b>Spec-driven schema features:</b> <code>external_ref</code> + per-tenant unique partial indexes on units/customers/leads/deals (import idempotency); append-only <code>activities</code> (audit) and <code>consent_records</code> (e-sign evidence) with <code>UPDATE/DELETE</code> revoked; customer address incl. <code>state</code> (per-state breach fan-out); <code>retention_policies</code> (legal floors vs the 2-year disposal default); the five unit date clocks + <code>recon_cost</code>/<code>transport_cost</code>; deal gross-input columns; <code>export_batches</code>/<code>export_batch_items</code> (accounting idempotency, §10).</li>
+  <li>Self-host parity: same DDL; the single-tenant install keeps <code>tenant_id</code> columns (schema parity for upgrades) and may skip the policy block.</li>
+</ul>
+
+<h2 id="api" class="pgbreak">4 · API Design</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §6 (role workspaces act on shared records), §8 (cross-cutting: search, notifications, tasks, audit), §10 (role-based authorization on every action), Appendix C (bulk import, idempotent on a stable external reference), Appendix F (on-demand accounting export). The machine-readable contract is <code>openapi.yaml</code> (66 paths, OpenAPI 3.1, validated) — the listing below is the human-readable map.</div>
+<p>REST / JSON. <b>Namespaces:</b> <code>/api/v1/*</code> authenticated back-office (tenant from session/subdomain, every query tenant-scoped) · <code>/api/v1/portal/*</code> customer portal · <code>/api/public/*</code> storefront (no auth, tenant by host) · <code>/api/platform/*</code> operator control plane (super-admin, cross-tenant) · <code>/api/webhooks/*</code> inbound integrations. RBAC per endpoint (the §10 matrix); state-machine changes use explicit <code>…/transition</code> actions (validated + audited), not arbitrary PATCH; lists accept <code>?q=&amp;status=&amp;sort=&amp;page=&amp;limit=</code>; money/transition writes accept an <code>Idempotency-Key</code> header.</p>
+<h4>Auth &amp; session</h4>
+<pre>POST  /api/v1/auth/login            GET  /api/v1/auth/me
+POST  /api/v1/auth/logout           POST /api/v1/auth/sso/callback
+POST  /api/v1/auth/password/reset</pre>
+<h4>Inventory &amp; pricing</h4>
+<pre>GET   /api/v1/units                 list/filter (type,status,location,aged)
+POST  /api/v1/units                 intake / acquire
+GET   /api/v1/units/:id             full record ("all lenses")   PATCH /api/v1/units/:id
+POST  /api/v1/units/:id/transition  incoming→recon→available→pending→sold (guarded)
+POST  /api/v1/units/:id/photos      GET /api/v1/units/:id/timeline    GET /api/v1/units/aging
+PATCH /api/v1/units/:id/price       set list/floor (logged; may require approval)
+GET   /api/v1/pricing/repricer      GET /api/v1/pricing/comps?unit=:id
+GET   /api/v1/pricing/approvals     POST /api/v1/pricing/approvals/:id/decide</pre>
+<h4>Leads, customers, deals, quotes</h4>
+<pre>GET/POST /api/v1/leads              GET/PATCH /api/v1/leads/:id
+POST  /api/v1/leads/:id/assign      POST /api/v1/leads/:id/convert  →deal
+GET   /api/v1/sources               GET/POST /api/v1/campaigns
+GET/POST /api/v1/customers          GET/PATCH /api/v1/customers/:id
+GET/POST /api/v1/deals              GET/PATCH /api/v1/deals/:id
+POST  /api/v1/deals/:id/stage       advance pipeline
+POST  /api/v1/deals/:id/discount    POST /api/v1/deals/:id/approve  (manager RBAC)
+GET/POST /api/v1/quotes             POST /api/v1/quotes/:id/send | /accept
+GET   /api/v1/forecast              GET /api/v1/team/leaderboard</pre>
+<h4>Service · accounting · titles · delivery</h4>
+<pre>GET/POST /api/v1/workorders         POST /api/v1/workorders/:id/status
+PATCH /api/v1/workorders/:id/tasks/:t   POST …/hours  …/parts  …/photos
+GET/POST /api/v1/invoices           POST /api/v1/invoices/:id/payments (idempotent)
+GET/POST /api/v1/bills              GET /api/v1/accounting/pnl?period=   POST /accounting/export
+GET/PATCH /api/v1/titles/:unitId    GET/POST /api/v1/documents   POST /documents/:id/sign
+GET/POST /api/v1/deliveries         POST /api/v1/deliveries/:id/status   POST /deliveries/quote
+GET/POST /api/v1/appointments</pre>
+<h4>Cross-cutting &amp; tenant admin</h4>
+<pre>GET   /api/v1/search?q=             GET /api/v1/notifications  POST …/:id/read
+GET/POST /api/v1/tasks              GET /api/v1/activity        GET /api/v1/reports/:kpiSet
+GET/POST /api/v1/users              PATCH /api/v1/users/:id (roles, lot scope)
+GET/PATCH /api/v1/tenant/settings   branding · lots · config · billing</pre>
+<h4>Storefront (public) &amp; customer portal</h4>
+<pre>GET   /api/public/inventory         available units (filter/search/sort)
+GET   /api/public/inventory/:stock  detail (deep-linkable)
+POST  /api/public/inquiry           creates a Lead + notifies   ← implemented in prototype
+POST  /api/public/financing/prequalify
+GET   /api/v1/portal/me             GET /api/v1/portal/deals
+GET   /api/v1/portal/quotes/:id     POST …/accept
+POST  /api/v1/portal/financing/apply  GET …/status
+GET   /api/v1/portal/delivery/:id   GET /api/v1/portal/documents  POST …/:id/sign
+GET/POST /api/v1/portal/saved</pre>
+<h4>Platform control plane (hosted) &amp; webhooks</h4>
+<pre>GET/POST /api/platform/tenants      PATCH /api/platform/tenants/:id (plan/status)
+GET   /api/platform/revenue         GET /api/platform/usage    GET /api/platform/billing
+GET   /api/platform/support         GET /api/platform/health   POST /api/platform/license/verify
+POST  /api/webhooks/financing       lender decision → Deal/portal
+POST  /api/webhooks/payments        settled → reconcile invoice
+POST  /api/webhooks/freight         carrier status → delivery
+POST  /api/webhooks/syndication     listing-site lead → Lead
+POST  /api/webhooks/title           DMV/title callback</pre>
+
+
+
+<h2 id="realtime" class="pgbreak">5 · Real-Time Updates</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §12: changes by one user — status, price, a new lead, an assignment, a payment — appear to others viewing the same data within ~1–2 seconds, <b>without a manual refresh and without perceptible polling delay</b>.</div>
+<div class="wf"><div id="realtime"></div><div class="cap">Server push, not client polling. Committed writes emit change events; a per-process fan-out pushes them to subscribed clients over one long-lived channel per session, topics scoped by tenant. The same events invalidate the materialized read models (§7.4).</div></div>
+<ul class="req">
+  <li><b>Channel:</b> one long-lived connection per signed-in client — <b>SSE</b> (<code>GET /api/v1/events</code>, <code>text/event-stream</code>) as the default for its simplicity/proxy-friendliness; upgradeable to WebSocket if bidirectional needs appear. A <code>cursor</code> query param replays missed events after a reconnect.</li>
+  <li><b>Feed:</b> committed mutations write the <code>activities</code> row (already required for audit) and emit a change event — implementation options: Postgres <code>LISTEN/NOTIFY</code> (simple, fine at this scale) or logical-decoding/outbox if delivery guarantees must tighten. Events carry <code>{topic, entity_type, entity_id, action, at}</code> — clients re-fetch the entity through the normal (RLS-scoped) API rather than trusting payload data.</li>
+  <li><b>Scoping:</b> topics are derived server-side from the session's tenant + role — the channel can never subscribe across tenants (same rule as §3).</li>
+  <li><b>Density interaction:</b> thousands of long-lived connections favor an async runtime (§7.6) and are exactly why the API tier holds no per-request DB connection between events (§7.3).</li>
+  <li><b>UI behavior:</b> lists/kanbans patch in place (a tile moves, a row updates, a badge increments); the storefront does <i>not</i> hold channels — its freshness comes from edge-cache invalidation on status change (§7.5).</li>
+</ul>
+
+<h2 id="frontend" class="pgbreak">6 · Frontend &amp; UX</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §6 (twelve role workspaces over shared records), §7 (mobile-first, SEO-visible storefront), §12 (responsive phone → tablet → laptop → ultra-wide; WCAG 2.1 AA; field roles usable on a phone; dashboards &lt; 2 s; real-time UI).</div>
+<h3>6.1 Recommendation — JS-first, with WASM where it earns its keep</h3>
+<ul class="req">
+  <li><b>UI stack: JS/TS.</b> <b>Next.js</b> (React) as the default — or <b>Django + htmx</b> for the back office if the Django profile is chosen in §2. Rationale: the back office is forms-, tables- and CRUD-heavy, which is where the JS ecosystem's mature component libraries (data grids, date pickers, form kits) pay off daily; hiring is easiest; SSR for the storefront is first-class.</li>
+  <li><b>Storefront: DOM-rendered SSR + edge cache</b> (§7.5) — the public site must be crawlable and fast on a phone; canvas-rendered approaches are ruled out by SEO/accessibility alone.</li>
+  <li><b>Rust→WASM as modules, not the whole app:</b> the derived-field formula engine (Spec Appendix D — margins, aging, commissions) is a natural WASM module: pure, correctness-critical, shared verbatim between server and client so previews always match bookings.</li>
+  <li><b>Responsive strategy:</b> one responsive web app (no separate native build in Phase 1 — see the Bid Pack); layouts collapse from the ultra-wide dashboard grid → laptop → tablet two-pane → phone single-pane with bottom navigation; recon &amp; delivery screens are touch-first since they're used in the yard; WCAG 2.1 AA with full keyboard navigation.</li>
+</ul>
+<h3>6.2 The Rust/WASM alternative — assessed honestly</h3>
+<p>If the build team is Rust-first by conviction, the only whole-app WASM options that preserve SEO/accessibility are the DOM-rendered frameworks — <b>Leptos</b> (web-first: SSR, islands, fine-grained signals, the strongest Rust web story) or <b>Dioxus</b> (one codebase across web/desktop/mobile; React-like). Choose Leptos for this product if at all — the storefront is a web/SSR problem. Accept the trade-offs: component ecosystems are young (Thaw UI / headless primitives + Tailwind, no AG-Grid-class data grid), APIs move fast, and the hiring pool is small. Canvas-rendered stacks (egui, Flutter Web) are <b>not</b> acceptable for the storefront or the accessible back office.</p>
+<h3>6.3 Data tables &amp; filtering — server-side by design</h3>
+<p>No framework choice changes this: with tens of thousands of rows per tenant, <b>filtering/sorting/pagination belong in the API and SQL</b>, not the browser. Every list endpoint takes <code>?q=&amp;status=&amp;sort=&amp;page=&amp;limit=</code> (already in <code>openapi.yaml</code>); the table component stays "dumb" and renders a page; the filter UI (facet chips, date ranges, saved views) is bespoke in any stack. This sidesteps the one place the Rust UI ecosystem is furthest behind (rich client-side data grids) and keeps payloads small on yard Wi-Fi.</p>
+
+<h2 id="perf" class="pgbreak">7 · Performance &amp; Scaling</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §12: interactive actions feel instant; dashboards &lt; 2 s; <b>maximize simultaneous active users per server</b>; hundreds+ tenants and tens of thousands of units/leads per tenant with no per-tenant degradation; 99.9% availability with a cache-served storefront.</div>
+<p>TPOS is <b>database-bound CRUD</b>: requests spend their time waiting on Postgres, not on application code. The performance and tenant-density wins therefore live in the <b>data layer and the connection pool</b>, not in an exotic runtime or premature sharding. This appendix is one optimization profile; apply it only to the degree the product needs.</p>
+<div class="note"><b>Define the dimension first.</b> "High performance" is not one thing, and the lever order changes with it. Decide which of these dominates before optimizing — over-investing in the wrong one is wasted complexity.</div>
+<table class="t">
+  <tr><th>If the goal is…</th><th>Dominant levers, in order</th></tr>
+  <tr><td><b>p99 read latency</b> (dashboards feel instant)</td><td>Materialized read models → cache hot reads → <code>tenant_id</code>-leading indexes → read replicas</td></tr>
+  <tr><td><b>Write / transaction throughput</b></td><td>Index discipline → prepared statements &amp; batching → hash-partition hot tables → pool sizing</td></tr>
+  <tr><td><b>Tenants per server</b> (density)</td><td>PgBouncer transaction pooling → edge-offload the storefront → shared-schema low footprint → async runtime</td></tr>
+</table>
+
+<h3>7.1 Indexing &amp; query design — the foundation (and what makes RLS cheap)</h3>
+<ul class="req">
+  <li>Every hot index <b>leads with <code>tenant_id</code></b>, then the query's predicates: <code>(tenant_id,status)</code>, <code>(tenant_id,stock_no)</code>, <code>(tenant_id,due_at)</code>, <code>(tenant_id,stage)</code>, etc.</li>
+  <li><b>Keep Row-Level Security.</b> With the right composite index the planner pushes the policy predicate into the index scan, so RLS is cheap (reported order-of-magnitude: ~0.3 ms policy evaluation at 50 M rows / 10 K tenants; ~1–5% vs. app-level filtering). <b>The 100× penalty comes from a missing <code>tenant_id</code>-leading index, not from RLS itself.</b> Database-enforced isolation is worth the few percent — one cross-tenant leak is existential, and it protects you even when application code has a bug.</li>
+  <li>Eliminate N+1s; use prepared statements; keep working sets index-resident.</li>
+</ul>
+
+<h3>7.2 Partitioning — secondary, and use HASH not list</h3>
+<ul class="req">
+  <li>Partitioning is a lever only for the largest tables (e.g. <code>activities</code>, <code>units</code> at very high volume); the composite index above does most of the work first.</li>
+  <li>With thousands of tenants, partition by <b><code>HASH(tenant_id)</code> into a fixed number of partitions</b> (e.g. 16–64) for cache locality and scan pruning. <b>Do NOT list-partition one-per-tenant</b> — thousands of partitions blow up planner time and DDL. Time-range sub-partitioning suits the audit log.</li>
+</ul>
+
+<h3>7.3 Connection pooling — the real density lever</h3>
+<ul class="req">
+  <li>Postgres is process-per-connection (~5 MB + context-switch per connection), so density comes from <b>PgBouncer in transaction-pooling mode</b> multiplexing many clients onto a small pool sized to roughly <b>3–5 backend connections per CPU core</b>.</li>
+  <li><b>Gotcha that interacts with RLS:</b> under transaction pooling a session-level <code>SET app.tenant_id</code> does not persist across statements. Set the tenant <b>per-transaction</b> with <code>SET LOCAL app.tenant_id = …</code> (or <code>set_config('app.tenant_id', …, true)</code>) so RLS still applies. Also avoid session-scoped prepared-statement / session-feature assumptions in transaction mode.</li>
+</ul>
+
+<h3>7.4 Read path — precompute the dashboards (CQRS-lite)</h3>
+<ul class="req">
+  <li>The KPI dashboards (§9) aggregate across many rows. Precompute them into <b>materialized views / rollup tables</b> refreshed incrementally by the background worker, so a dashboard load is an O(1) indexed read, not a per-request fan-out join. This is the single biggest internal-latency win.</li>
+  <li>Cache hot reads (Redis / Dragonfly or in-process) with event-driven invalidation on writes; route all dashboard/report traffic to <b>read replicas</b>.</li>
+</ul>
+
+<h3>7.5 Storefront at the edge</h3>
+<p>The public storefront's "available inventory" is the highest-volume, most cacheable traffic. Serve it from a <b>CDN / ISR edge</b>, invalidated when a unit's status changes. This removes the largest read load from the origin entirely and is often the cheapest way to raise effective tenants-per-server.</p>
+
+<h3>7.6 Runtime — a minor lever for DB-bound work</h3>
+<p>Framework benchmarks show per-request gaps <b>collapse once Postgres is in the loop</b> (compiled runtimes dominate only the compute-bound plaintext/JSON rounds). For DB-bound CRUD you will not get throughput from switching language — choose the runtime for its <b>concurrency model and your team</b>, not per-query speed. Where it touches density: an async / light-concurrency runtime (<b>Go, .NET, Node, or Elixir</b> for connection-heavy/real-time) holds more in-flight requests per box than a process-per-worker Python/Ruby setup. <b>Rust is not required</b> here and its productivity cost rarely pays back on this workload.</p>
+
+<h3>7.7 Scaling ladder — earn each step</h3>
+<ol class="req">
+  <li>Vertical scaling + PgBouncer (handles a large share of workloads on its own).</li>
+  <li>Add read replicas for the read/report load.</li>
+  <li>Hash-partition the few largest tables.</li>
+  <li><b>Only</b> once a single primary is genuinely exhausted (commonly hundreds of GB+), shard with <b>Citus</b> co-located by <code>tenant_id</code>. Keep the schema partition-ready (<code>tenant_id</code> on every table) so this migration is cheap — but <b>defer it</b>; vanilla Postgres + replicas goes much further than teams expect.</li>
+</ol>
+
+<div class="note"><b>Caveat — treat the numbers as order-of-magnitude.</b> The RLS timing figures come from a single practitioner benchmark and the single-node size thresholds are partly vendor framing. Use them for intuition; <b>benchmark on your own schema, queries and data</b> before treating any figure as a constant. Sources: practitioner RLS-at-scale benchmarks, PgBouncer pooling guides (connection-cost &amp; per-core sizing), single-node-Postgres scaling write-ups, and the TechEmpower framework benchmarks (database-query rounds).</div>
+
+
+
+<h2 id="security" class="pgbreak">8 · Security Mechanisms</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec Appendix B.5 states the security <i>outcomes</i> (isolation, hardened sessions, strong password storage, MFA, throttling, token hygiene, CSRF defense, secrets, encryption, immutable audit, rate limits, validated uploads, SSRF restraint). These are the proposed <i>mechanisms</i>.</div>
+<div class="two">
+  <div>
+    <h4>Identity &amp; sessions</h4>
+    <ul class="req">
+      <li>Passwords: <b>Argon2id</b> (m = 19 MiB, t = 2, p = 1); bcrypt ≥ 10 accepted for legacy migration only.</li>
+      <li>Cookies: <code>HttpOnly</code> + <code>Secure</code> + <code>SameSite</code>, <code>__Host-</code> prefix; session id ≥ 64-bit entropy; rotate on login; idle + absolute timeouts; server-side logout.</li>
+      <li><b>MFA</b> (TOTP/WebAuthn) — required for admin, titles and payment-touching roles.</li>
+      <li>Login throttling + lockout; reset tokens single-use, time-limited, no account enumeration.</li>
+      <li>Portal/API tokens: short-lived, role-scoped, signature/issuer/audience/expiry all validated.</li>
+      <li>CSRF: synchronizer token (or HMAC double-submit) on cookie-auth routes; custom-header requirement on the bearer API.</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Platform &amp; data</h4>
+    <ul class="req">
+      <li>Isolation mechanism per §3 (RLS <code>FORCE</code>, <code>SET LOCAL</code>, non-owner role, CI negative test).</li>
+      <li>Authorization: <b>RBAC</b> (role → permission sets, the Spec §10 matrix) layered over <b>ABAC</b> (tenant id + field sensitivity) with field-level masking of PII / title / payment data.</li>
+      <li>Secrets in a managed KMS/secret store; never in VCS; DB + token-signing keys rotated.</li>
+      <li>TLS in transit; encrypted volumes at rest; column-level encryption/tokenization for payment tokens &amp; sensitive PII (only token + last4 + brand are ever stored — §9).</li>
+      <li>Audit: append-only <code>activities</code> (UPDATE/DELETE revoked) with actor, action, entity, timestamp.</li>
+      <li>Rate limits per IP / token / tenant on auth, API, upload. Server-side validation + parameterized queries everywhere.</li>
+      <li>Uploads: magic-byte content verification (never trust Content-Type), randomized names, object storage off-webroot, malware scan, image re-encode.</li>
+      <li>SSRF: server-side fetches allow-listed; RFC1918 / link-local / metadata addresses blocked; resolved IP validated.</li>
+    </ul>
+  </div>
+</div>
+<p class="mut" style="font-size:9pt">The compliance regime these mechanisms serve (GLBA Safeguards Rule, breach reporting, ESIGN, retention) is specified — with citations — in Spec Appendix B; the annual pen test + vulnerability-assessment cadence it requires is carried as a delivery line in the Bid &amp; Delivery Pack.</p>
+
+<h2 id="integrations" class="pgbreak">9 · Integrations</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec §11 names the integration capabilities (financing, listing syndication, title/e-sign, payments, freight, accounting, email/SMS, platform billing); Appendix B constrains how payment data may be handled; Appendix E defines the notification catalog.</div>
+<table class="t">
+  <tr><th style="width:17%">Capability</th><th style="width:30%">Proposed approach</th><th>Key constraint honored</th></tr>
+  <tr><td><b>Payments</b> (card + ACH)</td><td><b>Stripe Connect, direct charges</b> — each dealer is its own merchant of record; processor-hosted fields/iframe; store token + last4 + brand only</td><td>Card data never touches TPOS servers → every dealer stays at <b>PCI SAQ A</b>; NACHA: no plaintext bank numbers, WEB-debit account validation, authorizations retained ≥ 2 yrs</td></tr>
+  <tr><td><b>E-signature</b></td><td>Hosted e-sign provider (Dropbox Sign / DocuSign class) wrapped by our consent flow</td><td>ESIGN consent gate + tamper-evident <code>consent_records</code> (hash, signer, timestamp); <b>titles excluded</b> — per-DMV paper/ELT</td></tr>
+  <tr><td><b>Email / SMS</b></td><td>Transactional providers (Postmark/SendGrid class; Twilio for SMS) behind one notification service driven by the Appendix E catalog</td><td>Transactional vs marketing split; opt-out tracking; per-tenant from-domain</td></tr>
+  <tr><td><b>Listing syndication</b></td><td>Adapter per channel (TruckPaper, Facebook, …): push <i>available</i> units, pull leads back via <code>/api/webhooks/syndication</code></td><td>Storefront/status rules in Spec §7 — units appear/disappear with status</td></tr>
+  <tr><td><b>Financing / credit pull</b></td><td>Stub-first: manual financing status at MVP; vendor rails (soft-pull, lender submission) added per the Bid Pack phases</td><td>FCRA/GLBA scope only enters when the vendor is wired (Spec App. B)</td></tr>
+  <tr><td><b>Freight</b></td><td>Manual rate entry at MVP; carrier-API adapter later</td><td>—</td></tr>
+  <tr><td><b>Platform billing</b></td><td>Subscription provider (Stripe Billing class) driving the operator control plane; usage metering from <code>usage_metrics</code></td><td>Hosted mode only (Spec §2)</td></tr>
+</table>
+<p class="mut" style="font-size:9pt">Vendor choices, build-vs-stub per phase, account ownership and review lead-times are a bid concern — the full register lives in the <b>Bid &amp; Delivery Pack</b>.</p>
+
+<h2 id="accounting" class="pgbreak">10 · Accounting Export</h2>
+<div class="echo"><b>Requirements echoed.</b> Spec Appendix F: manual on-demand export of invoices/payments/journal entries; QuickBooks first (Online <i>and</i> Desktop); extensible to other systems without re-engineering; one-time chart-of-accounts mapping; no duplicate postings on re-export; baseline must not depend on third-party access or an external approval gate.</div>
+<div class="wf"><div id="acctmap"></div><div class="cap">Target-agnostic <b>canonical export model</b> with per-target <b>adapters</b> — the no-rewrite seam. Targets become pluggable serializers (the same architecture a unified-API vendor hosts internally), turning N² point-to-point translators into ~2N. File adapters ship first and are <i>permanent</i> infrastructure, since QuickBooks Desktop has no clean REST API.</div></div>
+<ul class="req">
+  <li><b>Canonical model:</b> a thin, export-only representation — balanced journal entries (debit/credit lines → mapped GL accounts) plus customer / invoice / payment / tax-rate and a generic "segment" dimension (maps to QBO classes or Xero tracking categories later).</li>
+  <li><b>v1 — file adapters (ships first):</b> manual, on-demand <b>summary journal-entry</b> export as <b>CSV</b> (QuickBooks Online) and <b>IIF</b> (Desktop). Needs no OAuth and no Intuit production review; sidesteps QBO's invoice-CSV sales-tax block and 100-row cap. Trade-off accepted: GL-accurate books, but no invoice-level AR aging inside QuickBooks until the API phase.</li>
+  <li><b>GL mapping wizard (one-time, per dealer):</b> map system buckets — trailer revenue, COGS, AR, sales-tax payable, fees, customer deposits — to the dealer's own accounts (<code>GET/PUT /api/v1/accounting/mapping</code>). File targets need exact account-name matches; the API target resolves and stores QuickBooks Account Ids.</li>
+  <li><b>Idempotency:</b> every run creates an <code>export_batch</code>; exported records are marked via <code>export_batch_items</code> so a re-run never re-emits them. On the API path, the invoice number becomes QuickBooks <code>DocNumber</code> + query-before-insert (QuickBooks has no native idempotency key).</li>
+  <li><b>Phases 2–4</b> (triggered by demand, sized in the Bid Pack): QBO REST-API push (OAuth2 + Intuit review) → Web Connector/qbXML for Desktop detail → additional systems via new adapters, or a unified-API aggregator once targets exceed ~2.</li>
+</ul>
+
+<h2 id="adr" class="pgbreak">11 · Architecture Decisions &amp; Roads Not Taken</h2>
+<p>Every significant fork weighed for the rebuild — the options considered, what was chosen, what was rejected and why. Decisions are advisory; the build team owns the final call. Several were <b>revised mid-review as evidence came in</b> — those are flagged <span class="pill">REVISED</span> and recorded honestly rather than quietly replaced. Bracketed numbers reference the sources in §11.2.</p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:4%">#</th><th style="width:17%">Decision</th><th style="width:21%">Options considered</th><th style="width:18%">Chosen</th><th>Roads not taken — reasoning</th></tr>
+  <tr><td>1</td><td>Prototype persistence</td><td>Flat JSON file · real database</td><td>JSON file + in-browser mock</td><td>The prototype is a UI/IA demo; only the storefront lead endpoint is live. A real DB was out of scope for a front-end mock.</td></tr>
+  <tr><td>2</td><td>Production database</td><td>PostgreSQL · document/NoSQL · MySQL · SQLite-only</td><td><b>PostgreSQL</b> (hosted) + SQLite per self-host tenant</td><td>NoSQL rejected — the domain is intensely relational (one-record-many-lenses = foreign keys), needs transactions (booking a sale) and joins. MySQL viable; Postgres preferred for RLS, jsonb, partitioning, extensions. SQLite-only rejected for hosted (concurrency) but ideal for a single self-host tenant. [1]</td></tr>
+  <tr><td>3</td><td>Multi-tenant isolation</td><td>Shared schema + RLS · schema-per-tenant · database-per-tenant · app-level filtering only</td><td><b>Shared schema + RLS</b>, <code>tenant_id</code> on every table</td><td>DB-per-tenant rejected — poor density, heavy ops. Schema-per-tenant rejected — migration/ops complexity at scale. App-filtering-only rejected — one forgotten <code>WHERE</code> leaks data; isolation belongs in the database. RLS gives DB-enforced safety at ~1–5% when indexed. [1][2][3][4]</td></tr>
+  <tr><td>4</td><td>Service topology</td><td>Modular monolith · microservices</td><td><b>Modular monolith</b> (one deployable)</td><td>Microservices rejected — the self-host requirement wants one artifact, the team is small, and network hops hurt DB-bound latency. Extract a service later only if a piece proves it needs it.</td></tr>
+  <tr><td>5</td><td>App framework (pragmatic profile)</td><td>Django/DRF · Rails · NestJS+Next.js · Go · .NET · Elixir</td><td><b>Django/DRF</b> (lead) or <b>NestJS+Next.js</b> (JS-first)</td><td>Go/.NET/Rust rejected as the default — more boilerplate for CRUD/admin and no free admin plane. Chosen for batteries-included CRUD, migrations, RBAC, Postgres-first tooling, and clean self-host packaging.</td></tr>
+  <tr><td>6</td><td>Media storage</td><td>S3-compatible object storage (MinIO self-host) · blobs in Postgres</td><td><b>S3-compatible</b> object storage</td><td>Blobs-in-DB rejected — bloats the database and slows backups/replication; photos &amp; signed documents belong in object storage.</td></tr>
+  <tr><td>7</td><td>Storefront rendering</td><td>Edge/CDN (ISR) · in-app SSR · SPA</td><td><b>SSR + edge-cache</b> available inventory</td><td>Pure SPA rejected for the public site — SEO &amp; first-paint matter. Internal dashboards stay SPA/API (or SSR-with-enhancement).</td></tr>
+  <tr><td>8</td><td>Runtime under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Rust · Go · .NET · Elixir · keep pragmatic</td><td>Async/light-concurrency (<b>Go/.NET/Elixir</b>); <b>Rust not required</b></td><td>Initially proposed Rust for raw throughput. Evidence: framework gaps <b>collapse once Postgres is in the loop</b>; Rust leads only compute-bound rounds. For DB-bound CRUD the runtime is a minor lever — choose for concurrency model + team, not per-query speed. [9]</td></tr>
+  <tr><td>9</td><td>RLS under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Keep RLS (indexed) · move isolation to app/partitioning for speed</td><td><b>Keep RLS</b> + <code>tenant_id</code>-leading composite indexes</td><td>Initially suggested moving isolation out of RLS for speed. Evidence: RLS ~0.3 ms at 50 M rows / 10 K tenants <i>with the right composite index</i>; the 100× penalty is the <b>missing index</b>, not RLS. Keep it — the safety is worth ~1–5%. [2][3]</td></tr>
+  <tr><td>10</td><td>Horizontal sharding <span class="pill">REVISED</span></td><td>Citus early (ease later migration) · single-node + replicas, defer</td><td><b>Single node + replicas; defer Citus</b>, keep schema shard-ready</td><td>Initially put Citus "on the table." Evidence: vanilla Postgres + pooling handles most workloads under ~500 GB; replicas/partitioning extend into the terabytes before sharding is warranted. Defer until one primary is genuinely exhausted. [5][6]</td></tr>
+  <tr><td>11</td><td>Partitioning</td><td>HASH(tenant_id) fixed N · list/partition-per-tenant</td><td><b>HASH(tenant_id)</b> into 16–64 partitions (large tables only)</td><td>Partition-per-tenant rejected — thousands of tenants blow up planner time &amp; DDL. Partitioning is a <i>secondary</i> lever after the composite index. [6]</td></tr>
+  <tr><td>12</td><td>Connection management</td><td>PgBouncer transaction pooling · session pooling · none</td><td><b>PgBouncer (transaction mode)</b> ~3–5/core + <code>SET LOCAL</code> tenant</td><td>No/session pooling rejected for density — process-per-connection (~5 MB each). Transaction mode requires <code>SET LOCAL app.tenant_id</code> per-transaction so the RLS variable survives (session <code>SET</code> silently breaks under it). [7][8]</td></tr>
+  <tr><td>13</td><td>Data access (perf paths)</td><td>Heavy ORM · thin typed SQL</td><td><b>Thin typed SQL</b> (sqlx/sqlc/Dapper/Ecto) on hot paths</td><td>Heavy ORM rejected on hot paths — per-query overhead and hidden N+1s. ORM is fine for cold CRUD.</td></tr>
+  <tr><td>14</td><td>Dashboard read path</td><td>Per-request aggregation · materialized read models</td><td><b>Materialized views / rollups</b> (CQRS-lite) + replicas + cache</td><td>Per-request big-join aggregation rejected for dashboards — precompute and serve an O(1) indexed read.</td></tr>
+</table>
+
+<h3>11.1 What we changed our minds about (and why)</h3>
+<p>Three decisions from the first "performance-first" pass were corrected once benchmark evidence was reviewed — recorded here so the reasoning is auditable, not lost:</p>
+<ul class="req">
+  <li><b>#8 — Rust is not the lever.</b> For DB-bound CRUD, runtime choice barely moves throughput; the language win is real only on compute-bound paths. [9]</li>
+  <li><b>#9 — Don't drop RLS for speed.</b> The cost is the missing <code>tenant_id</code>-leading index, not the policy; keep DB-enforced isolation. [2][3]</li>
+  <li><b>#10 — Don't shard early.</b> A single Postgres primary + replicas + partitioning goes much further than expected; defer Citus. [5][6]</li>
+</ul>
+
+<h3>11.2 References &amp; evidence quality</h3>
+<p>Sources consulted, with their nature flagged. <b>Several are vendor or single-practitioner sources; all numeric figures are order-of-magnitude guidance — benchmark on your own schema, queries and data before treating any as a constant.</b></p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:5%">#</th><th style="width:34%">Source</th><th style="width:23%">Nature</th><th>Informs</th></tr>
+  <tr><td>1</td><td>PostgreSQL docs — Row Security Policies</td><td>Official documentation</td><td>RLS canonical reference (#2,#3)</td></tr>
+  <tr><td>2</td><td>RLS-at-scale benchmark (DEV Community)</td><td>Single-practitioner benchmark</td><td>~0.3 ms at 50 M/10 K with <code>tenant_id</code>-leading index; missing index = 100× (#3,#9)</td></tr>
+  <tr><td>3</td><td>RLS overhead write-up (Wellally)</td><td>Practitioner</td><td>~1–5% vs app-level filtering; planner push-down (#3,#9)</td></tr>
+  <tr><td>4</td><td>Tenant-isolation rationale (OneUptime); Crunchy Data RLS-for-tenants</td><td>Vendor / practitioner</td><td>DB-enforced isolation protects against app bugs (#3)</td></tr>
+  <tr><td>5</td><td>Single-node Postgres scaling (Velodb)</td><td>Practitioner / vendor</td><td>Vertical + pooling under ~500 GB; OpenAI on Postgres; replicas+partitioning to TB (#10)</td></tr>
+  <tr><td>6</td><td>Citus multi-tenant sharding docs &amp; blog</td><td>Vendor framing</td><td>Shard by <code>tenant_id</code>, co-location; "~100 GB" threshold (#10,#11)</td></tr>
+  <tr><td>7</td><td>Connection scaling (PlanetScale); sizing (Akamai)</td><td>Vendor</td><td>Process-per-connection cost; PgBouncer multiplexing; ~3–5 conns/core (#12)</td></tr>
+  <tr><td>8</td><td>"PgBouncer … fraught with peril" (JP Camara)</td><td>Practitioner deep-dive</td><td>Transaction-pooling gotchas; <code>SET LOCAL</code> / session-feature caveats (#12)</td></tr>
+  <tr><td>9</td><td>TechEmpower Framework Benchmarks</td><td>Independent benchmark</td><td>DB-query rounds collapse framework gaps; Rust leads only plaintext/JSON (#8)</td></tr>
+</table>
+
+
+
+
+<h2 id="trace" class="pgbreak">12 · Requirement → Proposal Traceability</h2>
+<p>Where each Specification requirement area is answered. (Spec section / appendix → Proposal section.)</p>
+<table class="t">
+  <tr><th style="width:46%">Specification requirement</th><th>Answered in</th></tr>
+  <tr><td>§2 Multi-tenancy &amp; deployment modes · §12 isolation, portability</td><td>§2, §3</td></tr>
+  <tr><td>§6 Role workspaces · §8 cross-cutting · §10 permissions</td><td>§4 (API), §6 (UI), §8 (RBAC/ABAC)</td></tr>
+  <tr><td>§7 Storefront (mobile-first, SEO, lead capture)</td><td>§6.1, §7.5</td></tr>
+  <tr><td>§12 Real-time collaboration (no refresh, no polling delay)</td><td>§5</td></tr>
+  <tr><td>§12 Concurrency &amp; density (max users per server) · performance · scalability · availability</td><td>§7</td></tr>
+  <tr><td>§12 Responsive phone→ultra-wide · accessibility WCAG 2.1 AA</td><td>§6.1</td></tr>
+  <tr><td>Appendix A Data dictionary</td><td>§3 + <code>schema.sql</code></td></tr>
+  <tr><td>Appendix B Security &amp; compliance outcomes</td><td>§3, §8 (+ pen-test cadence in the Bid Pack)</td></tr>
+  <tr><td>Appendix C Onboarding &amp; import (idempotent bulk, error reports)</td><td>§3 (<code>external_ref</code>), §4 (<code>/bulk</code>, <code>/imports</code>)</td></tr>
+  <tr><td>Appendix D Derived-field formulas (one engine, identical results)</td><td>§3 (date clocks, cost &amp; gross columns), §6.1 (shared WASM formula module)</td></tr>
+  <tr><td>Appendix E Notification &amp; document catalog</td><td>§5 (in-app), §9 (email/SMS service)</td></tr>
+  <tr><td>Appendix F Accounting-system export</td><td>§10 + <code>schema.sql</code> (<code>export_batches</code>) + <code>openapi.yaml</code> (<code>/accounting/*</code>)</td></tr>
+  <tr><td>§13 Acceptance criteria (end-to-end scenarios)</td><td>The integration of all of the above; delivery gates in the Bid Pack</td></tr>
+</table>
+<p class="mut" style="font-size:9pt">Scope cutline, vendor register, assumptions/RACI, estimate and delivery stages: see the <b>Bid &amp; Delivery Pack</b> (companion ③).</p>
+
+<script>
+/* ---- B&W vector wireframe generator (pure SVG) ---- */
+const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
+function r(x,y,w,h,f){return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f||'none'}" stroke="${ST}" stroke-width="1.3"/>`}
+function rf(x,y,w,h,f){return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" stroke="none"/>`}
+function tx(x,y,s,o){o=o||{};return `<text x="${x}" y="${y}" font-family="Helvetica,Arial,sans-serif" font-size="${o.s||8}" font-weight="${o.b?'700':'400'}" fill="${o.g?GR:ST}" ${o.a?'text-anchor="'+o.a+'"':''}>${s}</text>`}
+function tl(x,y,w){return `<rect x="${x}" y="${y-4}" width="${w}" height="3.2" rx="1.6" fill="${GR}"/>`} // text placeholder
+function cross(x,y,w,h){return r(x,y,w,h)+`<line x1="${x}" y1="${y}" x2="${x+w}" y2="${y+h}" stroke="${GR}" stroke-width="1"/><line x1="${x+w}" y1="${y}" x2="${x}" y2="${y+h}" stroke="${GR}" stroke-width="1"/>`}
+const W=900,H=560,SX=132,CX=144,CW=W-CX-14;
+
+function screen(title, nav, blocks){
+  let s=r(0,0,W,H);
+  // sidebar
+  s+=rf(0,0,SX,H,MG)+r(0,0,SX,H);
+  s+=rf(10,12,16,16,LG)+tx(32,24,'TPOS',{b:1,s:10});
+  nav.forEach((n,i)=>{const yy=42+i*19; if(n.on){s+=rf(6,yy-11,SX-12,16,LG);} s+=(n.g?tx(10,yy,n.g.toUpperCase(),{s:6,g:1}):tx(14,yy,n.t,{s:7.4,b:n.on,g:!n.on}));});
+  s+=rf(8,H-26,16,16,LG)+tx(30,H-14,'You',{s:7,g:1});
+  // topbar
+  s+=rf(SX,0,W-SX,32,'#fff')+r(SX,0,W-SX,32);
+  s+=tx(CX,20,title,{b:1,s:11});
+  s+=r(W-150,7,110,18)+tx(W-144,19,'Search…',{s:7,g:1})+rf(W-28,7,18,18,LG);
+  // content blocks (vertical stack)
+  let y=44;
+  const ctx={
+    add(h){const yy=y;y+=h;return yy;},
+    stats(labels){const n=labels.length,gw=(CW-(n-1)*8)/n,yy=this.add(48+10);labels.forEach((l,i)=>{const x=CX+i*(gw+8);s+=r(x,yy,gw,48)+tx(x+7,yy+15,l,{s:6.4,g:1})+rf(x+7,yy+24,Math.min(gw*0.5,46),12,LG);});},
+    region(ti,h,x,w){x=x===undefined?CX:x;w=w||CW;const yy=this.add(h+10);s+=r(x,yy,w,h)+tx(x+9,yy+15,ti,{b:1,s:8.6})+`<line x1="${x}" y1="${yy+22}" x2="${x+w}" y2="${yy+22}" stroke="${LG}"/>`;return {x,y:yy,w,h};},
+    table(ti,cols,rows,h,x,w){const g=this.region(ti,h,x,w);const colW=g.w/cols;for(let c=1;c<cols;c++)s+=`<line x1="${g.x+c*colW}" y1="${g.y+22}" x2="${g.x+c*colW}" y2="${g.y+g.h}" stroke="${LG}"/>`;for(let c=0;c<cols;c++)s+=tl(g.x+8+c*colW,g.y+34,colW*0.5);for(let rI=0;rI<rows;rI++){const ry=g.y+30+(rI+1)*((g.h-30)/(rows+0.3));s+=`<line x1="${g.x}" y1="${ry}" x2="${g.x+g.w}" y2="${ry}" stroke="${LG}"/>`;for(let c=0;c<cols;c++)s+=tl(g.x+8+c*colW,ry-4,colW*0.62);}return g;},
+    kanban(ti,colNames,h){const g=this.region(ti,h,CX,CW);const n=colNames.length,cw=(g.w-16-(n-1)*8)/n;colNames.forEach((cn,i)=>{const x=g.x+8+i*(cw+8),yy=g.y+30;s+=rf(x,yy,cw,h-38,MG)+r(x,yy,cw,h-38)+tx(x+6,yy+13,cn,{s:6.6,b:1});for(let k=0;k<2;k++){const ty=yy+20+k*((h-38-24)/2);s+=rf(x+5,ty,cw-10,((h-38-30)/2),'#fff')+r(x+5,ty,cw-10,((h-38-30)/2));s+=tl(x+11,ty+12,cw*0.5)+tl(x+11,ty+20,cw*0.7);}});return g;},
+    bars(ti,x,w){const g=this.region(ti,118,x,w);const n=8,bw=(g.w-20)/n;for(let i=0;i<n;i++){const bh=24+((i*37)%70);s+=rf(g.x+10+i*bw+2,g.y+g.h-10-bh,bw-6,bh,LG)+r(g.x+10+i*bw+2,g.y+g.h-10-bh,bw-6,bh);}return g;},
+    donut(ti,x,w){const g=this.region(ti,118,x,w);const cxp=g.x+g.w/2,cyp=g.y+66,rad=34;s+=`<circle cx="${cxp}" cy="${cyp}" r="${rad}" fill="none" stroke="${ST}" stroke-width="14"/><circle cx="${cxp}" cy="${cyp}" r="${rad}" fill="none" stroke="${LG}" stroke-width="14" stroke-dasharray="70 200" transform="rotate(-90 ${cxp} ${cyp})"/><circle cx="${cxp}" cy="${cyp}" r="22" fill="#fff" stroke="${ST}" stroke-width="1"/>`;return g;},
+    list(ti,n,x,w){const g=this.region(ti,28+n*20,x,w);for(let i=0;i<n;i++){const ly=g.y+30+i*20;s+=rf(g.x+9,ly+2,12,12,LG)+tl(g.x+28,ly+10,g.w*0.5)+tl(g.x+28,ly+17,g.w*0.3);}return g;},
+    _get(){return y;}, _set(v){y=v;},
+    pair(lf,L,R){const gap=8,lw=CW*lf-gap/2,rw=CW*(1-lf)-gap/2,rx=CX+CW*lf+gap/2,y0=y;L(CX,lw);const yl=y;y=y0;R(rx,rw);y=Math.max(yl,y);},
+  };
+  // a block plan is [type,...args]; supports a "side-by-side" via x/w
+  blocks(ctx);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+}
+// side-by-side helper: run two block fns at the same y
+function row2(ctx, leftFn, rightFn, leftFrac){
+  const startY=ctx.add(0); // peek current y without advancing
+  // we need manual control; re-implement using region x/w at same y:
+}
+
+
+/* ---- Appendix E: tenant-isolation defense-in-depth ---- */
+function arrowR(x,y,len){return `<line x1="${x}" y1="${y}" x2="${x+len}" y2="${y}" stroke="${ST}" stroke-width="1.3"/><path d="M${x+len-6},${y-4} L${x+len},${y} L${x+len-6},${y+4} Z" fill="${ST}"/>`}
+document.getElementById('isolation').innerHTML = (function(){
+  let s='';
+  const cap=(x,y,t)=>tx(x,y,t,{s:7,g:1});
+  s+=`<line x1="278" y1="14" x2="278" y2="196" stroke="${GR}" stroke-width="1" stroke-dasharray="4 4"/>`+tx(284,26,'trust boundary',{s:6.5,g:1});
+  // browser
+  s+=r(20,46,190,86)+tx(30,66,'BROWSER / CLIENT',{b:1,s:9});
+  s+=cap(30,84,'Request + session cookie /')+cap(30,96,'bearer token.')+cap(30,114,'Client-supplied tenant id')+cap(30,126,'is never trusted.');
+  s+=arrowR(210,89,82);
+  // API
+  s+=r(296,46,210,86)+tx(306,66,'API SERVICE',{b:1,s:9});
+  s+=cap(306,84,'tenant_id ← session (server).')+cap(306,96,'Per-object ownership check')+cap(306,114,'(OWASP API #1 — BOLA/IDOR).')+cap(306,126,'RBAC roles → permissions.');
+  s+=arrowR(506,89,78);
+  // DB
+  s+=r(592,26,210,150)+tx(602,46,'POSTGRESQL',{b:1,s:9});
+  s+=cap(602,62,'FORCE ROW LEVEL SECURITY')+cap(602,74,'SET LOCAL app.tenant_id (txn)')+cap(602,86,'WITH CHECK on every write');
+  s+=rf(602,98,190,32,MG)+r(602,98,190,32)+tx(610,118,'Tenant A rows',{s:7.5,b:1});
+  s+=rf(602,136,190,32,'#fff')+r(602,136,190,32)+tx(610,156,'Tenant B rows',{s:7.5,b:1});
+  s+=tx(797,128,'isolated',{s:6,g:1,a:'end'});
+  return `<svg viewBox="0 0 820 196" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+
+/* ---- Appendix I: accounting export — canonical model + adapters ---- */
+document.getElementById('acctmap').innerHTML = (function(){
+  let s='';
+  const cap=(x,y,t,o)=>tx(x,y,t,o||{s:7,g:1});
+  // source
+  s+=rf(330,12,170,32,MG)+r(330,12,170,32)+tx(415,32,'TPOS domain data',{b:1,s:9,a:'middle'});
+  s+=`<line x1="415" y1="44" x2="415" y2="68" stroke="${ST}" stroke-width="1.3"/><path d="M411,64 L415,69 L419,64 Z" fill="${ST}"/>`;
+  // canonical model
+  s+=rf(250,70,330,76,'#fff')+r(250,70,330,76)+tx(415,90,'CANONICAL EXPORT MODEL',{b:1,s:9.5,a:'middle'});
+  s+=cap(415,107,'JournalEntry (balanced debit/credit → mapped GL),',{s:7,g:1,a:'middle'});
+  s+=cap(415,119,'Invoice · Payment · Customer · TaxRate · segment',{s:7,g:1,a:'middle'});
+  s+=cap(415,136,'target-agnostic — ~2N adapters, not N²',{s:6.5,g:1,a:'middle'});
+  // adapters
+  const ad=[[24,168,'CSV adapter','v1','→ QBO import · most systems'],
+            [208,168,'QuickBooks IIF','v1','→ QB Desktop (lists + JEs)'],
+            [396,178,'QBO REST API','v2','→ QBO automated push (OAuth)'],
+            [600,196,'Xero / aggregator','v3–4','→ Xero · Sage · NetSuite']];
+  ad.forEach(([x,w,t,ph,tg],i)=>{const y=196,h=44,dashed=i===3;
+    s+=(dashed?`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${ST}" stroke-width="1.3" stroke-dasharray="5 4"/>`:rf(x,y,w,h,MG)+r(x,y,w,h));
+    s+=tx(x+w/2,y+19,t,{b:1,s:8.5,a:'middle'})+tx(x+8,y+35,ph,{s:6.5,b:1});
+    s+=cap(x+w/2,y+h+13,tg,{s:6.6,g:1,a:'middle'});
+    s+=`<line x1="415" y1="146" x2="${x+w/2}" y2="${y}" stroke="${ST}" stroke-width="1"/><path d="M${x+w/2-4},${y-5} L${x+w/2},${y} L${x+w/2+4},${y-5} Z" fill="${ST}"/>`;
+  });
+  return `<svg viewBox="0 0 820 262" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+
+/* ---- §5: real-time pipeline ---- */
+document.getElementById('realtime').innerHTML = (function(){
+  let s='';
+  const boxes=[[16,150,'WRITE','API mutation commits;','activities row appended'],
+               [216,150,'CHANGE FEED','LISTEN/NOTIFY or','logical decoding'],
+               [416,150,'FAN-OUT','per-process pub/sub;','tenant-scoped topics'],
+               [616,188,'PUSH','SSE / WebSocket','one channel per client']];
+  boxes.forEach(([x,w,t,l1,l2],i)=>{const y=24,h=64;
+    s+=rf(x,y,w,h,i===3?LG:MG)+r(x,y,w,h)+tx(x+10,y+20,t,{b:1,s:9.5})+tx(x+10,y+38,l1,{s:7.2,g:1})+tx(x+10,y+50,l2,{s:7.2,g:1});
+    if(i<3) s+=arrowR(x+w+2,y+32,boxes[i+1][0]-x-w-4);
+  });
+  s+=tx(16,116,'Same events invalidate the materialized read models (§7.4) and the storefront edge cache (§7.5). Clients re-fetch entities via the normal RLS-scoped API.',{s:7,g:1});
+  return `<svg viewBox="0 0 820 126" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+</script>
+</body>
+</html>
