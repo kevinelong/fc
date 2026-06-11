@@ -267,6 +267,13 @@
   <li><b>Separation-of-duties exception.</b> Union never lets one person be both sides of an approval: a user may not <b>approve their own request</b> (below-floor discount, price change, deposit application) even if their role set grants both capabilities. The system must route such approvals to a different qualified user — and if none exists in the tenant, surface that explicitly rather than silently self-approve. Each such case is audited.</li>
   <li><b>Landing &amp; switching.</b> Each user has a <b>primary role</b> that decides their landing workspace; a visible workspace switcher exposes the others. Notifications and tasks aggregate across all held roles regardless of the active workspace.</li>
 </ul>
+<h3>Two-person controls</h3>
+<p>Beyond approval separation-of-duties (above), two further classes of action require a second set of eyes:</p>
+<ul class="req">
+  <li><b>Dual-control cash receipt.</b> A cash payment at or above a <b>configurable threshold</b> (e.g. $5,000) cannot be recorded by one person alone: a second employee verifies the count and the payment record stores <b>both identities</b> (recorded-by + verified-by). Protects against theft and miscounts — and protects the lone employee handling large cash.</li>
+  <li><b>Countersigned transactions (employee + customer).</b> Both parties attest to the same fact, preventing later disputes: <b>delivery receipt</b> (condition at handoff), <b>rental check-out / check-in inspections</b> (agreed condition &amp; damage), <b>deposit application</b> (acknowledged itemized deductions), and <b>cash receipts</b>. Documents carry both signatures with timestamps; the signed check-in inspection is the dealer's evidence in any damage dispute.</li>
+  <li><b>Large-cash compliance trigger.</b> Because the system sees the payment stream, it must aggregate <b>related cash payments per deal/customer</b> and flag when they exceed <b>$10,000</b> — the IRS/FinCEN Form 8300 threshold (Appendix B) — including structuring patterns (several sub-threshold cash payments on one transaction).</li>
+</ul>
 
 <h2 id="integrations">11 · External Integrations</h2>
 <table class="t">
@@ -403,6 +410,7 @@
   <tr><td><b>ESIGN / UETA</b> — 15 U.S.C. 7001</td><td>Any e-signed finance/sale document</td><td>Platform e-sign flow</td><td>Consent gate + tamper-evident, reproducible records</td></tr>
   <tr><td><b>ECOA / Reg B</b> retention — 12 CFR 1002.12</td><td>Credit applications</td><td>Dealer</td><td>Honor 25-month retention floor in disposal policy</td></tr>
   <tr><td><b>FMCSA leasing &amp; inspection</b> — 49 CFR 376 / 396.17</td><td>Renting trailers for over-the-road use</td><td>Dealer</td><td>Written lease with exclusive-possession clause travels with the unit; renter operates under its own DOT authority (capture DOT/MC #); annual inspection per unit, report retained 14 months</td></tr>
+  <tr><td><b>IRS / FinCEN Form 8300</b> — 26 U.S.C. 6050I</td><td>&gt; $10,000 cash received in one <i>or related</i> transactions</td><td>Dealer files within <b>15 days</b> + annual statement to the customer</td><td>Aggregate related cash payments per deal/customer; auto-flag the threshold and structuring patterns (several sub-threshold cash payments); assemble the filing data (§10 two-person controls)</td></tr>
 </table>
 
 <div class="note" style="border:0.75pt solid #15202b;background:#f6f8fa;padding:7pt 9pt;border-radius:4px;font-size:9.5pt;margin:6pt 0 10pt"><b>Requirement — the #1 risk is cross-tenant data disclosure.</b> Tenant context must be derived server-side (never from a client-supplied identifier) and isolation enforced <i>in depth</i> — at the authorization layer and again at the data layer — so no request can read or write another tenant’s data, even with a code bug. Provable by an automated negative test. The concrete mechanism is proposed in the Functional Specification Proposal.</div>
@@ -675,10 +683,12 @@
 </table>
 <h3>E.1 Compliance documents</h3>
 <ul class="req">
-  <li><b>Privacy notice</b> (GLBA/Reg P) — generated, delivered, opt-out tracked (E.3).</li>
-  <li><b>E-sign consent record</b> — consent + document hash + signer/timestamp/IP (E.3).</li>
-  <li><b>Breach notice</b> — FTC report (≤30 days, ≥500 consumers) + per-state consumer notices (E.1/E.5).</li>
-  <li><b>Adverse-action / Red Flags</b> notices where financing is declined or identity flags fire (E.1).</li>
+  <li><b>Privacy notice</b> (GLBA/Reg P) — generated, delivered, opt-out tracked (App. B.3).</li>
+  <li><b>E-sign consent record</b> — consent + document hash + signer/timestamp/IP (App. B.3).</li>
+  <li><b>Breach notice</b> — FTC report (≤30 days, ≥500 consumers) + per-state consumer notices (App. B.1/B.5).</li>
+  <li><b>Adverse-action / Red Flags</b> notices where financing is declined or identity flags fire (App. B.1).</li>
+  <li><b>Countersigned documents</b> (§10 two-person controls) — delivery receipt, rental check-out/check-in inspections, deposit-application acknowledgment, cash receipt: employee + customer signatures with timestamps.</li>
+  <li><b>Form 8300 package</b> — filing data + the annual customer statement when related cash exceeds $10,000 (App. B.1).</li>
 </ul>
 
 

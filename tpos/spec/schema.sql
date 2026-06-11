@@ -190,6 +190,8 @@ CREATE TABLE payments (
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   invoice_id uuid NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
   amount numeric(12,2) NOT NULL, method text, reference text,
+  recorded_by uuid REFERENCES users(id),
+  verified_by uuid REFERENCES users(id),            -- dual-control: REQUIRED for cash >= tenant threshold (spec §10)
   paid_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, reference)                     -- idempotency on external ref
 );
@@ -206,6 +208,7 @@ CREATE TABLE documents (
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   deal_id uuid REFERENCES deals(id), unit_id uuid REFERENCES units(id),
   kind text, url text, signer text, sign_request_id text, signed_at timestamptz,
+  countersigner text, countersigned_at timestamptz, -- employee + customer attestation (spec §10)
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE deliveries (

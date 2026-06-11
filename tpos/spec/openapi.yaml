@@ -116,7 +116,7 @@ paths:
   /api/v1/invoices:
     get:  { tags: [accounting], summary: List invoices (AR/AP), responses: { "200": { $ref: '#/components/responses/Ok' } } }
     post: { tags: [accounting], summary: Issue invoice, responses: { "201": { $ref: '#/components/responses/Ok' } } }
-  /api/v1/invoices/{id}/payments: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [accounting], summary: Record a payment (idempotent), parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/invoices/{id}/payments: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [accounting], summary: "Record a payment (idempotent; cash ≥ tenant threshold requires a second employee's verified_by — dual control)", parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/accounting/pnl: { get: { tags: [accounting], summary: P&L for a period, parameters: [ { name: period, in: query, schema: { type: string } } ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/accounting/mapping:
     get: { tags: [accounting], summary: GL account mapping (system buckets → dealer's chart of accounts), responses: { "200": { $ref: '#/components/responses/Ok' } } }
@@ -136,6 +136,7 @@ paths:
             text/csv:    { schema: { type: string }, example: "date,account,debit,credit,memo" }
             text/plain:  { schema: { type: string }, example: "!TRNS\tTRNSTYPE\tDATE\tACCNT… (QuickBooks IIF, tab-delimited)" }
 
+  /api/v1/documents/{id}/countersign: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [crosscut], summary: "Customer countersignature on a two-party document (delivery receipt, inspection, deposit application, cash receipt)", responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/titles/{unitId}:  { parameters: [ { name: unitId, in: path, required: true, schema: { type: string } } ], get: { tags: [titles-delivery], summary: Title/DMV status, responses: { "200": { $ref: '#/components/responses/Ok' } }, patch: { tags: [titles-delivery], summary: Update title status, responses: { "200": { $ref: '#/components/responses/Ok' } } } } }
   /api/v1/documents/{id}/sign: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [titles-delivery], summary: e-sign a document, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/v1/deliveries:
