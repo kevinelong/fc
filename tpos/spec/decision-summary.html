@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TPOS — Architecture Decision Summary</title>
+<style>
+  @page { size: Letter; margin: 14mm 15mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; font:10.5px/1.42 "Helvetica Neue",Arial,sans-serif; color:#15202b; }
+  h1 { font-size:18px; margin:0 0 1px; letter-spacing:.01em; }
+  .sub { font-size:10px; color:#5a6b7a; margin-bottom:10px; }
+  .rule { height:3px; background:#15202b; margin:7px 0 11px; }
+  h2 { font-size:10px; text-transform:uppercase; letter-spacing:.11em; color:#15202b;
+       border-bottom:1.5px solid #15202b; padding-bottom:3px; margin:13px 0 7px; }
+  table { width:100%; border-collapse:collapse; }
+  td,th { text-align:left; vertical-align:top; padding:4px 8px 4px 0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 26px; }
+  .dec th { width:128px; font-weight:700; color:#15202b; border-right:none; }
+  .dec td { border-bottom:1px solid #d8dee4; }
+  .dec th { border-bottom:1px solid #d8dee4; padding-left:0; }
+  .why { color:#41505d; }
+  ul { margin:2px 0 0; padding-left:15px; }
+  li { margin:1.5px 0; }
+  .stack b { display:inline-block; width:96px; color:#15202b; }
+  .stack div { margin:2.5px 0; color:#41505d; }
+  .foot { margin-top:13px; padding-top:7px; border-top:1px solid #d8dee4; font-size:9px; color:#6b7a89;
+          display:flex; justify-content:space-between; }
+  .pill { display:inline-block; border:1px solid #15202b; border-radius:9px; padding:0 6px; font-size:8.5px;
+          font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .not th { color:#7a4a00; }
+  .scale td { border-bottom:1px solid #d8dee4; }
+  .scale th { border-bottom:1.5px solid #15202b; font-size:8.5px; text-transform:uppercase; letter-spacing:.06em; color:#5a6b7a; }
+</style>
+</head>
+<body>
+
+  <h1>TPOS — Architecture Decision Summary</h1>
+  <div class="sub">Trailer Portal Operating System · one-page front-sheet for the full Product Specification ·
+    pairs with <b>schema.sql</b> + <b>openapi.yaml</b></div>
+  <div class="rule"></div>
+
+  <h2>The shape of the system</h2>
+  <p style="margin:0 0 4px">A multi-tenant B2B SaaS: independent trailer-resale dealerships sign up and run their
+  whole operation — inventory, leads, deals, quotes, reconditioning, titles, invoicing, delivery, and a public
+  storefront — on one shared platform. <b>One trailer record is viewed through many role lenses</b> (inventory item →
+  deal → work order → invoice → title → delivery → public listing). Sold three ways:
+  <b>monthly hosted</b>, <b>annual license</b>, or <b>one-time perpetual purchase</b>.</p>
+
+  <h2>Headline decisions &amp; why</h2>
+  <table class="dec">
+    <tr><th>Database</th><td><b>PostgreSQL</b>, single primary + read replicas. Relational integrity, mature
+      tooling, RLS for tenant isolation. <span class="why">No need for NoSQL — the domain is relational.</span></td></tr>
+    <tr><th>Tenant isolation</th><td><b>Shared schema + Row-Level Security</b> (<code>tenant_id</code> column,
+      <code>tenant_isolation</code> policy). <span class="why">RLS overhead is ~1–5% <i>when</i> indexes lead with
+      <code>tenant_id</code>; the missing index — not RLS — is the 100× penalty.</span></td></tr>
+    <tr><th>App architecture</th><td><b>Modular monolith</b> behind one API, split into modules (sales, inventory,
+      service, billing, storefront). <span class="why">Microservices add ops cost we don't need at this scale; the
+      module seams let us extract later if a service earns it.</span></td></tr>
+    <tr><th>Connection pooling</th><td><b>PgBouncer in transaction mode</b>; set the tenant with
+      <code>SET LOCAL app.tenant_id</code> <i>per transaction</i>. <span class="why">Session-level <code>SET</code>
+      leaks across pooled clients — <code>SET LOCAL</code> is the density lever (~3–5 conns/core).</span></td></tr>
+    <tr><th>Reads / reporting</th><td><b>Materialized read models</b> (KPI views) refreshed on a schedule;
+      CQRS-lite. <span class="why">Dashboards stay fast without taxing the write path.</span></td></tr>
+    <tr><th>Storefront</th><td><b>Edge-cached static-first</b> public pages reading a published-inventory view.
+      <span class="why">Buyer traffic never touches the operational DB hot path.</span></td></tr>
+    <tr><th>Scaling next</th><td><b>Hash-partition</b> the largest tables by <code>tenant_id</code> into a fixed
+      partition count; add replicas. <span class="why">Single-node Postgres + partitioning + replicas goes very
+      far.</span></td></tr>
+  </table>
+
+  <div class="grid2">
+    <div>
+      <h2>Reference stack (illustrative)</h2>
+      <div class="stack">
+        <div><b>Datastore</b> PostgreSQL 16 · RLS · PgBouncer</div>
+        <div><b>API</b> One service — Django/DRF <i>or</i> NestJS</div>
+        <div><b>Auth</b> Session cookie (staff) + bearer (API/portal)</div>
+        <div><b>Storefront</b> Static/SSR, CDN-cached</div>
+        <div><b>Storage</b> Object store for photos/docs</div>
+        <div><b>Async</b> Queue for email, soft-pulls, exports</div>
+      </div>
+      <p style="font-size:9px;color:#6b7a89;margin:6px 0 0">The spec is implementation-agnostic — language &amp;
+      framework are the rebuilder's choice. These are the load-bearing <i>constraints</i>, not mandates.</p>
+    </div>
+    <div>
+      <h2 class="not" style="color:#7a4a00;border-color:#7a4a00">Roads not taken</h2>
+      <table class="dec not">
+        <tr><th style="border-color:#e4cba0">Citus / sharding</th><td style="border-color:#e4cba0">Deferred — premature
+          at launch scale; revisit past single-node limits.</td></tr>
+        <tr><th style="border-color:#e4cba0">DB-per-tenant</th><td style="border-color:#e4cba0">Migration &amp;
+          connection sprawl; RLS gives isolation more cheaply.</td></tr>
+        <tr><th style="border-color:#e4cba0">Microservices</th><td style="border-color:#e4cba0">Ops &amp; distributed-txn
+          cost unjustified now; monolith first.</td></tr>
+        <tr><th style="border-color:#e4cba0">Rust/Go for speed</th><td style="border-color:#e4cba0">Runtime rarely the
+          bottleneck for DB-bound CRUD; DB &amp; pooling dominate.</td></tr>
+      </table>
+      <p style="font-size:9px;color:#6b7a89;margin:6px 0 0">Full reasoning &amp; citations: <b>Appendix D</b> of the
+      Product Specification.</p>
+    </div>
+  </div>
+
+  <h2>If performance were the primary axis</h2>
+  <table class="scale">
+    <tr><th>Goal</th><th>First lever</th><th>Then</th></tr>
+    <tr class="why"><td>p99 latency</td><td>Index <code>tenant_id</code>-leading; materialized read models</td>
+      <td>Replica reads; partition hot tables</td></tr>
+    <tr class="why"><td>Throughput</td><td>PgBouncer txn-pooling; batch writes</td>
+      <td>Horizontal API; read replicas</td></tr>
+    <tr class="why"><td>Tenants/server (density)</td><td>Shared-schema RLS; <code>SET LOCAL</code> pooling</td>
+      <td>Hash-partition; tiered storage</td></tr>
+  </table>
+  <p style="font-size:9px;color:#6b7a89;margin:5px 0 0">Figures are order-of-magnitude — <b>benchmark your own
+  queries</b>; some cited sources are vendor/single-practitioner framing.</p>
+
+  <div class="foot">
+    <span>TPOS Product Specification · Architecture Decision Summary</span>
+    <span><span class="pill">Front-sheet</span> &nbsp; codeonline.io/tpos/spec/</span>
+  </div>
+
+</body>
+</html>

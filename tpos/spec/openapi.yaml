@@ -1,0 +1,209 @@
+openapi: 3.1.0
+info:
+  title: TPOS API
+  version: "1.0.0"
+  description: >
+    REST/JSON API for TPOS, the trailer-dealer SaaS. Namespaces: /api/v1 (authenticated
+    back office, tenant-scoped), /api/v1/portal (customer portal), /api/public (storefront,
+    no auth, tenant by Host), /api/platform (operator control plane), /api/webhooks (inbound).
+    State changes use explicit action endpoints (…/transition, …/approve) so they are
+    validated and audited. Money/transition writes accept an Idempotency-Key header.
+servers:
+  - url: https://{tenant}.tpos.app
+    variables: { tenant: { default: demo } }
+  - url: https://api.tpos.app
+security:
+  - cookieAuth: []
+tags:
+  - { name: auth }
+  - { name: inventory }
+  - { name: pricing }
+  - { name: leads }
+  - { name: customers }
+  - { name: deals }
+  - { name: service }
+  - { name: accounting }
+  - { name: titles-delivery }
+  - { name: crosscut }
+  - { name: storefront }
+  - { name: portal }
+  - { name: platform }
+  - { name: webhooks }
+paths:
+  /api/v1/auth/login:   { post: { tags: [auth], summary: Log in, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/auth/logout:  { post: { tags: [auth], summary: Log out, responses: { "204": { description: No Content } } } }
+  /api/v1/auth/me:      { get:  { tags: [auth], summary: Current user, responses: { "200": { $ref: '#/components/responses/User' } } } }
+
+  /api/v1/units:
+    get:  { tags: [inventory], summary: List/filter inventory, parameters: [ {$ref: '#/components/parameters/q'}, {$ref: '#/components/parameters/page'}, { name: status, in: query, schema: { $ref: '#/components/schemas/UnitStatus' } } ], responses: { "200": { $ref: '#/components/responses/UnitList' } } }
+    post: { tags: [inventory], summary: Intake / acquire a unit, requestBody: { $ref: '#/components/requestBodies/Unit' }, responses: { "201": { $ref: '#/components/responses/Unit' } } }
+  /api/v1/units/{id}:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:   { tags: [inventory], summary: Full unit record, responses: { "200": { $ref: '#/components/responses/Unit' } } }
+    patch: { tags: [inventory], summary: Edit specs, requestBody: { $ref: '#/components/requestBodies/Unit' }, responses: { "200": { $ref: '#/components/responses/Unit' } } }
+  /api/v1/units/{id}/transition:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    post: { tags: [inventory], summary: Change status (incoming→recon→available→pending→sold), parameters: [ { $ref: '#/components/parameters/idem' } ], requestBody: { content: { application/json: { schema: { type: object, properties: { to: { $ref: '#/components/schemas/UnitStatus' } }, required: [to] } } } }, responses: { "200": { $ref: '#/components/responses/Unit' } } }
+  /api/v1/units/{id}/photos: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [inventory], summary: Upload photo, responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/units/{id}/timeline: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [inventory], summary: Activity/audit for this unit, responses: { "200": { $ref: '#/components/responses/ActivityList' } } } }
+  /api/v1/units/aging: { get: { tags: [inventory], summary: Aging report, responses: { "200": { $ref: '#/components/responses/UnitList' } } } }
+
+  /api/v1/units/{id}/price: { parameters: [ { $ref: '#/components/parameters/id' } ], patch: { tags: [pricing], summary: Set list/floor (logged; may need approval), requestBody: { content: { application/json: { schema: { type: object, properties: { list_price: { type: number }, floor_price: { type: number }, reason: { type: string } } } } } }, responses: { "200": { $ref: '#/components/responses/Unit' } } } }
+  /api/v1/pricing/repricer: { get: { tags: [pricing], summary: Repricer table + suggestions, responses: { "200": { $ref: '#/components/responses/UnitList' } } } }
+  /api/v1/pricing/comps: { get: { tags: [pricing], summary: Market comparables, parameters: [ { name: unit, in: query, schema: { type: string } } ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/pricing/approvals/{id}/decide: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [pricing], summary: Approve/deny a price change, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/leads:
+    get:  { tags: [leads], summary: List leads, parameters: [ {$ref: '#/components/parameters/q'} ], responses: { "200": { $ref: '#/components/responses/LeadList' } } }
+    post: { tags: [leads], summary: Create lead, responses: { "201": { $ref: '#/components/responses/Lead' } } }
+  /api/v1/leads/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [leads], summary: Get lead, responses: { "200": { $ref: '#/components/responses/Lead' } } }, patch: { tags: [leads], summary: Update lead, responses: { "200": { $ref: '#/components/responses/Lead' } } } }
+  /api/v1/leads/{id}/assign:  { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [leads], summary: Route to a salesperson, responses: { "200": { $ref: '#/components/responses/Lead' } } } }
+  /api/v1/leads/{id}/convert: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [leads], summary: Convert lead to deal, responses: { "201": { $ref: '#/components/responses/Deal' } } } }
+
+  /api/v1/customers: { get: { tags: [customers], summary: List customers, responses: { "200": { $ref: '#/components/responses/Ok' } } }, post: { tags: [customers], summary: Create customer, responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/deals:
+    get:  { tags: [deals], summary: List deals (pipeline), responses: { "200": { $ref: '#/components/responses/DealList' } } }
+    post: { tags: [deals], summary: Create deal, responses: { "201": { $ref: '#/components/responses/Deal' } } }
+  /api/v1/deals/{id}/stage:    { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [deals], summary: Advance pipeline stage, responses: { "200": { $ref: '#/components/responses/Deal' } } } }
+  /api/v1/deals/{id}/discount: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [deals], summary: Request below-floor discount, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/deals/{id}/approve:  { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [deals], summary: Manager approve/deny/counter (RBAC), responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/quotes: { post: { tags: [deals], summary: Create quote, responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/forecast: { get: { tags: [deals], summary: Weighted pipeline forecast, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/workorders:
+    get:  { tags: [service], summary: List work orders, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [service], summary: Open a work order, responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/workorders/{id}/status: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [service], summary: Change WO status, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/invoices:
+    get:  { tags: [accounting], summary: List invoices (AR/AP), responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [accounting], summary: Issue invoice, responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/invoices/{id}/payments: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [accounting], summary: Record a payment (idempotent), parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/accounting/pnl: { get: { tags: [accounting], summary: P&L for a period, parameters: [ { name: period, in: query, schema: { type: string } } ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/titles/{unitId}:  { parameters: [ { name: unitId, in: path, required: true, schema: { type: string } } ], get: { tags: [titles-delivery], summary: Title/DMV status, responses: { "200": { $ref: '#/components/responses/Ok' } }, patch: { tags: [titles-delivery], summary: Update title status, responses: { "200": { $ref: '#/components/responses/Ok' } } } } }
+  /api/v1/documents/{id}/sign: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [titles-delivery], summary: e-sign a document, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/deliveries:
+    get:  { tags: [titles-delivery], summary: Load board, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [titles-delivery], summary: Schedule a delivery, responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/v1/deliveries/{id}/status: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [titles-delivery], summary: Update delivery status, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/deliveries/quote: { post: { tags: [titles-delivery], summary: Freight rate by lane, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/search: { get: { tags: [crosscut], summary: Global search (tenant- & permission-scoped), parameters: [ {$ref: '#/components/parameters/q'} ], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/reports/{kpiSet}: { parameters: [ { name: kpiSet, in: path, required: true, schema: { type: string, enum: [sales, inventory, money, marketing, service] } } ], get: { tags: [crosscut], summary: Dashboard KPI bundle, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/users:
+    get:  { tags: [crosscut], summary: List users, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [crosscut], summary: Invite user, responses: { "201": { $ref: '#/components/responses/User' } } }
+  /api/v1/tenant/settings:
+    get:   { tags: [crosscut], summary: Tenant settings, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    patch: { tags: [crosscut], summary: Update branding/lots/config, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+
+  /api/public/inventory: { get: { tags: [storefront], summary: Available units (no auth; tenant by Host), security: [], responses: { "200": { $ref: '#/components/responses/UnitList' } } } }
+  /api/public/inventory/{stock}: { parameters: [ { name: stock, in: path, required: true, schema: { type: string } } ], get: { tags: [storefront], summary: Listing detail (deep-linkable), security: [], responses: { "200": { $ref: '#/components/responses/Unit' } } } }
+  /api/public/inquiry: { post: { tags: [storefront], summary: Submit inquiry -> creates a Lead + notifies (IMPLEMENTED in prototype), security: [], requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Inquiry' } } } }, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/public/financing/prequalify: { post: { tags: [storefront], summary: Soft-pull pre-qualification, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/v1/portal/me: { get: { tags: [portal], summary: Customer profile, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/portal/deals: { get: { tags: [portal], summary: My deals/quotes, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/portal/financing/apply: { post: { tags: [portal], summary: Apply for financing, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/portal/delivery/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [portal], summary: Delivery tracking, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/portal/documents: { get: { tags: [portal], summary: My documents, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/platform/tenants:
+    get:  { tags: [platform], summary: List dealerships, responses: { "200": { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [platform], summary: Provision a tenant, responses: { "201": { $ref: '#/components/responses/Ok' } } }
+  /api/platform/tenants/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], patch: { tags: [platform], summary: Change plan/status, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/platform/revenue: { get: { tags: [platform], summary: MRR/ARR/churn, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/platform/usage: { get: { tags: [platform], summary: Cross-tenant usage metering, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/platform/health: { get: { tags: [platform], summary: System health, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/platform/license/verify: { post: { tags: [platform], summary: Self-host license-key check, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+  /api/webhooks/financing:   { post: { tags: [webhooks], summary: Lender decision -> Deal/portal, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/webhooks/payments:    { post: { tags: [webhooks], summary: Payment settled -> reconcile invoice, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/webhooks/freight:     { post: { tags: [webhooks], summary: Carrier status -> delivery, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/webhooks/syndication: { post: { tags: [webhooks], summary: Listing-site lead -> create Lead, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+  /api/webhooks/title:       { post: { tags: [webhooks], summary: DMV/title callback, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
+
+components:
+  securitySchemes:
+    cookieAuth: { type: apiKey, in: cookie, name: tpos_session }
+    bearer: { type: http, scheme: bearer }
+  requestBodies:
+    Unit:
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Unit' }
+  parameters:
+    id:   { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    q:    { name: q, in: query, schema: { type: string }, description: keyword search }
+    page: { name: page, in: query, schema: { type: integer, default: 1 } }
+    idem: { name: Idempotency-Key, in: header, schema: { type: string } }
+  schemas:
+    UnitStatus: { type: string, enum: [incoming, recon, available, pending, sold] }
+    DealStage:  { type: string, enum: [lead, quoted, negotiation, financing, delivery, won, lost] }
+    Unit:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        stock_no: { type: string }
+        type: { type: string }
+        year: { type: integer }
+        make: { type: string }
+        length: { type: string }
+        status: { $ref: '#/components/schemas/UnitStatus' }
+        cost: { type: number }
+        list_price: { type: number }
+        floor_price: { type: number }
+        location: { type: string }
+        views: { type: integer }
+        lead_count: { type: integer }
+    Lead:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        company: { type: string }
+        source: { type: string }
+        interest_unit_id: { type: string }
+        status: { type: string, enum: [new, working, quoted, won, lost] }
+        owner_id: { type: string }
+        value: { type: number }
+    Deal:
+      type: object
+      properties:
+        id: { type: string }
+        customer: { type: string }
+        unit_id: { type: string }
+        stage: { $ref: '#/components/schemas/DealStage' }
+        value: { type: number }
+        probability: { type: integer }
+        salesperson_id: { type: string }
+    Inquiry:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        subject: { type: string }
+        message: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        roles: { type: array, items: { type: string } }
+    Error:
+      type: object
+      properties: { error: { type: string } }
+  responses:
+    Ok:           { description: Success, content: { application/json: { schema: { type: object } } } }
+    Unit:         { description: A unit, content: { application/json: { schema: { $ref: '#/components/schemas/Unit' } } } }
+    UnitList:     { description: Units, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Unit' } } } } }
+    Lead:         { description: A lead, content: { application/json: { schema: { $ref: '#/components/schemas/Lead' } } } }
+    LeadList:     { description: Leads, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Lead' } } } } }
+    Deal:         { description: A deal, content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
+    DealList:     { description: Deals, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Deal' } } } } }
+    User:         { description: A user, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+    ActivityList: { description: Activity entries, content: { application/json: { schema: { type: array, items: { type: object } } } } }
