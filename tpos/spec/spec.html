@@ -261,6 +261,12 @@
   <tr><td>Manage users / billing</td><td>✓</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
 <p class="mut" style="font-size:9pt">The Platform Super-Admin operates above all tenants and is not on this per-tenant matrix.</p>
+<h3>Multi-role users</h3>
+<ul class="req">
+  <li><b>Combination is union (most-permissive-wins).</b> A user's effective permissions are the union of their roles' permissions — e.g. a <code>{sales, sales_manager}</code> user both works their own deals (◑) and approves discounts (✓). Lot scope intersects independently: roles say <i>what</i>, lot scope says <i>where</i>.</li>
+  <li><b>Separation-of-duties exception.</b> Union never lets one person be both sides of an approval: a user may not <b>approve their own request</b> (below-floor discount, price change, deposit application) even if their role set grants both capabilities. The system must route such approvals to a different qualified user — and if none exists in the tenant, surface that explicitly rather than silently self-approve. Each such case is audited.</li>
+  <li><b>Landing &amp; switching.</b> Each user has a <b>primary role</b> that decides their landing workspace; a visible workspace switcher exposes the others. Notifications and tasks aggregate across all held roles regardless of the active workspace.</li>
+</ul>
 
 <h2 id="integrations">11 · External Integrations</h2>
 <table class="t">
