@@ -54,7 +54,7 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–M &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–N &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
 </section>
 
 <h2 id="toc">Contents</h2>
@@ -86,6 +86,7 @@
   <li><a href="#integrations-reg">Appendix K — Integration &amp; Third-Party Register</a></li>
   <li><a href="#sow">Appendix L — Assumptions, Delivery Model &amp; RACI</a></li>
   <li><a href="#estimate">Appendix M — Estimation Worksheet (WBS)</a></li>
+  <li><a href="#stages">Appendix N — Delivery Stages (Internal Demo → GA)</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -931,6 +932,29 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 <p style="font-size:8.6pt;color:#5d6b78"><b>Estimation basis &amp; caveats.</b> Ranges assume the recommended stack (Postgres + RLS, modular monolith, batteries-included framework — App. D); a senior team familiar with multi-tenant SaaS; integrations limited to the MVP subset (App. K) with the rest stubbed; and the Appendix L assumptions holding. They exclude: self-host, the deferred integrations, market-comp data, native mobile, multi-state tax/title, i18n, and ongoing run-cost. These are <b>planning figures to scope a bid</b>, not a fixed-price commitment.</p>
 
 
+<!-- ===================== APPENDIX N — DELIVERY STAGES ===================== -->
+<h2 id="stages" class="pgbreak">Appendix N · Delivery Stages (Internal Demo → GA)</h2>
+<p class="lead">A <b>maturity</b> ladder, orthogonal to the feature-depth roadmap (Appendix J): each stage takes a slice of the Phase-1 scope and raises the bar on <b>what is real</b> — data, persistence, security, money, SLA. The decisive boundary is between <b>B and C</b>. Stages A–B are facade/prototype-grade (and A is <b>largely already built</b>); C–E are the real engineering priced in Appendix M. The governing rule: <b>data sensitivity gates the quality bar, not the calendar.</b></p>
+
+<div class="wf"><div id="stages-dia"></div><div class="cap">Five stage-gates from internal demo to general availability. The dashed line marks the facade→real-build boundary: A–B are a few person-weeks of polish on the existing prototype; C–E are essentially the entire Appendix-M estimate. Tenant isolation becomes mandatory at C (real data); the legally-required pen test and GLBA Safeguards baseline land at D (real PII + money); SLA, billing and support gate E.</div></div>
+
+<table class="t" style="font-size:8.4pt">
+  <tr><th style="width:9%">Stage</th><th style="width:20%">Audience &amp; goal</th><th style="width:22%">Scope at this stage</th><th style="width:15%">What’s real</th><th style="width:16%">Quality / security bar</th><th>Exit gate</th></tr>
+  <tr><td><b>A · Internal demo</b></td><td>Internal stakeholders — validate IA &amp; the one-record-many-lenses idea; lock the cutline</td><td>Clickable prototype: storefront + 12 role dashboards on mock data</td><td>Nothing behind it — mock data, no auth/PII</td><td>Renders clean; throwaway code OK</td><td>IA &amp; Appendix-J cutline signed off · <b>(already built)</b></td></tr>
+  <tr><td><b>B · Sales demo</b></td><td>Prospects, design partners, investors — sell the vision, win LOIs</td><td>Same prototype, polished: branding, stable URL, demo script, reset-to-clean data, one believable tenant</td><td>Still a facade — curated demo data, no money/PII</td><td>Demo-grade: never breaks live, phone-presentable</td><td>Partners committed · pricing validated · <b>go/no-go to build</b></td></tr>
+  <tr><td><b>C · Production alpha</b></td><td>Internal + 1–2 design-partner dealers, controlled — prove the real architecture on the smallest valuable slice</td><td>Real multi-tenant core (RLS/auth/RBAC) + core MUST roles: inventory, lead, pipeline+quote, owner dashboard, storefront, import v1</td><td><b>Real persistence</b>; real but non-sensitive data; no financing PII or money yet</td><td>Happy paths work; <b>tenant isolation + CI negative test green</b>; hardening in progress; no pen test</td><td>Sell-loop works on real data for a partner; isolation proven</td></tr>
+  <tr><td><b>D · Production beta</b></td><td>Beta dealer cohort with real buyers — validate under real load &amp; money; complete compliance baseline</td><td>All MUST + most SHOULD: real payments (Stripe Connect), e-sign, QB file export, notifications, self-serve onboarding, customer portal</td><td><b>Real PII + real payments</b> — now compliance-bearing</td><td>Hardened; <b>pen test done + remediated</b>; audit log, observability, backups; GLBA Safeguards baseline; SLA targeted not guaranteed</td><td>Stable across cohort; pen-test issues closed; billing ready</td></tr>
+  <tr><td><b>E · Release 1.0 (GA)</b></td><td>Open self-serve signup, paying dealers — commercial launch of Phase 1</td><td>Full Appendix-J Phase-1 cutline, polished; self-serve onboarding + live billing</td><td>Everything real + monetized</td><td>GA: UAT signed off, runbooks, backup/DR drills, on-call, change-control; <b>99.9% SLA honored</b>; warranty/support begins</td><td>GA criteria met → 1.0 ships; Phase-2 backlog begins</td></tr>
+</table>
+
+<h3>N.1 Effort &amp; the two principles</h3>
+<ul class="req">
+  <li><b>A/B are facade; C/D/E are the build.</b> A is essentially done; B is ~1–3 pw of polish on the existing prototype. C–E together are the full <b>≈95–175 pw</b> Appendix-M estimate, split roughly: <b>C</b> ≈ foundation + core MUST roles (~40–60% of MVP), <b>D</b> ≈ the remainder + security/QA/pen-test packages, <b>E</b> ≈ the UAT/hardening/launch-readiness tail + billing/support setup. Do not let the polished sales demo imply the system is “almost done.”</li>
+  <li><b>Data sensitivity gates the bar, not time.</b> Tenant isolation is required the moment real data exists (<b>C</b>). Real PII and money — and therefore the legally-required pen test and GLBA Safeguards baseline (Appendix E) — only enter at <b>beta (D)</b>, the stage not to rush. SLA, runbooks, billing and support gate <b>GA (E)</b>.</li>
+</ul>
+<p style="font-size:8.8pt;color:#5d6b78">Cross-references: stage scope maps to the MoSCoW tags and roadmap in <b>Appendix J</b>; integration availability per stage to <b>Appendix K</b> (e.g., QuickBooks <i>file</i> export at D, QBO API in Phase 2/post-GA; soft-credit-pull stubbed until financing); security gates to <b>Appendix E</b>; effort to <b>Appendix M</b>.</p>
+
+
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
 const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
@@ -1195,6 +1219,34 @@ document.getElementById('roadmap').innerHTML = (function(){
     if(ci<2){const ax=x+w;s+=`<line x1="${ax}" y1="30" x2="${ax+20}" y2="30" stroke="${ST}" stroke-width="1.2"/><path d="M${ax+15},26 L${ax+20},30 L${ax+15},34 Z" fill="${ST}"/>`;}
   });
   return `<svg viewBox="0 0 820 ${60+9*26+6}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix N: delivery stage-gates ---- */
+document.getElementById('stages-dia').innerHTML = (function(){
+  let s='';
+  const stages=[
+    ['A','Internal demo','concept check','mock · no PII','throwaway OK',LG],
+    ['B','Sales demo','sell the vision','curated demo data','demo polish',MG],
+    ['C','Prod alpha','real & narrow','real · non-sensitive','isolation + CI test','#fff'],
+    ['D','Prod beta','hardened, real $','real PII + payments','pen-test + GLBA','#fff'],
+    ['E','Release 1.0','GA · supported','live billing','SLA + runbooks','#fff'],
+  ];
+  const gates=['IA sign-off','partners → build','real-data loop','pen-test · billing'];
+  const n=5,bw=150,gap=(820-n*bw)/(n-1),cx=i=>i*(bw+gap)+bw/2,divX=2*(bw+gap)-gap/2;
+  s+=`<line x1="${divX}" y1="6" x2="${divX}" y2="118" stroke="${GR}" stroke-width="1" stroke-dasharray="4 4"/>`;
+  s+=tx(158,15,'A–B · FACADE — sell before you build',{s:7.4,b:1,a:'middle'});
+  s+=tx(578,15,'C–E · REAL BUILD — the Appendix-M engineering',{s:7.4,b:1,a:'middle'});
+  stages.forEach((st,i)=>{const x=i*(bw+gap),y=28,h=50;
+    s+=rf(x,y,bw,h,st[5])+r(x,y,bw,h);
+    s+=tx(x+12,y+34,st[0],{b:1,s:20});
+    s+=tx(x+40,y+22,st[1],{b:1,s:9.5})+tx(x+40,y+36,st[2],{s:7,g:1});
+    s+=tx(x+6,y+h+14,'Data · '+st[3],{s:6.6,g:1})+tx(x+6,y+h+26,'Bar · '+st[4],{s:6.6,g:1});
+  });
+  gates.forEach((g,i)=>{const gx=(cx(i)+cx(i+1))/2,gy=53;
+    s+=`<path d="M${gx-6},${gy} L${gx},${gy-6} L${gx+6},${gy} L${gx},${gy+6} Z" fill="#fff" stroke="${ST}" stroke-width="1.2"/>`;
+    s+=tx(gx,120,g,{s:6.4,g:1,a:'middle'});
+  });
+  return `<svg viewBox="0 0 820 128" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 </script>
 </body>
