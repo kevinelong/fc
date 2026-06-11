@@ -54,7 +54,7 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–H &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–I &nbsp;·&nbsp; Confidential draft</div>
 </section>
 
 <h2 id="toc">Contents</h2>
@@ -81,6 +81,7 @@
   <li><a href="#onboard">Appendix F — Onboarding &amp; Data Import</a></li>
   <li><a href="#formulas">Appendix G — Derived-Field Formulas</a></li>
   <li><a href="#notif">Appendix H — Notification &amp; Document Catalog</a></li>
+  <li><a href="#acctexport">Appendix I — Accounting Export (QuickBooks &amp; Beyond)</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -744,6 +745,51 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 </ul>
 
 
+<!-- ===================== APPENDIX I — ACCOUNTING EXPORT ===================== -->
+<h2 id="acctexport" class="pgbreak">Appendix I · Accounting Export (QuickBooks &amp; Beyond)</h2>
+<p class="lead">The bookkeeper must be able to <b>manually export financial transactions to QuickBooks</b> on demand, with other accounting systems (Xero, Sage, NetSuite) supported later <b>without a rewrite</b>. The governing reality: the dealer base is split between <b>QuickBooks Online (QBO)</b> and <b>QuickBooks Desktop (QBDT)</b> — two products with completely different ingestion paths — and no single file or API serves both well.</p>
+
+<h3>I.1 The options (and their hard constraints)</h3>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:20%">Option</th><th style="width:11%">Target</th><th style="width:32%">Carries / can’t carry</th><th>Constraint &amp; fit</th></tr>
+  <tr><td><b>IIF</b> (Intuit Interchange Format)</td><td>Desktop only</td><td>Lists + transactions incl. journal entries</td><td>Intuit-deprecated (“outdated, no longer recommended”); <b>does not link</b> invoice↔payment; limited error-checking. Usable as a Desktop fallback, esp. for summary JEs.</td></tr>
+  <tr><td><b>QBO native CSV import</b></td><td>Online</td><td>Customers, COA, items; invoices (limited)</td><td><b>Invoice CSV is blocked when sales tax is enabled</b> (trailer dealers always collect it) and capped at 100/upload — unreliable for detailed AR. Best for the JE-summary path.</td></tr>
+  <tr><td><b>.QBO / OFX</b> (Web Connect)</td><td>Online/Desktop</td><td><b>Bank/credit-card transactions ONLY</b></td><td>Cannot carry AR/AP invoices, customers, items or GL postings. <b>Not viable</b> for this feature.</td></tr>
+  <tr><td><b>qbXML + Web Connector</b></td><td>Desktop</td><td>Full Desktop object model, with real linking</td><td>Correct <i>automated</i> Desktop path, but requires hosting a SOAP endpoint + a connector running on each dealer PC. Too heavy for v1; defer.</td></tr>
+  <tr><td><b>QBO Accounting API</b> (REST/OAuth2)</td><td>Online</td><td>Invoice, Payment, SalesReceipt, Bill, JournalEntry, Deposit, Customer, Item, Account; Batch endpoint</td><td>Modern long-term engine; “click-to-push” maps to Batch. But needs OAuth2 + Intuit’s <b>multi-week production review</b> (technical/security/marketing) + rate-limit backoff (≈500 req/min/realm). Phase 2.</td></tr>
+  <tr><td><b>Summary journal entries</b> (accountant pattern)</td><td>Both</td><td>Balanced debit/credit lines to mapped GL accounts</td><td>Small, robust, decoupled; sidesteps the CSV sales-tax block and 100-invoice cap; needs no per-customer mapping. <b>Trade-off: no invoice-level AR aging inside QuickBooks.</b> Strong v1.</td></tr>
+</table>
+
+<div class="wf"><div id="acctmap"></div><div class="cap">Target-agnostic <b>canonical export model</b> with per-target <b>adapters</b> — the no-rewrite seam. Targets become pluggable serializers (the same architecture a unified-API vendor hosts internally), turning N² point-to-point translators into ~2N. File adapters ship first and are <i>permanent</i> infrastructure, since QB Desktop has no clean REST API.</div></div>
+
+<h3>I.2 Architecture — canonical model + adapters</h3>
+<p>Build a thin, <b>export-only</b> internal representation once — journal entries (debit/credit lines → mapped GL accounts), plus customer / invoice / payment / tax-rate / a generic “segment” dimension — then serialize it through per-target adapters. This is the Canonical Data Model integration pattern; new targets need only a new adapter, never a rewrite of the export core. Keep the model thin so its governance cost stays below the point-to-point cost the pattern warns about for small teams.</p>
+<table class="t">
+  <tr><th style="width:9%">Phase</th><th style="width:38%">Build</th><th>When</th></tr>
+  <tr><td><b>1 — now</b></td><td>Canonical model + <b>CSV adapter + QuickBooks IIF adapter</b>; manual on-demand <b>summary-JE</b> export</td><td>v1 — covers <b>both</b> QBO &amp; Desktop, no Intuit review</td></tr>
+  <tr><td><b>2</b></td><td><b>QBO REST-API adapter</b> (OAuth2, Batch, SyncToken) behind the same model</td><td>When dealers demand automated/scheduled push, or invoice-level detail in QBO</td></tr>
+  <tr><td><b>3</b></td><td><b>Web Connector / qbXML</b> adapter for Desktop detail</td><td>If the Desktop segment’s share justifies the heavier build</td></tr>
+  <tr><td><b>4</b></td><td>Add <b>Xero / Sage / NetSuite</b> — direct adapters, or adopt a <b>unified-API aggregator</b> (Codat / Rutter) behind the unchanged canonical model</td><td>When N &gt; ~2 targets, or Desktop/NetSuite automation is needed</td></tr>
+</table>
+
+<h3>I.3 GL mapping &amp; idempotency (required for every path)</h3>
+<ul class="req">
+  <li><b>Chart-of-accounts mapping wizard (one-time, per dealer).</b> Map TPOS buckets — trailer revenue, COGS, AR, sales-tax payable, processing fees, customer deposits — to the dealer’s own QuickBooks accounts. The QBO API references accounts by <code>AccountRef</code> (the QB Account <i>Id</i>), so the wizard must resolve and store those ids; for CSV/IIF the account <b>names must match exactly</b> or rows fail/misroute. Reject postings into a <b>closed/locked period</b>.</li>
+  <li><b>Duplicate prevention.</b> QuickBooks has <b>no built-in idempotency key</b> on create; re-export re-posts. Use the TPOS invoice number as <code>DocNumber</code> (unique), store the returned QB <code>Id</code>, and <b>query-before-insert</b> (update, don’t duplicate) on the API path. For file exports, stamp each record with its <b>export batch + date</b> so the bookkeeper is never handed the same rows twice — files have no platform-side dedupe.</li>
+</ul>
+
+<h3>I.4 Recommendation</h3>
+<p><b>Ship v1 as a manual, on-demand <i>summary journal-entry</i> export delivered as a downloadable file (CSV for Online, IIF for Desktop), driven by the one-time GL-mapping wizard.</b> Then QBO Accounting-API “click-to-push” batch (Phase 2), Web Connector/qbXML for Desktop detail (Phase 3), and defer a unified-API aggregator until multiple targets or automated sync justify it (Phase 4). <b>Why:</b> a downloaded file needs <b>no OAuth and no Intuit production review</b>, so it ships now; the summary JE dodges the CSV sales-tax block and invoice cap and imports cleanly into both products; and the account-mapping table + batch/dedupe stamping built for v1 are exactly what the API phase reuses. The decision knobs for what comes next: <b>number of targets</b> (1–2 → file/direct; 3+ → aggregator economical), <b>manual vs automated</b>, <b>cost sensitivity</b> (aggregators are quote-only / per-connection), and the measured <b>Online-vs-Desktop ratio</b> in the real dealer base.</p>
+
+<h3>I.5 Primary sources</h3>
+<ul class="req" style="font-size:8.6pt;color:#3a4a59">
+  <li>Intuit primary — <i>Export/import/edit IIF</i> (deprecated; no invoice↔payment link); <i>Import multiple invoices</i> (100 cap; “can’t import invoices … if you have set up sales tax”); <i>Manually upload transactions</i> (.QBO = bank/credit only); <i>JournalEntry</i> (balanced debit/credit, A/R line needs an entity); <i>Account / AccountRef</i>; <i>Batch operations</i>; <i>Security requirements for apps</i>; <i>API call limits &amp; throttling</i>; Web Connector Programmer’s Guide.</li>
+  <li>Duplicate <code>DocNumber</code> behavior — Intuit Developer community threads on duplicate-document errors &amp; idempotency.</li>
+  <li>Integration patterns (neutral) — Enterprise Integration Patterns, <i>Canonical Data Model</i> (the ~2N-vs-N² translator argument). Common accounting model — Merge.dev / Codat docs. Summary-vs-detail patterns — Ordway, CoreBridge.</li>
+  <li>Aggregator coverage/trade-offs (<b>vendor marketing — treat as directional</b>) — Codat (incl. QB Desktop), Rutter, Merge.dev, Apideck. Tracking divergence — Xero “tracking categories” vs QBO “classes/locations.”</li>
+</ul>
+
+
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
 const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
@@ -858,7 +904,7 @@ const ROLE_META = [
   ['inventory','6.6 Inventory Manager','Source, recon, place and turn units.',['Stock board by status (incoming→recon→available→pending→sold) and by location/lot.','Acquisition intake with ETA &amp; cost; push units into recon and onto the lot.','Aging report and turn metrics; trigger reprice/clearance.']],
   ['service','6.7 Service Technician','Recondition and inspect units quickly.',['Work-order board by status with hours-vs-estimate and parts cost.','Per-job task checklist; intake inspection checklists (brakes/tires/lights/floor).','Log hours, parts and photos against the unit.']],
   ['office','6.8 Office / Titles &amp; Admin','Keep paperwork clean and legal.',['Deals-needing-documents queue with missing-doc flags (title, bill of sale, financing, insurance).','Title / DMV tracker by unit (in hand / applied / pending / lien release) per state.','Appointments &amp; signings; document checklist &amp; e-signature.']],
-  ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net); accounting export.']],
+  ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net).','Manual, on-demand <b>accounting export</b> — QuickBooks first (CSV + IIF), other systems later (Appendix I).']],
   ['dispatch','6.10 Delivery Dispatch','Move sold units to buyers.',['Load board of units needing delivery with destination, carrier/driver and status.','Weekly delivery schedule; assign drivers/carriers.','Freight rate quotes by lane; in-transit tracking with ETA.']],
   ['customer','6.11 Customer (Buyer) Portal','Buy with confidence, self-serve.',['Deal progress tracker (quote → financing → paperwork → delivery).','View/accept quotes; apply for financing and see decision status.','Track delivery; review, e-sign and download documents; saved trailers.']],
   ['platform','6.12 Platform Super-Admin','Operate the SaaS business (hosted mode).',['Tenant directory with plan, seats, units, MRR and status; provision &amp; manage.','Revenue (MRR/ARR/net-new/churn), MRR-by-plan, trials &amp; onboarding.','Cross-tenant usage metering, support queue and system-health monitoring.']],
@@ -966,6 +1012,32 @@ document.getElementById('clocks').innerHTML = (function(){
   s+=span(40,380,158,'Time-to-line (T2L)',true);
   s+=span(200,380,182,'Recon cycle (ADR)',true);
   return `<svg viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix I: accounting export — canonical model + adapters ---- */
+document.getElementById('acctmap').innerHTML = (function(){
+  let s='';
+  const cap=(x,y,t,o)=>tx(x,y,t,o||{s:7,g:1});
+  // source
+  s+=rf(330,12,170,32,MG)+r(330,12,170,32)+tx(415,32,'TPOS domain data',{b:1,s:9,a:'middle'});
+  s+=`<line x1="415" y1="44" x2="415" y2="68" stroke="${ST}" stroke-width="1.3"/><path d="M411,64 L415,69 L419,64 Z" fill="${ST}"/>`;
+  // canonical model
+  s+=rf(250,70,330,76,'#fff')+r(250,70,330,76)+tx(415,90,'CANONICAL EXPORT MODEL',{b:1,s:9.5,a:'middle'});
+  s+=cap(415,107,'JournalEntry (balanced debit/credit → mapped GL),',{s:7,g:1,a:'middle'});
+  s+=cap(415,119,'Invoice · Payment · Customer · TaxRate · segment',{s:7,g:1,a:'middle'});
+  s+=cap(415,136,'target-agnostic — ~2N adapters, not N²',{s:6.5,g:1,a:'middle'});
+  // adapters
+  const ad=[[24,168,'CSV adapter','v1','→ QBO import · most systems'],
+            [208,168,'QuickBooks IIF','v1','→ QB Desktop (lists + JEs)'],
+            [396,178,'QBO REST API','v2','→ QBO automated push (OAuth)'],
+            [600,196,'Xero / aggregator','v3–4','→ Xero · Sage · NetSuite']];
+  ad.forEach(([x,w,t,ph,tg],i)=>{const y=196,h=44,dashed=i===3;
+    s+=(dashed?`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${ST}" stroke-width="1.3" stroke-dasharray="5 4"/>`:rf(x,y,w,h,MG)+r(x,y,w,h));
+    s+=tx(x+w/2,y+19,t,{b:1,s:8.5,a:'middle'})+tx(x+8,y+35,ph,{s:6.5,b:1});
+    s+=cap(x+w/2,y+h+13,tg,{s:6.6,g:1,a:'middle'});
+    s+=`<line x1="415" y1="146" x2="${x+w/2}" y2="${y}" stroke="${ST}" stroke-width="1"/><path d="M${x+w/2-4},${y-5} L${x+w/2},${y} L${x+w/2+4},${y-5} Z" fill="${ST}"/>`;
+  });
+  return `<svg viewBox="0 0 820 262" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 </script>
 </body>
