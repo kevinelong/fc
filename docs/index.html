@@ -98,6 +98,8 @@ const COMMANDS = [
 
   ["Motion","gravity + jump","Make the player fall; jump gives an upward push.","player is {x: 60, y: 20, image: \"ship\", dy: 0}\ngravity is 0.4\nwhen \"space\" is pressed jump player\nto update\nto draw\n  clear screen to dark blue\n  draw sprite player.image at player.x, player.y\n  write \"space = jump\" at 16, 4 in white on hud\nrun game with update and draw"],
 
+  ["Values & math","save / load","Remember a value on this device — it survives closing the page. `load` gives 0 if nothing was saved yet.","best is load \"best score\"\nscore is best + 1\nsave score as \"best score\"\nclear screen to black\nwrite \"best was {best}\" at 16, 48 in yellow\nwrite \"now {score} — run again!\" at 8, 64 in green"],
+
   ["World & screens","world + follow camera","A world bigger than the screen; camera follows.","world is {width: 256, height: 192}\nplayer is centered sprite {image: \"hero\", speed: 1}\ntrees is list of 16 sprites {image: \"tree\"}\nfollow player with camera\nto update\n  move player with arrows\nto draw\n  clear screen to dark green\n  each t in trees draw sprite t.image at t.x, t.y\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
   ["World & screens","screens + button","Menus: one function per screen, with buttons.","mode is \"title\"\nto update\nto screen title\n  clear screen to dark blue\n  write \"MY GAME\" at 34, 24 in yellow on hud\n  show button \"play\" at 44, 56\nto screen play\n  clear screen to dark green\n  write \"playing!\" at 34, 50 in white on hud\nwhen button \"play\" is clicked go to play\nrun game with update"],
 

@@ -132,6 +132,13 @@
       "second": "b"
     }
   },
+  "load_missing_default.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": 0
+    }
+  },
   "parseif_and_resets.fc": {
     "say": [],
     "errors": [],
@@ -205,6 +212,31 @@
       "sum": 6,
       "last": 1,
       "n": 1
+    }
+  },
+  "save_load_list.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "l": [
+        10,
+        20,
+        30
+      ],
+      "m": [
+        10,
+        20,
+        30
+      ],
+      "second": 20
+    }
+  },
+  "save_load_roundtrip.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 7,
+      "back": 7
     }
   },
   "set_make_noop.fc": {

@@ -1292,6 +1292,13 @@ const AUDIO = (function () {
 // The runtime keeps a live `peers` array of everyone else's last state.
 // The relay is a dumb broadcaster — all game logic stays here in fc.
 // ============================================================
+// Persistent game storage for the `save`/`load` verbs (per-site localStorage).
+const STORE = {
+  _k: (k) => 'fc:save:' + k,
+  set(k, v) { try { localStorage.setItem(this._k(k), JSON.stringify(v)); } catch (_) { /* storage unavailable: save is a no-op */ } },
+  get(k) { try { const s = localStorage.getItem(this._k(k)); return s == null ? undefined : JSON.parse(s); } catch (_) { return undefined; } },
+};
+
 const NET = (function () {
   let sock = null, myId = null;
   let wantGame = null, wantRoom = null;     // the room we want to stay connected to
@@ -1641,6 +1648,12 @@ function parse(source) {
       const numTok = raw.find(t => t.type === 'number');
       const force = numTok ? Number(numTok.value) : 4.5;
       return { type: 'jump', target, force, lineNum };
+    }
+
+    // -- save X as "name"  (remember a value on this device; read back with `load`) --
+    if (first === 'save' && raw.some(t => t.type === 'word' && tv(t) === 'as')) {
+      const asIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'as');
+      return { type: 'save', value: parseExpression(raw.slice(1, asIdx)), key: parseExpression(raw.slice(asIdx + 1)), lineNum };
     }
 
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
@@ -2207,6 +2220,11 @@ function parse(source) {
     // Handle "random N"
     if (tokens[0].type === 'word' && tv(tokens[0]) === 'random') {
       return { type: 'random', max: parseExpression(tokens.slice(1)) };
+    }
+
+    // Handle `load "name"` (read a value saved with `save`; 0 if never saved)
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'load' && tokens.length >= 2) {
+      return { type: 'load', key: parseExpression(tokens.slice(1)) };
     }
 
     // "list of N <noun> [{props}]" - auto-placed sprite list
@@ -2783,6 +2801,10 @@ class Runtime {
       case 'random': {
         const max = this.evalExpr(node.max);
         return Math.floor(Math.random() * (max + 1));
+      }
+      case 'load': {
+        const v = STORE.get(String(this.evalExpr(node.key)));
+        return v === undefined ? 0 : v;
       }
       case 'sprite_expr': {
         // Ensure world is in sync before placement
@@ -3367,6 +3389,12 @@ class Runtime {
         case 'jump': {
           const obj = this.getVar(stmt.target);
           if (obj && typeof obj === 'object') obj.dy = -stmt.force;
+          break;
+        }
+
+        case 'save': {
+          const key = String(this.evalExpr(stmt.key));
+          STORE.set(key, this.evalExpr(stmt.value));
           break;
         }
 

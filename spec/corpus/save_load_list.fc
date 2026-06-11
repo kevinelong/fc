@@ -1,0 +1,4 @@
+l is [10, 20, 30]
+save l as "t_list"
+m is load "t_list"
+second is item 2 of m

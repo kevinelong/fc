@@ -7,6 +7,11 @@ const ctx = mkProxy({});
 const canvas = { width: 128, height: 128, getContext: () => ctx };
 const AUDIO = mkProxy({});
 const NET = mkProxy({ peers: [], connected: () => false });
+// STORE stub: JSON round-trip parity with the browser's localStorage-backed STORE.
+const STORE = (() => { const m = new Map(); return {
+  set(k, v) { try { m.set(String(k), JSON.stringify(v)); } catch (_) {} },
+  get(k) { const s = m.get(String(k)); return s === undefined ? undefined : JSON.parse(s); },
+}; })();
 const editor = { value: '' };
 const errorsDiv = { textContent: '' };
 const requestAnimationFrame = noop, cancelAnimationFrame = noop, clearInterval = noop;
@@ -985,6 +990,12 @@ function parse(source) {
       return { type: 'jump', target, force, lineNum };
     }
 
+    // -- save X as "name"  (remember a value on this device; read back with `load`) --
+    if (first === 'save' && raw.some(t => t.type === 'word' && tv(t) === 'as')) {
+      const asIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'as');
+      return { type: 'save', value: parseExpression(raw.slice(1, asIdx)), key: parseExpression(raw.slice(asIdx + 1)), lineNum };
+    }
+
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
     if (first === 'join' && tv(raw[1]) === 'game') {
       const strs = raw.filter(t => t.type === 'string').map(t => t.value);
@@ -1549,6 +1560,11 @@ function parse(source) {
     // Handle "random N"
     if (tokens[0].type === 'word' && tv(tokens[0]) === 'random') {
       return { type: 'random', max: parseExpression(tokens.slice(1)) };
+    }
+
+    // Handle `load "name"` (read a value saved with `save`; 0 if never saved)
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'load' && tokens.length >= 2) {
+      return { type: 'load', key: parseExpression(tokens.slice(1)) };
     }
 
     // "list of N <noun> [{props}]" - auto-placed sprite list
@@ -2126,6 +2142,10 @@ class Runtime {
       case 'random': {
         const max = this.evalExpr(node.max);
         return Math.floor(Math.random() * (max + 1));
+      }
+      case 'load': {
+        const v = STORE.get(String(this.evalExpr(node.key)));
+        return v === undefined ? 0 : v;
       }
       case 'sprite_expr': {
         // Ensure world is in sync before placement
@@ -2710,6 +2730,12 @@ class Runtime {
         case 'jump': {
           const obj = this.getVar(stmt.target);
           if (obj && typeof obj === 'object') obj.dy = -stmt.force;
+          break;
+        }
+
+        case 'save': {
+          const key = String(this.evalExpr(stmt.key));
+          STORE.set(key, this.evalExpr(stmt.value));
           break;
         }
 
