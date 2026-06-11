@@ -76,6 +76,7 @@
   <li><a href="#dd">Appendix A — Data Dictionary &amp; Relational Schema</a></li>
   <li><a href="#api">Appendix B — API Reference</a></li>
   <li><a href="#perf">Appendix C — Performance &amp; Scaling</a></li>
+  <li><a href="#adr">Appendix D — Architecture Decisions &amp; Roads Not Taken</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -416,6 +417,49 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 </ol>
 
 <div class="note"><b>Caveat — treat the numbers as order-of-magnitude.</b> The RLS timing figures come from a single practitioner benchmark and the single-node size thresholds are partly vendor framing. Use them for intuition; <b>benchmark on your own schema, queries and data</b> before treating any figure as a constant. Sources: practitioner RLS-at-scale benchmarks, PgBouncer pooling guides (connection-cost &amp; per-core sizing), single-node-Postgres scaling write-ups, and the TechEmpower framework benchmarks (database-query rounds).</div>
+
+<h2 id="adr" class="pgbreak">Appendix D · Architecture Decisions &amp; Roads Not Taken</h2>
+<p>Every significant fork weighed for the rebuild — the options considered, what was chosen, what was rejected and why. Decisions are advisory; the build team owns the final call. Several were <b>revised mid-review as evidence came in</b> — those are flagged <span class="pill">REVISED</span> and recorded honestly rather than quietly replaced. Bracketed numbers reference the sources in §D.2.</p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:4%">#</th><th style="width:17%">Decision</th><th style="width:21%">Options considered</th><th style="width:18%">Chosen</th><th>Roads not taken — reasoning</th></tr>
+  <tr><td>1</td><td>Prototype persistence</td><td>Flat JSON file · real database</td><td>JSON file + in-browser mock</td><td>The prototype is a UI/IA demo; only the storefront lead endpoint is live. A real DB was out of scope for a front-end mock.</td></tr>
+  <tr><td>2</td><td>Production database</td><td>PostgreSQL · document/NoSQL · MySQL · SQLite-only</td><td><b>PostgreSQL</b> (hosted) + SQLite per self-host tenant</td><td>NoSQL rejected — the domain is intensely relational (one-record-many-lenses = foreign keys), needs transactions (booking a sale) and joins. MySQL viable; Postgres preferred for RLS, jsonb, partitioning, extensions. SQLite-only rejected for hosted (concurrency) but ideal for a single self-host tenant. [1]</td></tr>
+  <tr><td>3</td><td>Multi-tenant isolation</td><td>Shared schema + RLS · schema-per-tenant · database-per-tenant · app-level filtering only</td><td><b>Shared schema + RLS</b>, <code>tenant_id</code> on every table</td><td>DB-per-tenant rejected — poor density, heavy ops. Schema-per-tenant rejected — migration/ops complexity at scale. App-filtering-only rejected — one forgotten <code>WHERE</code> leaks data; isolation belongs in the database. RLS gives DB-enforced safety at ~1–5% when indexed. [1][2][3][4]</td></tr>
+  <tr><td>4</td><td>Service topology</td><td>Modular monolith · microservices</td><td><b>Modular monolith</b> (one deployable)</td><td>Microservices rejected — the self-host requirement wants one artifact, the team is small, and network hops hurt DB-bound latency. Extract a service later only if a piece proves it needs it.</td></tr>
+  <tr><td>5</td><td>App framework (pragmatic profile)</td><td>Django/DRF · Rails · NestJS+Next.js · Go · .NET · Elixir</td><td><b>Django/DRF</b> (lead) or <b>NestJS+Next.js</b> (JS-first)</td><td>Go/.NET/Rust rejected as the default — more boilerplate for CRUD/admin and no free admin plane. Chosen for batteries-included CRUD, migrations, RBAC, Postgres-first tooling, and clean self-host packaging.</td></tr>
+  <tr><td>6</td><td>Media storage</td><td>S3-compatible object storage (MinIO self-host) · blobs in Postgres</td><td><b>S3-compatible</b> object storage</td><td>Blobs-in-DB rejected — bloats the database and slows backups/replication; photos &amp; signed documents belong in object storage.</td></tr>
+  <tr><td>7</td><td>Storefront rendering</td><td>Edge/CDN (ISR) · in-app SSR · SPA</td><td><b>SSR + edge-cache</b> available inventory</td><td>Pure SPA rejected for the public site — SEO &amp; first-paint matter. Internal dashboards stay SPA/API (or SSR-with-enhancement).</td></tr>
+  <tr><td>8</td><td>Runtime under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Rust · Go · .NET · Elixir · keep pragmatic</td><td>Async/light-concurrency (<b>Go/.NET/Elixir</b>); <b>Rust not required</b></td><td>Initially proposed Rust for raw throughput. Evidence: framework gaps <b>collapse once Postgres is in the loop</b>; Rust leads only compute-bound rounds. For DB-bound CRUD the runtime is a minor lever — choose for concurrency model + team, not per-query speed. [9]</td></tr>
+  <tr><td>9</td><td>RLS under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Keep RLS (indexed) · move isolation to app/partitioning for speed</td><td><b>Keep RLS</b> + <code>tenant_id</code>-leading composite indexes</td><td>Initially suggested moving isolation out of RLS for speed. Evidence: RLS ~0.3 ms at 50 M rows / 10 K tenants <i>with the right composite index</i>; the 100× penalty is the <b>missing index</b>, not RLS. Keep it — the safety is worth ~1–5%. [2][3]</td></tr>
+  <tr><td>10</td><td>Horizontal sharding <span class="pill">REVISED</span></td><td>Citus early (ease later migration) · single-node + replicas, defer</td><td><b>Single node + replicas; defer Citus</b>, keep schema shard-ready</td><td>Initially put Citus "on the table." Evidence: vanilla Postgres + pooling handles most workloads under ~500 GB; replicas/partitioning extend into the terabytes before sharding is warranted. Defer until one primary is genuinely exhausted. [5][6]</td></tr>
+  <tr><td>11</td><td>Partitioning</td><td>HASH(tenant_id) fixed N · list/partition-per-tenant</td><td><b>HASH(tenant_id)</b> into 16–64 partitions (large tables only)</td><td>Partition-per-tenant rejected — thousands of tenants blow up planner time &amp; DDL. Partitioning is a <i>secondary</i> lever after the composite index. [6]</td></tr>
+  <tr><td>12</td><td>Connection management</td><td>PgBouncer transaction pooling · session pooling · none</td><td><b>PgBouncer (transaction mode)</b> ~3–5/core + <code>SET LOCAL</code> tenant</td><td>No/session pooling rejected for density — process-per-connection (~5 MB each). Transaction mode requires <code>SET LOCAL app.tenant_id</code> per-transaction so the RLS variable survives (session <code>SET</code> silently breaks under it). [7][8]</td></tr>
+  <tr><td>13</td><td>Data access (perf paths)</td><td>Heavy ORM · thin typed SQL</td><td><b>Thin typed SQL</b> (sqlx/sqlc/Dapper/Ecto) on hot paths</td><td>Heavy ORM rejected on hot paths — per-query overhead and hidden N+1s. ORM is fine for cold CRUD.</td></tr>
+  <tr><td>14</td><td>Dashboard read path</td><td>Per-request aggregation · materialized read models</td><td><b>Materialized views / rollups</b> (CQRS-lite) + replicas + cache</td><td>Per-request big-join aggregation rejected for dashboards — precompute and serve an O(1) indexed read.</td></tr>
+</table>
+
+<h3>D.1 What we changed our minds about (and why)</h3>
+<p>Three decisions from the first "performance-first" pass were corrected once benchmark evidence was reviewed — recorded here so the reasoning is auditable, not lost:</p>
+<ul class="req">
+  <li><b>#8 — Rust is not the lever.</b> For DB-bound CRUD, runtime choice barely moves throughput; the language win is real only on compute-bound paths. [9]</li>
+  <li><b>#9 — Don't drop RLS for speed.</b> The cost is the missing <code>tenant_id</code>-leading index, not the policy; keep DB-enforced isolation. [2][3]</li>
+  <li><b>#10 — Don't shard early.</b> A single Postgres primary + replicas + partitioning goes much further than expected; defer Citus. [5][6]</li>
+</ul>
+
+<h3>D.2 References &amp; evidence quality</h3>
+<p>Sources consulted, with their nature flagged. <b>Several are vendor or single-practitioner sources; all numeric figures are order-of-magnitude guidance — benchmark on your own schema, queries and data before treating any as a constant.</b></p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:5%">#</th><th style="width:34%">Source</th><th style="width:23%">Nature</th><th>Informs</th></tr>
+  <tr><td>1</td><td>PostgreSQL docs — Row Security Policies</td><td>Official documentation</td><td>RLS canonical reference (#2,#3)</td></tr>
+  <tr><td>2</td><td>RLS-at-scale benchmark (DEV Community)</td><td>Single-practitioner benchmark</td><td>~0.3 ms at 50 M/10 K with <code>tenant_id</code>-leading index; missing index = 100× (#3,#9)</td></tr>
+  <tr><td>3</td><td>RLS overhead write-up (Wellally)</td><td>Practitioner</td><td>~1–5% vs app-level filtering; planner push-down (#3,#9)</td></tr>
+  <tr><td>4</td><td>Tenant-isolation rationale (OneUptime); Crunchy Data RLS-for-tenants</td><td>Vendor / practitioner</td><td>DB-enforced isolation protects against app bugs (#3)</td></tr>
+  <tr><td>5</td><td>Single-node Postgres scaling (Velodb)</td><td>Practitioner / vendor</td><td>Vertical + pooling under ~500 GB; OpenAI on Postgres; replicas+partitioning to TB (#10)</td></tr>
+  <tr><td>6</td><td>Citus multi-tenant sharding docs &amp; blog</td><td>Vendor framing</td><td>Shard by <code>tenant_id</code>, co-location; "~100 GB" threshold (#10,#11)</td></tr>
+  <tr><td>7</td><td>Connection scaling (PlanetScale); sizing (Akamai)</td><td>Vendor</td><td>Process-per-connection cost; PgBouncer multiplexing; ~3–5 conns/core (#12)</td></tr>
+  <tr><td>8</td><td>"PgBouncer … fraught with peril" (JP Camara)</td><td>Practitioner deep-dive</td><td>Transaction-pooling gotchas; <code>SET LOCAL</code> / session-feature caveats (#12)</td></tr>
+  <tr><td>9</td><td>TechEmpower Framework Benchmarks</td><td>Independent benchmark</td><td>DB-query rounds collapse framework gaps; Rust leads only plaintext/JSON (#8)</td></tr>
+</table>
 
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
