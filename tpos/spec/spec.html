@@ -54,7 +54,7 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–I &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v1.1 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–M &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
 </section>
 
 <h2 id="toc">Contents</h2>
@@ -82,6 +82,10 @@
   <li><a href="#formulas">Appendix G — Derived-Field Formulas</a></li>
   <li><a href="#notif">Appendix H — Notification &amp; Document Catalog</a></li>
   <li><a href="#acctexport">Appendix I — Accounting Export (QuickBooks &amp; Beyond)</a></li>
+  <li><a href="#scope">Appendix J — MVP Scope Matrix &amp; Release Roadmap</a></li>
+  <li><a href="#integrations-reg">Appendix K — Integration &amp; Third-Party Register</a></li>
+  <li><a href="#sow">Appendix L — Assumptions, Delivery Model &amp; RACI</a></li>
+  <li><a href="#estimate">Appendix M — Estimation Worksheet (WBS)</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -790,6 +794,143 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 </ul>
 
 
+<!-- ===================== BID PACKAGE: J–M ===================== -->
+<h2 id="scope" class="pgbreak">Appendix J · MVP Scope Matrix &amp; Release Roadmap</h2>
+<p class="lead">The specification describes the <b>full</b> product. To bid accurately, the work must be cut into releases — otherwise a bidder prices “everything at once,” which is neither costable nor advisable. This appendix proposes a <b>Phase-1 (MVP) cutline</b> and tags every capability MoSCoW. <span class="pill">PROPOSAL</span> The cutline is the client’s to confirm; it is the single largest driver of the bid.</p>
+
+<div class="wf"><div id="roadmap"></div><div class="cap">Proposed three-phase roadmap. Phase 1 delivers the core sell-loop as a hosted product; Phase 2 adds per-role depth; Phase 3 opens new markets and delivery models. Self-host, the platform-admin billing plane, additional accounting systems and a mobile field app are deliberately deferred — each is a major cost lever that should not inflate the first bid.</div></div>
+
+<h3>J.1 Roles — Phase-1 cutline</h3>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:22%">Role (spec §6)</th><th style="width:13%">Phase 1</th><th>Rationale</th></tr>
+  <tr><td>Salesperson</td><td><b>MUST</b></td><td>Pipeline + quote builder is the core revenue loop</td></tr>
+  <tr><td>Inventory Manager</td><td><b>MUST</b></td><td>Units are the spine; nothing sells without inventory</td></tr>
+  <tr><td>Lead Generation / BDC</td><td><b>MUST</b> (lite)</td><td>A unified lead inbox; advanced source analytics → Should</td></tr>
+  <tr><td>Owner / Dealer Principal</td><td><b>MUST</b> (lite)</td><td>Core dashboard + alert feed; deep drill-downs → Should</td></tr>
+  <tr><td>Bookkeeper / Accounting</td><td><b>MUST</b> (lite)</td><td>Invoices/payments + <b>file</b> accounting export (Appendix I v1)</td></tr>
+  <tr><td>Customer (Buyer) Portal</td><td><b>SHOULD</b></td><td>Quote view + deal tracker; financing/e-sign can lag</td></tr>
+  <tr><td>Office / Titles &amp; Admin</td><td><b>SHOULD</b> (basic)</td><td>Manual title tracker; full per-state DMV engine → Could</td></tr>
+  <tr><td>Sales Manager</td><td><b>SHOULD</b></td><td>Forecast/approvals add value once a team exists</td></tr>
+  <tr><td>Pricing Analyst</td><td><b>COULD</b></td><td>Repricer depends on market-comp data (Phase 3)</td></tr>
+  <tr><td>Service Technician</td><td><b>COULD</b></td><td>Work-order board; recon can be tracked manually at MVP</td></tr>
+  <tr><td>Delivery Dispatch</td><td><b>COULD</b></td><td>Delivery can be a simple status until volume warrants</td></tr>
+  <tr><td>Platform Super-Admin</td><td><b>WON’T</b> (now)</td><td>Tenant provisioning can be operator-run/manual at launch</td></tr>
+</table>
+
+<h3>J.2 Capabilities &amp; cross-cutting — Phase-1 cutline</h3>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:30%">Capability</th><th style="width:13%">Phase 1</th><th>Note</th></tr>
+  <tr><td>Multi-tenant foundation + RLS + auth/RBAC</td><td><b>MUST</b></td><td>Non-negotiable platform floor (Appendix E)</td></tr>
+  <tr><td>Public storefront (SSR + edge cache, lead forms)</td><td><b>MUST</b></td><td>The demand engine; SEO/first-paint matter</td></tr>
+  <tr><td>Onboarding + data import wizard (Appendix F)</td><td><b>MUST</b></td><td>No tenant goes live without it; the activation bottleneck</td></tr>
+  <tr><td>Security baseline + audit log + pen test (Appendix E)</td><td><b>MUST</b></td><td>Legally required once financing is offered</td></tr>
+  <tr><td>Notifications (transactional email/SMS)</td><td><b>MUST</b> (core set)</td><td>Lead/quote/payment/delivery; full catalog (H) → Should</td></tr>
+  <tr><td>Global search</td><td><b>SHOULD</b></td><td>Postgres full-text at MVP; dedicated engine later</td></tr>
+  <tr><td>Reporting depth beyond core KPIs</td><td><b>SHOULD</b></td><td>Materialized core KPIs in MUST; ad-hoc/BI → Could</td></tr>
+  <tr><td>Financing automation + soft credit pull</td><td><b>COULD</b></td><td>Manual financing status at MVP; rails are heavy (App. K)</td></tr>
+  <tr><td>QBO REST-API accounting push</td><td><b>COULD</b></td><td>File export ships first (Appendix I); API needs review</td></tr>
+  <tr><td>Per-jurisdiction tax/title engine (multi-state)</td><td><b>COULD</b></td><td>Launch in 1–2 states; generalize later</td></tr>
+  <tr><td>Self-host single-tenant delivery</td><td><b>WON’T</b> (now)</td><td>~Doubles release/test/support surface — defer (App. L)</td></tr>
+  <tr><td>Mobile / PWA field app</td><td><b>WON’T</b> (now)</td><td>Responsive web at MVP; native field app → Phase 3</td></tr>
+  <tr><td>i18n / multi-currency</td><td><b>WON’T</b> (now)</td><td>US-English / USD at launch unless required</td></tr>
+</table>
+
+
+<h2 id="integrations-reg" class="pgbreak">Appendix K · Integration &amp; Third-Party Register</h2>
+<p class="lead">Integrations are where estimates blow up: each is a vendor choice, an integration build, a credential/account dependency, and sometimes a <b>multi-week production-review</b> gate (QuickBooks and Stripe both have one). Vendor picks below are <span class="pill">RECOMMENDED</span> defaults, not mandates. “Owner” = who holds the contract/keys.</p>
+<table class="t" style="font-size:8.4pt">
+  <tr><th style="width:14%">Service</th><th style="width:14%">Recommended</th><th style="width:8%">Phase</th><th style="width:11%">MVP build vs stub</th><th style="width:9%">Owner</th><th style="width:13%">Review / lead time</th><th>Notes</th></tr>
+  <tr><td><b>Payments</b> (card + ACH)</td><td>Stripe Connect (direct charges)</td><td>1</td><td>Build</td><td>Each dealer = merchant</td><td>Connect onboarding per dealer</td><td>Keeps each dealer at PCI SAQ A; tokenize (App. E)</td></tr>
+  <tr><td><b>E-signature</b></td><td>Dropbox Sign / DocuSign</td><td>1–2</td><td>Build (basic)</td><td>Platform</td><td>Low</td><td>ESIGN/UETA consent flow (App. E.3); not for titles</td></tr>
+  <tr><td><b>Transactional email</b></td><td>Postmark / SendGrid</td><td>1</td><td>Build</td><td>Platform</td><td>Domain/DKIM setup</td><td>Per-tenant from-domain &amp; deliverability</td></tr>
+  <tr><td><b>SMS</b></td><td>Twilio</td><td>1</td><td>Build</td><td>Platform</td><td>10DLC registration</td><td>Delivery/appointment alerts; A2P registration lead time</td></tr>
+  <tr><td><b>Object storage</b></td><td>S3 (MinIO for self-host)</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Photos + signed docs; off-DB (ADR #6)</td></tr>
+  <tr><td><b>Cloud / hosting</b></td><td>One major cloud + managed Postgres</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Drives infra/DevOps line (App. L/M)</td></tr>
+  <tr><td><b>QuickBooks</b></td><td>File export → Intuit dev app</td><td>1 → 2</td><td>Build (file)</td><td>Platform</td><td><b>API: multi-week review</b></td><td>File needs no review; API gated (App. I)</td></tr>
+  <tr><td><b>Soft credit pull / prequal</b></td><td>700Credit / bureau reseller</td><td>2</td><td>Stub at MVP</td><td>Dealer-contracted</td><td>Vendor onboarding + FCRA</td><td>Triggers GLBA/Red-Flags scope (App. E)</td></tr>
+  <tr><td><b>Financing / lender rails</b></td><td>RouteOne / Dealertrack</td><td>2–3</td><td>Stub at MVP</td><td>Dealer-contracted</td><td>Heavy, per-lender</td><td>Often manual at launch; big integration if automated</td></tr>
+  <tr><td><b>Freight / lane rates</b></td><td>Carrier API / manual</td><td>2–3</td><td>Stub / manual</td><td>Platform</td><td>Varies</td><td>Dispatch is Phase-2+ (App. J)</td></tr>
+  <tr><td><b>Market-comp pricing data</b></td><td>vAuto / J.D. Power feed</td><td>3</td><td>Out of MVP</td><td>Dealer-contracted</td><td>Commercial deal</td><td>Expensive licensed data; powers the repricer</td></tr>
+  <tr><td><b>Error/uptime monitoring</b></td><td>Sentry + metrics stack</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Required by NFR observability + App. E logging</td></tr>
+</table>
+<p><b>Bidder takeaways.</b> Only a handful are true MVP builds (payments, email/SMS, e-sign, storage, monitoring, QuickBooks file export). The expensive, slow-onboarding ones (credit pull, lender rails, market-comp data) are <b>stub-at-MVP</b> and dealer-contracted — confirm each is out of the Phase-1 price. Two carry <b>production-review lead times</b> that affect the schedule, not just effort: <b>Stripe Connect</b> (per-dealer onboarding) and the <b>QuickBooks API</b> (deferred to Phase 2 specifically to avoid blocking MVP).</p>
+
+
+<h2 id="sow" class="pgbreak">Appendix L · Assumptions, Delivery Model &amp; RACI</h2>
+<p class="lead">A specification is not a statement of work. These are the assumptions and ownership boundaries a bidder must fix before pricing. Defaults are <span class="pill">PROPOSED</span>; each is a decision for the client.</p>
+
+<h3>L.1 Load-bearing assumptions (confirm each)</h3>
+<table class="t" style="font-size:8.8pt">
+  <tr><th style="width:30%">Open decision</th><th style="width:26%">Proposed default</th><th>Bid impact if changed</th></tr>
+  <tr><td>Release scope priced</td><td><b>Phase 1 (MVP)</b> only (App. J)</td><td>Pricing all phases at once multiplies the bid 2–3×</td></tr>
+  <tr><td>Delivery model at launch</td><td><b>Hosted multi-tenant only</b>; self-host deferred</td><td>Adding self-host ≈ +30–50% (dual release/test/support)</td></tr>
+  <tr><td>Visual/UX design</td><td><b>Bidder produces</b> design system + screens from the IA wireframes</td><td>If client supplies hi-fi designs, remove the design phase</td></tr>
+  <tr><td>Launch jurisdiction</td><td><b>US, single state/handful</b>, USD, English</td><td>Multi-state tax/title + i18n are sizeable adders</td></tr>
+  <tr><td>Mobile</td><td><b>Responsive web</b>; no native/PWA app</td><td>A field app is a separate workstream (Phase 3)</td></tr>
+  <tr><td>Data migration</td><td>Self-serve import (App. F) + <b>assisted onboarding as a service line</b></td><td>Per-format legacy DMS adapters are variable scope</td></tr>
+  <tr><td>Legal/compliance content</td><td><b>Client provides</b> ToS, privacy, contract &amp; tax/title legal text</td><td>Bidder builds the mechanism, not the legal copy (App. E)</td></tr>
+  <tr><td>Pen test &amp; security audit</td><td><b>In scope</b>, third-party, once per release</td><td>Required by the Safeguards Rule; a real line item</td></tr>
+  <tr><td>Environments</td><td>dev / staging / prod + IaC + CI/CD</td><td>Fewer envs cut cost but raise release risk</td></tr>
+</table>
+
+<h3>L.2 RACI (R = responsible, A = accountable, C = consulted, I = informed)</h3>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:34%">Workstream</th><th>Client</th><th>Vendor (bidder)</th><th>Third-party</th></tr>
+  <tr><td>Scope &amp; MVP cutline sign-off</td><td><b>A</b></td><td>R / C</td><td>—</td></tr>
+  <tr><td>UX/visual design</td><td>C / A</td><td><b>R</b></td><td>—</td></tr>
+  <tr><td>Build (platform, roles, storefront)</td><td>I</td><td><b>R / A</b></td><td>—</td></tr>
+  <tr><td>Integrations (payments, email/SMS, e-sign, QB)</td><td>C</td><td><b>R</b></td><td>C (vendors)</td></tr>
+  <tr><td>Vendor accounts &amp; credentials</td><td><b>A</b> (commercial)</td><td>C</td><td>R (provisioning)</td></tr>
+  <tr><td>Security controls &amp; audit log</td><td>I</td><td><b>R / A</b></td><td>—</td></tr>
+  <tr><td>Penetration test</td><td>A</td><td>C</td><td><b>R</b></td></tr>
+  <tr><td>Legal/compliance content</td><td><b>R / A</b></td><td>I</td><td>C (counsel)</td></tr>
+  <tr><td>Data migration per dealer</td><td>C (data)</td><td><b>R</b></td><td>—</td></tr>
+  <tr><td>Infra / DevOps / backups</td><td>I</td><td><b>R / A</b></td><td>C (cloud)</td></tr>
+  <tr><td>UAT &amp; acceptance sign-off</td><td><b>R / A</b></td><td>C</td><td>—</td></tr>
+  <tr><td>Production app reviews (QB / Stripe)</td><td>A</td><td><b>R</b></td><td>C (Intuit/Stripe)</td></tr>
+</table>
+
+<h3>L.3 Commercial wrapper — to be completed in the SOW</h3>
+<p>Placeholders a bid must fill (intentionally not invented here): milestones &amp; payment schedule · team composition &amp; rate basis (fixed-bid vs T&amp;M) · change-control process · warranty/support period &amp; post-launch SLA · IP ownership &amp; source escrow · acceptance criteria per milestone · liability/indemnity (ties to App. E). <b>Out of scope (Phase 1):</b> self-host packaging · platform billing/metering admin · additional accounting systems · market-comp pricing data · native mobile app · multi-state tax/title automation · i18n.</p>
+
+
+<h2 id="estimate" class="pgbreak">Appendix M · Estimation Worksheet (WBS)</h2>
+<p class="lead">A feature-level work breakdown for <b>Phase-1 (MVP)</b> a bidder can price against. <span class="pill">PLANNING RANGES</span> Figures are order-of-magnitude <b>person-weeks (pw)</b> for a small senior team on the recommended stack (ADR, App. D) — <b>not a quote</b>. Re-estimate against the confirmed cutline, the client’s rates, and the assumptions in Appendix L.</p>
+<table class="t" style="font-size:8.6pt">
+  <tr><th style="width:42%">Work package</th><th style="width:16%">Effort (pw)</th><th>Risk driver</th></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Foundation</b></td></tr>
+  <tr><td>Multi-tenant core — RLS, tenant context, PgBouncer/SET LOCAL, auth, RBAC</td><td>6 – 10</td><td>High — isolation correctness; CI negative test</td></tr>
+  <tr><td>Data model + migrations + CRUD scaffolding (Appendix A)</td><td>4 – 8</td><td>Low</td></tr>
+  <tr><td>DevOps — envs, IaC, CI/CD, observability, backup/DR</td><td>4 – 8</td><td>Medium</td></tr>
+  <tr><td>Design system + visual design from IA wireframes</td><td>6 – 12</td><td>Medium — depends on L.1 design ownership</td></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Core domain (MVP roles)</b></td></tr>
+  <tr><td>Inventory management (units, statuses, photos, lots)</td><td>4 – 7</td><td>Low</td></tr>
+  <tr><td>Lead capture + inbox + routing</td><td>3 – 5</td><td>Low</td></tr>
+  <tr><td>Sales pipeline + quote builder</td><td>5 – 8</td><td>Medium</td></tr>
+  <tr><td>Owner dashboard + KPIs (materialized read models)</td><td>3 – 6</td><td>Low</td></tr>
+  <tr><td>Office/titles (basic) + customer portal (basic)</td><td>4 – 7</td><td>Low</td></tr>
+  <tr><td>Bookkeeper invoices/payments + QuickBooks file export (App. I v1)</td><td>4 – 7</td><td>Medium — GL mapping + idempotency</td></tr>
+  <tr><td>Public storefront (SSR + edge cache, detail, lead forms)</td><td>4 – 7</td><td>Medium — SEO + responsive</td></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Cross-cutting</b></td></tr>
+  <tr><td>Permissions enforcement + field-level masking</td><td>2 – 4</td><td>Medium — pervasive</td></tr>
+  <tr><td>Notifications (core transactional set, App. H)</td><td>3 – 5</td><td>Low</td></tr>
+  <tr><td>Onboarding + data import wizard (App. F)</td><td>5 – 9</td><td>High — messy real-world data</td></tr>
+  <tr><td>Global search (Postgres FTS)</td><td>2 – 4</td><td>Low</td></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Integrations (MVP subset, App. K)</b></td></tr>
+  <tr><td>Payments — Stripe Connect (tokenized, per-dealer)</td><td>3 – 6</td><td>Medium — Connect onboarding</td></tr>
+  <tr><td>E-signature + email + SMS</td><td>3 – 6</td><td>Medium — A2P/DKIM setup</td></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Security &amp; quality</b></td></tr>
+  <tr><td>Security controls + audit log (App. E hard gates)</td><td>4 – 7</td><td>High — compliance baseline</td></tr>
+  <tr><td>Third-party penetration test + remediation</td><td>2 – 4</td><td>Medium — external cost + fixes</td></tr>
+  <tr><td>Test automation (unit/integration/e2e + tenant-isolation)</td><td>5 – 9</td><td>Medium</td></tr>
+  <tr><td>UAT + hardening + bug-fix</td><td>4 – 8</td><td>Medium</td></tr>
+  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Overhead</b></td></tr>
+  <tr><td>PM / coordination / ceremonies (≈ 15–20% applied to the above)</td><td>+ overhead</td><td>—</td></tr>
+</table>
+<p><b>Phase-1 rollup (engineering, excl. PM overhead):</b> ≈ <b>80 – 150 person-weeks</b>. With PM overhead, ≈ <b>95 – 175 pw</b> → roughly <b>6 – 12 calendar months</b> with a delivery team of ~3–4 FTE, plus a designer and part-time PM. <b>Cost</b> is deliberately omitted — multiply by the client’s confirmed blended rate. The range is wide on purpose: it tightens dramatically once the four levers in Appendix L (scope cutline, delivery model, design ownership, launch jurisdiction) are fixed.</p>
+<p style="font-size:8.6pt;color:#5d6b78"><b>Estimation basis &amp; caveats.</b> Ranges assume the recommended stack (Postgres + RLS, modular monolith, batteries-included framework — App. D); a senior team familiar with multi-tenant SaaS; integrations limited to the MVP subset (App. K) with the rest stubbed; and the Appendix L assumptions holding. They exclude: self-host, the deferred integrations, market-comp data, native mobile, multi-state tax/title, i18n, and ongoing run-cost. These are <b>planning figures to scope a bid</b>, not a fixed-price commitment.</p>
+
+
 <script>
 /* ---- B&W vector wireframe generator (pure SVG) ---- */
 const ST='#1b1b1b', GR='#8a8a8a', LG='#e6e6e6', MG='#f2f2f2';
@@ -1038,6 +1179,22 @@ document.getElementById('acctmap').innerHTML = (function(){
     s+=`<line x1="415" y1="146" x2="${x+w/2}" y2="${y}" stroke="${ST}" stroke-width="1"/><path d="M${x+w/2-4},${y-5} L${x+w/2},${y} L${x+w/2+4},${y-5} Z" fill="${ST}"/>`;
   });
   return `<svg viewBox="0 0 820 262" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+})();
+
+/* ---- Appendix J: release roadmap (3 phases) ---- */
+document.getElementById('roadmap').innerHTML = (function(){
+  let s='';
+  const cols=[
+    ['PHASE 1 · Hosted MVP','the core sell-loop, live',['Multi-tenant foundation + RLS + auth/RBAC','Inventory · lead inbox · pipeline + quotes','Public storefront (SSR + edge cache)','Owner dashboard + core KPIs','Bookkeeper invoices + QuickBooks file export','Customer portal + basic titles/office','Onboarding + data import wizard','Payments + e-sign + email/SMS','Security baseline + audit log + pen test']],
+    ['PHASE 2 · Operate & optimize','depth per role',['Sales manager — forecast & approvals','Pricing repricer + margin tools','Service work orders + recon','Delivery dispatch + scheduling','QBO REST-API push (automated)','Financing soft-pull + lender rails','Reporting & notification depth']],
+    ['PHASE 3 · Scale & extend','new markets & models',['Self-host packaging & updates','Platform super-admin — billing/metering','Other accounting systems (Xero/Sage)','Market-comp pricing data feed','Mobile / PWA field app','Multi-jurisdiction tax/title engine','i18n / multi-currency']],
+  ];
+  cols.forEach(([h,sub,items],ci)=>{const x=18+ci*268,w=248;
+    s+=rf(x,10,w,40,ci===0?LG:MG)+r(x,10,w,40)+tx(x+10,28,h,{b:1,s:9.5})+tx(x+10,42,sub,{s:6.8,g:1});
+    items.forEach((it,i)=>{const y=60+i*26;s+=rf(x,y,w,22,'#fff')+r(x,y,w,22)+tx(x+8,y+15,it,{s:7.4});});
+    if(ci<2){const ax=x+w;s+=`<line x1="${ax}" y1="30" x2="${ax+20}" y2="30" stroke="${ST}" stroke-width="1.2"/><path d="M${ax+15},26 L${ax+20},30 L${ax+15},34 Z" fill="${ST}"/>`;}
+  });
+  return `<svg viewBox="0 0 820 ${60+9*26+6}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 </script>
 </body>
