@@ -18,7 +18,7 @@ Requirements only, **no prescribed technology**. Sections §1–14 + Appendices 
   `spec/asyncapi.yaml` (real-time event-channel contract, AsyncAPI 3.0) — these are
   **implementation artifacts**; reference them from the **Proposal**, not the Spec.
 
-## ② Functional Specification Proposal — `spec/proposal.html` (TO BUILD)
+## ② Functional Specification Proposal — `spec/proposal.html` (DONE)
 For each requirement area, **echo the requirement, then give the proposed technical solution.**
 Folds in the stack discussions (backend/scaling, frontend/UX, integrations/accounting). This is
 where ALL the technology lives. Source material:
@@ -31,14 +31,14 @@ API design (openapi.yaml) → Frontend & UX → Real-time updates → Scaling & 
 Security mechanisms → Integrations → Accounting export → (each tied back to the spec requirement
 it satisfies).
 
-## ③ Bid & Delivery Pack — `spec/bid-delivery.html` (TO BUILD)
+## ③ Bid & Delivery Pack — `spec/bid-delivery.html` (DONE)
 Lift from `docs/_moved-bid-appendices.html` (old Appendices J–N):
 MVP Scope Matrix + Roadmap · Integration & Third-Party Register · Assumptions/Delivery-Model/RACI ·
 Estimation Worksheet (WBS) · Delivery Stages (Internal demo → GA).
 
 ## Naming for the PDFs
 - `spec/TPOS-Product-Specification.pdf` (exists)
-- `spec/TPOS-Functional-Specification-Proposal.pdf` (to create)
-- `spec/TPOS-Bid-and-Delivery-Pack.pdf` (to create)
+- `spec/TPOS-Functional-Specification-Proposal.pdf` (exists)
+- `spec/TPOS-Bid-and-Delivery-Pack.pdf` (exists)
 There is also a one-page `spec/TPOS-Decision-Summary.pdf` / `decision-summary.html` (older
 architecture front-sheet) — reconcile or fold into the Proposal.
