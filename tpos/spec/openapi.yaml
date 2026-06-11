@@ -46,7 +46,16 @@ paths:
   /api/v1/units/{id}/transition:
     parameters: [ { $ref: '#/components/parameters/id' } ]
     post: { tags: [inventory], summary: Change status (incoming→recon→available→pending→sold), parameters: [ { $ref: '#/components/parameters/idem' } ], requestBody: { content: { application/json: { schema: { type: object, properties: { to: { $ref: '#/components/schemas/UnitStatus' } }, required: [to] } } } }, responses: { "200": { $ref: '#/components/responses/Unit' } } }
-  /api/v1/units/{id}/photos: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [inventory], summary: Upload photo, responses: { "201": { $ref: '#/components/responses/Ok' } } } }
+  /api/v1/units/{id}/photos:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    post:
+      tags: [inventory]
+      summary: Upload photo (validated by magic bytes, re-encoded, stored in object storage)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary }, is_cover: { type: boolean } }, required: [file] }
+      responses: { "201": { $ref: '#/components/responses/Ok' } }
   /api/v1/units/{id}/timeline: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [inventory], summary: Activity/audit for this unit, responses: { "200": { $ref: '#/components/responses/ActivityList' } } } }
   /api/v1/units/aging: { get: { tags: [inventory], summary: Aging report, responses: { "200": { $ref: '#/components/responses/UnitList' } } } }
 
@@ -88,7 +97,17 @@ paths:
   /api/v1/accounting/exports:
     get:  { tags: [accounting], summary: List export batches (what was exported, when, to which target), responses: { "200": { $ref: '#/components/responses/Ok' } } }
     post: { tags: [accounting], summary: Create an export batch (target = quickbooks_csv | quickbooks_iif | …); marks records exported, returns a file; idempotent, parameters: [ { $ref: '#/components/parameters/idem' } ], responses: { "201": { $ref: '#/components/responses/Ok' } } }
-  /api/v1/accounting/exports/{id}/file: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [accounting], summary: Download an export batch file, responses: { "200": { description: The export file (CSV/IIF) } } } }
+  /api/v1/accounting/exports/{id}/file:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      tags: [accounting]
+      summary: Download an export batch file
+      responses:
+        "200":
+          description: The export file in the batch's target format
+          content:
+            text/csv:    { schema: { type: string }, example: "date,account,debit,credit,memo" }
+            text/plain:  { schema: { type: string }, example: "!TRNS\tTRNSTYPE\tDATE\tACCNT… (QuickBooks IIF, tab-delimited)" }
 
   /api/v1/titles/{unitId}:  { parameters: [ { name: unitId, in: path, required: true, schema: { type: string } } ], get: { tags: [titles-delivery], summary: Title/DMV status, responses: { "200": { $ref: '#/components/responses/Ok' } }, patch: { tags: [titles-delivery], summary: Update title status, responses: { "200": { $ref: '#/components/responses/Ok' } } } } }
   /api/v1/documents/{id}/sign: { parameters: [ { $ref: '#/components/parameters/id' } ], post: { tags: [titles-delivery], summary: e-sign a document, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
@@ -109,14 +128,30 @@ paths:
       responses: { "200": { $ref: '#/components/responses/Ok' } }
   /api/v1/imports:
     get:  { tags: [import], summary: List import jobs, responses: { "200": { $ref: '#/components/responses/Ok' } } }
-    post: { tags: [import], summary: Start an import job (upload → map → validate → commit); async with an import id, responses: { "202": { $ref: '#/components/responses/Ok' } } }
+    post:
+      tags: [import]
+      summary: Start an import job (upload → map → validate → commit); async with an import id
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary }, entity: { type: string, enum: [units, customers, leads, deals] }, mapping_profile: { type: string } }, required: [file, entity] }
+      responses: { "202": { $ref: '#/components/responses/Ok' } }
   /api/v1/imports/{id}: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [import], summary: "Import job status: counts, row-level errors vs warnings, annotated error report", responses: { "200": { $ref: '#/components/responses/Ok' } } } }
-  /api/v1/imports/{id}/errors.csv: { parameters: [ { $ref: '#/components/parameters/id' } ], get: { tags: [import], summary: Downloadable annotated error rows for fix-and-reupload, responses: { "200": { description: CSV of failed rows with reasons } } } }
+  /api/v1/imports/{id}/errors.csv:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      tags: [import]
+      summary: Downloadable annotated error rows for fix-and-reupload
+      responses:
+        "200": { description: Failed rows with reasons, content: { text/csv: { schema: { type: string } } } }
 
   /api/v1/events:
     get:
       tags: [realtime]
       summary: Real-time change feed (server push; SSE or upgraded WebSocket) — tenant-scoped topics; no client polling
+      description: >
+        The stream itself (transports, message schemas, resume semantics) is contract-defined in
+        the companion **asyncapi.yaml** — this entry documents only the HTTP entry point.
       parameters: [ { name: topics, in: query, schema: { type: string }, description: "Comma-separated: units, leads, deals, invoices, deliveries, notifications" }, { name: cursor, in: query, schema: { type: string }, description: Resume after a missed window } ]
       responses: { "200": { description: "text/event-stream of {topic, entity_type, entity_id, action, at} events" } }
   /api/v1/reports/{kpiSet}: { parameters: [ { name: kpiSet, in: path, required: true, schema: { type: string, enum: [sales, inventory, money, marketing, service] } } ], get: { tags: [crosscut], summary: Dashboard KPI bundle, responses: { "200": { $ref: '#/components/responses/Ok' } } } }
@@ -153,6 +188,31 @@ paths:
   /api/webhooks/syndication: { post: { tags: [webhooks], summary: Listing-site lead -> create Lead, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
   /api/webhooks/title:       { post: { tags: [webhooks], summary: DMV/title callback, security: [], responses: { "200": { $ref: '#/components/responses/Ok' } } } }
 
+# Outbound webhooks TPOS emits to a tenant's configured integration endpoints (OpenAPI 3.1).
+# Distinct from the inbound /api/webhooks/* paths above (which third parties call INTO TPOS).
+# Deliveries are signed (HMAC over body + timestamp header) and retried with backoff.
+webhooks:
+  unit.status_changed:
+    post:
+      summary: A unit transitioned (incoming→recon→available→pending→sold)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+  deal.won:
+    post:
+      summary: A deal was marked won
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+  invoice.paid:
+    post:
+      summary: An invoice was fully paid
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+  lead.created:
+    post:
+      summary: A new lead was captured (storefront, syndication or manual)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OutboundEvent' } } } }
+      responses: { "200": { description: Acknowledge with any 2xx } }
+
 components:
   securitySchemes:
     cookieAuth: { type: apiKey, in: cookie, name: tpos_session }
@@ -168,6 +228,15 @@ components:
     page: { name: page, in: query, schema: { type: integer, default: 1 } }
     idem: { name: Idempotency-Key, in: header, schema: { type: string } }
   schemas:
+    OutboundEvent:
+      type: object
+      required: [event, entity_type, entity_id, at]
+      properties:
+        event:       { type: string, description: Webhook name (unit.status_changed, deal.won, ...) }
+        entity_type: { type: string }
+        entity_id:   { type: string, format: uuid }
+        detail:      { type: object, description: Small non-sensitive hints (e.g. from/to) — consumers re-fetch via the API }
+        at:          { type: string, format: date-time }
     UnitStatus: { type: string, enum: [incoming, recon, available, pending, sold] }
     DealStage:  { type: string, enum: [lead, quoted, negotiation, financing, delivery, won, lost] }
     Unit:

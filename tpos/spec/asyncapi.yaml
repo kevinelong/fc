@@ -1,0 +1,156 @@
+asyncapi: 3.0.0
+info:
+  title: TPOS Real-Time Event Channel
+  version: "1.0.0"
+  description: >
+    Contract for the server-push change feed that satisfies the Specification's real-time
+    requirement (§12: other users' changes appear within ~1-2 s, no refresh, no polling).
+    This document describes the TPOS SERVER application: it SENDS events; clients receive.
+    It complements openapi.yaml (request/response over HTTP) and reuses the same naming.
+    Transport today is SSE — a long-lived authenticated GET /api/v1/events returning
+    text/event-stream — with a WebSocket upgrade path carrying identical messages.
+    Every subscription is tenant-scoped server-side from the session; a client can never
+    subscribe across tenants. Event payloads deliberately carry NO entity body: clients
+    re-fetch the entity through the normal RLS-scoped REST API, so authorization is always
+    re-checked at read time.
+
+defaultContentType: application/json
+
+servers:
+  production-sse:
+    host: "{tenant}.tpos.app"
+    protocol: https
+    description: >
+      SSE delivery: GET /api/v1/events?topics=units,leads,...&cursor=<seq> with the normal
+      session cookie or bearer token; response is text/event-stream. `cursor` replays events
+      missed during a disconnect (bounded window).
+    variables:
+      tenant:
+        default: demo
+  production-ws:
+    host: "{tenant}.tpos.app"
+    protocol: wss
+    description: WebSocket upgrade variant; same messages, same tenant scoping.
+    variables:
+      tenant:
+        default: demo
+
+channels:
+  events:
+    address: /api/v1/events
+    title: Tenant change feed
+    description: >
+      One multiplexed channel per client. The `topics` query/subscribe parameter filters
+      which entity streams are delivered; topics map 1:1 to the REST resources.
+    messages:
+      entityChanged:
+        $ref: "#/components/messages/entityChanged"
+      notification:
+        $ref: "#/components/messages/notification"
+      heartbeat:
+        $ref: "#/components/messages/heartbeat"
+
+operations:
+  pushEvents:
+    action: send
+    channel:
+      $ref: "#/channels/events"
+    title: Server pushes change events
+    summary: >
+      On every committed mutation (status, price, assignment, payment, ...) the server emits
+      an entityChanged event to all sessions subscribed to that topic in the same tenant.
+      The same events invalidate the materialized read models and the storefront edge cache.
+    messages:
+      - $ref: "#/channels/events/messages/entityChanged"
+      - $ref: "#/channels/events/messages/notification"
+      - $ref: "#/channels/events/messages/heartbeat"
+
+components:
+  messages:
+    entityChanged:
+      name: entityChanged
+      title: Entity changed
+      summary: A record changed; re-fetch it via the REST API (no entity body in the event).
+      payload:
+        $ref: "#/components/schemas/EntityChanged"
+      examples:
+        - name: unitSold
+          payload:
+            seq: 184223
+            topic: units
+            entity_type: unit
+            entity_id: "0b9f3c1e-1d2a-4d4e-9d9f-2f6f5b7a8c01"
+            action: transition
+            detail: { from: pending, to: sold }
+            actor_id: "7c2a40d2-93a1-4a37-9a1e-d2b91f0a6b55"
+            at: "2026-06-12T17:03:21Z"
+    notification:
+      name: notification
+      title: User notification
+      summary: An in-app notification addressed to the connected user (badge/toast).
+      payload:
+        $ref: "#/components/schemas/Notification"
+    heartbeat:
+      name: heartbeat
+      title: Keep-alive
+      summary: Periodic comment/ping so intermediaries keep the connection open.
+      payload:
+        $ref: "#/components/schemas/Heartbeat"
+
+  schemas:
+    EntityChanged:
+      type: object
+      additionalProperties: false
+      required: [seq, topic, entity_type, entity_id, action, at]
+      properties:
+        seq:
+          type: integer
+          description: Monotonic per-tenant sequence; clients resume with ?cursor=<seq>.
+        topic:
+          type: string
+          enum: [units, leads, deals, invoices, deliveries, workorders, titles, notifications]
+        entity_type:
+          type: string
+          description: Entity kind (unit, lead, deal, invoice, payment, delivery, work_order, title).
+        entity_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          description: What happened (created, updated, transition, assigned, paid, signed, deleted).
+        detail:
+          type: object
+          description: Small, non-sensitive hints (e.g. from/to status). Never a full entity body.
+        actor_id:
+          type: string
+          format: uuid
+          description: Who did it (joins the audit log).
+        at:
+          type: string
+          format: date-time
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, kind, at]
+      properties:
+        id:   { type: string, format: uuid }
+        kind: { type: string, description: Catalog key from Spec Appendix E (lead.received, quote.sent, ...) }
+        payload: { type: object }
+        at:   { type: string, format: date-time }
+    Heartbeat:
+      type: object
+      additionalProperties: false
+      required: [at]
+      properties:
+        at: { type: string, format: date-time }
+
+  securitySchemes:
+    cookieAuth:
+      type: httpApiKey
+      name: tpos_session
+      in: cookie
+      description: Staff/back-office session (same as openapi.yaml).
+    bearer:
+      type: http
+      scheme: bearer
+      description: Portal/API token (same as openapi.yaml).

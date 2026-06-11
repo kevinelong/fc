@@ -14,7 +14,8 @@ Requirements only, **no prescribed technology**. Sections §1–14 + Appendices 
 - Appendix **A** Data Dictionary (logical) · **B** Security/Privacy/Compliance (as *outcome
   requirements*) · **C** Onboarding & Data Import · **D** Derived-Field Formulas · **E**
   Notification & Document Catalog · **F** Accounting-System Export (requirement statement).
-- Machine-readable companions already on disk: `spec/schema.sql`, `spec/openapi.yaml` — these are
+- Machine-readable companions already on disk: `spec/schema.sql`, `spec/openapi.yaml`,
+  `spec/asyncapi.yaml` (real-time event-channel contract, AsyncAPI 3.0) — these are
   **implementation artifacts**; reference them from the **Proposal**, not the Spec.
 
 ## ② Functional Specification Proposal — `spec/proposal.html` (TO BUILD)

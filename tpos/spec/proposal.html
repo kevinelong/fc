@@ -81,7 +81,7 @@
 <div class="echo"><b>Requirements echoed.</b> Each section opens with a box like this one, quoting the Specification sections it answers — so every proposal is traceable to a requirement, and §12 closes the loop with a full traceability table.</div>
 <ul class="req">
   <li><b>Advisory, not mandated.</b> A rebuild team may substitute equivalents (the Specification is the contract; this document is the recommended route). Decisions that were genuinely contested — including three we reversed when the evidence said so — are recorded honestly in §11.</li>
-  <li><b>Machine-readable companions:</b> <code>schema.sql</code> (the reference PostgreSQL DDL, kept reconciled with the Specification's data-model requirements) and <code>openapi.yaml</code> (the API contract, 66 paths). Both live beside this document.</li>
+  <li><b>Machine-readable companions:</b> <code>schema.sql</code> (the reference PostgreSQL DDL, kept reconciled with the Specification's data-model requirements), <code>openapi.yaml</code> (the HTTP contract, 66 paths + outbound webhooks) and <code>asyncapi.yaml</code> (the real-time event-channel contract — §4.1). All live beside this document.</li>
   <li><b>Numbers are order-of-magnitude.</b> Benchmark figures cited here come from practitioner and vendor sources (§11.2) — use them for intuition and <i>benchmark your own schema and queries</i> before treating any as a constant.</li>
 </ul>
 
@@ -174,12 +174,26 @@ POST  /api/webhooks/freight         carrier status → delivery
 POST  /api/webhooks/syndication     listing-site lead → Lead
 POST  /api/webhooks/title           DMV/title callback</pre>
 
-
+<h3>4.1 Contract-first interface definitions — beyond HTTP + JSON</h3>
+<p>Every client↔server surface gets a <b>machine-readable contract</b>, OpenAPI-style, even where the transport isn't request/response HTTP or the payload isn't JSON. The contracts are the source of truth: client SDKs, server validators, mock servers and the API reference all generate from them, so they cannot drift from the implementation. The suite:</p>
+<table class="t">
+  <tr><th style="width:22%">Surface</th><th style="width:26%">Contract artifact</th><th>What it covers</th></tr>
+  <tr><td>Request/response HTTP</td><td><b><code>openapi.yaml</code></b> (OpenAPI 3.1)</td><td>All 66 REST paths — including the <b>non-JSON</b> bodies: <code>multipart/form-data</code> photo &amp; import uploads, <code>text/csv</code> error reports, <code>text/csv</code> / <code>text/plain</code> (IIF) accounting-export downloads</td></tr>
+  <tr><td>Outbound webhooks</td><td><code>openapi.yaml</code> → top-level <b><code>webhooks</code></b> (an OpenAPI 3.1 feature)</td><td>Events TPOS <i>emits</i> to a tenant's integration endpoints — <code>unit.status_changed</code>, <code>deal.won</code>, <code>invoice.paid</code>, <code>lead.created</code> — HMAC-signed, retried with backoff; distinct from the inbound <code>/api/webhooks/*</code> paths above</td></tr>
+  <tr><td>Real-time push (not request/response)</td><td><b><code>asyncapi.yaml</code></b> (AsyncAPI 3.0 — “OpenAPI for event-driven”)</td><td>The §5 change feed as a formal contract: servers (SSE today, WebSocket upgrade path), the <code>events</code> channel, message schemas (<code>entityChanged</code>, <code>notification</code>, <code>heartbeat</code>), cursor-resume semantics, tenant-scoped security. Validated with the official AsyncAPI parser (0 errors)</td></tr>
+  <tr><td>Shared payload shapes</td><td><b>JSON Schema</b> components</td><td>Referenced from <i>both</i> documents so an entity has one definition regardless of transport</td></tr>
+</table>
+<ul class="req">
+  <li><b>If a transport ever leaves HTTP entirely</b> (e.g. a service is extracted with an RPC interface, or a message broker is introduced), the same discipline continues: AsyncAPI has first-class bindings for WebSocket, Kafka, MQTT and AMQP, and an IDL (e.g. Protobuf) would carry the RPC contract. Nothing about the approach assumes HTTP or JSON — only that <i>every</i> interface is contract-defined before it is implemented.</li>
+  <li><b>Single-source option:</b> if maintaining parallel documents grows tedious, a meta-IDL such as <b>TypeSpec</b> (emits OpenAPI 3.1 + JSON Schema + Protobuf from one definition) or <b>Smithy</b> can become the single source that generates all of the above. Recommended only when the contract count grows — two hand-maintained documents don't yet justify the tooling.</li>
+  <li><b>CI gate:</b> contracts are linted and diff-checked on every change (breaking-change detection), and the server's request/response validation is generated from them — the contract <i>is</i> the test oracle.</li>
+</ul>
 
 <h2 id="realtime" class="pgbreak">5 · Real-Time Updates</h2>
 <div class="echo"><b>Requirements echoed.</b> Spec §12: changes by one user — status, price, a new lead, an assignment, a payment — appear to others viewing the same data within ~1–2 seconds, <b>without a manual refresh and without perceptible polling delay</b>.</div>
 <div class="wf"><div id="realtime"></div><div class="cap">Server push, not client polling. Committed writes emit change events; a per-process fan-out pushes them to subscribed clients over one long-lived channel per session, topics scoped by tenant. The same events invalidate the materialized read models (§7.4).</div></div>
 <ul class="req">
+  <li><b>Contract:</b> the channel is formally defined in <code>asyncapi.yaml</code> (AsyncAPI 3.0) — servers, message schemas, resume semantics (§4.1).</li>
   <li><b>Channel:</b> one long-lived connection per signed-in client — <b>SSE</b> (<code>GET /api/v1/events</code>, <code>text/event-stream</code>) as the default for its simplicity/proxy-friendliness; upgradeable to WebSocket if bidirectional needs appear. A <code>cursor</code> query param replays missed events after a reconnect.</li>
   <li><b>Feed:</b> committed mutations write the <code>activities</code> row (already required for audit) and emit a change event — implementation options: Postgres <code>LISTEN/NOTIFY</code> (simple, fine at this scale) or logical-decoding/outbox if delivery guarantees must tighten. Events carry <code>{topic, entity_type, entity_id, action, at}</code> — clients re-fetch the entity through the normal (RLS-scoped) API rather than trusting payload data.</li>
   <li><b>Scoping:</b> topics are derived server-side from the session's tenant + role — the channel can never subscribe across tenants (same rule as §3).</li>
@@ -363,7 +377,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>§2 Multi-tenancy &amp; deployment modes · §12 isolation, portability</td><td>§2, §3</td></tr>
   <tr><td>§6 Role workspaces · §8 cross-cutting · §10 permissions</td><td>§4 (API), §6 (UI), §8 (RBAC/ABAC)</td></tr>
   <tr><td>§7 Storefront (mobile-first, SEO, lead capture)</td><td>§6.1, §7.5</td></tr>
-  <tr><td>§12 Real-time collaboration (no refresh, no polling delay)</td><td>§5</td></tr>
+  <tr><td>§12 Real-time collaboration (no refresh, no polling delay)</td><td>§5 + <code>asyncapi.yaml</code></td></tr>
   <tr><td>§12 Concurrency &amp; density (max users per server) · performance · scalability · availability</td><td>§7</td></tr>
   <tr><td>§12 Responsive phone→ultra-wide · accessibility WCAG 2.1 AA</td><td>§6.1</td></tr>
   <tr><td>Appendix A Data dictionary</td><td>§3 + <code>schema.sql</code></td></tr>

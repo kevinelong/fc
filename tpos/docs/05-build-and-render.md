@@ -10,7 +10,8 @@
   - `spec.html` → `TPOS-Product-Specification.pdf` — **the requirements spec (DONE, v2.0)**.
   - `schema.sql` — PostgreSQL DDL (enums, tables, RLS policy loop, materialized KPI view). Belongs
     to the **Proposal**.
-  - `openapi.yaml` — OpenAPI 3.1, 58 paths, validated. Belongs to the **Proposal**.
+  - `openapi.yaml` — OpenAPI 3.1, 66 paths + outbound `webhooks` + non-JSON content types, validated. Belongs to the **Proposal**.
+  - `asyncapi.yaml` — AsyncAPI 3.0 contract for the real-time event channel (SSE/WS), validated with @asyncapi/parser. Belongs to the **Proposal** (§4.1).
   - `decision-summary.html` → `TPOS-Decision-Summary.pdf` — older one-page architecture front-sheet.
   - **(to create)** `proposal.html` → `TPOS-Functional-Specification-Proposal.pdf`
   - **(to create)** `bid-delivery.html` → `TPOS-Bid-and-Delivery-Pack.pdf`

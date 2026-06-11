@@ -14,6 +14,9 @@ Also done: `schema.sql` + `openapi.yaml` reconciled with the spec (external_ref 
 indexes, consent_records, retention_policies, export_batches/items, customer address/residency,
 five unit date clocks, recon/transport cost, deal gross columns, FORCE RLS + append-only revokes;
 API adds /bulk/{entity}, /imports, /events SSE, /accounting/mapping + /exports — 66 paths, valid).
+Contract-first suite completed (2026-06-12): `asyncapi.yaml` (AsyncAPI 3.0, real-time channel,
+0 parser errors), openapi.yaml gained outbound `webhooks` (unit.status_changed/deal.won/
+invoice.paid/lead.created) + multipart/CSV/IIF content types; Proposal §4.1 documents the suite.
 The decision-summary one-pager was re-captioned as the Proposal's summary sheet.
 
 ## Remaining / nice-to-have ⏳
