@@ -54,60 +54,48 @@
   <div style="font-size:15pt;color:#3a4a59;letter-spacing:.18em;font-weight:600;margin-top:2pt">THE OPERATING SYSTEM FOR TRAILER DEALERS</div>
   <h1 style="font-size:26pt;margin-top:34pt">Product Specification</h1>
   <div class="sub">A business-level, implementation-agnostic specification — sufficient for an independent team to rebuild the system from scratch in the stack and architecture of their choosing.</div>
-  <div class="meta">Document v1.2 &nbsp;·&nbsp; Functional &amp; non-functional requirements &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–N &nbsp;·&nbsp; Bid package &nbsp;·&nbsp; Confidential draft</div>
+  <div class="meta">Document v2.0 &nbsp;·&nbsp; Requirements specification (technology-neutral) &nbsp;·&nbsp; B&amp;W wireframes &nbsp;·&nbsp; Appendices A–F &nbsp;·&nbsp; Companions: Proposal &amp; Bid/Delivery Pack &nbsp;·&nbsp; Confidential draft</div>
 </section>
 
 <section style="page-break-after:always;line-height:1.42">
 <h2 id="overview" style="margin-top:0">Executive Overview</h2>
-<p style="font-size:11pt;color:#2a3742;margin-bottom:9pt">TPOS is a multi-tenant vertical SaaS that runs an independent trailer dealership’s entire operation — its <b>public storefront</b> and its whole <b>back office</b> — on one shared record of truth, where a single trailer is seen through <b>12 role lenses</b> (inventory → deal → work order → invoice → title → delivery → listing). Sold <b>hosted</b> (monthly), <b>licensed</b> (annual), or <b>self-hosted</b> (one-time). The Phase-1 MVP is ≈ <b>6–12 months</b> across <b>5 delivery stages</b> (demo → GA).</p>
+<p style="font-size:11pt;color:#2a3742;margin-bottom:9pt">TPOS is a multi-tenant vertical SaaS that runs an independent trailer dealership’s entire operation — its <b>public storefront</b> and its whole <b>back office</b> — on one shared record of truth, where a single trailer is seen through <b>12 role lenses</b> (inventory → deal → work order → invoice → title → delivery → listing). Sold <b>hosted</b> (monthly), <b>licensed</b> (annual), or <b>self-hosted</b> (one-time).</p>
 
 <div class="two">
   <div>
     <h4 style="margin:4pt 0 3pt">The product</h4>
     <ul class="req">
-      <li><b>Who:</b> small-to-mid used/refurbished commercial-trailer dealers, replacing a website builder + CRM + spreadsheets + QuickBooks + listing sites with one role-aware platform.</li>
+      <li><b>Who:</b> small-to-mid used/refurbished commercial-trailer dealers, replacing a website builder + CRM + spreadsheets + accounting + listing sites with one role-aware platform.</li>
       <li><b>Core loop:</b> acquire → recondition → price → list → lead → quote → finance → title → deliver → book — each stage hands the <i>same</i> record to the next role.</li>
       <li><b>Pricing:</b> Hosted $199–$1,290/mo · annual license · one-time self-host.</li>
     </ul>
-    <h4 style="margin:9pt 0 3pt">Delivery stages (Appendix N)</h4>
+    <h4 style="margin:9pt 0 3pt">Key qualities (§12)</h4>
     <ul class="req">
-      <li><b>A · Internal demo</b> — prototype, mock data <i>(already built)</i>.</li>
-      <li><b>B · Sales demo</b> — polished facade to win design partners (~1–3 pw).</li>
-      <li><b>C · Alpha</b> — real architecture, core sell-loop, 1–2 partner dealers.</li>
-      <li><b>D · Beta</b> — real PII + money; pen-test + GLBA Safeguards baseline.</li>
-      <li><b>E · Release 1.0</b> — self-serve signup, live billing, 99.9% SLA.</li>
-    </ul>
-    <h4 style="margin:9pt 0 3pt">The bid envelope (Appendices J–M)</h4>
-    <ul class="req">
-      <li><b>Scope priced:</b> Phase-1 MVP cutline — core sell-loop, hosted-only.</li>
-      <li><b>Effort:</b> ≈ <b>95–175 person-weeks</b> (~3–4 FTE + designer + PM) — a planning range, not a quote.</li>
-      <li><b>Tightens once 4 levers fixed:</b> scope · delivery model · design ownership · jurisdiction.</li>
+      <li><b>Strict tenant isolation</b> — no path crosses tenants.</li>
+      <li><b>Real-time</b> — others’ changes appear without refresh or polling delay.</li>
+      <li><b>Responsive</b> — good UX from phone to ultra-wide desktop.</li>
+      <li><b>Auditable</b> by default; <b>deploys hosted or self-host</b> from one product.</li>
     </ul>
   </div>
   <div>
-    <h4 style="margin:4pt 0 3pt">Tech stack at a glance (Appendix D)</h4>
-    <table class="t" style="font-size:8.5pt;margin-top:2pt">
-      <tr><td style="width:30%;color:#5d6b78">Database</td><td><b>PostgreSQL</b> + Row-Level Security (SQLite per self-host tenant)</td></tr>
-      <tr><td style="color:#5d6b78">Isolation</td><td>Shared schema · <code>tenant_id</code> everywhere · <code>FORCE RLS</code> + <code>SET LOCAL</code></td></tr>
-      <tr><td style="color:#5d6b78">App</td><td><b>Modular monolith</b> — Django/DRF <i>or</i> NestJS + Next.js</td></tr>
-      <tr><td style="color:#5d6b78">Data path</td><td>PgBouncer txn-pooling · thin typed SQL on hot paths</td></tr>
-      <tr><td style="color:#5d6b78">Reads</td><td>Materialized read models (CQRS-lite) + replicas + cache</td></tr>
-      <tr><td style="color:#5d6b78">Storefront</td><td>SSR + edge/CDN cache · S3 object storage (MinIO self-host)</td></tr>
-      <tr><td style="color:#5d6b78">Integrations</td><td>Stripe Connect · Twilio · Postmark · e-sign · QuickBooks (file→API)</td></tr>
-      <tr><td style="color:#5d6b78">Security</td><td>Argon2id · MFA · audit log · KMS · TLS + at-rest encryption</td></tr>
-      <tr><td style="color:#5d6b78">Scaling</td><td>Single primary + replicas · HASH(<code>tenant_id</code>) partitions · defer Citus</td></tr>
+    <h4 style="margin:4pt 0 3pt">A requirements specification</h4>
+    <p style="font-size:9.5pt;margin:0 0 6pt">This document states <b>what</b> the system must do and the qualities it must have, and is deliberately <b>technology-neutral</b>. It is one of three:</p>
+    <table class="t" style="font-size:8.6pt;margin-top:0">
+      <tr><td style="width:36%;color:#5d6b78"><b>① Product Specification</b></td><td>this document — requirements only</td></tr>
+      <tr><td style="color:#5d6b78">② Functional Spec. Proposal</td><td>a proposed technical solution per requirement (architecture, frontend, integrations)</td></tr>
+      <tr><td style="color:#5d6b78">③ Bid &amp; Delivery Pack</td><td>scope cutline, integration register, RACI, estimate, delivery stages</td></tr>
     </table>
     <h4 style="margin:9pt 0 3pt">Reading guide</h4>
-    <table class="t" style="font-size:8.5pt;margin-top:2pt">
-      <tr><td style="width:30%;color:#5d6b78">Product &amp; requirements</td><td>§1–14</td></tr>
-      <tr><td style="color:#5d6b78">Data &amp; API</td><td>App. A–B · <code>schema.sql</code> · <code>openapi.yaml</code></td></tr>
-      <tr><td style="color:#5d6b78">Architecture</td><td>App. C (scaling) · D (decisions)</td></tr>
-      <tr><td style="color:#5d6b78">Build-critical</td><td>App. E security · F onboarding · G formulas · H notifications · I accounting</td></tr>
-      <tr><td style="color:#5d6b78">Bid &amp; delivery</td><td>App. J scope · K integrations · L RACI · M estimate · N stages</td></tr>
+    <table class="t" style="font-size:8.6pt;margin-top:0">
+      <tr><td style="width:36%;color:#5d6b78">Product &amp; requirements</td><td>§1–14</td></tr>
+      <tr><td style="color:#5d6b78">Data dictionary</td><td>Appendix A</td></tr>
+      <tr><td style="color:#5d6b78">Security &amp; compliance</td><td>Appendix B</td></tr>
+      <tr><td style="color:#5d6b78">Onboarding · formulas</td><td>Appendix C · D</td></tr>
+      <tr><td style="color:#5d6b78">Notifications · accounting</td><td>Appendix E · F</td></tr>
     </table>
   </div>
 </div>
-<p style="font-size:8.5pt;color:#5d6b78;margin-top:8pt">Implementation-agnostic: stack choices are load-bearing recommendations <i>with rationale</i> (Appendix D), not mandates — the build team owns the final call. Effort/cost figures are order-of-magnitude planning guidance.</p>
+<p style="font-size:8.5pt;color:#5d6b78;margin-top:8pt">Technology-neutral by design: this specification prescribes no stack. Proposed technologies, architecture and the rationale live in the separate <b>Functional Specification Proposal</b>; scope, estimate and delivery plan live in the <b>Bid &amp; Delivery Pack</b>. The build team owns all implementation choices.</p>
 </section>
 
 <h2 id="toc">Contents</h2>
@@ -128,19 +116,11 @@
   <li><a href="#acceptance">Acceptance Criteria</a></li>
   <li><a href="#glossary">Glossary</a></li>
   <li><a href="#dd">Appendix A — Data Dictionary &amp; Relational Schema</a></li>
-  <li><a href="#api">Appendix B — API Reference</a></li>
-  <li><a href="#perf">Appendix C — Performance &amp; Scaling</a></li>
-  <li><a href="#adr">Appendix D — Architecture Decisions &amp; Roads Not Taken</a></li>
-  <li><a href="#sec">Appendix E — Security, Privacy &amp; Compliance</a></li>
-  <li><a href="#onboard">Appendix F — Onboarding &amp; Data Import</a></li>
-  <li><a href="#formulas">Appendix G — Derived-Field Formulas</a></li>
-  <li><a href="#notif">Appendix H — Notification &amp; Document Catalog</a></li>
-  <li><a href="#acctexport">Appendix I — Accounting Export (QuickBooks &amp; Beyond)</a></li>
-  <li><a href="#scope">Appendix J — MVP Scope Matrix &amp; Release Roadmap</a></li>
-  <li><a href="#integrations-reg">Appendix K — Integration &amp; Third-Party Register</a></li>
-  <li><a href="#sow">Appendix L — Assumptions, Delivery Model &amp; RACI</a></li>
-  <li><a href="#estimate">Appendix M — Estimation Worksheet (WBS)</a></li>
-  <li><a href="#stages">Appendix N — Delivery Stages (Internal Demo → GA)</a></li>
+  <li><a href="#sec">Appendix B — Security, Privacy &amp; Compliance</a></li>
+  <li><a href="#onboard">Appendix C — Onboarding &amp; Data Import</a></li>
+  <li><a href="#formulas">Appendix D — Derived-Field Formulas</a></li>
+  <li><a href="#notif">Appendix E — Notification &amp; Document Catalog</a></li>
+  <li><a href="#acctexport">Appendix F — Accounting Export (QuickBooks &amp; Beyond)</a></li>
 </ol>
 
 <h2 id="vision" class="pgbreak">1 · Product Vision &amp; Business Model</h2>
@@ -282,7 +262,7 @@
   <tr><td>Title / DMV &amp; e-sign</td><td>Title status, lien release, electronic signing of titles &amp; bills of sale</td></tr>
   <tr><td>Payments</td><td>Deposits, payoffs, ACH/wire/card; reconcile to invoices</td></tr>
   <tr><td>Freight / carriers</td><td>Freight rate quotes, dispatch, in-transit tracking</td></tr>
-  <tr><td>Accounting export</td><td>Sync to QuickBooks / Xero (invoices, payments, journal entries)</td></tr>
+  <tr><td>Accounting export</td><td>Export invoices, payments &amp; journal entries to the dealer's accounting system (QuickBooks first; others later)</td></tr>
   <tr><td>Email &amp; SMS</td><td>Lead notifications, customer comms, delivery/title updates</td></tr>
   <tr><td>Platform billing</td><td>Subscription billing &amp; metering for the SaaS operator (hosted mode)</td></tr>
 </table>
@@ -290,16 +270,20 @@
 <h2 id="nfr" class="pgbreak">12 · Non-Functional Requirements</h2>
 <table class="t">
   <tr><th>Area</th><th>Requirement</th></tr>
-  <tr><td>Multi-tenancy</td><td>Strict per-tenant data isolation enforced at the data layer; no cross-tenant access possible by any query path.</td></tr>
-  <tr><td>Security</td><td>Authentication with sessions/SSO; role-based authorization on every action; encrypted secrets; audit log of sensitive actions; PII &amp; financing data protected.</td></tr>
-  <tr><td>Availability</td><td>Hosted SLA target 99.9%; storefront cached/CDN-served; graceful degradation if back-office services are down.</td></tr>
-  <tr><td>Performance</td><td>Dashboards load &lt; 2 s on typical tenant volumes; storefront fast on mobile; search responsive.</td></tr>
-  <tr><td>Scalability</td><td>Hundreds of tenants, tens of thousands of units &amp; leads per tenant, without per-tenant degradation.</td></tr>
-  <tr><td>Portability</td><td>Same codebase deploys hosted (multi-tenant) and self-host (single-tenant) via configuration/license; no operator-only assumptions in tenant features.</td></tr>
-  <tr><td>Data &amp; backups</td><td>Per-tenant export of all data; regular backups; tenant offboarding returns/erases data.</td></tr>
-  <tr><td>Observability</td><td>Logs, metrics, error tracking; per-tenant usage metering for billing; uptime &amp; API latency dashboards (operator).</td></tr>
-  <tr><td>Accessibility &amp; responsive</td><td>Internal tools usable on tablet; storefront fully responsive; WCAG-AA color/contrast for storefront.</td></tr>
-  <tr><td>Auditability</td><td>Immutable history of status/price/discount/payment/document events with actor, timestamp and reason.</td></tr>
+  <tr><td>Multi-tenant isolation</td><td>Strict per-tenant data isolation enforced at the data layer; no read or write path can cross tenants, even if application code has a bug. Provable by an automated cross-tenant negative test.</td></tr>
+  <tr><td>Real-time collaboration</td><td>Changes by one user — status, price, a new lead, an assignment, a payment — appear to others viewing the same data within ~1–2 seconds, <b>without a manual refresh and without perceptible polling delay</b>.</td></tr>
+  <tr><td>Concurrency &amp; density</td><td><b>Maximize the number of simultaneous active users supported per server</b>; the system scales horizontally and shows no per-tenant degradation as tenants and users grow.</td></tr>
+  <tr><td>Performance</td><td>Interactive actions feel instant; dashboards load &lt; 2 s and lists/search respond within a few hundred ms at typical tenant volumes.</td></tr>
+  <tr><td>Responsive &amp; multi-device</td><td>Good, usable UX across <b>phone, tablet, laptop and ultra-wide desktop</b>; touch and pointer input; field roles (recon, delivery) usable on a phone/tablet; the public storefront is mobile-first.</td></tr>
+  <tr><td>Availability</td><td>Hosted availability target 99.9%; the storefront stays served from cache and the system degrades gracefully if a back-office component is down.</td></tr>
+  <tr><td>Security &amp; privacy</td><td>Authentication (incl. an SSO option) and authorization checked on every action; PII &amp; financing data protected in transit and at rest; secrets safeguarded; sensitive actions audited. Detailed obligations in Appendix B.</td></tr>
+  <tr><td>Scalability</td><td>Hundreds+ of tenants and tens of thousands of units &amp; leads per tenant without degradation.</td></tr>
+  <tr><td>Portability / deployment</td><td>One product deploys hosted (multi-tenant) or self-host (single-tenant) by configuration/licence; no operator-only assumptions leak into tenant features.</td></tr>
+  <tr><td>Data &amp; backups</td><td>Full per-tenant data export; regular backups with tested restore; tenant offboarding returns then erases the tenant’s data.</td></tr>
+  <tr><td>Accessibility</td><td>Meets WCAG 2.1 AA for the storefront and internal tools; fully keyboard-navigable.</td></tr>
+  <tr><td>Observability</td><td>Logs, metrics and error tracking; per-tenant usage metering; uptime &amp; latency visibility for the operator.</td></tr>
+  <tr><td>Auditability</td><td>Immutable history of status / price / discount / payment / document events with actor, timestamp and reason.</td></tr>
+  <tr><td>Internationalization</td><td>US-English / USD at launch; the data model avoids assumptions that would block later localization or multi-currency.</td></tr>
 </table>
 
 <h2 id="acceptance">13 · Acceptance Criteria</h2>
@@ -325,16 +309,17 @@
   <tr><td>MRR / ARR</td><td>Monthly / annual recurring revenue (operator metric).</td></tr>
 </table>
 
-<h2 id="dd" class="pgbreak">Appendix A · Data Dictionary &amp; Relational Schema</h2>
-<p>Recommended target: <b>PostgreSQL</b> (hosted / multi-tenant) with <b>Row-Level Security</b>; <b>SQLite</b> for single-tenant self-host installs behind the same data-access layer. Conventions applied to every tenant-scoped table:</p>
+<h2 id="dd" class="pgbreak">Appendix A · Data Dictionary</h2>
+<p>The logical data model — the entities the system manages, their key attributes and relationships. It is technology-neutral; the physical schema, storage engine and tenant-isolation mechanism are proposed in the Functional Specification Proposal. Conventions on every tenant-scoped entity:</p>
 <ul class="req">
-  <li>Primary key <code>id uuid</code>; audit columns <code>created_at</code>, <code>updated_at timestamptz</code>; optional <code>deleted_at</code> for soft delete.</li>
-  <li><code>tenant_id uuid NOT NULL → tenants(id)</code> on every business table, enforced by an RLS policy <code>USING (tenant_id = current_setting('app.tenant_id')::uuid)</code> — no query path can cross tenants. (Self-host keeps the column for parity and drops the policy.)</li>
-  <li>Money as <code>numeric(12,2)</code>; flexible attributes as <code>jsonb</code>; enums as Postgres enum types / CHECK constraints (see below).</li>
-  <li>Every mutation that matters (status, price, discount, payment, signature) writes a row to <code>activities</code> (immutable audit log).</li>
+  <li>A stable unique identifier; created / updated timestamps; an optional soft-delete marker.</li>
+  <li>A <b>tenant reference</b> on every business entity; isolation is enforced so no query path can cross tenants (self-host runs a single tenant).</li>
+  <li>Money as fixed-precision decimal; flexible attributes as structured data; constrained value sets as enumerations (below).</li>
+  <li>Every material mutation (status, price, discount, payment, signature) appends to an <b>immutable audit log</b>.</li>
+</ul>
 </ul>
 <table class="t" style="font-size:8.6pt">
-  <tr><th style="width:16%">Table</th><th>Key columns (type)</th><th style="width:26%">Relationships &amp; indexes</th></tr>
+  <tr><th style="width:16%">Table</th><th>Key attributes</th><th style="width:26%">Relationships</th></tr>
   <tr><td><b>tenants</b></td><td>name, plan(enum), status(enum), domain, branding(jsonb), billing_ref, lots(jsonb)</td><td>root of isolation; platform-managed</td></tr>
   <tr><td><b>users</b></td><td>name, email, password_hash, roles(text[]), lot_scope(text[]), active(bool), last_login</td><td>→ tenants; RBAC subject; uniq(tenant_id,email)</td></tr>
   <tr><td><b>units</b><br><span class="mut xs">(inventory — the spine)</span></td><td>stock_no, type, year, make, length, axles, capacity, condition, status(enum), lot_id, cost, list_price, floor_price, acquired_at, sold_at, views, lead_count, specs(jsonb)</td><td>uniq(tenant_id,stock_no); idx(tenant_id,status); → lots</td></tr>
@@ -364,7 +349,7 @@
   <tr><td>delivery.status</td><td><code>scheduled · en_route · delivered</code></td></tr>
   <tr><td>tenant.plan / .status</td><td><code>starter · growth · enterprise · license</code> &nbsp;/&nbsp; <code>active · trial · licensed · suspended</code></td></tr>
 </table>
-<h4>Platform control plane (hosted mode only — separate schema, no tenant RLS)</h4>
+<h4>Platform control plane (hosted mode only — operator data, outside tenant isolation)</h4>
 <table class="t" style="font-size:8.6pt">
   <tr><th style="width:22%">Table</th><th>Key columns</th></tr>
   <tr><td>subscriptions</td><td>tenant_id, plan, mrr, seats, started_at, status, billing_provider_ref</td></tr>
@@ -373,167 +358,14 @@
   <tr><td>license_keys</td><td>key, owner, plan, seats, expires_at (validated by self-host installs)</td></tr>
 </table>
 
-<h2 id="api" class="pgbreak">Appendix B · API Reference</h2>
-<p>REST / JSON. <b>Namespaces:</b> <code>/api/v1/*</code> authenticated back-office (tenant from session/subdomain, every query tenant-scoped) · <code>/api/v1/portal/*</code> customer portal · <code>/api/public/*</code> storefront (no auth, tenant by host) · <code>/api/platform/*</code> operator control plane (super-admin, cross-tenant) · <code>/api/webhooks/*</code> inbound integrations. RBAC per endpoint (the §10 matrix); state-machine changes use explicit <code>…/transition</code> actions (validated + audited), not arbitrary PATCH; lists accept <code>?q=&amp;status=&amp;sort=&amp;page=&amp;limit=</code>; money/transition writes accept an <code>Idempotency-Key</code> header.</p>
-<h4>Auth &amp; session</h4>
-<pre>POST  /api/v1/auth/login            GET  /api/v1/auth/me
-POST  /api/v1/auth/logout           POST /api/v1/auth/sso/callback
-POST  /api/v1/auth/password/reset</pre>
-<h4>Inventory &amp; pricing</h4>
-<pre>GET   /api/v1/units                 list/filter (type,status,location,aged)
-POST  /api/v1/units                 intake / acquire
-GET   /api/v1/units/:id             full record ("all lenses")   PATCH /api/v1/units/:id
-POST  /api/v1/units/:id/transition  incoming→recon→available→pending→sold (guarded)
-POST  /api/v1/units/:id/photos      GET /api/v1/units/:id/timeline    GET /api/v1/units/aging
-PATCH /api/v1/units/:id/price       set list/floor (logged; may require approval)
-GET   /api/v1/pricing/repricer      GET /api/v1/pricing/comps?unit=:id
-GET   /api/v1/pricing/approvals     POST /api/v1/pricing/approvals/:id/decide</pre>
-<h4>Leads, customers, deals, quotes</h4>
-<pre>GET/POST /api/v1/leads              GET/PATCH /api/v1/leads/:id
-POST  /api/v1/leads/:id/assign      POST /api/v1/leads/:id/convert  →deal
-GET   /api/v1/sources               GET/POST /api/v1/campaigns
-GET/POST /api/v1/customers          GET/PATCH /api/v1/customers/:id
-GET/POST /api/v1/deals              GET/PATCH /api/v1/deals/:id
-POST  /api/v1/deals/:id/stage       advance pipeline
-POST  /api/v1/deals/:id/discount    POST /api/v1/deals/:id/approve  (manager RBAC)
-GET/POST /api/v1/quotes             POST /api/v1/quotes/:id/send | /accept
-GET   /api/v1/forecast              GET /api/v1/team/leaderboard</pre>
-<h4>Service · accounting · titles · delivery</h4>
-<pre>GET/POST /api/v1/workorders         POST /api/v1/workorders/:id/status
-PATCH /api/v1/workorders/:id/tasks/:t   POST …/hours  …/parts  …/photos
-GET/POST /api/v1/invoices           POST /api/v1/invoices/:id/payments (idempotent)
-GET/POST /api/v1/bills              GET /api/v1/accounting/pnl?period=   POST /accounting/export
-GET/PATCH /api/v1/titles/:unitId    GET/POST /api/v1/documents   POST /documents/:id/sign
-GET/POST /api/v1/deliveries         POST /api/v1/deliveries/:id/status   POST /deliveries/quote
-GET/POST /api/v1/appointments</pre>
-<h4>Cross-cutting &amp; tenant admin</h4>
-<pre>GET   /api/v1/search?q=             GET /api/v1/notifications  POST …/:id/read
-GET/POST /api/v1/tasks              GET /api/v1/activity        GET /api/v1/reports/:kpiSet
-GET/POST /api/v1/users              PATCH /api/v1/users/:id (roles, lot scope)
-GET/PATCH /api/v1/tenant/settings   branding · lots · config · billing</pre>
-<h4>Storefront (public) &amp; customer portal</h4>
-<pre>GET   /api/public/inventory         available units (filter/search/sort)
-GET   /api/public/inventory/:stock  detail (deep-linkable)
-POST  /api/public/inquiry           creates a Lead + notifies   ← implemented in prototype
-POST  /api/public/financing/prequalify
-GET   /api/v1/portal/me             GET /api/v1/portal/deals
-GET   /api/v1/portal/quotes/:id     POST …/accept
-POST  /api/v1/portal/financing/apply  GET …/status
-GET   /api/v1/portal/delivery/:id   GET /api/v1/portal/documents  POST …/:id/sign
-GET/POST /api/v1/portal/saved</pre>
-<h4>Platform control plane (hosted) &amp; webhooks</h4>
-<pre>GET/POST /api/platform/tenants      PATCH /api/platform/tenants/:id (plan/status)
-GET   /api/platform/revenue         GET /api/platform/usage    GET /api/platform/billing
-GET   /api/platform/support         GET /api/platform/health   POST /api/platform/license/verify
-POST  /api/webhooks/financing       lender decision → Deal/portal
-POST  /api/webhooks/payments        settled → reconcile invoice
-POST  /api/webhooks/freight         carrier status → delivery
-POST  /api/webhooks/syndication     listing-site lead → Lead
-POST  /api/webhooks/title           DMV/title callback</pre>
-
-<h2 id="perf" class="pgbreak">Appendix C · Performance &amp; Scaling</h2>
-<p>TPOS is <b>database-bound CRUD</b>: requests spend their time waiting on Postgres, not on application code. The performance and tenant-density wins therefore live in the <b>data layer and the connection pool</b>, not in an exotic runtime or premature sharding. This appendix is one optimization profile; apply it only to the degree the product needs.</p>
-<div class="note"><b>Define the dimension first.</b> "High performance" is not one thing, and the lever order changes with it. Decide which of these dominates before optimizing — over-investing in the wrong one is wasted complexity.</div>
-<table class="t">
-  <tr><th>If the goal is…</th><th>Dominant levers, in order</th></tr>
-  <tr><td><b>p99 read latency</b> (dashboards feel instant)</td><td>Materialized read models → cache hot reads → <code>tenant_id</code>-leading indexes → read replicas</td></tr>
-  <tr><td><b>Write / transaction throughput</b></td><td>Index discipline → prepared statements &amp; batching → hash-partition hot tables → pool sizing</td></tr>
-  <tr><td><b>Tenants per server</b> (density)</td><td>PgBouncer transaction pooling → edge-offload the storefront → shared-schema low footprint → async runtime</td></tr>
-</table>
-
-<h3>C.1 Indexing &amp; query design — the foundation (and what makes RLS cheap)</h3>
-<ul class="req">
-  <li>Every hot index <b>leads with <code>tenant_id</code></b>, then the query's predicates: <code>(tenant_id,status)</code>, <code>(tenant_id,stock_no)</code>, <code>(tenant_id,due_at)</code>, <code>(tenant_id,stage)</code>, etc.</li>
-  <li><b>Keep Row-Level Security.</b> With the right composite index the planner pushes the policy predicate into the index scan, so RLS is cheap (reported order-of-magnitude: ~0.3 ms policy evaluation at 50 M rows / 10 K tenants; ~1–5% vs. app-level filtering). <b>The 100× penalty comes from a missing <code>tenant_id</code>-leading index, not from RLS itself.</b> Database-enforced isolation is worth the few percent — one cross-tenant leak is existential, and it protects you even when application code has a bug.</li>
-  <li>Eliminate N+1s; use prepared statements; keep working sets index-resident.</li>
-</ul>
-
-<h3>C.2 Partitioning — secondary, and use HASH not list</h3>
-<ul class="req">
-  <li>Partitioning is a lever only for the largest tables (e.g. <code>activities</code>, <code>units</code> at very high volume); the composite index above does most of the work first.</li>
-  <li>With thousands of tenants, partition by <b><code>HASH(tenant_id)</code> into a fixed number of partitions</b> (e.g. 16–64) for cache locality and scan pruning. <b>Do NOT list-partition one-per-tenant</b> — thousands of partitions blow up planner time and DDL. Time-range sub-partitioning suits the audit log.</li>
-</ul>
-
-<h3>C.3 Connection pooling — the real density lever</h3>
-<ul class="req">
-  <li>Postgres is process-per-connection (~5 MB + context-switch per connection), so density comes from <b>PgBouncer in transaction-pooling mode</b> multiplexing many clients onto a small pool sized to roughly <b>3–5 backend connections per CPU core</b>.</li>
-  <li><b>Gotcha that interacts with RLS:</b> under transaction pooling a session-level <code>SET app.tenant_id</code> does not persist across statements. Set the tenant <b>per-transaction</b> with <code>SET LOCAL app.tenant_id = …</code> (or <code>set_config('app.tenant_id', …, true)</code>) so RLS still applies. Also avoid session-scoped prepared-statement / session-feature assumptions in transaction mode.</li>
-</ul>
-
-<h3>C.4 Read path — precompute the dashboards (CQRS-lite)</h3>
-<ul class="req">
-  <li>The KPI dashboards (§9) aggregate across many rows. Precompute them into <b>materialized views / rollup tables</b> refreshed incrementally by the background worker, so a dashboard load is an O(1) indexed read, not a per-request fan-out join. This is the single biggest internal-latency win.</li>
-  <li>Cache hot reads (Redis / Dragonfly or in-process) with event-driven invalidation on writes; route all dashboard/report traffic to <b>read replicas</b>.</li>
-</ul>
-
-<h3>C.5 Storefront at the edge</h3>
-<p>The public storefront's "available inventory" is the highest-volume, most cacheable traffic. Serve it from a <b>CDN / ISR edge</b>, invalidated when a unit's status changes. This removes the largest read load from the origin entirely and is often the cheapest way to raise effective tenants-per-server.</p>
-
-<h3>C.6 Runtime — a minor lever for DB-bound work</h3>
-<p>Framework benchmarks show per-request gaps <b>collapse once Postgres is in the loop</b> (compiled runtimes dominate only the compute-bound plaintext/JSON rounds). For DB-bound CRUD you will not get throughput from switching language — choose the runtime for its <b>concurrency model and your team</b>, not per-query speed. Where it touches density: an async / light-concurrency runtime (<b>Go, .NET, Node, or Elixir</b> for connection-heavy/real-time) holds more in-flight requests per box than a process-per-worker Python/Ruby setup. <b>Rust is not required</b> here and its productivity cost rarely pays back on this workload.</p>
-
-<h3>C.7 Scaling ladder — earn each step</h3>
-<ol class="req">
-  <li>Vertical scaling + PgBouncer (handles a large share of workloads on its own).</li>
-  <li>Add read replicas for the read/report load.</li>
-  <li>Hash-partition the few largest tables.</li>
-  <li><b>Only</b> once a single primary is genuinely exhausted (commonly hundreds of GB+), shard with <b>Citus</b> co-located by <code>tenant_id</code>. Keep the schema partition-ready (<code>tenant_id</code> on every table) so this migration is cheap — but <b>defer it</b>; vanilla Postgres + replicas goes much further than teams expect.</li>
-</ol>
-
-<div class="note"><b>Caveat — treat the numbers as order-of-magnitude.</b> The RLS timing figures come from a single practitioner benchmark and the single-node size thresholds are partly vendor framing. Use them for intuition; <b>benchmark on your own schema, queries and data</b> before treating any figure as a constant. Sources: practitioner RLS-at-scale benchmarks, PgBouncer pooling guides (connection-cost &amp; per-core sizing), single-node-Postgres scaling write-ups, and the TechEmpower framework benchmarks (database-query rounds).</div>
-
-<h2 id="adr" class="pgbreak">Appendix D · Architecture Decisions &amp; Roads Not Taken</h2>
-<p>Every significant fork weighed for the rebuild — the options considered, what was chosen, what was rejected and why. Decisions are advisory; the build team owns the final call. Several were <b>revised mid-review as evidence came in</b> — those are flagged <span class="pill">REVISED</span> and recorded honestly rather than quietly replaced. Bracketed numbers reference the sources in §D.2.</p>
-<table class="t" style="font-size:8.6pt">
-  <tr><th style="width:4%">#</th><th style="width:17%">Decision</th><th style="width:21%">Options considered</th><th style="width:18%">Chosen</th><th>Roads not taken — reasoning</th></tr>
-  <tr><td>1</td><td>Prototype persistence</td><td>Flat JSON file · real database</td><td>JSON file + in-browser mock</td><td>The prototype is a UI/IA demo; only the storefront lead endpoint is live. A real DB was out of scope for a front-end mock.</td></tr>
-  <tr><td>2</td><td>Production database</td><td>PostgreSQL · document/NoSQL · MySQL · SQLite-only</td><td><b>PostgreSQL</b> (hosted) + SQLite per self-host tenant</td><td>NoSQL rejected — the domain is intensely relational (one-record-many-lenses = foreign keys), needs transactions (booking a sale) and joins. MySQL viable; Postgres preferred for RLS, jsonb, partitioning, extensions. SQLite-only rejected for hosted (concurrency) but ideal for a single self-host tenant. [1]</td></tr>
-  <tr><td>3</td><td>Multi-tenant isolation</td><td>Shared schema + RLS · schema-per-tenant · database-per-tenant · app-level filtering only</td><td><b>Shared schema + RLS</b>, <code>tenant_id</code> on every table</td><td>DB-per-tenant rejected — poor density, heavy ops. Schema-per-tenant rejected — migration/ops complexity at scale. App-filtering-only rejected — one forgotten <code>WHERE</code> leaks data; isolation belongs in the database. RLS gives DB-enforced safety at ~1–5% when indexed. [1][2][3][4]</td></tr>
-  <tr><td>4</td><td>Service topology</td><td>Modular monolith · microservices</td><td><b>Modular monolith</b> (one deployable)</td><td>Microservices rejected — the self-host requirement wants one artifact, the team is small, and network hops hurt DB-bound latency. Extract a service later only if a piece proves it needs it.</td></tr>
-  <tr><td>5</td><td>App framework (pragmatic profile)</td><td>Django/DRF · Rails · NestJS+Next.js · Go · .NET · Elixir</td><td><b>Django/DRF</b> (lead) or <b>NestJS+Next.js</b> (JS-first)</td><td>Go/.NET/Rust rejected as the default — more boilerplate for CRUD/admin and no free admin plane. Chosen for batteries-included CRUD, migrations, RBAC, Postgres-first tooling, and clean self-host packaging.</td></tr>
-  <tr><td>6</td><td>Media storage</td><td>S3-compatible object storage (MinIO self-host) · blobs in Postgres</td><td><b>S3-compatible</b> object storage</td><td>Blobs-in-DB rejected — bloats the database and slows backups/replication; photos &amp; signed documents belong in object storage.</td></tr>
-  <tr><td>7</td><td>Storefront rendering</td><td>Edge/CDN (ISR) · in-app SSR · SPA</td><td><b>SSR + edge-cache</b> available inventory</td><td>Pure SPA rejected for the public site — SEO &amp; first-paint matter. Internal dashboards stay SPA/API (or SSR-with-enhancement).</td></tr>
-  <tr><td>8</td><td>Runtime under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Rust · Go · .NET · Elixir · keep pragmatic</td><td>Async/light-concurrency (<b>Go/.NET/Elixir</b>); <b>Rust not required</b></td><td>Initially proposed Rust for raw throughput. Evidence: framework gaps <b>collapse once Postgres is in the loop</b>; Rust leads only compute-bound rounds. For DB-bound CRUD the runtime is a minor lever — choose for concurrency model + team, not per-query speed. [9]</td></tr>
-  <tr><td>9</td><td>RLS under <i>performance-primary</i> <span class="pill">REVISED</span></td><td>Keep RLS (indexed) · move isolation to app/partitioning for speed</td><td><b>Keep RLS</b> + <code>tenant_id</code>-leading composite indexes</td><td>Initially suggested moving isolation out of RLS for speed. Evidence: RLS ~0.3 ms at 50 M rows / 10 K tenants <i>with the right composite index</i>; the 100× penalty is the <b>missing index</b>, not RLS. Keep it — the safety is worth ~1–5%. [2][3]</td></tr>
-  <tr><td>10</td><td>Horizontal sharding <span class="pill">REVISED</span></td><td>Citus early (ease later migration) · single-node + replicas, defer</td><td><b>Single node + replicas; defer Citus</b>, keep schema shard-ready</td><td>Initially put Citus "on the table." Evidence: vanilla Postgres + pooling handles most workloads under ~500 GB; replicas/partitioning extend into the terabytes before sharding is warranted. Defer until one primary is genuinely exhausted. [5][6]</td></tr>
-  <tr><td>11</td><td>Partitioning</td><td>HASH(tenant_id) fixed N · list/partition-per-tenant</td><td><b>HASH(tenant_id)</b> into 16–64 partitions (large tables only)</td><td>Partition-per-tenant rejected — thousands of tenants blow up planner time &amp; DDL. Partitioning is a <i>secondary</i> lever after the composite index. [6]</td></tr>
-  <tr><td>12</td><td>Connection management</td><td>PgBouncer transaction pooling · session pooling · none</td><td><b>PgBouncer (transaction mode)</b> ~3–5/core + <code>SET LOCAL</code> tenant</td><td>No/session pooling rejected for density — process-per-connection (~5 MB each). Transaction mode requires <code>SET LOCAL app.tenant_id</code> per-transaction so the RLS variable survives (session <code>SET</code> silently breaks under it). [7][8]</td></tr>
-  <tr><td>13</td><td>Data access (perf paths)</td><td>Heavy ORM · thin typed SQL</td><td><b>Thin typed SQL</b> (sqlx/sqlc/Dapper/Ecto) on hot paths</td><td>Heavy ORM rejected on hot paths — per-query overhead and hidden N+1s. ORM is fine for cold CRUD.</td></tr>
-  <tr><td>14</td><td>Dashboard read path</td><td>Per-request aggregation · materialized read models</td><td><b>Materialized views / rollups</b> (CQRS-lite) + replicas + cache</td><td>Per-request big-join aggregation rejected for dashboards — precompute and serve an O(1) indexed read.</td></tr>
-</table>
-
-<h3>D.1 What we changed our minds about (and why)</h3>
-<p>Three decisions from the first "performance-first" pass were corrected once benchmark evidence was reviewed — recorded here so the reasoning is auditable, not lost:</p>
-<ul class="req">
-  <li><b>#8 — Rust is not the lever.</b> For DB-bound CRUD, runtime choice barely moves throughput; the language win is real only on compute-bound paths. [9]</li>
-  <li><b>#9 — Don't drop RLS for speed.</b> The cost is the missing <code>tenant_id</code>-leading index, not the policy; keep DB-enforced isolation. [2][3]</li>
-  <li><b>#10 — Don't shard early.</b> A single Postgres primary + replicas + partitioning goes much further than expected; defer Citus. [5][6]</li>
-</ul>
-
-<h3>D.2 References &amp; evidence quality</h3>
-<p>Sources consulted, with their nature flagged. <b>Several are vendor or single-practitioner sources; all numeric figures are order-of-magnitude guidance — benchmark on your own schema, queries and data before treating any as a constant.</b></p>
-<table class="t" style="font-size:8.6pt">
-  <tr><th style="width:5%">#</th><th style="width:34%">Source</th><th style="width:23%">Nature</th><th>Informs</th></tr>
-  <tr><td>1</td><td>PostgreSQL docs — Row Security Policies</td><td>Official documentation</td><td>RLS canonical reference (#2,#3)</td></tr>
-  <tr><td>2</td><td>RLS-at-scale benchmark (DEV Community)</td><td>Single-practitioner benchmark</td><td>~0.3 ms at 50 M/10 K with <code>tenant_id</code>-leading index; missing index = 100× (#3,#9)</td></tr>
-  <tr><td>3</td><td>RLS overhead write-up (Wellally)</td><td>Practitioner</td><td>~1–5% vs app-level filtering; planner push-down (#3,#9)</td></tr>
-  <tr><td>4</td><td>Tenant-isolation rationale (OneUptime); Crunchy Data RLS-for-tenants</td><td>Vendor / practitioner</td><td>DB-enforced isolation protects against app bugs (#3)</td></tr>
-  <tr><td>5</td><td>Single-node Postgres scaling (Velodb)</td><td>Practitioner / vendor</td><td>Vertical + pooling under ~500 GB; OpenAI on Postgres; replicas+partitioning to TB (#10)</td></tr>
-  <tr><td>6</td><td>Citus multi-tenant sharding docs &amp; blog</td><td>Vendor framing</td><td>Shard by <code>tenant_id</code>, co-location; "~100 GB" threshold (#10,#11)</td></tr>
-  <tr><td>7</td><td>Connection scaling (PlanetScale); sizing (Akamai)</td><td>Vendor</td><td>Process-per-connection cost; PgBouncer multiplexing; ~3–5 conns/core (#12)</td></tr>
-  <tr><td>8</td><td>"PgBouncer … fraught with peril" (JP Camara)</td><td>Practitioner deep-dive</td><td>Transaction-pooling gotchas; <code>SET LOCAL</code> / session-feature caveats (#12)</td></tr>
-  <tr><td>9</td><td>TechEmpower Framework Benchmarks</td><td>Independent benchmark</td><td>DB-query rounds collapse framework gaps; Rust leads only plaintext/JSON (#8)</td></tr>
-</table>
-
-
 <!-- ===================== APPENDIX E — SECURITY, PRIVACY & COMPLIANCE ===================== -->
-<h2 id="sec" class="pgbreak">Appendix E · Security, Privacy &amp; Compliance</h2>
+<h2 id="sec" class="pgbreak">Appendix B · Security, Privacy &amp; Compliance</h2>
 <p class="lead">A trailer dealer that <b>arranges or extends financing</b> is a “financial institution” under the Gramm-Leach-Bliley Act — which pulls the FTC <b>Safeguards Rule</b> (16 CFR Part 314) onto every tenant, and onto TPOS as their service provider. These are <b>binding legal requirements</b>, not optional hardening. This appendix maps the regime to platform controls and a threat model.</p>
 <div class="note" style="border:0.75pt solid #15202b;background:#f6f8fa;padding:7pt 9pt;border-radius:4px;font-size:9.5pt;margin:6pt 0 10pt">
   <b>Not legal advice.</b> Items marked <span class="pill">COUNSEL</span> turn on facts a lawyer must confirm (whether a given dealer’s financing model triggers GLBA, FTC-vs-CFPB privacy applicability, per-state titling/lien law, and contractual liability allocation). Figures and citations are accurate as researched; verify against primary text before relying on them.
 </div>
 
-<h3>E.1 Regulatory surface</h3>
+<h3>B.1 Regulatory surface</h3>
 <table class="t">
   <tr><th style="width:21%">Regime</th><th style="width:30%">Trigger</th><th style="width:21%">Owner</th><th>TPOS role</th></tr>
   <tr><td>GLBA <b>Safeguards Rule</b> — 16 CFR 314</td><td>Dealer arranges/extends financing → “financial institution”</td><td>Dealer (tenant)</td><td>§314.4(f) <b>service provider</b> — must safeguard by contract, support audits</td></tr>
@@ -545,9 +377,9 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td><b>ECOA / Reg B</b> retention — 12 CFR 1002.12</td><td>Credit applications</td><td>Dealer</td><td>Honor 25-month retention floor in disposal policy</td></tr>
 </table>
 
-<div class="wf"><div id="isolation"></div><div class="cap">Defense in depth for the #1 risk — cross-tenant data disclosure. Tenant context is derived server-side, enforced at the API (object-ownership / BOLA check) and again in the database (RLS <code>FORCE</code> + per-transaction <code>SET LOCAL</code>). Neither layer trusts a client-supplied tenant id.</div></div>
+<div class="note" style="border:0.75pt solid #15202b;background:#f6f8fa;padding:7pt 9pt;border-radius:4px;font-size:9.5pt;margin:6pt 0 10pt"><b>Requirement — the #1 risk is cross-tenant data disclosure.</b> Tenant context must be derived server-side (never from a client-supplied identifier) and isolation enforced <i>in depth</i> — at the authorization layer and again at the data layer — so no request can read or write another tenant’s data, even with a code bug. Provable by an automated negative test. The concrete mechanism is proposed in the Functional Specification Proposal.</div>
 
-<h3>E.2 Safeguards Rule control map (16 CFR 314.4)</h3>
+<h3>B.2 Safeguards Rule control map (16 CFR 314.4)</h3>
 <p>Each required element of the written information-security program, mapped to the platform control that satisfies it. The §314.6 partial exemption (&lt; 5,000 consumers) relaxes four sub-elements for small dealers; TPOS implements the full set regardless.</p>
 <table class="t" style="font-size:9pt">
   <tr><th style="width:26%">§314.4 element</th><th>TPOS control</th></tr>
@@ -559,79 +391,76 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>(c)(4) Secure development</td><td>Secure SDLC; dependency &amp; secret scanning in CI</td></tr>
   <tr><td>(c)(5) <b>MFA</b></td><td>MFA required on every login (mandatory for admin / title / payment roles)</td></tr>
   <tr><td>(c)(6) <b>Secure disposal</b></td><td>Retention engine: default purge of unused PII ≤ 2 years, overridden by legal-hold floors (ECOA 25 mo., title/finance records)</td></tr>
-  <tr><td>(c)(7) Change management</td><td>Reviewed, audited deploy pipeline; migration lint gates (RLS present, see E.4)</td></tr>
-  <tr><td>(c)(8) <b>Monitoring / logging</b></td><td>Immutable, append-only audit log of who-did-what-to-which-record-when, incl. tenant_id</td></tr>
+  <tr><td>(c)(7) Change management</td><td>Reviewed, audited deploy pipeline; isolation-policy presence checked in CI</td></tr>
+  <tr><td>(c)(8) <b>Monitoring / logging</b></td><td>Immutable, append-only audit log of who-did-what-to-which-record-when</td></tr>
   <tr><td>(d) Testing</td><td>Annual penetration test + vulnerability assessment ≥ every 6 months (absent continuous monitoring)</td></tr>
   <tr><td>(e) Training</td><td>Security-awareness training; qualified security staff</td></tr>
   <tr><td>(f) <b>Service-provider oversight</b></td><td>The clause that binds TPOS: contractual security commitment, right to assess, breach-cost allocation</td></tr>
   <tr><td>(g) Keep current</td><td>Re-evaluate program on testing results, material change, new threats</td></tr>
-  <tr><td>(h) Written incident-response plan</td><td>Documented IRP (roles, comms, remediation, post-mortem) wired to E.5</td></tr>
+  <tr><td>(h) Written incident-response plan</td><td>Documented IRP (roles, comms, remediation, post-mortem) wired to B.5</td></tr>
   <tr><td>(i) Annual board report</td><td>QI’s written annual report — exportable from the platform</td></tr>
 </table>
 <p><b>Liability.</b> Primary duty is the dealer’s, and using a provider does not relieve it (§314.4(f)). But the FTC <i>has</i> acted directly against auto-dealer software providers (2019 settlement), so TPOS carries real exposure and allocates it by contract (MSA/DPA). <span class="pill">COUNSEL</span></p>
 
-<h3>E.3 Privacy, e-signature &amp; breach response</h3>
+<h3>B.3 Privacy, e-signature &amp; breach response</h3>
 <ul class="req">
   <li><b>Privacy Rule.</b> The dealer issues the notice + opt-out; TPOS generates/delivers notices and tracks opt-outs. The §313.13 <b>service-provider exception</b> (a contractual use-restriction) is what lets the dealer share customer NPI with TPOS without an opt-out — so that clause must be in the contract. <i>Note: privacy rulemaking splits FTC (vehicle dealers) vs CFPB Reg P (others) — cite FTC 16 CFR 313 for dealers.</i> <span class="pill">COUNSEL</span></li>
   <li><b>E-signature (ESIGN/UETA).</b> Capture intent-to-sign; run the consumer-consent gate (affirmative consent + demonstrated ability to access the electronic form + the required pre-consent disclosures + a withdrawal mechanism); store tamper-evident, reproducible records (signer identity, timestamp, IP, document hash). <b>Title documents are carved out</b> — UETA §3 and many state codes exclude documents of title; treat titling as per-DMV, not generic e-sign.</li>
   <li><b>Breach response.</b> Instrument detection to count affected consumers and whether data was encrypted; auto-start the <b>≤ 30-day FTC clock</b> (16 CFR 314.5) and fan out <b>state notifications by the affected resident’s state</b>. Capture residency in the data model so the per-state affected set is queryable — the same per-jurisdiction pattern as titling.</li>
 </ul>
 
-<h3>E.4 Threat model — STRIDE × asset</h3>
+<h3>B.4 Threat model — STRIDE × asset</h3>
 <p>Highest-priority cells shaded conceptually below; <b>Information disclosure × tenant data</b> (cross-tenant leak) is the single dominant risk.</p>
 <table class="t" style="font-size:8.6pt">
   <tr><th style="width:20%">Asset \ STRIDE</th><th>Spoofing</th><th>Tampering</th><th>Repudiation</th><th>Info disclosure</th><th>DoS</th><th>Elevation</th></tr>
-  <tr><td><b>Tenant business data</b></td><td>—</td><td>RLS WITH CHECK</td><td>Audit log</td><td><b>RLS + API authz ◆</b></td><td>Rate limit</td><td>FORCE RLS; non-owner role</td></tr>
-  <tr><td><b>Staff sessions</b></td><td><b>Cookie flags, MFA ◆</b></td><td>Signed/rotated</td><td>Audit log</td><td>HttpOnly/Secure</td><td>Throttle login</td><td>Re-auth on priv change</td></tr>
-  <tr><td><b>Portal / API tokens</b></td><td>Short-lived, scoped</td><td>Signature verify</td><td>Token id in log</td><td>No token in logs</td><td>Per-token limit</td><td>Scope = role</td></tr>
-  <tr><td><b>Payment tokens</b></td><td>—</td><td><b>Tokenize ◆</b></td><td>Audit log</td><td>Column encryption</td><td>—</td><td>Role-masked</td></tr>
-  <tr><td><b>Titles / PII</b></td><td>—</td><td>Integrity hash</td><td>Audit log</td><td>Encrypt + mask</td><td>—</td><td>Field-level authz</td></tr>
-  <tr><td><b>Uploaded files</b></td><td>—</td><td>Magic-byte check</td><td>Audit log</td><td>Off-webroot store</td><td>Size limit</td><td>Re-encode images</td></tr>
+  <tr><td><b>Tenant business data</b></td><td>—</td><td>Server-side write checks</td><td>Audit log</td><td><b>Enforced isolation ◆</b></td><td>Rate limit</td><td>Least-privilege data access</td></tr>
+  <tr><td><b>Staff sessions</b></td><td><b>Hardened sessions, MFA ◆</b></td><td>Signed / rotated</td><td>Audit log</td><td>Not script-readable</td><td>Throttle login</td><td>Re-auth on privilege change</td></tr>
+  <tr><td><b>Portal / API tokens</b></td><td>Short-lived, scoped</td><td>Integrity-verified</td><td>Token id in log</td><td>Never logged</td><td>Per-token limit</td><td>Scope = role</td></tr>
+  <tr><td><b>Payment instruments</b></td><td>—</td><td><b>Tokenized ◆</b></td><td>Audit log</td><td>Encrypted</td><td>—</td><td>Role-masked</td></tr>
+  <tr><td><b>Titles / PII</b></td><td>—</td><td>Integrity-checked</td><td>Audit log</td><td>Encrypted + masked</td><td>—</td><td>Field-level authz</td></tr>
+  <tr><td><b>Uploaded files</b></td><td>—</td><td>Content-type verified</td><td>Audit log</td><td>Private storage</td><td>Size limit</td><td>Re-encoded</td></tr>
   <tr><td><b>Public storefront</b></td><td>—</td><td>Read-only view</td><td>—</td><td>Published view only</td><td><b>Edge cache ◆</b></td><td>—</td></tr>
-  <tr><td><b>Audit log itself</b></td><td>—</td><td><b>Append-only ◆</b></td><td>n/a</td><td>Restricted read</td><td>—</td><td>Separate write role</td></tr>
+  <tr><td><b>Audit log itself</b></td><td>—</td><td><b>Append-only ◆</b></td><td>n/a</td><td>Restricted read</td><td>—</td><td>Separate write path</td></tr>
 </table>
 
-<h3>E.5 Controls checklist (hard gates)</h3>
+<h3>B.5 Controls checklist (required outcomes)</h3>
+<p>Stated as outcomes the build must achieve; the concrete mechanisms (isolation technique, password hashing, session &amp; token handling, connection pooling) are proposed in the Functional Specification Proposal.</p>
 <div class="two">
   <div>
     <h4>Tenant isolation — the #1 risk</h4>
     <ul class="req">
-      <li>App connects as a <b>non-owner, non-superuser, non-<code>BYPASSRLS</code></b> role.</li>
-      <li><code>FORCE ROW LEVEL SECURITY</code> on every tenant table.</li>
-      <li><code>SET LOCAL app.tenant_id</code> per transaction — never session <code>SET</code> under PgBouncer transaction pooling.</li>
-      <li><code>WITH CHECK (tenant_id = …)</code> on every write policy (block insert-as-wrong-tenant).</li>
-      <li>Migration lint: every tenant table has RLS enabled <i>and</i> a policy.</li>
-      <li>Derive tenant_id from session/token server-side; <b>never</b> from a client param (OWASP API #1, BOLA/IDOR). UUID resource ids.</li>
-      <li><b>CI negative test:</b> tenant A cannot read / update / delete / insert-as tenant B — at the DB <i>and</i> API layer; fail the build on any leak.</li>
+      <li>Isolation enforced at the <b>data layer</b>, not only in application code, so a forgotten check cannot leak data.</li>
+      <li>The application's normal data access cannot bypass the isolation boundary.</li>
+      <li>Writes are constrained to the acting tenant (no insert / update into another tenant).</li>
+      <li>Tenant context is derived from the authenticated session/token <b>server-side</b> — never from a client-supplied identifier (defends OWASP API #1, broken object-level authorization).</li>
+      <li>A <b>CI negative test</b> proves tenant A cannot read, update, delete or insert-as tenant B — at both API and data layers; any leak fails the build.</li>
     </ul>
   </div>
   <div>
-    <h4>AuthN / AuthZ (OWASP ASVS)</h4>
+    <h4>Authentication &amp; authorization</h4>
     <ul class="req">
-      <li>Cookies: <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code>, <code>__Host-</code> prefix; session id ≥ 64-bit entropy; regenerate on login; idle + absolute timeouts; server-side logout.</li>
-      <li>Passwords: <b>Argon2id</b> (m=19 MiB, t=2, p=1); bcrypt ≥ 10 only for legacy.</li>
-      <li>MFA; login throttle/lockout; safe reset (single-use, time-limited, no enumeration).</li>
-      <li>Tokens: short-lived, scoped, signature/issuer/audience/expiry validated.</li>
-      <li>CSRF: synchronizer or HMAC double-submit for cookie auth; custom header on the bearer API.</li>
-      <li><b>RBAC</b> (roles → permission sets) over <b>ABAC</b> (tenant_id + field sensitivity).</li>
+      <li>Hardened sessions (theft-resistant, rotated on login, idle + absolute timeouts, server-side invalidation).</li>
+      <li>Passwords stored with a strong, salted, memory-hard hash; <b>MFA</b> available and required for sensitive roles.</li>
+      <li>Login throttling / lockout; safe password reset (single-use, time-limited, no account enumeration).</li>
+      <li>API / portal tokens short-lived, scoped to the role, and fully validated.</li>
+      <li>Cross-site request forgery defended for browser sessions.</li>
+      <li>Role-based authorization with field-level masking of PII / title / payment data.</li>
     </ul>
   </div>
 </div>
 <h4>Cross-cutting</h4>
 <ul class="req">
-  <li>Secrets in a managed KMS/secret store, never in VCS; rotate DB &amp; token-signing keys.</li>
-  <li>TLS in transit; encryption at rest for DB + object storage; column encryption / tokenization for payment tokens &amp; PII.</li>
-  <li>Immutable, append-only audit log (the Repudiation control).</li>
-  <li>Rate limiting per IP / token / tenant on auth, API and upload.</li>
-  <li>Server-side input validation &amp; parameterized queries everywhere.</li>
-  <li>Secure upload: magic-byte (not Content-Type) validation, UUID filenames, off-webroot, malware scan, image re-encode.</li>
-  <li>SSRF allow-listing on any server-side URL fetch (block RFC1918 / link-local / 169.254.169.254; validate resolved IP).</li>
+  <li>Secrets held in a managed secret store, never in source control; keys rotated.</li>
+  <li>Encryption in transit and at rest; payment instruments and sensitive PII additionally tokenized / encrypted.</li>
+  <li>Immutable, append-only audit log (the non-repudiation control).</li>
+  <li>Rate limiting per IP / token / tenant on authentication, API and upload.</li>
+  <li>Server-side input validation; no injection-prone query construction.</li>
+  <li>Secure file upload: real content-type verification, randomized names, private storage, malware scan, image re-encode.</li>
+  <li>Server-side URL fetches restricted to prevent server-side request forgery.</li>
 </ul>
-
-<h3>E.6 Schema deltas this requires</h3>
-<p>To satisfy the above, the relational schema (Appendix A / <code>schema.sql</code>) needs: an <b>immutable <code>audit_log</code></b> table (append-only, tenant-scoped); a <b><code>consent_records</code></b> table (e-sign consent + document hash + signer/timestamp/IP); a <b>residency field</b> on customers (state, to drive breach fan-out); and a <b>retention-policy</b> configuration (per record-type disposal floors vs the 2-year default). Payment instruments store <b>token + last4 + brand only</b> (see Appendix B / payments).</p>
-
-<h3>E.7 Primary sources</h3>
+<h3>B.6 Data-model requirements</h3>
+<p>To satisfy the above, the data model must additionally carry: an <b>immutable audit log</b> (append-only, tenant-scoped); <b>e-signature consent records</b> (consent + document hash + signer / timestamp / address); <b>customer residency</b> (to drive per-state breach notice); and a <b>retention policy</b> (per-record-type disposal floors versus the 2-year default). Payment instruments store <b>only a token + last4 + brand</b>, never full numbers.</p>
+<h3>B.7 Primary sources</h3>
 <ul class="req" style="font-size:8.6pt;color:#3a4a59">
   <li>FTC Safeguards Rule — 16 CFR 314.3–314.6 (eCFR; Cornell LII 314.4); FTC <i>“Safeguards Rule: What Your Business Needs to Know”</i> and <i>Automobile Dealers Safeguards FAQs</i>.</li>
   <li>Breach reporting — 16 CFR 314.5; FTC <i>“Safeguards Rule notification requirement now in effect”</i> (2024).</li>
@@ -643,10 +472,10 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 
 <!-- ===================== APPENDIX F — ONBOARDING & DATA IMPORT ===================== -->
-<h2 id="onboard" class="pgbreak">Appendix F · Onboarding &amp; Data Import</h2>
+<h2 id="onboard" class="pgbreak">Appendix C · Onboarding &amp; Data Import</h2>
 <p class="lead">How a dealership goes from signup to live — and imports its existing book of inventory, customers and deals. Sales/CRM products have the <b>slowest time-to-first-value precisely because of import friction</b>, and B2B median activation is only ~37.5%; past <b>14 days</b> the great majority of signups have already churned. The import wizard <i>is</i> the onboarding bottleneck, and the highest-leverage thing to build well.</p>
 
-<h3>F.1 Tenant provisioning — one automated path, branches on plan tier</h3>
+<h3>C.1 Tenant provisioning — one automated path, branches on plan tier</h3>
 <table class="t">
   <tr><th style="width:5%">#</th><th style="width:28%">Step</th><th>Detail</th></tr>
   <tr><td>1</td><td>Account + tenant_id</td><td>Self-serve and assisted requests enter the same registration service</td></tr>
@@ -662,7 +491,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 <div class="wf"><div id="flow-import"></div><div class="cap">The import pipeline. Clean rows commit; rows with <i>warnings</i> still commit; rows with <i>errors</i> are held and returned as an annotated report for the fix-and-reupload loop. Every row is keyed on <code>external_ref</code> so re-uploading the same file upserts rather than duplicating.</div></div>
 
-<h3>F.2 Import pipeline specification</h3>
+<h3>C.2 Import pipeline specification</h3>
 <h4>Column mapping</h4>
 <ul class="req">
   <li>Fuzzy <b>auto-map</b> to canonical fields (target ~95% auto-matched), with manual remap.</li>
@@ -684,7 +513,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <li>Robust parsing: BOM/encoding detection, Excel-CSV quirks, embedded commas/newlines; async background worker with an <code>import_id</code>; chunk 50–500 rows (MVP may cap row count).</li>
 </ul>
 
-<h3>F.3 Migration strategy</h3>
+<h3>C.3 Migration strategy</h3>
 <ul class="req">
   <li>Split <b>static/master</b> (units, customers — migrate days ahead) from <b>dynamic/transactional</b> (open deals/WIP — migrate at cutover).</li>
   <li>Advise dealers to <b>“drain the line”</b> (~2 weeks) so open WIP is minimal at go-live.</li>
@@ -694,7 +523,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <li>One-time migration is the default; live two-way sync with a legacy DMS is out of scope. Offer a no-commit <b>dry-run</b>.</li>
 </ul>
 
-<h3>F.4 Import templates &amp; bulk endpoint</h3>
+<h3>C.4 Import templates &amp; bulk endpoint</h3>
 <p>Ship one downloadable template per entity, <b>generated from the canonical schema so they never drift</b>, plus a <code>/api/v1/bulk/{entity}</code> upsert endpoint (external_ref-keyed, idempotent) mirroring the wizard. Suggested columns (reconcile against Appendix A):</p>
 <table class="t" style="font-size:8.8pt">
   <tr><th style="width:14%">Entity</th><th>Template columns</th></tr>
@@ -714,10 +543,10 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 
 <!-- ===================== APPENDIX G — DERIVED-FIELD FORMULAS ===================== -->
-<h2 id="formulas" class="pgbreak">Appendix G · Derived-Field Formulas</h2>
+<h2 id="formulas" class="pgbreak">Appendix D · Derived-Field Formulas</h2>
 <p class="lead">Unambiguous formula definitions so two independent rebuilds compute identical numbers. The single biggest source of divergence is the <b>age clock</b>; it is resolved by persisting separate date stamps per unit and naming which clock each metric uses.</p>
 
-<h3>G.0 Conventions (state once, apply everywhere)</h3>
+<h3>D.0 Conventions (state once, apply everywhere)</h3>
 <ul class="req">
   <li>One <b>day-count convention</b> (inclusive vs exclusive of endpoints), applied uniformly to age, days-to-sell, recon, DSO and aging buckets.</li>
   <li><b>Every “%” field declares its denominator</b> (price vs cost vs market).</li>
@@ -727,7 +556,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 <div class="wf"><div id="clocks"></div><div class="cap">The five date stamps a unit must carry, and the spans derived from them. Most aging/turn ambiguity disappears once these are stored separately rather than collapsed into one “date”.</div></div>
 
-<h3>G.1 Inventory &amp; aging</h3>
+<h3>D.1 Inventory &amp; aging</h3>
 <table class="t" style="font-size:9pt">
   <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
   <tr><td>Days on Lot (age)</td><td><code>(sold_at | today) − acquired_at</code></td><td>Floor-plan/aging clock; from acquisition</td></tr>
@@ -739,7 +568,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Recon cycle (ADR)</td><td><code>frontline_ready_at − recon_started_at</code></td><td>vs Time-to-line <code>frontline_ready_at − acquired_at</code></td></tr>
 </table>
 
-<h3>G.2 Pricing &amp; profit</h3>
+<h3>D.2 Pricing &amp; profit</h3>
 <table class="t" style="font-size:9pt">
   <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
   <tr><td>Front-end gross</td><td><code>sale_price − total_cost_basis − pack</code></td><td>Excludes F&amp;I, holdback, incentives (configurable)</td></tr>
@@ -751,7 +580,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Price/Cost-to-market</td><td><code>price (or basis) / avg_market_like × 100</code></td><td>Needs external comp feed — flag data-dependent</td></tr>
 </table>
 
-<h3>G.3 Sales &amp; deal</h3>
+<h3>D.3 Sales &amp; deal</h3>
 <table class="t" style="font-size:9pt">
   <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
   <tr><td>Commission</td><td><b>rules engine</b>, not a constant</td><td>flat / %-of-gross-after-pack / mini-floor / tiered + spiffs — all configurable</td></tr>
@@ -760,7 +589,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Sales tax &amp; fees</td><td><b>jurisdiction table</b></td><td>Never hard-coded; base/rate/doc-fee vary by locale</td></tr>
 </table>
 
-<h3>G.4 Money &amp; AR</h3>
+<h3>D.4 Money &amp; AR</h3>
 <table class="t" style="font-size:9pt">
   <tr><th style="width:23%">Metric</th><th style="width:42%">Formula</th><th>Notes / variants</th></tr>
   <tr><td>DSO</td><td><code>(avg_AR / net_credit_sales) × days_in_period</code></td><td>Pair with AR aging; period/denominator configurable</td></tr>
@@ -769,7 +598,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Revenue recognition</td><td>at <b>delivery</b> (ASC 606, point-in-time)</td><td>“Sale date” ≠ “recognition date”; voided delivery reverses revenue + gross + commission</td></tr>
 </table>
 
-<h3>G.5 “Configurable” register</h3>
+<h3>D.5 “Configurable” register</h3>
 <p>Every legitimately-variable choice — expose as a tenant setting, not a constant: aging-bucket boundaries · turn basis (cost vs unit) &amp; averaging method · cost-basis inclusions · holding rate + 360/365 day-basis · all commission parameters (pack, rate, mini, tiers, commissionable base) · conversion attribution window &amp; dedup · tax/fee jurisdiction tables · DSO period length &amp; denominator · the global “sold” trigger.</p>
 <p><b>Schema delta.</b> <code>units</code> today has only <code>acquired_at</code>/<code>sold_at</code> and a single <code>cost</code>; add <code>recon_started_at</code>, <code>frontline_ready_at</code>, <code>delivered_at</code> and the cost components <code>recon_cost</code>/<code>transport_cost</code>. <code>deals</code> needs a front/back-gross + fees/tax/pack breakdown beyond the single <code>value</code>.</p>
 <h4 style="margin-top:9pt">Primary sources</h4>
@@ -781,8 +610,8 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 
 <!-- ===================== APPENDIX H — NOTIFICATION & DOCUMENT CATALOG ===================== -->
-<h2 id="notif" class="pgbreak">Appendix H · Notification &amp; Document Catalog</h2>
-<p class="lead">Every system-generated message and legal document: its trigger, channel, recipient and template variables. <b>Transactional</b> messages (tied to a transaction the recipient is party to) are exempt from marketing opt-out; <b>marketing</b> messages intersect the GLBA Privacy Rule opt-out (Appendix E.3) and CAN-SPAM/TCPA.</p>
+<h2 id="notif" class="pgbreak">Appendix E · Notification &amp; Document Catalog</h2>
+<p class="lead">Every system-generated message and legal document: its trigger, channel, recipient and template variables. <b>Transactional</b> messages (tied to a transaction the recipient is party to) are exempt from marketing opt-out; <b>marketing</b> messages intersect the GLBA Privacy Rule opt-out (Appendix B.3) and CAN-SPAM/TCPA.</p>
 <table class="t" style="font-size:8.8pt">
   <tr><th style="width:20%">Event</th><th style="width:14%">Channel</th><th style="width:16%">Recipient</th><th style="width:32%">Template variables</th><th>Type</th></tr>
   <tr><td>Lead received</td><td>Email + in-app</td><td>Assigned salesperson, lead desk</td><td>lead_name, source, interest_unit, contact</td><td>Transactional</td></tr>
@@ -795,7 +624,7 @@ POST  /api/webhooks/title           DMV/title callback</pre>
   <tr><td>Invoice due / overdue</td><td>Email</td><td>Customer, bookkeeper</td><td>invoice_no, amount, due_at, days_overdue, pay_link</td><td>Transactional</td></tr>
   <tr><td>Marketing / re-engagement</td><td>Email</td><td>Customer (opted-in)</td><td>saved_units, new_matches</td><td><b>Marketing</b> — opt-out applies</td></tr>
 </table>
-<h3>H.1 Compliance documents</h3>
+<h3>E.1 Compliance documents</h3>
 <ul class="req">
   <li><b>Privacy notice</b> (GLBA/Reg P) — generated, delivered, opt-out tracked (E.3).</li>
   <li><b>E-sign consent record</b> — consent + document hash + signer/timestamp/IP (E.3).</li>
@@ -805,208 +634,18 @@ POST  /api/webhooks/title           DMV/title callback</pre>
 
 
 <!-- ===================== APPENDIX I — ACCOUNTING EXPORT ===================== -->
-<h2 id="acctexport" class="pgbreak">Appendix I · Accounting Export (QuickBooks &amp; Beyond)</h2>
-<p class="lead">The bookkeeper must be able to <b>manually export financial transactions to QuickBooks</b> on demand, with other accounting systems (Xero, Sage, NetSuite) supported later <b>without a rewrite</b>. The governing reality: the dealer base is split between <b>QuickBooks Online (QBO)</b> and <b>QuickBooks Desktop (QBDT)</b> — two products with completely different ingestion paths — and no single file or API serves both well.</p>
+<h2 id="acctexport" class="pgbreak">Appendix F · Accounting-System Export</h2>
+<p class="lead">The bookkeeper must be able to <b>manually export financial transactions to the dealer’s accounting system</b> on demand — <b>QuickBooks first</b> (both Online and Desktop), with other systems supported later <b>without a rewrite</b>.</p>
 
-<h3>I.1 The options (and their hard constraints)</h3>
-<table class="t" style="font-size:8.8pt">
-  <tr><th style="width:20%">Option</th><th style="width:11%">Target</th><th style="width:32%">Carries / can’t carry</th><th>Constraint &amp; fit</th></tr>
-  <tr><td><b>IIF</b> (Intuit Interchange Format)</td><td>Desktop only</td><td>Lists + transactions incl. journal entries</td><td>Intuit-deprecated (“outdated, no longer recommended”); <b>does not link</b> invoice↔payment; limited error-checking. Usable as a Desktop fallback, esp. for summary JEs.</td></tr>
-  <tr><td><b>QBO native CSV import</b></td><td>Online</td><td>Customers, COA, items; invoices (limited)</td><td><b>Invoice CSV is blocked when sales tax is enabled</b> (trailer dealers always collect it) and capped at 100/upload — unreliable for detailed AR. Best for the JE-summary path.</td></tr>
-  <tr><td><b>.QBO / OFX</b> (Web Connect)</td><td>Online/Desktop</td><td><b>Bank/credit-card transactions ONLY</b></td><td>Cannot carry AR/AP invoices, customers, items or GL postings. <b>Not viable</b> for this feature.</td></tr>
-  <tr><td><b>qbXML + Web Connector</b></td><td>Desktop</td><td>Full Desktop object model, with real linking</td><td>Correct <i>automated</i> Desktop path, but requires hosting a SOAP endpoint + a connector running on each dealer PC. Too heavy for v1; defer.</td></tr>
-  <tr><td><b>QBO Accounting API</b> (REST/OAuth2)</td><td>Online</td><td>Invoice, Payment, SalesReceipt, Bill, JournalEntry, Deposit, Customer, Item, Account; Batch endpoint</td><td>Modern long-term engine; “click-to-push” maps to Batch. But needs OAuth2 + Intuit’s <b>multi-week production review</b> (technical/security/marketing) + rate-limit backoff (≈500 req/min/realm). Phase 2.</td></tr>
-  <tr><td><b>Summary journal entries</b> (accountant pattern)</td><td>Both</td><td>Balanced debit/credit lines to mapped GL accounts</td><td>Small, robust, decoupled; sidesteps the CSV sales-tax block and 100-invoice cap; needs no per-customer mapping. <b>Trade-off: no invoice-level AR aging inside QuickBooks.</b> Strong v1.</td></tr>
-</table>
-
-<div class="wf"><div id="acctmap"></div><div class="cap">Target-agnostic <b>canonical export model</b> with per-target <b>adapters</b> — the no-rewrite seam. Targets become pluggable serializers (the same architecture a unified-API vendor hosts internally), turning N² point-to-point translators into ~2N. File adapters ship first and are <i>permanent</i> infrastructure, since QB Desktop has no clean REST API.</div></div>
-
-<h3>I.2 Architecture — canonical model + adapters</h3>
-<p>Build a thin, <b>export-only</b> internal representation once — journal entries (debit/credit lines → mapped GL accounts), plus customer / invoice / payment / tax-rate / a generic “segment” dimension — then serialize it through per-target adapters. This is the Canonical Data Model integration pattern; new targets need only a new adapter, never a rewrite of the export core. Keep the model thin so its governance cost stays below the point-to-point cost the pattern warns about for small teams.</p>
-<table class="t">
-  <tr><th style="width:9%">Phase</th><th style="width:38%">Build</th><th>When</th></tr>
-  <tr><td><b>1 — now</b></td><td>Canonical model + <b>CSV adapter + QuickBooks IIF adapter</b>; manual on-demand <b>summary-JE</b> export</td><td>v1 — covers <b>both</b> QBO &amp; Desktop, no Intuit review</td></tr>
-  <tr><td><b>2</b></td><td><b>QBO REST-API adapter</b> (OAuth2, Batch, SyncToken) behind the same model</td><td>When dealers demand automated/scheduled push, or invoice-level detail in QBO</td></tr>
-  <tr><td><b>3</b></td><td><b>Web Connector / qbXML</b> adapter for Desktop detail</td><td>If the Desktop segment’s share justifies the heavier build</td></tr>
-  <tr><td><b>4</b></td><td>Add <b>Xero / Sage / NetSuite</b> — direct adapters, or adopt a <b>unified-API aggregator</b> (Codat / Rutter) behind the unchanged canonical model</td><td>When N &gt; ~2 targets, or Desktop/NetSuite automation is needed</td></tr>
-</table>
-
-<h3>I.3 GL mapping &amp; idempotency (required for every path)</h3>
+<h3>F.1 Requirements</h3>
 <ul class="req">
-  <li><b>Chart-of-accounts mapping wizard (one-time, per dealer).</b> Map TPOS buckets — trailer revenue, COGS, AR, sales-tax payable, processing fees, customer deposits — to the dealer’s own QuickBooks accounts. The QBO API references accounts by <code>AccountRef</code> (the QB Account <i>Id</i>), so the wizard must resolve and store those ids; for CSV/IIF the account <b>names must match exactly</b> or rows fail/misroute. Reject postings into a <b>closed/locked period</b>.</li>
-  <li><b>Duplicate prevention.</b> QuickBooks has <b>no built-in idempotency key</b> on create; re-export re-posts. Use the TPOS invoice number as <code>DocNumber</code> (unique), store the returned QB <code>Id</code>, and <b>query-before-insert</b> (update, don’t duplicate) on the API path. For file exports, stamp each record with its <b>export batch + date</b> so the bookkeeper is never handed the same rows twice — files have no platform-side dedupe.</li>
+  <li>Manual, <b>on-demand export</b> of financial transactions — invoices, payments and summary journal entries — to the dealer's accounting system.</li>
+  <li>Must support <b>QuickBooks first</b> (both QuickBooks Online and QuickBooks Desktop), and be <b>extensible to other systems</b> (Xero, Sage, NetSuite, …) without re-engineering the export core.</li>
+  <li>A <b>one-time chart-of-accounts mapping</b> per dealer (the system's revenue / COGS / AR / sales-tax / fees / deposits → the dealer's own accounts).</li>
+  <li><b>No duplicate postings</b> on re-export — each exported batch is idempotent and marked as exported.</li>
+  <li>The baseline export must work <b>without granting the system third-party access it cannot govern</b> and without depending on an external approval gate.</li>
 </ul>
-
-<h3>I.4 Recommendation</h3>
-<p><b>Ship v1 as a manual, on-demand <i>summary journal-entry</i> export delivered as a downloadable file (CSV for Online, IIF for Desktop), driven by the one-time GL-mapping wizard.</b> Then QBO Accounting-API “click-to-push” batch (Phase 2), Web Connector/qbXML for Desktop detail (Phase 3), and defer a unified-API aggregator until multiple targets or automated sync justify it (Phase 4). <b>Why:</b> a downloaded file needs <b>no OAuth and no Intuit production review</b>, so it ships now; the summary JE dodges the CSV sales-tax block and invoice cap and imports cleanly into both products; and the account-mapping table + batch/dedupe stamping built for v1 are exactly what the API phase reuses. The decision knobs for what comes next: <b>number of targets</b> (1–2 → file/direct; 3+ → aggregator economical), <b>manual vs automated</b>, <b>cost sensitivity</b> (aggregators are quote-only / per-connection), and the measured <b>Online-vs-Desktop ratio</b> in the real dealer base.</p>
-
-<h3>I.5 Primary sources</h3>
-<ul class="req" style="font-size:8.6pt;color:#3a4a59">
-  <li>Intuit primary — <i>Export/import/edit IIF</i> (deprecated; no invoice↔payment link); <i>Import multiple invoices</i> (100 cap; “can’t import invoices … if you have set up sales tax”); <i>Manually upload transactions</i> (.QBO = bank/credit only); <i>JournalEntry</i> (balanced debit/credit, A/R line needs an entity); <i>Account / AccountRef</i>; <i>Batch operations</i>; <i>Security requirements for apps</i>; <i>API call limits &amp; throttling</i>; Web Connector Programmer’s Guide.</li>
-  <li>Duplicate <code>DocNumber</code> behavior — Intuit Developer community threads on duplicate-document errors &amp; idempotency.</li>
-  <li>Integration patterns (neutral) — Enterprise Integration Patterns, <i>Canonical Data Model</i> (the ~2N-vs-N² translator argument). Common accounting model — Merge.dev / Codat docs. Summary-vs-detail patterns — Ordway, CoreBridge.</li>
-  <li>Aggregator coverage/trade-offs (<b>vendor marketing — treat as directional</b>) — Codat (incl. QB Desktop), Rutter, Merge.dev, Apideck. Tracking divergence — Xero “tracking categories” vs QBO “classes/locations.”</li>
-</ul>
-
-
-<!-- ===================== BID PACKAGE: J–M ===================== -->
-<h2 id="scope" class="pgbreak">Appendix J · MVP Scope Matrix &amp; Release Roadmap</h2>
-<p class="lead">The specification describes the <b>full</b> product. To bid accurately, the work must be cut into releases — otherwise a bidder prices “everything at once,” which is neither costable nor advisable. This appendix proposes a <b>Phase-1 (MVP) cutline</b> and tags every capability MoSCoW. <span class="pill">PROPOSAL</span> The cutline is the client’s to confirm; it is the single largest driver of the bid.</p>
-
-<div class="wf"><div id="roadmap"></div><div class="cap">Proposed three-phase roadmap. Phase 1 delivers the core sell-loop as a hosted product; Phase 2 adds per-role depth; Phase 3 opens new markets and delivery models. Self-host, the platform-admin billing plane, additional accounting systems and a mobile field app are deliberately deferred — each is a major cost lever that should not inflate the first bid.</div></div>
-
-<h3>J.1 Roles — Phase-1 cutline</h3>
-<table class="t" style="font-size:8.8pt">
-  <tr><th style="width:22%">Role (spec §6)</th><th style="width:13%">Phase 1</th><th>Rationale</th></tr>
-  <tr><td>Salesperson</td><td><b>MUST</b></td><td>Pipeline + quote builder is the core revenue loop</td></tr>
-  <tr><td>Inventory Manager</td><td><b>MUST</b></td><td>Units are the spine; nothing sells without inventory</td></tr>
-  <tr><td>Lead Generation / BDC</td><td><b>MUST</b> (lite)</td><td>A unified lead inbox; advanced source analytics → Should</td></tr>
-  <tr><td>Owner / Dealer Principal</td><td><b>MUST</b> (lite)</td><td>Core dashboard + alert feed; deep drill-downs → Should</td></tr>
-  <tr><td>Bookkeeper / Accounting</td><td><b>MUST</b> (lite)</td><td>Invoices/payments + <b>file</b> accounting export (Appendix I v1)</td></tr>
-  <tr><td>Customer (Buyer) Portal</td><td><b>SHOULD</b></td><td>Quote view + deal tracker; financing/e-sign can lag</td></tr>
-  <tr><td>Office / Titles &amp; Admin</td><td><b>SHOULD</b> (basic)</td><td>Manual title tracker; full per-state DMV engine → Could</td></tr>
-  <tr><td>Sales Manager</td><td><b>SHOULD</b></td><td>Forecast/approvals add value once a team exists</td></tr>
-  <tr><td>Pricing Analyst</td><td><b>COULD</b></td><td>Repricer depends on market-comp data (Phase 3)</td></tr>
-  <tr><td>Service Technician</td><td><b>COULD</b></td><td>Work-order board; recon can be tracked manually at MVP</td></tr>
-  <tr><td>Delivery Dispatch</td><td><b>COULD</b></td><td>Delivery can be a simple status until volume warrants</td></tr>
-  <tr><td>Platform Super-Admin</td><td><b>WON’T</b> (now)</td><td>Tenant provisioning can be operator-run/manual at launch</td></tr>
-</table>
-
-<h3>J.2 Capabilities &amp; cross-cutting — Phase-1 cutline</h3>
-<table class="t" style="font-size:8.8pt">
-  <tr><th style="width:30%">Capability</th><th style="width:13%">Phase 1</th><th>Note</th></tr>
-  <tr><td>Multi-tenant foundation + RLS + auth/RBAC</td><td><b>MUST</b></td><td>Non-negotiable platform floor (Appendix E)</td></tr>
-  <tr><td>Public storefront (SSR + edge cache, lead forms)</td><td><b>MUST</b></td><td>The demand engine; SEO/first-paint matter</td></tr>
-  <tr><td>Onboarding + data import wizard (Appendix F)</td><td><b>MUST</b></td><td>No tenant goes live without it; the activation bottleneck</td></tr>
-  <tr><td>Security baseline + audit log + pen test (Appendix E)</td><td><b>MUST</b></td><td>Legally required once financing is offered</td></tr>
-  <tr><td>Notifications (transactional email/SMS)</td><td><b>MUST</b> (core set)</td><td>Lead/quote/payment/delivery; full catalog (H) → Should</td></tr>
-  <tr><td>Global search</td><td><b>SHOULD</b></td><td>Postgres full-text at MVP; dedicated engine later</td></tr>
-  <tr><td>Reporting depth beyond core KPIs</td><td><b>SHOULD</b></td><td>Materialized core KPIs in MUST; ad-hoc/BI → Could</td></tr>
-  <tr><td>Financing automation + soft credit pull</td><td><b>COULD</b></td><td>Manual financing status at MVP; rails are heavy (App. K)</td></tr>
-  <tr><td>QBO REST-API accounting push</td><td><b>COULD</b></td><td>File export ships first (Appendix I); API needs review</td></tr>
-  <tr><td>Per-jurisdiction tax/title engine (multi-state)</td><td><b>COULD</b></td><td>Launch in 1–2 states; generalize later</td></tr>
-  <tr><td>Self-host single-tenant delivery</td><td><b>WON’T</b> (now)</td><td>~Doubles release/test/support surface — defer (App. L)</td></tr>
-  <tr><td>Mobile / PWA field app</td><td><b>WON’T</b> (now)</td><td>Responsive web at MVP; native field app → Phase 3</td></tr>
-  <tr><td>i18n / multi-currency</td><td><b>WON’T</b> (now)</td><td>US-English / USD at launch unless required</td></tr>
-</table>
-
-
-<h2 id="integrations-reg" class="pgbreak">Appendix K · Integration &amp; Third-Party Register</h2>
-<p class="lead">Integrations are where estimates blow up: each is a vendor choice, an integration build, a credential/account dependency, and sometimes a <b>multi-week production-review</b> gate (QuickBooks and Stripe both have one). Vendor picks below are <span class="pill">RECOMMENDED</span> defaults, not mandates. “Owner” = who holds the contract/keys.</p>
-<table class="t" style="font-size:8.4pt">
-  <tr><th style="width:14%">Service</th><th style="width:14%">Recommended</th><th style="width:8%">Phase</th><th style="width:11%">MVP build vs stub</th><th style="width:9%">Owner</th><th style="width:13%">Review / lead time</th><th>Notes</th></tr>
-  <tr><td><b>Payments</b> (card + ACH)</td><td>Stripe Connect (direct charges)</td><td>1</td><td>Build</td><td>Each dealer = merchant</td><td>Connect onboarding per dealer</td><td>Keeps each dealer at PCI SAQ A; tokenize (App. E)</td></tr>
-  <tr><td><b>E-signature</b></td><td>Dropbox Sign / DocuSign</td><td>1–2</td><td>Build (basic)</td><td>Platform</td><td>Low</td><td>ESIGN/UETA consent flow (App. E.3); not for titles</td></tr>
-  <tr><td><b>Transactional email</b></td><td>Postmark / SendGrid</td><td>1</td><td>Build</td><td>Platform</td><td>Domain/DKIM setup</td><td>Per-tenant from-domain &amp; deliverability</td></tr>
-  <tr><td><b>SMS</b></td><td>Twilio</td><td>1</td><td>Build</td><td>Platform</td><td>10DLC registration</td><td>Delivery/appointment alerts; A2P registration lead time</td></tr>
-  <tr><td><b>Object storage</b></td><td>S3 (MinIO for self-host)</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Photos + signed docs; off-DB (ADR #6)</td></tr>
-  <tr><td><b>Cloud / hosting</b></td><td>One major cloud + managed Postgres</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Drives infra/DevOps line (App. L/M)</td></tr>
-  <tr><td><b>QuickBooks</b></td><td>File export → Intuit dev app</td><td>1 → 2</td><td>Build (file)</td><td>Platform</td><td><b>API: multi-week review</b></td><td>File needs no review; API gated (App. I)</td></tr>
-  <tr><td><b>Soft credit pull / prequal</b></td><td>700Credit / bureau reseller</td><td>2</td><td>Stub at MVP</td><td>Dealer-contracted</td><td>Vendor onboarding + FCRA</td><td>Triggers GLBA/Red-Flags scope (App. E)</td></tr>
-  <tr><td><b>Financing / lender rails</b></td><td>RouteOne / Dealertrack</td><td>2–3</td><td>Stub at MVP</td><td>Dealer-contracted</td><td>Heavy, per-lender</td><td>Often manual at launch; big integration if automated</td></tr>
-  <tr><td><b>Freight / lane rates</b></td><td>Carrier API / manual</td><td>2–3</td><td>Stub / manual</td><td>Platform</td><td>Varies</td><td>Dispatch is Phase-2+ (App. J)</td></tr>
-  <tr><td><b>Market-comp pricing data</b></td><td>vAuto / J.D. Power feed</td><td>3</td><td>Out of MVP</td><td>Dealer-contracted</td><td>Commercial deal</td><td>Expensive licensed data; powers the repricer</td></tr>
-  <tr><td><b>Error/uptime monitoring</b></td><td>Sentry + metrics stack</td><td>1</td><td>Build</td><td>Platform</td><td>None</td><td>Required by NFR observability + App. E logging</td></tr>
-</table>
-<p><b>Bidder takeaways.</b> Only a handful are true MVP builds (payments, email/SMS, e-sign, storage, monitoring, QuickBooks file export). The expensive, slow-onboarding ones (credit pull, lender rails, market-comp data) are <b>stub-at-MVP</b> and dealer-contracted — confirm each is out of the Phase-1 price. Two carry <b>production-review lead times</b> that affect the schedule, not just effort: <b>Stripe Connect</b> (per-dealer onboarding) and the <b>QuickBooks API</b> (deferred to Phase 2 specifically to avoid blocking MVP).</p>
-
-
-<h2 id="sow" class="pgbreak">Appendix L · Assumptions, Delivery Model &amp; RACI</h2>
-<p class="lead">A specification is not a statement of work. These are the assumptions and ownership boundaries a bidder must fix before pricing. Defaults are <span class="pill">PROPOSED</span>; each is a decision for the client.</p>
-
-<h3>L.1 Load-bearing assumptions (confirm each)</h3>
-<table class="t" style="font-size:8.8pt">
-  <tr><th style="width:30%">Open decision</th><th style="width:26%">Proposed default</th><th>Bid impact if changed</th></tr>
-  <tr><td>Release scope priced</td><td><b>Phase 1 (MVP)</b> only (App. J)</td><td>Pricing all phases at once multiplies the bid 2–3×</td></tr>
-  <tr><td>Delivery model at launch</td><td><b>Hosted multi-tenant only</b>; self-host deferred</td><td>Adding self-host ≈ +30–50% (dual release/test/support)</td></tr>
-  <tr><td>Visual/UX design</td><td><b>Bidder produces</b> design system + screens from the IA wireframes</td><td>If client supplies hi-fi designs, remove the design phase</td></tr>
-  <tr><td>Launch jurisdiction</td><td><b>US, single state/handful</b>, USD, English</td><td>Multi-state tax/title + i18n are sizeable adders</td></tr>
-  <tr><td>Mobile</td><td><b>Responsive web</b>; no native/PWA app</td><td>A field app is a separate workstream (Phase 3)</td></tr>
-  <tr><td>Data migration</td><td>Self-serve import (App. F) + <b>assisted onboarding as a service line</b></td><td>Per-format legacy DMS adapters are variable scope</td></tr>
-  <tr><td>Legal/compliance content</td><td><b>Client provides</b> ToS, privacy, contract &amp; tax/title legal text</td><td>Bidder builds the mechanism, not the legal copy (App. E)</td></tr>
-  <tr><td>Pen test &amp; security audit</td><td><b>In scope</b>, third-party, once per release</td><td>Required by the Safeguards Rule; a real line item</td></tr>
-  <tr><td>Environments</td><td>dev / staging / prod + IaC + CI/CD</td><td>Fewer envs cut cost but raise release risk</td></tr>
-</table>
-
-<h3>L.2 RACI (R = responsible, A = accountable, C = consulted, I = informed)</h3>
-<table class="t" style="font-size:8.6pt">
-  <tr><th style="width:34%">Workstream</th><th>Client</th><th>Vendor (bidder)</th><th>Third-party</th></tr>
-  <tr><td>Scope &amp; MVP cutline sign-off</td><td><b>A</b></td><td>R / C</td><td>—</td></tr>
-  <tr><td>UX/visual design</td><td>C / A</td><td><b>R</b></td><td>—</td></tr>
-  <tr><td>Build (platform, roles, storefront)</td><td>I</td><td><b>R / A</b></td><td>—</td></tr>
-  <tr><td>Integrations (payments, email/SMS, e-sign, QB)</td><td>C</td><td><b>R</b></td><td>C (vendors)</td></tr>
-  <tr><td>Vendor accounts &amp; credentials</td><td><b>A</b> (commercial)</td><td>C</td><td>R (provisioning)</td></tr>
-  <tr><td>Security controls &amp; audit log</td><td>I</td><td><b>R / A</b></td><td>—</td></tr>
-  <tr><td>Penetration test</td><td>A</td><td>C</td><td><b>R</b></td></tr>
-  <tr><td>Legal/compliance content</td><td><b>R / A</b></td><td>I</td><td>C (counsel)</td></tr>
-  <tr><td>Data migration per dealer</td><td>C (data)</td><td><b>R</b></td><td>—</td></tr>
-  <tr><td>Infra / DevOps / backups</td><td>I</td><td><b>R / A</b></td><td>C (cloud)</td></tr>
-  <tr><td>UAT &amp; acceptance sign-off</td><td><b>R / A</b></td><td>C</td><td>—</td></tr>
-  <tr><td>Production app reviews (QB / Stripe)</td><td>A</td><td><b>R</b></td><td>C (Intuit/Stripe)</td></tr>
-</table>
-
-<h3>L.3 Commercial wrapper — to be completed in the SOW</h3>
-<p>Placeholders a bid must fill (intentionally not invented here): milestones &amp; payment schedule · team composition &amp; rate basis (fixed-bid vs T&amp;M) · change-control process · warranty/support period &amp; post-launch SLA · IP ownership &amp; source escrow · acceptance criteria per milestone · liability/indemnity (ties to App. E). <b>Out of scope (Phase 1):</b> self-host packaging · platform billing/metering admin · additional accounting systems · market-comp pricing data · native mobile app · multi-state tax/title automation · i18n.</p>
-
-
-<h2 id="estimate" class="pgbreak">Appendix M · Estimation Worksheet (WBS)</h2>
-<p class="lead">A feature-level work breakdown for <b>Phase-1 (MVP)</b> a bidder can price against. <span class="pill">PLANNING RANGES</span> Figures are order-of-magnitude <b>person-weeks (pw)</b> for a small senior team on the recommended stack (ADR, App. D) — <b>not a quote</b>. Re-estimate against the confirmed cutline, the client’s rates, and the assumptions in Appendix L.</p>
-<table class="t" style="font-size:8.6pt">
-  <tr><th style="width:42%">Work package</th><th style="width:16%">Effort (pw)</th><th>Risk driver</th></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Foundation</b></td></tr>
-  <tr><td>Multi-tenant core — RLS, tenant context, PgBouncer/SET LOCAL, auth, RBAC</td><td>6 – 10</td><td>High — isolation correctness; CI negative test</td></tr>
-  <tr><td>Data model + migrations + CRUD scaffolding (Appendix A)</td><td>4 – 8</td><td>Low</td></tr>
-  <tr><td>DevOps — envs, IaC, CI/CD, observability, backup/DR</td><td>4 – 8</td><td>Medium</td></tr>
-  <tr><td>Design system + visual design from IA wireframes</td><td>6 – 12</td><td>Medium — depends on L.1 design ownership</td></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Core domain (MVP roles)</b></td></tr>
-  <tr><td>Inventory management (units, statuses, photos, lots)</td><td>4 – 7</td><td>Low</td></tr>
-  <tr><td>Lead capture + inbox + routing</td><td>3 – 5</td><td>Low</td></tr>
-  <tr><td>Sales pipeline + quote builder</td><td>5 – 8</td><td>Medium</td></tr>
-  <tr><td>Owner dashboard + KPIs (materialized read models)</td><td>3 – 6</td><td>Low</td></tr>
-  <tr><td>Office/titles (basic) + customer portal (basic)</td><td>4 – 7</td><td>Low</td></tr>
-  <tr><td>Bookkeeper invoices/payments + QuickBooks file export (App. I v1)</td><td>4 – 7</td><td>Medium — GL mapping + idempotency</td></tr>
-  <tr><td>Public storefront (SSR + edge cache, detail, lead forms)</td><td>4 – 7</td><td>Medium — SEO + responsive</td></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Cross-cutting</b></td></tr>
-  <tr><td>Permissions enforcement + field-level masking</td><td>2 – 4</td><td>Medium — pervasive</td></tr>
-  <tr><td>Notifications (core transactional set, App. H)</td><td>3 – 5</td><td>Low</td></tr>
-  <tr><td>Onboarding + data import wizard (App. F)</td><td>5 – 9</td><td>High — messy real-world data</td></tr>
-  <tr><td>Global search (Postgres FTS)</td><td>2 – 4</td><td>Low</td></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Integrations (MVP subset, App. K)</b></td></tr>
-  <tr><td>Payments — Stripe Connect (tokenized, per-dealer)</td><td>3 – 6</td><td>Medium — Connect onboarding</td></tr>
-  <tr><td>E-signature + email + SMS</td><td>3 – 6</td><td>Medium — A2P/DKIM setup</td></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Security &amp; quality</b></td></tr>
-  <tr><td>Security controls + audit log (App. E hard gates)</td><td>4 – 7</td><td>High — compliance baseline</td></tr>
-  <tr><td>Third-party penetration test + remediation</td><td>2 – 4</td><td>Medium — external cost + fixes</td></tr>
-  <tr><td>Test automation (unit/integration/e2e + tenant-isolation)</td><td>5 – 9</td><td>Medium</td></tr>
-  <tr><td>UAT + hardening + bug-fix</td><td>4 – 8</td><td>Medium</td></tr>
-  <tr><td colspan="3" style="background:#15202b;color:#fff"><b>Overhead</b></td></tr>
-  <tr><td>PM / coordination / ceremonies (≈ 15–20% applied to the above)</td><td>+ overhead</td><td>—</td></tr>
-</table>
-<p><b>Phase-1 rollup (engineering, excl. PM overhead):</b> ≈ <b>80 – 150 person-weeks</b>. With PM overhead, ≈ <b>95 – 175 pw</b> → roughly <b>6 – 12 calendar months</b> with a delivery team of ~3–4 FTE, plus a designer and part-time PM. <b>Cost</b> is deliberately omitted — multiply by the client’s confirmed blended rate. The range is wide on purpose: it tightens dramatically once the four levers in Appendix L (scope cutline, delivery model, design ownership, launch jurisdiction) are fixed.</p>
-<p style="font-size:8.6pt;color:#5d6b78"><b>Estimation basis &amp; caveats.</b> Ranges assume the recommended stack (Postgres + RLS, modular monolith, batteries-included framework — App. D); a senior team familiar with multi-tenant SaaS; integrations limited to the MVP subset (App. K) with the rest stubbed; and the Appendix L assumptions holding. They exclude: self-host, the deferred integrations, market-comp data, native mobile, multi-state tax/title, i18n, and ongoing run-cost. These are <b>planning figures to scope a bid</b>, not a fixed-price commitment.</p>
-
-
-<!-- ===================== APPENDIX N — DELIVERY STAGES ===================== -->
-<h2 id="stages" class="pgbreak">Appendix N · Delivery Stages (Internal Demo → GA)</h2>
-<p class="lead">A <b>maturity</b> ladder, orthogonal to the feature-depth roadmap (Appendix J): each stage takes a slice of the Phase-1 scope and raises the bar on <b>what is real</b> — data, persistence, security, money, SLA. The decisive boundary is between <b>B and C</b>. Stages A–B are facade/prototype-grade (and A is <b>largely already built</b>); C–E are the real engineering priced in Appendix M. The governing rule: <b>data sensitivity gates the quality bar, not the calendar.</b></p>
-
-<div class="wf"><div id="stages-dia"></div><div class="cap">Five stage-gates from internal demo to general availability. The dashed line marks the facade→real-build boundary: A–B are a few person-weeks of polish on the existing prototype; C–E are essentially the entire Appendix-M estimate. Tenant isolation becomes mandatory at C (real data); the legally-required pen test and GLBA Safeguards baseline land at D (real PII + money); SLA, billing and support gate E.</div></div>
-
-<table class="t" style="font-size:8.4pt">
-  <tr><th style="width:9%">Stage</th><th style="width:20%">Audience &amp; goal</th><th style="width:22%">Scope at this stage</th><th style="width:15%">What’s real</th><th style="width:16%">Quality / security bar</th><th>Exit gate</th></tr>
-  <tr><td><b>A · Internal demo</b></td><td>Internal stakeholders — validate IA &amp; the one-record-many-lenses idea; lock the cutline</td><td>Clickable prototype: storefront + 12 role dashboards on mock data</td><td>Nothing behind it — mock data, no auth/PII</td><td>Renders clean; throwaway code OK</td><td>IA &amp; Appendix-J cutline signed off · <b>(already built)</b></td></tr>
-  <tr><td><b>B · Sales demo</b></td><td>Prospects, design partners, investors — sell the vision, win LOIs</td><td>Same prototype, polished: branding, stable URL, demo script, reset-to-clean data, one believable tenant</td><td>Still a facade — curated demo data, no money/PII</td><td>Demo-grade: never breaks live, phone-presentable</td><td>Partners committed · pricing validated · <b>go/no-go to build</b></td></tr>
-  <tr><td><b>C · Production alpha</b></td><td>Internal + 1–2 design-partner dealers, controlled — prove the real architecture on the smallest valuable slice</td><td>Real multi-tenant core (RLS/auth/RBAC) + core MUST roles: inventory, lead, pipeline+quote, owner dashboard, storefront, import v1</td><td><b>Real persistence</b>; real but non-sensitive data; no financing PII or money yet</td><td>Happy paths work; <b>tenant isolation + CI negative test green</b>; hardening in progress; no pen test</td><td>Sell-loop works on real data for a partner; isolation proven</td></tr>
-  <tr><td><b>D · Production beta</b></td><td>Beta dealer cohort with real buyers — validate under real load &amp; money; complete compliance baseline</td><td>All MUST + most SHOULD: real payments (Stripe Connect), e-sign, QB file export, notifications, self-serve onboarding, customer portal</td><td><b>Real PII + real payments</b> — now compliance-bearing</td><td>Hardened; <b>pen test done + remediated</b>; audit log, observability, backups; GLBA Safeguards baseline; SLA targeted not guaranteed</td><td>Stable across cohort; pen-test issues closed; billing ready</td></tr>
-  <tr><td><b>E · Release 1.0 (GA)</b></td><td>Open self-serve signup, paying dealers — commercial launch of Phase 1</td><td>Full Appendix-J Phase-1 cutline, polished; self-serve onboarding + live billing</td><td>Everything real + monetized</td><td>GA: UAT signed off, runbooks, backup/DR drills, on-call, change-control; <b>99.9% SLA honored</b>; warranty/support begins</td><td>GA criteria met → 1.0 ships; Phase-2 backlog begins</td></tr>
-</table>
-
-<h3>N.1 Effort &amp; the two principles</h3>
-<ul class="req">
-  <li><b>A/B are facade; C/D/E are the build.</b> A is essentially done; B is ~1–3 pw of polish on the existing prototype. C–E together are the full <b>≈95–175 pw</b> Appendix-M estimate, split roughly: <b>C</b> ≈ foundation + core MUST roles (~40–60% of MVP), <b>D</b> ≈ the remainder + security/QA/pen-test packages, <b>E</b> ≈ the UAT/hardening/launch-readiness tail + billing/support setup. Do not let the polished sales demo imply the system is “almost done.”</li>
-  <li><b>Data sensitivity gates the bar, not time.</b> Tenant isolation is required the moment real data exists (<b>C</b>). Real PII and money — and therefore the legally-required pen test and GLBA Safeguards baseline (Appendix E) — only enter at <b>beta (D)</b>, the stage not to rush. SLA, runbooks, billing and support gate <b>GA (E)</b>.</li>
-</ul>
-<p style="font-size:8.8pt;color:#5d6b78">Cross-references: stage scope maps to the MoSCoW tags and roadmap in <b>Appendix J</b>; integration availability per stage to <b>Appendix K</b> (e.g., QuickBooks <i>file</i> export at D, QBO API in Phase 2/post-GA; soft-credit-pull stubbed until financing); security gates to <b>Appendix E</b>; effort to <b>Appendix M</b>.</p>
+<p style="font-size:9pt;color:#5d6b78">The format choices (file vs API), the QuickBooks-specific constraints, and the canonical-model + per-target-adapter design that keeps "other systems later" cheap are analyzed and recommended in the <b>Functional Specification Proposal</b>.</p>
 
 
 <script>
@@ -1123,7 +762,7 @@ const ROLE_META = [
   ['inventory','6.6 Inventory Manager','Source, recon, place and turn units.',['Stock board by status (incoming→recon→available→pending→sold) and by location/lot.','Acquisition intake with ETA &amp; cost; push units into recon and onto the lot.','Aging report and turn metrics; trigger reprice/clearance.']],
   ['service','6.7 Service Technician','Recondition and inspect units quickly.',['Work-order board by status with hours-vs-estimate and parts cost.','Per-job task checklist; intake inspection checklists (brakes/tires/lights/floor).','Log hours, parts and photos against the unit.']],
   ['office','6.8 Office / Titles &amp; Admin','Keep paperwork clean and legal.',['Deals-needing-documents queue with missing-doc flags (title, bill of sale, financing, insurance).','Title / DMV tracker by unit (in hand / applied / pending / lien release) per state.','Appointments &amp; signings; document checklist &amp; e-signature.']],
-  ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net).','Manual, on-demand <b>accounting export</b> — QuickBooks first (CSV + IIF), other systems later (Appendix I).']],
+  ['bookkeeper','6.9 Bookkeeper / Accounting','AR/AP, cash and month-end.',['Invoices (AR) with status (paid/due/overdue) and record-payment.','AP / vendor bills; cash position; payments ledger.','Month-end P&amp;L (revenue, COGS, gross, expenses, net).','Manual, on-demand <b>accounting export</b> — QuickBooks first, other systems later (Appendix F).']],
   ['dispatch','6.10 Delivery Dispatch','Move sold units to buyers.',['Load board of units needing delivery with destination, carrier/driver and status.','Weekly delivery schedule; assign drivers/carriers.','Freight rate quotes by lane; in-transit tracking with ETA.']],
   ['customer','6.11 Customer (Buyer) Portal','Buy with confidence, self-serve.',['Deal progress tracker (quote → financing → paperwork → delivery).','View/accept quotes; apply for financing and see decision status.','Track delivery; review, e-sign and download documents; saved trailers.']],
   ['platform','6.12 Platform Super-Admin','Operate the SaaS business (hosted mode).',['Tenant directory with plan, seats, units, MRR and status; provision &amp; manage.','Revenue (MRR/ARR/net-new/churn), MRR-by-plan, trials &amp; onboarding.','Cross-tenant usage metering, support queue and system-health monitoring.']],
@@ -1178,30 +817,9 @@ document.getElementById('flow').innerHTML = (function(){
   return `<svg viewBox="0 0 820 130" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 
-/* ---- Appendix E: tenant-isolation defense-in-depth ---- */
+/* ---- Appendix B: tenant-isolation defense-in-depth ---- */
 function arrowR(x,y,len){return `<line x1="${x}" y1="${y}" x2="${x+len}" y2="${y}" stroke="${ST}" stroke-width="1.3"/><path d="M${x+len-6},${y-4} L${x+len},${y} L${x+len-6},${y+4} Z" fill="${ST}"/>`}
-document.getElementById('isolation').innerHTML = (function(){
-  let s='';
-  const cap=(x,y,t)=>tx(x,y,t,{s:7,g:1});
-  s+=`<line x1="278" y1="14" x2="278" y2="196" stroke="${GR}" stroke-width="1" stroke-dasharray="4 4"/>`+tx(284,26,'trust boundary',{s:6.5,g:1});
-  // browser
-  s+=r(20,46,190,86)+tx(30,66,'BROWSER / CLIENT',{b:1,s:9});
-  s+=cap(30,84,'Request + session cookie /')+cap(30,96,'bearer token.')+cap(30,114,'Client-supplied tenant id')+cap(30,126,'is never trusted.');
-  s+=arrowR(210,89,82);
-  // API
-  s+=r(296,46,210,86)+tx(306,66,'API SERVICE',{b:1,s:9});
-  s+=cap(306,84,'tenant_id ← session (server).')+cap(306,96,'Per-object ownership check')+cap(306,114,'(OWASP API #1 — BOLA/IDOR).')+cap(306,126,'RBAC roles → permissions.');
-  s+=arrowR(506,89,78);
-  // DB
-  s+=r(592,26,210,150)+tx(602,46,'POSTGRESQL',{b:1,s:9});
-  s+=cap(602,62,'FORCE ROW LEVEL SECURITY')+cap(602,74,'SET LOCAL app.tenant_id (txn)')+cap(602,86,'WITH CHECK on every write');
-  s+=rf(602,98,190,32,MG)+r(602,98,190,32)+tx(610,118,'Tenant A rows',{s:7.5,b:1});
-  s+=rf(602,136,190,32,'#fff')+r(602,136,190,32)+tx(610,156,'Tenant B rows',{s:7.5,b:1});
-  s+=tx(797,128,'isolated',{s:6,g:1,a:'end'});
-  return `<svg viewBox="0 0 820 196" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
-})();
-
-/* ---- Appendix F: data-import pipeline ---- */
+/* ---- Appendix C: data-import pipeline ---- */
 document.getElementById('flow-import').innerHTML = (function(){
   const st=['Upload','Parse','Map','Validate','Preview','Commit'];
   let s='';const n=st.length,bw=104,gap=(820-n*bw)/(n-1);
@@ -1219,7 +837,7 @@ document.getElementById('flow-import').innerHTML = (function(){
   return `<svg viewBox="0 0 820 138" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 
-/* ---- Appendix G: unit date-clock timeline ---- */
+/* ---- Appendix D: unit date-clock timeline ---- */
 document.getElementById('clocks').innerHTML = (function(){
   let s='';const AY=118;
   const marks=[[40,'Acquired'],[200,'Recon start'],[380,'Front-line ready'],[580,'Sold (booked)'],[770,'Delivered']];
@@ -1233,75 +851,6 @@ document.getElementById('clocks').innerHTML = (function(){
   return `<svg viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
 })();
 
-/* ---- Appendix I: accounting export — canonical model + adapters ---- */
-document.getElementById('acctmap').innerHTML = (function(){
-  let s='';
-  const cap=(x,y,t,o)=>tx(x,y,t,o||{s:7,g:1});
-  // source
-  s+=rf(330,12,170,32,MG)+r(330,12,170,32)+tx(415,32,'TPOS domain data',{b:1,s:9,a:'middle'});
-  s+=`<line x1="415" y1="44" x2="415" y2="68" stroke="${ST}" stroke-width="1.3"/><path d="M411,64 L415,69 L419,64 Z" fill="${ST}"/>`;
-  // canonical model
-  s+=rf(250,70,330,76,'#fff')+r(250,70,330,76)+tx(415,90,'CANONICAL EXPORT MODEL',{b:1,s:9.5,a:'middle'});
-  s+=cap(415,107,'JournalEntry (balanced debit/credit → mapped GL),',{s:7,g:1,a:'middle'});
-  s+=cap(415,119,'Invoice · Payment · Customer · TaxRate · segment',{s:7,g:1,a:'middle'});
-  s+=cap(415,136,'target-agnostic — ~2N adapters, not N²',{s:6.5,g:1,a:'middle'});
-  // adapters
-  const ad=[[24,168,'CSV adapter','v1','→ QBO import · most systems'],
-            [208,168,'QuickBooks IIF','v1','→ QB Desktop (lists + JEs)'],
-            [396,178,'QBO REST API','v2','→ QBO automated push (OAuth)'],
-            [600,196,'Xero / aggregator','v3–4','→ Xero · Sage · NetSuite']];
-  ad.forEach(([x,w,t,ph,tg],i)=>{const y=196,h=44,dashed=i===3;
-    s+=(dashed?`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${ST}" stroke-width="1.3" stroke-dasharray="5 4"/>`:rf(x,y,w,h,MG)+r(x,y,w,h));
-    s+=tx(x+w/2,y+19,t,{b:1,s:8.5,a:'middle'})+tx(x+8,y+35,ph,{s:6.5,b:1});
-    s+=cap(x+w/2,y+h+13,tg,{s:6.6,g:1,a:'middle'});
-    s+=`<line x1="415" y1="146" x2="${x+w/2}" y2="${y}" stroke="${ST}" stroke-width="1"/><path d="M${x+w/2-4},${y-5} L${x+w/2},${y} L${x+w/2+4},${y-5} Z" fill="${ST}"/>`;
-  });
-  return `<svg viewBox="0 0 820 262" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
-})();
-
-/* ---- Appendix J: release roadmap (3 phases) ---- */
-document.getElementById('roadmap').innerHTML = (function(){
-  let s='';
-  const cols=[
-    ['PHASE 1 · Hosted MVP','the core sell-loop, live',['Multi-tenant foundation + RLS + auth/RBAC','Inventory · lead inbox · pipeline + quotes','Public storefront (SSR + edge cache)','Owner dashboard + core KPIs','Bookkeeper invoices + QuickBooks file export','Customer portal + basic titles/office','Onboarding + data import wizard','Payments + e-sign + email/SMS','Security baseline + audit log + pen test']],
-    ['PHASE 2 · Operate & optimize','depth per role',['Sales manager — forecast & approvals','Pricing repricer + margin tools','Service work orders + recon','Delivery dispatch + scheduling','QBO REST-API push (automated)','Financing soft-pull + lender rails','Reporting & notification depth']],
-    ['PHASE 3 · Scale & extend','new markets & models',['Self-host packaging & updates','Platform super-admin — billing/metering','Other accounting systems (Xero/Sage)','Market-comp pricing data feed','Mobile / PWA field app','Multi-jurisdiction tax/title engine','i18n / multi-currency']],
-  ];
-  cols.forEach(([h,sub,items],ci)=>{const x=18+ci*268,w=248;
-    s+=rf(x,10,w,40,ci===0?LG:MG)+r(x,10,w,40)+tx(x+10,28,h,{b:1,s:9.5})+tx(x+10,42,sub,{s:6.8,g:1});
-    items.forEach((it,i)=>{const y=60+i*26;s+=rf(x,y,w,22,'#fff')+r(x,y,w,22)+tx(x+8,y+15,it,{s:7.4});});
-    if(ci<2){const ax=x+w;s+=`<line x1="${ax}" y1="30" x2="${ax+20}" y2="30" stroke="${ST}" stroke-width="1.2"/><path d="M${ax+15},26 L${ax+20},30 L${ax+15},34 Z" fill="${ST}"/>`;}
-  });
-  return `<svg viewBox="0 0 820 ${60+9*26+6}" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
-})();
-
-/* ---- Appendix N: delivery stage-gates ---- */
-document.getElementById('stages-dia').innerHTML = (function(){
-  let s='';
-  const stages=[
-    ['A','Internal demo','concept check','mock · no PII','throwaway OK',LG],
-    ['B','Sales demo','sell the vision','curated demo data','demo polish',MG],
-    ['C','Prod alpha','real & narrow','real · non-sensitive','isolation + CI test','#fff'],
-    ['D','Prod beta','hardened, real $','real PII + payments','pen-test + GLBA','#fff'],
-    ['E','Release 1.0','GA · supported','live billing','SLA + runbooks','#fff'],
-  ];
-  const gates=['IA sign-off','partners → build','real-data loop','pen-test · billing'];
-  const n=5,bw=150,gap=(820-n*bw)/(n-1),cx=i=>i*(bw+gap)+bw/2,divX=2*(bw+gap)-gap/2;
-  s+=`<line x1="${divX}" y1="6" x2="${divX}" y2="118" stroke="${GR}" stroke-width="1" stroke-dasharray="4 4"/>`;
-  s+=tx(158,15,'A–B · FACADE — sell before you build',{s:7.4,b:1,a:'middle'});
-  s+=tx(578,15,'C–E · REAL BUILD — the Appendix-M engineering',{s:7.4,b:1,a:'middle'});
-  stages.forEach((st,i)=>{const x=i*(bw+gap),y=28,h=50;
-    s+=rf(x,y,bw,h,st[5])+r(x,y,bw,h);
-    s+=tx(x+12,y+34,st[0],{b:1,s:20});
-    s+=tx(x+40,y+22,st[1],{b:1,s:9.5})+tx(x+40,y+36,st[2],{s:7,g:1});
-    s+=tx(x+6,y+h+14,'Data · '+st[3],{s:6.6,g:1})+tx(x+6,y+h+26,'Bar · '+st[4],{s:6.6,g:1});
-  });
-  gates.forEach((g,i)=>{const gx=(cx(i)+cx(i+1))/2,gy=53;
-    s+=`<path d="M${gx-6},${gy} L${gx},${gy-6} L${gx+6},${gy} L${gx},${gy+6} Z" fill="#fff" stroke="${ST}" stroke-width="1.2"/>`;
-    s+=tx(gx,120,g,{s:6.4,g:1,a:'middle'});
-  });
-  return `<svg viewBox="0 0 820 128" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
-})();
 </script>
 </body>
 </html>
