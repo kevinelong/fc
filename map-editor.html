@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fc · Map Forge</title>
+<style>
+  :root { --gold:#c8a96e; --line:#5a4a28; --bg:#0c0c0c; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--gold); font:13px 'Share Tech Mono',monospace; min-height:100vh;
+         display:flex; flex-direction:column; align-items:center; user-select:none; }
+  #header { width:100%; padding:10px 14px; display:flex; align-items:baseline; gap:12px; }
+  #title { font-size:17px; letter-spacing:.25em; color:#ffec27; }
+  #hint { font-size:11px; opacity:.65; }
+  #grid-wrap { padding:8px; }
+  .grid { display:grid; gap:1px; background:#222; border:1px solid var(--line); touch-action:none; }
+  .cell { width:22px; height:22px; background:#000; cursor:crosshair; }
+  .cell.w { background:#ab5236; box-shadow:inset 0 0 0 2px #7e2553; }
+  @media (max-width:620px) { .cell { width:16px; height:16px; } }
+  #dock { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 14px 16px; justify-content:center; }
+  .btn { font:12px 'Share Tech Mono',monospace; background:#161616; color:var(--gold); border:1px solid var(--line);
+         border-radius:4px; padding:7px 12px; cursor:pointer; letter-spacing:.08em; }
+  .btn.on { border-color:#ffec27; color:#ffec27; }
+  select { font:12px 'Share Tech Mono',monospace; background:#161616; color:var(--gold);
+           border:1px solid var(--line); border-radius:4px; padding:6px 8px; }
+  #close-x { position:fixed; top:8px; right:12px; font-size:18px; cursor:pointer; opacity:.7; }
+</style>
+</head>
+<body>
+<div id="header"><div id="title">MAP·FORGE</div><div id="hint">drag to paint walls · floor erases · INSERT drops the code into your game</div></div>
+<div id="grid-wrap"><div class="grid" id="grid"></div></div>
+<div id="dock">
+  <button class="btn on" id="t-wall">▦ WALL</button>
+  <button class="btn" id="t-floor">· FLOOR</button>
+  <select id="wall-img" title="wall tile art">
+    <option value="brick">brick</option><option value="stone">stone</option><option value="tree">tree</option>
+    <option value="water">water</option><option value="dirt">dirt</option><option value="house">house</option>
+  </select>
+  <select id="size" title="map size">
+    <option value="16x12">16 × 12 (one screen)</option>
+    <option value="16x16" selected>16 × 16</option>
+    <option value="24x16">24 × 16 (scrolls →)</option>
+    <option value="32x24">32 × 24 (big world)</option>
+  </select>
+  <button class="btn" id="border-btn">BORDER</button>
+  <button class="btn" id="clear-btn">CLEAR</button>
+  <button class="btn" id="insert-btn" style="border-color:#00e436;color:#00e436">✓ INSERT</button>
+</div>
+<div id="close-x" onclick="window.parent.postMessage({type:'fc-close'},'*')">✕</div>
+<script>
+const gridEl = document.getElementById('grid');
+let COLS = 16, ROWS = 16, cells = [], tool = 'wall', painting = false;
+
+function build() {
+  gridEl.style.gridTemplateColumns = 'repeat(' + COLS + ', auto)';
+  gridEl.innerHTML = ''; cells = [];
+  for (let i = 0; i < COLS * ROWS; i++) {
+    const d = document.createElement('div'); d.className = 'cell'; d.dataset.i = i;
+    gridEl.appendChild(d); cells.push(d);
+  }
+}
+function paint(el) { if (!el || !el.classList || !el.classList.contains('cell')) return;
+  el.classList.toggle('w', tool === 'wall'); }
+gridEl.addEventListener('pointerdown', e => { painting = true; paint(e.target); e.preventDefault(); });
+gridEl.addEventListener('pointerover', e => { if (painting) paint(e.target); });
+addEventListener('pointerup', () => painting = false);
+// touch drag (pointerover doesn't fire while touch-dragging)
+gridEl.addEventListener('touchmove', e => {
+  const t = e.touches[0]; paint(document.elementFromPoint(t.clientX, t.clientY)); e.preventDefault();
+}, { passive: false });
+
+const wallBtn = document.getElementById('t-wall'), floorBtn = document.getElementById('t-floor');
+wallBtn.onclick  = () => { tool = 'wall';  wallBtn.classList.add('on'); floorBtn.classList.remove('on'); };
+floorBtn.onclick = () => { tool = 'floor'; floorBtn.classList.add('on'); wallBtn.classList.remove('on'); };
+document.getElementById('clear-btn').onclick = () => cells.forEach(c => c.classList.remove('w'));
+document.getElementById('border-btn').onclick = () => cells.forEach((c, i) => {
+  const x = i % COLS, y = (i / COLS) | 0;
+  if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) c.classList.add('w');
+});
+document.getElementById('size').onchange = e => {
+  const [c, r] = e.target.value.split('x').map(Number); COLS = c; ROWS = r; build();
+};
+
+document.getElementById('insert-btn').onclick = () => {
+  const img = document.getElementById('wall-img').value;
+  const rows = [];
+  for (let y = 0; y < ROWS; y++) {
+    let row = '';
+    for (let x = 0; x < COLS; x++) row += cells[y * COLS + x].classList.contains('w') ? '#' : ' ';
+    rows.push('  "' + row + '"');
+  }
+  const code = 'tile "#" is {image: "' + img + '", solid: yes}\nmap is\n' + rows.join('\n') +
+               '\n\n-- in `to draw`:  draw map';
+  window.parent.postMessage({ type: 'fc-insert', code }, '*');
+};
+
+build();
+document.getElementById('border-btn').click();   // start with a friendly border
+</script>
+</body>
+</html>

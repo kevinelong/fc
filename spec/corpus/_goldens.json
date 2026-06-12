@@ -139,6 +139,33 @@
       "x": 0
     }
   },
+  "map_dims_and_solid.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "world": {
+        "width": 128,
+        "height": 128
+      },
+      "w": 128,
+      "h": 128,
+      "wall": true,
+      "floor": false,
+      "outside": false
+    }
+  },
+  "map_without_tiles.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "world": {
+        "width": 128,
+        "height": 128
+      },
+      "anywhere": false,
+      "w": 128
+    }
+  },
   "parseif_and_resets.fc": {
     "say": [],
     "errors": [],
@@ -258,6 +285,13 @@
     "errors": [],
     "vars": {
       "score": 0
+    }
+  },
+  "solid_at_no_map.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "x": false
     }
   },
   "truthy_empty_list.fc": {

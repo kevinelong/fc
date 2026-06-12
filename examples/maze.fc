@@ -1,0 +1,66 @@
+-- COIN MAZE  ·  arrow keys to walk.  grab every coin to win.
+-- The level is just a picture: # is wall, space is floor.
+
+tile "#" is {image: "brick", solid: yes}
+
+map is
+  "####################"
+  "#        #         #"
+  "# ###### # ####### #"
+  "# #    # #       # #"
+  "# # ## # ##### # # #"
+  "# # ## #     # # # #"
+  "# #    ##### # #   #"
+  "# ###### #   # ### #"
+  "#        # ###     #"
+  "######## #     ### #"
+  "#        # ### #   #"
+  "# ######## # # # ###"
+  "#          # #     #"
+  "# ########## ##### #"
+  "#                  #"
+  "####################"
+
+player is {x: 8, y: 8, image: "hero", speed: 1}
+follow player with camera
+
+score is 0
+coins is []
+spots is [{x: 56, y: 8}, {x: 144, y: 32}, {x: 24, y: 64}, {x: 88, y: 56}, {x: 144, y: 104}, {x: 16, y: 112}, {x: 96, y: 112}, {x: 64, y: 112}]
+each spot in spots
+  c is sprite
+  c.x is spot.x
+  c.y is spot.y
+  c.image is "coin"
+  add c to coins
+
+coins are pickups
+
+define sound "ding" as square from 700 to 1200 over 0.08
+define sound "win" as square from 400 to 1400 over 0.5
+
+when player picks up any coin
+  add 1 to score
+  play sound "ding"
+  if the number of coins is 0
+    mode is "win"
+    play sound "win"
+
+mode is "play"
+
+to update
+  if mode is not "play" return
+  move player with arrows
+
+to draw
+  clear screen to black
+  draw map
+  each c in coins draw sprite c.image at c.x, c.y
+  draw sprite player.image at player.x, player.y
+  write "coins {score} of 8" at 2, 2 in yellow on hud
+
+to screen win
+  write "YOU GOT THEM ALL!" at 14, 50 in yellow on hud
+  write "coins {score} of 8" at 34, 66 in white on hud
+
+run game with update and draw

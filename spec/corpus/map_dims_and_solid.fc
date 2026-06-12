@@ -1,0 +1,12 @@
+tile "#" is {image: "brick", solid: yes}
+tile "." is {image: "grass"}
+map is
+  "########"
+  "#......#"
+  "#......#"
+  "########"
+w is world.width
+h is world.height
+wall is solid at 4, 4
+floor is solid at 12, 12
+outside is solid at 200, 200

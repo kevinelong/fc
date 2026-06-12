@@ -822,7 +822,14 @@ function parse(source) {
         j++;
       }
       if (children.length > 0) {
-        stmt.body = parseBlock(i + 1, minIndent + 1);
+        // map rows are raw quoted strings, not statements
+        if (stmt.type === 'map_def') {
+          stmt.body = children
+            .filter(l => l.tokens.length === 1 && l.tokens[0].type === 'string')
+            .map(l => ({ type: 'literal', value: l.tokens[0].value }));
+        } else {
+          stmt.body = parseBlock(i + 1, minIndent + 1);
+        }
       }
       stmts.push(stmt);
       i = j > i + 1 ? j : i + 1;
@@ -994,6 +1001,21 @@ function parse(source) {
     if (first === 'save' && raw.some(t => t.type === 'word' && tv(t) === 'as')) {
       const asIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'as');
       return { type: 'save', value: parseExpression(raw.slice(1, asIdx)), key: parseExpression(raw.slice(asIdx + 1)), lineNum };
+    }
+
+    // -- tile "#" is {image: "brick", solid: yes}  (what a map character means) --
+    if (first === 'tile' && raw[1] && raw[1].type === 'string' && raw[2] && tv(raw[2]) === 'is') {
+      return { type: 'tile_def', ch: String(raw[1].value), props: parseExpression(raw.slice(3)), lineNum };
+    }
+
+    // -- map is  (the indented quoted rows below become the level; sizes the world) --
+    if (first === 'map' && raw.length === 2 && tv(raw[1]) === 'is') {
+      return { type: 'map_def', body: [], lineNum };
+    }
+
+    // -- draw map  (draw every tile, camera-aware; place it in `to draw`) --
+    if (first === 'draw' && raw.length === 2 && tv(raw[1]) === 'map') {
+      return { type: 'draw_map', lineNum };
     }
 
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
@@ -1567,6 +1589,14 @@ function parse(source) {
       return { type: 'load', key: parseExpression(tokens.slice(1)) };
     }
 
+    // Handle `solid at X, Y` (is that point on a solid map tile? yes/no)
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'solid' &&
+        tokens.length >= 4 && tv(tokens[1]) === 'at') {
+      const rest = tokens.slice(2);
+      const ci = rest.findIndex(t => t.type === 'comma');
+      if (ci > 0) return { type: 'solid_at', x: parseExpression(rest.slice(0, ci)), y: parseExpression(rest.slice(ci + 1)) };
+    }
+
     // "list of N <noun> [{props}]" - auto-placed sprite list
     if (tokens[0].type === 'word' && tv(tokens[0]) === 'list' &&
         tokens.length >= 3 && tv(tokens[1]) === 'of') {
@@ -2000,6 +2030,8 @@ class Runtime {
     this.mouseState = { x: 0, y: 0, down: false, clicked: false };
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.tileDefs = {};
+    this.map = null;
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2033,6 +2065,8 @@ class Runtime {
     this._watchdog = null;
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.tileDefs = {};
+    this.map = null;
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2146,6 +2180,13 @@ class Runtime {
       case 'load': {
         const v = STORE.get(String(this.evalExpr(node.key)));
         return v === undefined ? 0 : v;
+      }
+      case 'solid_at': {
+        if (!this.map) return false;
+        const row = this.map.rows[Math.floor(this.evalExpr(node.y) / 8)];
+        if (!row) return false;
+        const def = this.tileDefs[row[Math.floor(this.evalExpr(node.x) / 8)]];
+        return !!(def && def.solid);
       }
       case 'sprite_expr': {
         // Ensure world is in sync before placement
@@ -2739,6 +2780,46 @@ class Runtime {
           break;
         }
 
+        case 'tile_def': {
+          const props = this.evalExpr(stmt.props);
+          this.tileDefs[stmt.ch] = (props && typeof props === 'object') ? props : {};
+          break;
+        }
+
+        case 'map_def': {
+          const rows = (stmt.body || [])
+            .map(s => (s && s.type === 'literal' && typeof s.value === 'string') ? s.value : null)
+            .filter(v => v !== null);
+          let cols = 0;
+          for (const r of rows) cols = Math.max(cols, r.length);
+          this.map = rows.length ? { rows, cols } : null;
+          if (this.map) {
+            // the map defines the world (never smaller than one screen)
+            this.world = { width: Math.max(128, cols * 8), height: Math.max(128, rows.length * 8) };
+            this.vars.world = this.world;
+          }
+          break;
+        }
+
+        case 'draw_map': {
+          if (!this.map) break;
+          const ox = this.camera.x, oy = this.camera.y;
+          const rows = this.map.rows;
+          for (let r = 0; r < rows.length; r++) {
+            const y = r * 8 - oy;
+            if (y <= -8 || y >= 128) continue;
+            const row = rows[r];
+            for (let c = 0; c < row.length; c++) {
+              const def = this.tileDefs[row[c]];
+              if (!def || !def.image) continue;
+              const x = c * 8 - ox;
+              if (x <= -8 || x >= 128) continue;
+              drawSprite(def.image, x, y);
+            }
+          }
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -2838,6 +2919,23 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // True if the 8x8 box at (x, y) overlaps any solid map tile.
+  mapSolidBox(x, y) {
+    if (!this.map) return false;
+    const rows = this.map.rows;
+    const r0 = Math.max(0, Math.floor(y / 8)), r1 = Math.min(rows.length - 1, Math.floor((y + 7) / 8));
+    const c0 = Math.max(0, Math.floor(x / 8));
+    for (let r = r0; r <= r1; r++) {
+      const row = rows[r];
+      const c1 = Math.min(row.length - 1, Math.floor((x + 7) / 8));
+      for (let c = c0; c <= c1; c++) {
+        const def = this.tileDefs[row[c]];
+        if (def && def.solid) return true;
+      }
+    }
+    return false;
   }
 
   execDraw(stmt) {
@@ -3195,6 +3293,7 @@ class Runtime {
           }
         }
       }
+      if (this.mapSolidBox(px, py)) return { item: this.map, listName: 'map' };
       return null;
     };
     let solidHit = null;

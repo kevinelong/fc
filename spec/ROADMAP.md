@@ -28,7 +28,7 @@ in user `.fc` code.**
 ## Wave 2 — staged next (prerequisites noted; NOT in this session)
 | Item | Notes / prerequisites |
 |------|----------------------|
-| **Text tilemap** (`map is` ASCII rows + legend → sprites/tags) + in-app **map editor** | The #2 research unlock (Pac-Man-lite, Boulder Dash, mazes); completes the editor trio (sprite ✔ sound ✔ map ✗); kills hand-rolled wall math (Hunt). Touches parser+runtime+camera+collision: needs its own session with corpus extension first. |
+| ~~**Text tilemap** + in-app **map editor**~~ | **✔ SHIPPED 2026-06-12.** `tile "#" is {…}` + `map is` indented rows + `draw map` + `solid at x, y`; map solids block movement (axis-restore integrated); world auto-sized; 3 corpus cases, 37/37 green; Coin Maze demo; MAP·FORGE editor (▦ map button) completes the editor trio. |
 | **Enemy-AI verbs** `chase` / `wander` / `patrol` | #3 research unlock (Pac-Man ghosts). Design the prose form first; corpus cases before implementation. |
 | **Frame animation** `animate player with "a" "b" every N frames` | Closes the manual-frame-swap gap. |
 | **Particles** (finish the stub) `burst 12 sparks at player` | One-line juice. |

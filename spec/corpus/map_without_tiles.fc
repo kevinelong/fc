@@ -1,0 +1,5 @@
+map is
+  "##"
+  "##"
+anywhere is solid at 4, 4
+w is world.width
