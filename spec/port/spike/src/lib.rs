@@ -1197,7 +1197,24 @@ impl Rt {
                     self.vars.insert("world".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
                 }
             }
-            Stmt::DrawMap => {} // tiles render host-side; no exec-visible effect
+            Stmt::DrawMap => {
+                let (ox, oy) = self.camera;
+                let rows = self.map_rows.clone();
+                for (r, row) in rows.iter().enumerate() {
+                    let y = (r * 8) as f64 - oy;
+                    if y <= -8.0 || y >= 128.0 { continue; }
+                    for (c, ch) in row.chars().enumerate() {
+                        let img = match self.tile_defs.get(&ch.to_string()) {
+                            Some(Val::Obj(o)) => match o.borrow().get("image") { Some(Val::Str(s)) => Some(s.clone()), _ => None },
+                            _ => None,
+                        };
+                        let img = match img { Some(i) => i, None => continue };
+                        let x = (c * 8) as f64 - ox;
+                        if x <= -8.0 || x >= 128.0 { continue; }
+                        blit_sprite(&img, x, y, &mut self.cmds);
+                    }
+                }
+            }
             Stmt::Behavior(b) => {
                 let subj = self.get_var(&b.subject);
                 let speed_once: Option<f64> = match &b.speed { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
@@ -1296,6 +1313,20 @@ fn resolve_color(name: &str) -> String {
 }
 #[derive(Clone)]
 enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String) }
+
+include!("sprites_gen.rs");
+fn js_floor(x: f64) -> f64 { let t = x as i64 as f64; if t > x { t - 1.0 } else { t } }
+// Mirror of index.html drawSprite(): one 1x1 rect per opaque pixel (recorder parity).
+fn blit_sprite(name: &str, x: f64, y: f64, cmds: &mut Vec<Cmd>) {
+    let hex = match SPRITES.iter().find(|(n, _)| *n == name) { Some((_, h)) => *h, None => return };
+    let (fx, fy) = (js_floor(x), js_floor(y));
+    for (i, ch) in hex.bytes().enumerate().take(64) {
+        let ci = match ch { b'0'..=b'9' => (ch - b'0') as usize, b'a'..=b'f' => (ch - b'a' + 10) as usize, b'A'..=b'F' => (ch - b'A' + 10) as usize, _ => 0 };
+        if ci == 0 { continue; }
+        let px = (i % 8) as f64; let py = (i / 8) as f64;
+        cmds.push(Cmd::Rect(fx + px, fy + py, 1.0, 1.0, SPRITE_PAL[ci].to_string()));
+    }
+}
 fn emit_cmd(c: &Cmd, out: &mut String) {
     match c {
         Cmd::Rect(x,y,w,h,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"h\":"); json_num(*h,out); out.push_str(",\"op\":\"rect\",\"w\":"); json_num(*w,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }

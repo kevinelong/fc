@@ -1,4 +1,4 @@
-// fc language core — EXTRACTED from index.html (regenerate via spec/lang/extract; do not hand-edit).
+// fc language core + RECORDING ctx — regenerate from spec/lang/fc-core.mjs (see gen note in draw-diff.mjs).
 // Real language code below; ONLY the platform (canvas/audio/net/DOM/input) is stubbed
 // no-op so the pure core runs headless in Node for conformance.
 const noop = function () {};
@@ -18,6 +18,11 @@ const ctx = {
 const canvas = { width: 128, height: 128, getContext: () => ctx };
 const AUDIO = mkProxy({});
 const NET = mkProxy({ peers: [], connected: () => false });
+// STORE stub: JSON round-trip parity with the browser's localStorage-backed STORE.
+const STORE = (() => { const m = new Map(); return {
+  set(k, v) { try { m.set(String(k), JSON.stringify(v)); } catch (_) {} },
+  get(k) { const s = m.get(String(k)); return s === undefined ? undefined : JSON.parse(s); },
+}; })();
 const editor = { value: '' };
 const errorsDiv = { textContent: '' };
 const requestAnimationFrame = noop, cancelAnimationFrame = noop, clearInterval = noop;
@@ -144,23 +149,9 @@ const FONT_DATA = {};
 })();
 
 function drawText(text, x, y, colorHex) {
-  ctx.fillStyle = colorHex;
-  let cx = x;
-  const s = String(text).toUpperCase();
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    const rows = FONT_DATA[ch];
-    if (rows) {
-      for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 3; col++) {
-          if (rows[row] & (1 << (2 - col))) {
-            ctx.fillRect(cx + col, y + row, 1, 1);
-          }
-        }
-      }
-    }
-    cx += FONT_W + FONT_SPACING;
-  }
+  // RECORDING STUB: the real per-pixel glyph renderer is replaced by one
+  // semantic command, mirroring the Rust core's Cmd::Text.
+  __CMDS.push({ op: 'text', text: String(text), x, y, color: colorHex });
 }
 
 // ============================================================
@@ -828,7 +819,14 @@ function parse(source) {
         j++;
       }
       if (children.length > 0) {
-        stmt.body = parseBlock(i + 1, minIndent + 1);
+        // map rows are raw quoted strings, not statements
+        if (stmt.type === 'map_def') {
+          stmt.body = children
+            .filter(l => l.tokens.length === 1 && l.tokens[0].type === 'string')
+            .map(l => ({ type: 'literal', value: l.tokens[0].value }));
+        } else {
+          stmt.body = parseBlock(i + 1, minIndent + 1);
+        }
       }
       stmts.push(stmt);
       i = j > i + 1 ? j : i + 1;
@@ -994,6 +992,87 @@ function parse(source) {
       const numTok = raw.find(t => t.type === 'number');
       const force = numTok ? Number(numTok.value) : 4.5;
       return { type: 'jump', target, force, lineNum };
+    }
+
+    // -- save X as "name"  (remember a value on this device; read back with `load`) --
+    if (first === 'save' && raw.some(t => t.type === 'word' && tv(t) === 'as')) {
+      const asIdx = raw.findIndex(t => t.type === 'word' && tv(t) === 'as');
+      return { type: 'save', value: parseExpression(raw.slice(1, asIdx)), key: parseExpression(raw.slice(asIdx + 1)), lineNum };
+    }
+
+    // -- tile "#" is {image: "brick", solid: yes}  (what a map character means) --
+    if (first === 'tile' && raw[1] && raw[1].type === 'string' && raw[2] && tv(raw[2]) === 'is') {
+      return { type: 'tile_def', ch: String(raw[1].value), props: parseExpression(raw.slice(3)), lineNum };
+    }
+
+    // -- map is  (the indented quoted rows below become the level; sizes the world) --
+    if (first === 'map' && raw.length === 2 && tv(raw[1]) === 'is') {
+      return { type: 'map_def', body: [], lineNum };
+    }
+
+    // -- draw map  (draw every tile, camera-aware; place it in `to draw`) --
+    if (first === 'draw' && raw.length === 2 && tv(raw[1]) === 'map') {
+      return { type: 'draw_map', lineNum };
+    }
+
+    // -- ghosts chase player [speed 0.5] · bats wander · guard patrols between 20 and 100 --
+    if (raw.length >= 2 && raw[0].type === 'word' && raw[1].type === 'word' &&
+        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols'].includes(tv(raw[1]))) {
+      // optional trailing `through walls` lets a mover ignore solid map tiles
+      const twi = raw.findIndex((t, i) => t.type === 'word' && tv(t) === 'through' &&
+                                raw[i + 1] && raw[i + 1].type === 'word' && tv(raw[i + 1]) === 'walls');
+      const through = twi >= 0;
+      const toks = through ? raw.slice(0, twi).concat(raw.slice(twi + 2)) : raw;
+      const subject = toks[0].value;
+      const verb = tv(toks[1]).replace(/s$/, '');
+      const sp = toks.findIndex(t => t.type === 'word' && tv(t) === 'speed');
+      const speed = sp >= 0 ? parseExpression(toks.slice(sp + 1)) : null;
+      const end = sp >= 0 ? sp : toks.length;
+      if (verb === 'chase') {
+        const target = toks[2] && toks[2].type === 'word' ? toks[2].value : 'player';
+        return { type: 'behavior', kind: 'chase', subject, target, speed, through, lineNum };
+      }
+      if (verb === 'wander') {
+        return { type: 'behavior', kind: 'wander', subject, speed, through, lineNum };
+      }
+      if (verb === 'patrol') {
+        const bi = toks.findIndex(t => t.type === 'word' && tv(t) === 'between');
+        const ai = toks.findIndex(t => t.type === 'word' && tv(t) === 'and');
+        if (bi > 0 && ai > bi) {
+          return { type: 'behavior', kind: 'patrol', subject,
+                   x1: parseExpression(toks.slice(bi + 1, ai)), x2: parseExpression(toks.slice(ai + 1, end)), speed, through, lineNum };
+        }
+      }
+    }
+
+    // -- animate player with "hero_down" "hero_up" every 10 frames --
+    if (first === 'animate' && raw.length >= 4 && raw[2] && tv(raw[2]) === 'with') {
+      const frames = [];
+      let i = 3;
+      while (i < raw.length && raw[i].type === 'string') { frames.push(raw[i].value); i++; }
+      let every = 10;
+      if (i < raw.length && tv(raw[i]) === 'every' && raw[i + 1] && raw[i + 1].type === 'number') {
+        every = Number(raw[i + 1].value);
+      }
+      if (frames.length) return { type: 'animate', subject: raw[1].value, frames, every, lineNum };
+    }
+
+    // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
+    if (first === 'burst') {
+      const ai = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
+      if (ai > 1) {
+        const ii = raw.findIndex((t, k) => k > ai && t.type === 'word' && tv(t) === 'in');
+        const placeEnd = ii > 0 ? ii : raw.length;
+        const place = raw.slice(ai + 1, placeEnd);
+        const color = ii > 0 ? raw.slice(ii + 1).map(t => t.value).join(' ') : null;
+        const countToks = raw.slice(1, Math.max(2, ai - 1));   // the word before `at` is a decorative noun
+        const count = parseExpression(countToks);
+        const ci = place.findIndex(t => t.type === 'comma');
+        if (ci > 0) {
+          return { type: 'burst', count, x: parseExpression(place.slice(0, ci)), y: parseExpression(place.slice(ci + 1)), color, lineNum };
+        }
+        return { type: 'burst', count, ref: parseExpression(place), color, lineNum };
+      }
     }
 
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
@@ -1562,6 +1641,19 @@ function parse(source) {
       return { type: 'random', max: parseExpression(tokens.slice(1)) };
     }
 
+    // Handle `load "name"` (read a value saved with `save`; 0 if never saved)
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'load' && tokens.length >= 2) {
+      return { type: 'load', key: parseExpression(tokens.slice(1)) };
+    }
+
+    // Handle `solid at X, Y` (is that point on a solid map tile? yes/no)
+    if (tokens[0].type === 'word' && tv(tokens[0]) === 'solid' &&
+        tokens.length >= 4 && tv(tokens[1]) === 'at') {
+      const rest = tokens.slice(2);
+      const ci = rest.findIndex(t => t.type === 'comma');
+      if (ci > 0) return { type: 'solid_at', x: parseExpression(rest.slice(0, ci)), y: parseExpression(rest.slice(ci + 1)) };
+    }
+
     // "list of N <noun> [{props}]" - auto-placed sprite list
     if (tokens[0].type === 'word' && tv(tokens[0]) === 'list' &&
         tokens.length >= 3 && tv(tokens[1]) === 'of') {
@@ -1995,6 +2087,11 @@ class Runtime {
     this.mouseState = { x: 0, y: 0, down: false, clicked: false };
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.tileDefs = {};
+    this.map = null;
+    this.behaviorSubjects = [];
+    this.animSubjects = [];
+    this.particles = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2028,6 +2125,11 @@ class Runtime {
     this._watchdog = null;
     this.eventHandlers = { key: {}, key_in: [], mouse: {} };
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
+    this.tileDefs = {};
+    this.map = null;
+    this.behaviorSubjects = [];
+    this.animSubjects = [];
+    this.particles = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2137,6 +2239,17 @@ class Runtime {
       case 'random': {
         const max = this.evalExpr(node.max);
         return Math.floor(Math.random() * (max + 1));
+      }
+      case 'load': {
+        const v = STORE.get(String(this.evalExpr(node.key)));
+        return v === undefined ? 0 : v;
+      }
+      case 'solid_at': {
+        if (!this.map) return false;
+        const row = this.map.rows[Math.floor(this.evalExpr(node.y) / 8)];
+        if (!row) return false;
+        const def = this.tileDefs[row[Math.floor(this.evalExpr(node.x) / 8)]];
+        return !!(def && def.solid);
       }
       case 'sprite_expr': {
         // Ensure world is in sync before placement
@@ -2724,6 +2837,95 @@ class Runtime {
           break;
         }
 
+        case 'save': {
+          const key = String(this.evalExpr(stmt.key));
+          STORE.set(key, this.evalExpr(stmt.value));
+          break;
+        }
+
+        case 'tile_def': {
+          const props = this.evalExpr(stmt.props);
+          this.tileDefs[stmt.ch] = (props && typeof props === 'object') ? props : {};
+          break;
+        }
+
+        case 'map_def': {
+          const rows = (stmt.body || [])
+            .map(s => (s && s.type === 'literal' && typeof s.value === 'string') ? s.value : null)
+            .filter(v => v !== null);
+          let cols = 0;
+          for (const r of rows) cols = Math.max(cols, r.length);
+          this.map = rows.length ? { rows, cols } : null;
+          if (this.map) {
+            // the map defines the world (never smaller than one screen)
+            this.world = { width: Math.max(128, cols * 8), height: Math.max(128, rows.length * 8) };
+            this.vars.world = this.world;
+          }
+          break;
+        }
+
+        case 'draw_map': {
+          if (!this.map) break;
+          const ox = this.camera.x, oy = this.camera.y;
+          const rows = this.map.rows;
+          for (let r = 0; r < rows.length; r++) {
+            const y = r * 8 - oy;
+            if (y <= -8 || y >= 128) continue;
+            const row = rows[r];
+            for (let c = 0; c < row.length; c++) {
+              const def = this.tileDefs[row[c]];
+              if (!def || !def.image) continue;
+              const x = c * 8 - ox;
+              if (x <= -8 || x >= 128) continue;
+              drawSprite(def.image, x, y);
+            }
+          }
+          break;
+        }
+
+        case 'behavior': {
+          const v = this.getVar(stmt.subject);
+          const speed = stmt.speed ? this.evalExpr(stmt.speed) : null;
+          const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+          for (const m of items) {
+            const b = { kind: stmt.kind };
+            if (stmt.kind === 'chase') b.target = stmt.target;
+            if (stmt.kind === 'patrol') { b.x1 = this.evalExpr(stmt.x1); b.x2 = this.evalExpr(stmt.x2); b.dir = 1; }
+            if (stmt.through) b.through = true;
+            b.speed = (speed != null) ? speed : (typeof m.speed === 'number' ? m.speed : 0.5);
+            m.behavior = b;                       // visible & editable from fc code
+          }
+          if (!this.behaviorSubjects.includes(stmt.subject)) this.behaviorSubjects.push(stmt.subject);
+          break;
+        }
+
+        case 'animate': {
+          const v = this.getVar(stmt.subject);
+          const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+          for (const m of items) m.animation = { frames: stmt.frames.slice(), every: stmt.every };
+          if (!this.animSubjects.includes(stmt.subject)) this.animSubjects.push(stmt.subject);
+          break;
+        }
+
+        case 'burst': {
+          let x, y;
+          if (stmt.ref) {
+            const o = this.evalExpr(stmt.ref);
+            if (!o || typeof o.x !== 'number') break;
+            x = o.x + 4; y = o.y + 4;
+          } else { x = this.evalExpr(stmt.x); y = this.evalExpr(stmt.y); }
+          const n = Math.max(1, Math.min(64, this.evalExpr(stmt.count) | 0));
+          const palette = stmt.color ? [resolveColor(stmt.color)] : ['#ffec27', '#fff1e8', '#ffa300'];
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 0.4 + Math.random() * 1.4;
+            this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                                  life: 16 + (Math.random() * 18 | 0), color: palette[i % palette.length] });
+          }
+          if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -2823,6 +3025,98 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // Cycle `animate X with ...` frames using the global tick.
+  applyAnimations() {
+    for (const name of this.animSubjects || []) {
+      const v = this.vars[name];
+      const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+      for (const m of items) {
+        const a = m.animation;
+        if (!a || !a.frames || !a.frames.length) continue;
+        m.image = a.frames[Math.floor((this.tick || 0) / (a.every || 10)) % a.frames.length];
+      }
+    }
+  }
+
+  // Move, age and draw the particle pool (created by `burst`). Runs in the draw phase.
+  updateParticles() {
+    if (!this.particles.length) return;
+    const ox = this.camera.x, oy = this.camera.y;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.96; p.vy *= 0.96;
+      p.life--;
+      if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+      ctx.fillStyle = p.color;
+      const s = p.life > 10 ? 2 : 1;
+      ctx.fillRect(Math.floor(p.x - ox), Math.floor(p.y - oy), s, s);
+    }
+  }
+
+  // Apply chase / wander / patrol behaviors each frame (set once, runs forever).
+  applyBehaviors() {
+    for (const name of this.behaviorSubjects || []) {
+      const v = this.vars[name];
+      const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+      for (const m of items) {
+        const b = m.behavior;
+        if (!b || typeof m.x !== 'number' || typeof m.y !== 'number') continue;
+        const spd = (typeof b.speed === 'number') ? b.speed : 0.5;
+        let vx = 0, vy = 0;
+        if (b.kind === 'chase') {
+          const t = this.vars[b.target];
+          if (!t || typeof t.x !== 'number') continue;
+          const dx = t.x - m.x, dy = t.y - m.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) continue;
+          vx = dx / len * spd; vy = dy / len * spd;
+        } else if (b.kind === 'wander') {
+          if ((!b.vx && !b.vy) || Math.random() < 0.02) {
+            const a = Math.random() * Math.PI * 2;
+            b.vx = Math.cos(a); b.vy = Math.sin(a);
+          }
+          vx = b.vx * spd; vy = b.vy * spd;
+        } else if (b.kind === 'patrol') {
+          const lo = Math.min(b.x1, b.x2), hi = Math.max(b.x1, b.x2);
+          if (!b.dir) b.dir = 1;
+          if (m.x <= lo) b.dir = 1;
+          if (m.x >= hi) b.dir = -1;
+          vx = b.dir * spd;
+        }
+        // move with map-solid slide (axis at a time), then clamp to the world
+        const nx = m.x + vx, ny = m.y + vy;
+        if (b.through) { m.x = nx; m.y = ny; }
+        else if (!this.mapSolidBox(nx, ny)) { m.x = nx; m.y = ny; }
+        else if (!this.mapSolidBox(nx, m.y)) { m.x = nx; if (b.kind === 'wander') b.vy = -b.vy; }
+        else if (!this.mapSolidBox(m.x, ny)) { m.y = ny; if (b.kind === 'wander') b.vx = -b.vx; }
+        else if (b.kind === 'wander') { b.vx = -b.vx; b.vy = -b.vy; }
+        if (m.x < 0) m.x = 0;
+        if (m.y < 0) m.y = 0;
+        const mx = this.world.width - 8, my = this.world.height - 8;
+        if (m.x > mx) { m.x = mx; if (b.vx) b.vx = -b.vx; if (b.dir) b.dir = -1; }
+        if (m.y > my) { m.y = my; if (b.vy) b.vy = -b.vy; }
+      }
+    }
+  }
+
+  // True if the 8x8 box at (x, y) overlaps any solid map tile.
+  mapSolidBox(x, y) {
+    if (!this.map) return false;
+    const rows = this.map.rows;
+    const r0 = Math.max(0, Math.floor(y / 8)), r1 = Math.min(rows.length - 1, Math.floor((y + 7) / 8));
+    const c0 = Math.max(0, Math.floor(x / 8));
+    for (let r = r0; r <= r1; r++) {
+      const row = rows[r];
+      const c1 = Math.min(row.length - 1, Math.floor((x + 7) / 8));
+      for (let c = c0; c <= c1; c++) {
+        const def = this.tileDefs[row[c]];
+        if (def && def.solid) return true;
+      }
+    }
+    return false;
   }
 
   execDraw(stmt) {
@@ -3042,6 +3336,11 @@ class Runtime {
       // Walks until: solid collision, world edge, or stop_walking
       self._autoWalk();
 
+      // Built-in enemy behaviors (ghosts chase player · bats wander · guard patrols)
+      self.applyBehaviors();
+      // Frame-swap any `animate X with ...` subjects
+      self.applyAnimations();
+
       // Gravity: if the user set a positive `gravity`, the player accelerates
       // downward each frame (dy builds up, then moves y). `jump player` sets a
       // negative dy. Defaults off (gravity 0) so non-platformers are unaffected.
@@ -3084,6 +3383,9 @@ class Runtime {
       for (let i = 1; i < funcNames.length; i++) {
         self.callFunc(funcNames[i]);
       }
+
+      // Particles draw on top of the game layer
+      self.updateParticles();
 
       // Auto-dispatch to a screen function matching current mode
       const mode = self.vars.mode;
@@ -3180,6 +3482,7 @@ class Runtime {
           }
         }
       }
+      if (this.mapSolidBox(px, py)) return { item: this.map, listName: 'map' };
       return null;
     };
     let solidHit = null;
@@ -3368,6 +3671,4 @@ let debounceTimer = null;
 
 
 export { parse, Runtime, tokenizeLine, singularize, resolveColor };
-
-drawText = (text,x,y,color)=>{ __CMDS.push({op:'text',text:String(text),x,y,color}); };
 export { __CMDS };
