@@ -354,6 +354,35 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- tpos: trailer-portal sales inquiries (store + email notify) ----
+    // ---- Cloud saves: per-user key/value backing for the fc `save`/`load` verbs ----
+    if (p === '/api/state' && method === 'GET') {
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      return json(res, 200, { states: (db.states && db.states[user.id]) || {} });
+    }
+    if (p === '/api/state' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      const body = await readBody(req);
+      const updates = (body && typeof body.states === 'object' && body.states) ? body.states : {};
+      if (!db.states) db.states = {};
+      const mine = Object.assign({}, db.states[user.id] || {});
+      for (const [k, v] of Object.entries(updates)) {
+        const key = String(k).slice(0, 80);
+        let sv;
+        try { sv = JSON.stringify(v === undefined ? null : v); } catch (_) { continue; }
+        if (sv.length > 4096) continue;                       // one value: 4KB cap
+        mine[key] = JSON.parse(sv);
+      }
+      if (JSON.stringify(mine).length > 65536) {              // whole user: 64KB cap
+        return json(res, 413, { error: 'save space full' });
+      }
+      db.states[user.id] = mine;
+      save();
+      return json(res, 200, { ok: true });
+    }
+
     if (p === '/api/tpos/inquiry' && method === 'POST') {
       if (!csrfOk) return json(res, 403, { error: 'bad request' });
       const body = await readBody(req);

@@ -336,6 +336,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-github" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1f2328;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⬆ GitHub</button>
       <button type="button" id="tool-publish" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🌐 publish</button>
       <button type="button" id="tool-share" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🔗 share</button>
+      <button type="button" id="tool-embed" title="copy an iframe to put this game on any website" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">▣ embed</button>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
         <option value="coin-quest">Coin Quest (home)</option>
@@ -1294,12 +1295,44 @@ const AUDIO = (function () {
 // The runtime keeps a live `peers` array of everyone else's last state.
 // The relay is a dumb broadcaster — all game logic stays here in fc.
 // ============================================================
-// Persistent game storage for the `save`/`load` verbs (per-site localStorage).
+// Persistent game storage for the `save`/`load` verbs.
+// Local-first (localStorage); when signed in, mirrored to the cloud (/api/state)
+// so saves follow the player across devices. Offline or signed out: local only.
+// Boot order: cloud snapshot merges over local once per page load (cloud wins at
+// boot, local wins during play) — eventual consistency, kept deliberately simple.
 const STORE = {
   _k: (k) => 'fc:save:' + k,
-  set(k, v) { try { localStorage.setItem(this._k(k), JSON.stringify(v)); } catch (_) { /* storage unavailable: save is a no-op */ } },
-  get(k) { try { const s = localStorage.getItem(this._k(k)); return s == null ? undefined : JSON.parse(s); } catch (_) { return undefined; } },
+  _mem: {}, _queue: {}, _timer: null,
+  set(k, v) {
+    this._mem[k] = v;
+    try { localStorage.setItem(this._k(k), JSON.stringify(v)); } catch (_) { /* storage unavailable */ }
+    this._queue[k] = v;
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.flush(), 800);
+  },
+  get(k) {
+    if (k in this._mem) return this._mem[k];
+    try { const s = localStorage.getItem(this._k(k)); return s == null ? undefined : JSON.parse(s); } catch (_) { return undefined; }
+  },
+  flush() {
+    const states = this._queue; this._queue = {};
+    if (!Object.keys(states).length) return;
+    fetch('/api/state', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CO': '1' },
+      body: JSON.stringify({ states }) }).catch(() => { /* offline / signed out: local copy stands */ });
+  },
+  async pull() {
+    try {
+      const r = await fetch('/api/state');
+      if (!r.ok) return;                                   // 401 = signed out
+      const d = await r.json();
+      for (const [k, v] of Object.entries(d.states || {})) {
+        this._mem[k] = v;
+        try { localStorage.setItem(this._k(k), JSON.stringify(v)); } catch (_) {}
+      }
+    } catch (_) { /* offline */ }
+  },
 };
+STORE.pull();
 
 const NET = (function () {
   let sock = null, myId = null;
@@ -4793,6 +4826,13 @@ draw circle at 64, 80 size 10 in yellow`;
     // share: a link that opens the current code in anyone's browser
     let _toastTimer;
     function shareToast(msg) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2800); }
+    const embedTool = document.getElementById('tool-embed');
+    if (embedTool) embedTool.onclick = async () => {
+      const url = location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value)))) + '&embed=1';
+      const snip = '<iframe src="' + url + '" width="384" height="384" style="border:0;background:#000;border-radius:8px" loading="lazy" title="fc game"></iframe>';
+      try { await navigator.clipboard.writeText(snip); shareToast('embed code copied — paste it into any web page'); }
+      catch (_) { shareToast('could not copy — long-press the share link instead'); }
+    };
     const shareTool = document.getElementById('tool-share');
     if (shareTool) shareTool.onclick = async () => {
       const url = location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));

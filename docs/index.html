@@ -98,7 +98,7 @@ const COMMANDS = [
 
   ["Motion","gravity + jump","Make the player fall; jump gives an upward push.","player is {x: 60, y: 20, image: \"ship\", dy: 0}\ngravity is 0.4\nwhen \"space\" is pressed jump player\nto update\nto draw\n  clear screen to dark blue\n  draw sprite player.image at player.x, player.y\n  write \"space = jump\" at 16, 4 in white on hud\nrun game with update and draw"],
 
-  ["Values & math","save / load","Remember a value on this device — it survives closing the page. `load` gives 0 if nothing was saved yet.","best is load \"best score\"\nscore is best + 1\nsave score as \"best score\"\nclear screen to black\nwrite \"best was {best}\" at 16, 48 in yellow\nwrite \"now {score} — run again!\" at 8, 64 in green"],
+  ["Values & math","save / load","Remember a value — it survives closing the page, and if you are signed in it follows you to your other devices. `load` gives 0 if nothing was saved yet.","best is load \"best score\"\nscore is best + 1\nsave score as \"best score\"\nclear screen to black\nwrite \"best was {best}\" at 16, 48 in yellow\nwrite \"now {score} — run again!\" at 8, 64 in green"],
 
   ["World & screens","tile + map","Draw your level as a picture: each character is an 8x8 tile. Solid tiles block the player; the map sizes the world.","tile \"#\" is {image: \"brick\", solid: yes}\nmap is\n  \"################\"\n  \"#       #      #\"\n  \"# ##### # ## # #\"\n  \"#     # #  # # #\"\n  \"# ### # ## # # #\"\n  \"# #   #    # # #\"\n  \"# # ###### # # #\"\n  \"# #        #   #\"\n  \"################\"\nplayer is {x: 8, y: 8, image: \"hero\", speed: 1}\nto update\n  move player with arrows\nto draw\n  clear screen to black\n  draw map\n  draw sprite player.image at player.x, player.y\nrun game with update and draw"],
 

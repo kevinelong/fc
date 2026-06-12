@@ -33,8 +33,8 @@ in user `.fc` code.**
 | ~~**Frame animation**~~ | **✔ SHIPPED 2026-06-12.** `animate X with "a" "b" every N frames` — set-once frame cycling on the global tick; marker on the sprite; corpus-locked. |
 | ~~**Particles**~~ | **✔ SHIPPED 2026-06-12.** `burst N sparks at player / at X, Y [in color]` (the noun is decorative — `burst 8 stars at …` works too); auto-updated pool (cap 400), drawn over the game layer, camera-aware; maze coins + caught now burst. |
 | **WASM port phase 3b** | Per-frame command buffer + draw/sprite/collision behind `?core=wasm`. **Side-by-side run 2026-06-12:** lexer 1274/1274 ✓, parser 40/40 (golden set predates new verbs), runtime **31/40** — the 9 diffs are exactly the new 2026-06-12 constructs; porting order logged in spec/port/README. |
-| **Cloud saves** | Wire apid's reserved `states` slot (auth exists) so `save`/`load` sync across devices. After Wave-1 #4 defines the verb semantics. |
-| **Embed snippet** | One-click iframe embed for blogs; complements ?code/gist/community. |
+| ~~**Cloud saves**~~ | **✔ SHIPPED 2026-06-12.** apid `GET/POST /api/state` (session-auth, X-CO, 4KB/value + 64KB/user caps, merge semantics — server-tested end-to-end); client STORE is local-first with a debounced cloud mirror + boot pull (cloud wins at boot, local during play). Signed out/offline = exactly the old behavior. Language semantics unchanged; corpus untouched. |
+| ~~**Embed snippet**~~ | **✔ SHIPPED 2026-06-12.** `?embed=1` chrome-free mode already existed; added the ▣ embed toolbar button that copies a ready iframe snippet (clipboard-verified live). |
 | **Multiplayer as headline** | Portal positioning: none of the rivals ship built-in MP; fc has relay + Tag + Hunt. |
 | **iOS TestFlight** | Blocked on the $99 Apple Developer decision; path documented in fc-app/IOS-BUILD.md. |
 
