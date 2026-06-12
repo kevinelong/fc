@@ -32,7 +32,7 @@ in user `.fc` code.**
 | ~~**Enemy-AI verbs**~~ | **✔ SHIPPED 2026-06-12.** `ghosts chase player [speed N] [through walls]` · `bats wander` · `guard patrols between X1 and X2` — declarative set-once behaviors; markers live on the sprite (`ghost.behavior.speed` is editable fc data); map-solid slide unless `through walls`; 2 corpus cases (39/39); ghosts added to Coin Maze; docs entry. |
 | ~~**Frame animation**~~ | **✔ SHIPPED 2026-06-12.** `animate X with "a" "b" every N frames` — set-once frame cycling on the global tick; marker on the sprite; corpus-locked. |
 | ~~**Particles**~~ | **✔ SHIPPED 2026-06-12.** `burst N sparks at player / at X, Y [in color]` (the noun is decorative — `burst 8 stars at …` works too); auto-updated pool (cap 400), drawn over the game layer, camera-aware; maze coins + caught now burst. |
-| **WASM port phase 3b** | Per-frame command buffer + draw/sprite/collision so the Rust core can run games behind `?core=wasm`. Spike is conformance-green through runtime; this is the remaining chunk. |
+| **WASM port phase 3b** | Per-frame command buffer + draw/sprite/collision behind `?core=wasm`. **Side-by-side run 2026-06-12:** lexer 1274/1274 ✓, parser 40/40 (golden set predates new verbs), runtime **31/40** — the 9 diffs are exactly the new 2026-06-12 constructs; porting order logged in spec/port/README. |
 | **Cloud saves** | Wire apid's reserved `states` slot (auth exists) so `save`/`load` sync across devices. After Wave-1 #4 defines the verb semantics. |
 | **Embed snippet** | One-click iframe embed for blogs; complements ?code/gist/community. |
 | **Multiplayer as headline** | Portal positioning: none of the rivals ship built-in MP; fc has relay + Tag + Hunt. |
