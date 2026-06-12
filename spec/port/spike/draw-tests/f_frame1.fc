@@ -1,0 +1,15 @@
+world is {width: 256, height: 128}
+player is {x: 100, y: 20, image: "hero", dy: 0}
+gravity is 0.5
+follow player with camera
+ghost is {x: 50, y: 20, speed: 2}
+ghost chases player
+guard is {x: 60, y: 90}
+guard patrols between 40 and 80 speed 1.5
+animate player with "hero_down" "hero_up" every 1 frames
+to update
+  add 1 to player.x
+to draw
+  write "g {ghost.x} p {guard.x}" at 2, 2 in white on hud
+  write "px {player.x} py {player.y} im {player.image}" at 2, 10 in white on hud
+run game with update and draw

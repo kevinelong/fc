@@ -13,3 +13,6 @@ lto = true
 panic = "abort"
 strip = true
 codegen-units = 1
+
+[dependencies]
+libm = "0.2.16"

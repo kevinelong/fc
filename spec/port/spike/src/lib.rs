@@ -989,10 +989,10 @@ fn deep_clone(v: &Val) -> Val {
 }
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
-    store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String> }
+    store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String> }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
-        store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new() } }
+        store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
@@ -1100,6 +1100,148 @@ impl Rt {
         if let Some(t)=then { self.exec_one(t); }
         if !body.is_empty() { self.exec_block(body); }
     }
+    fn world_dims(&mut self) -> (f64, f64) {
+        if let Val::Obj(o) = self.get_var("world") {
+            let b = o.borrow();
+            let w = match b.get("width") { Some(Val::Num(n)) => *n, _ => 128.0 };
+            let h = match b.get("height") { Some(Val::Num(n)) => *n, _ => 128.0 };
+            (w, h)
+        } else { (128.0, 128.0) }
+    }
+    fn map_solid_box(&self, x: f64, y: f64) -> bool {
+        if self.map_rows.is_empty() || x + 7.0 < 0.0 || y + 7.0 < 0.0 { return false; }
+        let r0 = if y < 0.0 { 0 } else { (y / 8.0) as usize };
+        let r1 = ((y + 7.0) / 8.0) as usize;
+        let c0 = if x < 0.0 { 0 } else { (x / 8.0) as usize };
+        for r in r0..=r1.min(self.map_rows.len().saturating_sub(1)) {
+            let row = &self.map_rows[r];
+            let c1 = ((x + 7.0) / 8.0) as usize;
+            for c in c0..=c1.min(row.chars().count().saturating_sub(1)) {
+                if let Some(ch) = row.chars().nth(c) {
+                    if let Some(Val::Obj(o)) = self.tile_defs.get(&ch.to_string()) {
+                        if o.borrow().get("solid").map(|v| truthy(v)).unwrap_or(false) { return true; }
+                    }
+                }
+            }
+        }
+        false
+    }
+    fn obj_num(o: &Rc<RefCell<BTreeMap<String, Val>>>, k: &str) -> Option<f64> {
+        match o.borrow().get(k) { Some(Val::Num(n)) => Some(*n), _ => None }
+    }
+    // ONE frame, mirroring index.html startGameLoop frame() — the headless slice
+    // (skipped, like the JS record run: input handlers, autowalk, tag collisions).
+    fn frame_step(&mut self, fs: &[String]) {
+        self.tick += 1;
+        let prev: Option<(f64, f64)> = match self.get_var("player") {
+            Val::Obj(ref o) => match (Self::obj_num(o, "x"), Self::obj_num(o, "y")) { (Some(x), Some(y)) => Some((x, y)), _ => None },
+            _ => None,
+        };
+        if let Some(f0) = fs.get(0) { if let Some(b) = self.funcs.get(f0).cloned() { self.exec_block(&b); self.returning = false; } }
+        // behaviors motion (chase/patrol; wander needs rng — excluded from frame tests)
+        let names: Vec<String> = self.vars.iter().filter_map(|(k, v)| {
+            let has = |o: &Rc<RefCell<BTreeMap<String, Val>>>| o.borrow().contains_key("behavior");
+            match v { Val::Obj(o) if has(o) => Some(k.clone()),
+                      Val::List(l) if l.borrow().iter().any(|m| matches!(m, Val::Obj(o) if has(o))) => Some(k.clone()), _ => None }
+        }).collect();
+        let (ww, wh) = self.world_dims();
+        for name in names {
+            let items: Vec<Val> = match self.get_var(&name) { Val::List(l) => l.borrow().clone(), v @ Val::Obj(_) => { let mut t = Vec::new(); t.push(v); t } _ => Vec::new() };
+            for it in items { if let Val::Obj(o) = it {
+                let b = match o.borrow().get("behavior") { Some(Val::Obj(bo)) => bo.clone(), _ => continue };
+                let (mx, my) = match (Self::obj_num(&o, "x"), Self::obj_num(&o, "y")) { (Some(a), Some(c)) => (a, c), _ => continue };
+                let spd = Self::obj_num(&b, "speed").unwrap_or(0.5);
+                let kind = match b.borrow().get("kind") { Some(Val::Str(k)) => k.clone(), _ => continue };
+                let through = b.borrow().get("through").map(|v| truthy(v)).unwrap_or(false);
+                let (mut vx, mut vy) = (0.0, 0.0);
+                if kind == "chase" {
+                    let tname = match b.borrow().get("target") { Some(Val::Str(t)) => t.clone(), _ => continue };
+                    if let Val::Obj(t) = self.get_var(&tname) {
+                        if let (Some(tx), Some(ty)) = (Self::obj_num(&t, "x"), Self::obj_num(&t, "y")) {
+                            let (dx, dy) = (tx - mx, ty - my);
+                            let len = libm::sqrt(dx * dx + dy * dy);
+                            if len < 1.0 { continue; }
+                            vx = dx / len * spd; vy = dy / len * spd;
+                        } else { continue; }
+                    } else { continue; }
+                } else if kind == "patrol" {
+                    let x1 = Self::obj_num(&b, "x1").unwrap_or(0.0); let x2 = Self::obj_num(&b, "x2").unwrap_or(0.0);
+                    let (lo, hi) = (if x1 < x2 { x1 } else { x2 }, if x1 > x2 { x1 } else { x2 });
+                    let mut dir = Self::obj_num(&b, "dir").unwrap_or(0.0);
+                    if dir == 0.0 { dir = 1.0; }
+                    if mx <= lo { dir = 1.0; }
+                    if mx >= hi { dir = -1.0; }
+                    b.borrow_mut().insert("dir".to_string(), Val::Num(dir));
+                    vx = dir * spd;
+                } else { continue; } // wander: rng-dependent, out of frame-test scope
+                let (nx, ny) = (mx + vx, my + vy);
+                let (mut fx, mut fy) = (mx, my);
+                if through || !self.map_solid_box(nx, ny) { fx = nx; fy = ny; }
+                else if !self.map_solid_box(nx, my) { fx = nx; }
+                else if !self.map_solid_box(mx, ny) { fy = ny; }
+                if fx < 0.0 { fx = 0.0; } if fy < 0.0 { fy = 0.0; }
+                let (mxw, myw) = (ww - 8.0, wh - 8.0);
+                if fx > mxw { fx = mxw; if let Some(d) = Self::obj_num(&b, "dir") { if d != 0.0 { b.borrow_mut().insert("dir".to_string(), Val::Num(-1.0)); } } }
+                if fy > myw { fy = myw; }
+                o.borrow_mut().insert("x".to_string(), Val::Num(fx));
+                o.borrow_mut().insert("y".to_string(), Val::Num(fy));
+            }}
+        }
+        // animations: image = frames[floor(tick/every) % n]
+        let anames: Vec<String> = self.vars.iter().filter_map(|(k, v)| match v {
+            Val::Obj(o) if o.borrow().contains_key("animation") => Some(k.clone()), _ => None }).collect();
+        for name in anames {
+            if let Val::Obj(o) = self.get_var(&name) {
+                let a = match o.borrow().get("animation") { Some(Val::Obj(ao)) => ao.clone(), _ => continue };
+                let every = Self::obj_num(&a, "every").unwrap_or(10.0);
+                let frames: Vec<String> = match a.borrow().get("frames") { Some(Val::List(l)) => l.borrow().iter().filter_map(|f| if let Val::Str(s) = f { Some(s.clone()) } else { None }).collect(), _ => continue };
+                if frames.is_empty() { continue; }
+                let idx = ((self.tick as f64 / every) as u64 as usize) % frames.len();
+                o.borrow_mut().insert("image".to_string(), Val::Str(frames[idx].clone()));
+            }
+        }
+        // gravity → clamp → map-solid axis restore (player)
+        if let Val::Obj(p) = self.get_var("player") {
+            let g = as_num(&self.get_var("gravity"));
+            if g > 0.0 { if let Some(py) = Self::obj_num(&p, "y") {
+                let dy = Self::obj_num(&p, "dy").unwrap_or(0.0) + g;
+                p.borrow_mut().insert("dy".to_string(), Val::Num(dy));
+                p.borrow_mut().insert("y".to_string(), Val::Num(py + dy));
+            }}
+            if let (Some(mut px), Some(mut py)) = (Self::obj_num(&p, "x"), Self::obj_num(&p, "y")) {
+                let (mxw, myw) = (ww - 8.0, wh - 8.0);
+                if px < 0.0 { px = 0.0; } if py < 0.0 { py = 0.0; p.borrow_mut().insert("dy".to_string(), Val::Num(0.0)); }
+                if px > mxw { px = mxw; } if py > myw { py = myw; p.borrow_mut().insert("dy".to_string(), Val::Num(0.0)); }
+                if let Some((ox, oy)) = prev {
+                    if self.map_solid_box(px, py) {
+                        if !self.map_solid_box(px, oy) { py = oy; }
+                        else if !self.map_solid_box(ox, py) { px = ox; }
+                        else { px = ox; py = oy; }
+                    }
+                }
+                p.borrow_mut().insert("x".to_string(), Val::Num(px));
+                p.borrow_mut().insert("y".to_string(), Val::Num(py));
+            }
+        }
+        // camera follow (clamped to world)
+        if let Some(t) = self.follow.clone() {
+            if let Val::Obj(o) = self.get_var(&t) {
+                if let (Some(tx), Some(ty)) = (Self::obj_num(&o, "x"), Self::obj_num(&o, "y")) {
+                    let cx = tx - 64.0; let cy = ty - 64.0;
+                    let cx = if cx < 0.0 { 0.0 } else if cx > ww - 128.0 { ww - 128.0 } else { cx };
+                    let cy = if cy < 0.0 { 0.0 } else if cy > wh - 128.0 { wh - 128.0 } else { cy };
+                    self.camera = (cx, cy);
+                }
+            }
+        }
+        // draw fns, then screen dispatch by mode (mirrors JS order; particles drawn between)
+        for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b); self.returning = false; } }
+        if let Val::Str(mode) = self.get_var("mode") {
+            let sname = alloc::format!("screen_{}", mode);
+            if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b); self.returning = false; }
+        }
+    }
+
     fn exec_one(&mut self, s: &Stmt) {
         if self.stopped || self.returning { return; }
         match s {
@@ -1174,6 +1316,8 @@ impl Rt {
                 let col = resolve_color(w.color.as_deref().unwrap_or(""));
                 self.cmds.push(Cmd::Text(txt, x, y, col));
             }
+            Stmt::Follow(t) => { self.follow = Some(t.clone()); }
+            Stmt::RunGame(fs) => { self.frame_step(fs); }
             Stmt::Save(v, k) => {
                 let key = display(&self.eval(k));
                 let val = self.eval(v);
