@@ -1,0 +1,85 @@
+-- FROGGER  ·  arrow keys to hop.  cross the road, reach the star.
+-- Click the screen first so it hears the keys.
+
+mode is "play"
+score is 0
+lives is 3
+player is {x: 60, y: 112, image: "slime"}
+home is {x: 60, y: 12, image: "star"}
+cars is []
+
+-- four lanes of traffic: where each lane sits, which way it flows, how fast
+lanes is [{y: 96, dir: 1, speed: 0.6}, {y: 80, dir: -1, speed: 0.9}, {y: 64, dir: 1, speed: 1.2}, {y: 48, dir: -1, speed: 0.7}]
+each lane in lanes
+  repeat with i from 0 to 2
+    car is sprite
+    car.x is i * 44 + 6
+    car.y is lane.y
+    car.dir is lane.dir
+    car.speed is lane.speed
+    car.image is "ship"
+    add car to cars
+
+cars are hostile
+
+define sound "hop" as square from 400 to 800 over 0.06
+define sound "splat" as noise from 900 to 60 over 0.3
+define sound "home" as square from 500 to 1200 over 0.25
+
+when "up" is pressed
+  if mode is "play"
+    remove 16 from player.y
+    play sound "hop"
+when "down" is pressed
+  if mode is "play" and player.y < 112
+    add 16 to player.y
+    play sound "hop"
+when "left" is pressed
+  if mode is "play" and player.x > 8
+    remove 16 from player.x
+    play sound "hop"
+when "right" is pressed
+  if mode is "play" and player.x < 112
+    add 16 to player.x
+    play sound "hop"
+
+to update
+  if mode is not "play" return
+
+  -- traffic rolls on, wrapping around the edges
+  each car in cars
+    car.x is car.x + car.dir * car.speed
+    if car.x > 132 car.x is -8
+    if car.x < -8 car.x is 132
+
+  -- made it home? score, speed the traffic up a little, hop back to the start
+  if player.y <= 16
+    add 1 to score
+    play sound "home"
+    each car in cars
+      car.speed is car.speed + 0.12
+    player.x is 60
+    player.y is 112
+
+when player hits any car
+  remove 1 from lives
+  play sound "splat"
+  player.x is 60
+  player.y is 112
+  if lives is 0 mode is "lose"
+
+to draw
+  clear screen to black
+  draw rect at 0, 40 size 128, 64 in dark gray
+  draw rect at 0, 104 size 128, 24 in dark green
+  draw rect at 0, 8 size 128, 24 in dark green
+  draw sprite home.image at home.x, home.y
+  each car in cars draw sprite car.image at car.x, car.y
+  draw sprite player.image at player.x, player.y
+  write "score {score}  lives {lives}" at 2, 0 in white on hud
+
+to screen lose
+  write "GAME OVER" at 32, 50 in red on hud
+  write "made it home {score} times" at 8, 66 in white on hud
+
+run game with update and draw
