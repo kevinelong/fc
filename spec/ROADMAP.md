@@ -29,7 +29,7 @@ in user `.fc` code.**
 | Item | Notes / prerequisites |
 |------|----------------------|
 | ~~**Text tilemap** + in-app **map editor**~~ | **✔ SHIPPED 2026-06-12.** `tile "#" is {…}` + `map is` indented rows + `draw map` + `solid at x, y`; map solids block movement (axis-restore integrated); world auto-sized; 3 corpus cases, 37/37 green; Coin Maze demo; MAP·FORGE editor (▦ map button) completes the editor trio. |
-| **Enemy-AI verbs** `chase` / `wander` / `patrol` | #3 research unlock (Pac-Man ghosts). Design the prose form first; corpus cases before implementation. |
+| ~~**Enemy-AI verbs**~~ | **✔ SHIPPED 2026-06-12.** `ghosts chase player [speed N] [through walls]` · `bats wander` · `guard patrols between X1 and X2` — declarative set-once behaviors; markers live on the sprite (`ghost.behavior.speed` is editable fc data); map-solid slide unless `through walls`; 2 corpus cases (39/39); ghosts added to Coin Maze; docs entry. |
 | **Frame animation** `animate player with "a" "b" every N frames` | Closes the manual-frame-swap gap. |
 | **Particles** (finish the stub) `burst 12 sparks at player` | One-line juice. |
 | **WASM port phase 3b** | Per-frame command buffer + draw/sprite/collision so the Rust core can run games behind `?core=wasm`. Spike is conformance-green through runtime; this is the remaining chunk. |

@@ -1,5 +1,6 @@
--- COIN MAZE  ·  arrow keys to walk.  grab every coin to win.
+-- COIN MAZE  ·  arrow keys to walk.  grab every coin — and dodge the ghosts!
 -- The level is just a picture: # is wall, space is floor.
+-- The ghosts have one rule: `ghosts chase player`. That is the whole AI.
 
 tile "#" is {image: "brick", solid: yes}
 
@@ -36,8 +37,21 @@ each spot in spots
 
 coins are pickups
 
+ghosts is []
+spooky is [{x: 144, y: 8}, {x: 8, y: 112}]
+each spot in spooky
+  g is sprite
+  g.x is spot.x
+  g.y is spot.y
+  g.image is "ghost"
+  add g to ghosts
+
+ghosts chase player speed 0.32 through walls
+ghosts are hostile
+
 define sound "ding" as square from 700 to 1200 over 0.08
 define sound "win" as square from 400 to 1400 over 0.5
+define sound "caught" as noise from 800 to 60 over 0.45
 
 when player picks up any coin
   add 1 to score
@@ -45,6 +59,11 @@ when player picks up any coin
   if the number of coins is 0
     mode is "win"
     play sound "win"
+
+when player hits any ghost
+  if mode is "play"
+    mode is "lose"
+    play sound "caught"
 
 mode is "play"
 
@@ -56,8 +75,13 @@ to draw
   clear screen to black
   draw map
   each c in coins draw sprite c.image at c.x, c.y
+  each g in ghosts draw sprite g.image at g.x, g.y
   draw sprite player.image at player.x, player.y
   write "coins {score} of 8" at 2, 2 in yellow on hud
+
+to screen lose
+  write "THE GHOSTS GOT YOU" at 10, 50 in red on hud
+  write "coins {score} of 8" at 34, 66 in white on hud
 
 to screen win
   write "YOU GOT THEM ALL!" at 14, 50 in yellow on hud

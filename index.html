@@ -1680,6 +1680,36 @@ function parse(source) {
       return { type: 'draw_map', lineNum };
     }
 
+    // -- ghosts chase player [speed 0.5] · bats wander · guard patrols between 20 and 100 --
+    if (raw.length >= 2 && raw[0].type === 'word' && raw[1].type === 'word' &&
+        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols'].includes(tv(raw[1]))) {
+      // optional trailing `through walls` lets a mover ignore solid map tiles
+      const twi = raw.findIndex((t, i) => t.type === 'word' && tv(t) === 'through' &&
+                                raw[i + 1] && raw[i + 1].type === 'word' && tv(raw[i + 1]) === 'walls');
+      const through = twi >= 0;
+      const toks = through ? raw.slice(0, twi).concat(raw.slice(twi + 2)) : raw;
+      const subject = toks[0].value;
+      const verb = tv(toks[1]).replace(/s$/, '');
+      const sp = toks.findIndex(t => t.type === 'word' && tv(t) === 'speed');
+      const speed = sp >= 0 ? parseExpression(toks.slice(sp + 1)) : null;
+      const end = sp >= 0 ? sp : toks.length;
+      if (verb === 'chase') {
+        const target = toks[2] && toks[2].type === 'word' ? toks[2].value : 'player';
+        return { type: 'behavior', kind: 'chase', subject, target, speed, through, lineNum };
+      }
+      if (verb === 'wander') {
+        return { type: 'behavior', kind: 'wander', subject, speed, through, lineNum };
+      }
+      if (verb === 'patrol') {
+        const bi = toks.findIndex(t => t.type === 'word' && tv(t) === 'between');
+        const ai = toks.findIndex(t => t.type === 'word' && tv(t) === 'and');
+        if (bi > 0 && ai > bi) {
+          return { type: 'behavior', kind: 'patrol', subject,
+                   x1: parseExpression(toks.slice(bi + 1, ai)), x2: parseExpression(toks.slice(ai + 1, end)), speed, through, lineNum };
+        }
+      }
+    }
+
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
     if (first === 'join' && tv(raw[1]) === 'game') {
       const strs = raw.filter(t => t.type === 'string').map(t => t.value);
@@ -2693,6 +2723,7 @@ class Runtime {
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.tileDefs = {};
     this.map = null;
+    this.behaviorSubjects = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2728,6 +2759,7 @@ class Runtime {
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.tileDefs = {};
     this.map = null;
+    this.behaviorSubjects = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -3481,6 +3513,22 @@ class Runtime {
           break;
         }
 
+        case 'behavior': {
+          const v = this.getVar(stmt.subject);
+          const speed = stmt.speed ? this.evalExpr(stmt.speed) : null;
+          const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+          for (const m of items) {
+            const b = { kind: stmt.kind };
+            if (stmt.kind === 'chase') b.target = stmt.target;
+            if (stmt.kind === 'patrol') { b.x1 = this.evalExpr(stmt.x1); b.x2 = this.evalExpr(stmt.x2); b.dir = 1; }
+            if (stmt.through) b.through = true;
+            b.speed = (speed != null) ? speed : (typeof m.speed === 'number' ? m.speed : 0.5);
+            m.behavior = b;                       // visible & editable from fc code
+          }
+          if (!this.behaviorSubjects.includes(stmt.subject)) this.behaviorSubjects.push(stmt.subject);
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3580,6 +3628,52 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // Apply chase / wander / patrol behaviors each frame (set once, runs forever).
+  applyBehaviors() {
+    for (const name of this.behaviorSubjects || []) {
+      const v = this.vars[name];
+      const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+      for (const m of items) {
+        const b = m.behavior;
+        if (!b || typeof m.x !== 'number' || typeof m.y !== 'number') continue;
+        const spd = (typeof b.speed === 'number') ? b.speed : 0.5;
+        let vx = 0, vy = 0;
+        if (b.kind === 'chase') {
+          const t = this.vars[b.target];
+          if (!t || typeof t.x !== 'number') continue;
+          const dx = t.x - m.x, dy = t.y - m.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) continue;
+          vx = dx / len * spd; vy = dy / len * spd;
+        } else if (b.kind === 'wander') {
+          if ((!b.vx && !b.vy) || Math.random() < 0.02) {
+            const a = Math.random() * Math.PI * 2;
+            b.vx = Math.cos(a); b.vy = Math.sin(a);
+          }
+          vx = b.vx * spd; vy = b.vy * spd;
+        } else if (b.kind === 'patrol') {
+          const lo = Math.min(b.x1, b.x2), hi = Math.max(b.x1, b.x2);
+          if (!b.dir) b.dir = 1;
+          if (m.x <= lo) b.dir = 1;
+          if (m.x >= hi) b.dir = -1;
+          vx = b.dir * spd;
+        }
+        // move with map-solid slide (axis at a time), then clamp to the world
+        const nx = m.x + vx, ny = m.y + vy;
+        if (b.through) { m.x = nx; m.y = ny; }
+        else if (!this.mapSolidBox(nx, ny)) { m.x = nx; m.y = ny; }
+        else if (!this.mapSolidBox(nx, m.y)) { m.x = nx; if (b.kind === 'wander') b.vy = -b.vy; }
+        else if (!this.mapSolidBox(m.x, ny)) { m.y = ny; if (b.kind === 'wander') b.vx = -b.vx; }
+        else if (b.kind === 'wander') { b.vx = -b.vx; b.vy = -b.vy; }
+        if (m.x < 0) m.x = 0;
+        if (m.y < 0) m.y = 0;
+        const mx = this.world.width - 8, my = this.world.height - 8;
+        if (m.x > mx) { m.x = mx; if (b.vx) b.vx = -b.vx; if (b.dir) b.dir = -1; }
+        if (m.y > my) { m.y = my; if (b.vy) b.vy = -b.vy; }
+      }
+    }
   }
 
   // True if the 8x8 box at (x, y) overlaps any solid map tile.
@@ -3815,6 +3909,9 @@ class Runtime {
       // Auto-move any sprite with walking: yes (player + future NPCs)
       // Walks until: solid collision, world edge, or stop_walking
       self._autoWalk();
+
+      // Built-in enemy behaviors (ghosts chase player · bats wander · guard patrols)
+      self.applyBehaviors();
 
       // Gravity: if the user set a positive `gravity`, the player accelerates
       // downward each frame (dy builds up, then moves y). `jump player` sets a

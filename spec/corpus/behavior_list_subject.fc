@@ -1,0 +1,10 @@
+player is {x: 10, y: 10}
+ghosts is []
+a is {x: 90, y: 8, speed: 0.3}
+b is {x: 90, y: 90}
+add a to ghosts
+add b to ghosts
+ghosts chase player
+first_speed is 0
+g is item 1 of ghosts
+first_speed is g.behavior.speed

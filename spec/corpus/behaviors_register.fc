@@ -1,0 +1,9 @@
+player is {x: 10, y: 10}
+ghost is {x: 100, y: 8, image: "ghost", speed: 0.4}
+ghost chases player
+guard is {x: 50, y: 20}
+guard patrols between 20 and 100 speed 2
+crab is {x: 5, y: 5}
+crab wanders speed 0.7
+wisp is {x: 30, y: 30}
+wisp chases player speed 0.6 through walls

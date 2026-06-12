@@ -34,6 +34,117 @@
       "score": 0
     }
   },
+  "behavior_list_subject.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "player": {
+        "x": 10,
+        "y": 10
+      },
+      "ghosts": [
+        {
+          "x": 90,
+          "y": 8,
+          "speed": 0.3,
+          "behavior": {
+            "kind": "chase",
+            "target": "player",
+            "speed": 0.3
+          }
+        },
+        {
+          "x": 90,
+          "y": 90,
+          "behavior": {
+            "kind": "chase",
+            "target": "player",
+            "speed": 0.5
+          }
+        }
+      ],
+      "a": {
+        "x": 90,
+        "y": 8,
+        "speed": 0.3,
+        "behavior": {
+          "kind": "chase",
+          "target": "player",
+          "speed": 0.3
+        }
+      },
+      "b": {
+        "x": 90,
+        "y": 90,
+        "behavior": {
+          "kind": "chase",
+          "target": "player",
+          "speed": 0.5
+        }
+      },
+      "first_speed": 0.3,
+      "g": {
+        "x": 90,
+        "y": 8,
+        "speed": 0.3,
+        "behavior": {
+          "kind": "chase",
+          "target": "player",
+          "speed": 0.3
+        }
+      }
+    }
+  },
+  "behaviors_register.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "player": {
+        "x": 10,
+        "y": 10
+      },
+      "ghost": {
+        "x": 100,
+        "y": 8,
+        "image": "ghost",
+        "speed": 0.4,
+        "behavior": {
+          "kind": "chase",
+          "target": "player",
+          "speed": 0.4
+        }
+      },
+      "guard": {
+        "x": 50,
+        "y": 20,
+        "behavior": {
+          "kind": "patrol",
+          "x1": 20,
+          "x2": 100,
+          "dir": 1,
+          "speed": 2
+        }
+      },
+      "crab": {
+        "x": 5,
+        "y": 5,
+        "behavior": {
+          "kind": "wander",
+          "speed": 0.7
+        }
+      },
+      "wisp": {
+        "x": 30,
+        "y": 30,
+        "behavior": {
+          "kind": "chase",
+          "target": "player",
+          "through": true,
+          "speed": 0.6
+        }
+      }
+    }
+  },
   "divide_by_zero.fc": {
     "say": [],
     "errors": [],
