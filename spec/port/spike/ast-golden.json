@@ -58,6 +58,74 @@
       }
     }
   ],
+  "animate_and_burst.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "hero"
+          },
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 10
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "every": 6,
+      "frames": [
+        "hero_down",
+        "hero_up"
+      ],
+      "subject": "player",
+      "type": "animate"
+    },
+    {
+      "color": null,
+      "count": {
+        "type": "literal",
+        "value": 5
+      },
+      "type": "burst",
+      "x": {
+        "type": "literal",
+        "value": 20
+      },
+      "y": {
+        "type": "literal",
+        "value": 20
+      }
+    },
+    {
+      "color": "red",
+      "count": {
+        "type": "literal",
+        "value": 3
+      },
+      "ref": {
+        "name": "player",
+        "type": "ref"
+      },
+      "type": "burst"
+    },
+    {
+      "target": "ok",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 1
+      }
+    }
+  ],
   "assign_dotted_autovivify.fc": [
     {
       "target": "player.hp",
@@ -82,6 +150,268 @@
         "type": "literal",
         "value": 0
       }
+    }
+  ],
+  "behavior_list_subject.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 10
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "ghosts",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "a",
+      "type": "assign",
+      "value": {
+        "props": {
+          "speed": {
+            "type": "literal",
+            "value": 0.3
+          },
+          "x": {
+            "type": "literal",
+            "value": 90
+          },
+          "y": {
+            "type": "literal",
+            "value": 8
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "b",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 90
+          },
+          "y": {
+            "type": "literal",
+            "value": 90
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "ghosts",
+      "type": "add",
+      "value": {
+        "name": "a",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "ghosts",
+      "type": "add",
+      "value": {
+        "name": "b",
+        "type": "ref"
+      }
+    },
+    {
+      "kind": "chase",
+      "speed": null,
+      "subject": "ghosts",
+      "target": "player",
+      "through": false,
+      "type": "behavior"
+    },
+    {
+      "target": "first_speed",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "g",
+      "type": "assign",
+      "value": {
+        "index": {
+          "type": "literal",
+          "value": 1
+        },
+        "list": {
+          "name": "ghosts",
+          "type": "ref"
+        },
+        "type": "item_of"
+      }
+    },
+    {
+      "target": "first_speed",
+      "type": "assign",
+      "value": {
+        "name": "g.behavior.speed",
+        "type": "ref"
+      }
+    }
+  ],
+  "behaviors_register.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 10
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "ghost",
+      "type": "assign",
+      "value": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "ghost"
+          },
+          "speed": {
+            "type": "literal",
+            "value": 0.4
+          },
+          "x": {
+            "type": "literal",
+            "value": 100
+          },
+          "y": {
+            "type": "literal",
+            "value": 8
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "kind": "chase",
+      "speed": null,
+      "subject": "ghost",
+      "target": "player",
+      "through": false,
+      "type": "behavior"
+    },
+    {
+      "target": "guard",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 50
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "kind": "patrol",
+      "speed": {
+        "type": "literal",
+        "value": 2
+      },
+      "subject": "guard",
+      "through": false,
+      "type": "behavior",
+      "x1": {
+        "type": "literal",
+        "value": 20
+      },
+      "x2": {
+        "type": "literal",
+        "value": 100
+      }
+    },
+    {
+      "target": "crab",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 5
+          },
+          "y": {
+            "type": "literal",
+            "value": 5
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "kind": "wander",
+      "speed": {
+        "type": "literal",
+        "value": 0.7
+      },
+      "subject": "crab",
+      "through": false,
+      "type": "behavior"
+    },
+    {
+      "target": "wisp",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 30
+          },
+          "y": {
+            "type": "literal",
+            "value": 30
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "kind": "chase",
+      "speed": {
+        "type": "literal",
+        "value": 0.6
+      },
+      "subject": "wisp",
+      "target": "player",
+      "through": true,
+      "type": "behavior"
     }
   ],
   "breakout.fc": [
@@ -3611,6 +3941,971 @@
       "type": "call"
     }
   ],
+  "frogger.fc": [
+    {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "lives",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 3
+      }
+    },
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "slime"
+          },
+          "x": {
+            "type": "literal",
+            "value": 60
+          },
+          "y": {
+            "type": "literal",
+            "value": 112
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "home",
+      "type": "assign",
+      "value": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "star"
+          },
+          "x": {
+            "type": "literal",
+            "value": 60
+          },
+          "y": {
+            "type": "literal",
+            "value": 12
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "cars",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "lanes",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "props": {
+              "dir": {
+                "type": "literal",
+                "value": 1
+              },
+              "speed": {
+                "type": "literal",
+                "value": 0.6
+              },
+              "y": {
+                "type": "literal",
+                "value": 96
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "dir": {
+                "left": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "op": "-",
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "math"
+              },
+              "speed": {
+                "type": "literal",
+                "value": 0.9
+              },
+              "y": {
+                "type": "literal",
+                "value": 80
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "dir": {
+                "type": "literal",
+                "value": 1
+              },
+              "speed": {
+                "type": "literal",
+                "value": 1.2
+              },
+              "y": {
+                "type": "literal",
+                "value": 64
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "dir": {
+                "left": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "op": "-",
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "math"
+              },
+              "speed": {
+                "type": "literal",
+                "value": 0.7
+              },
+              "y": {
+                "type": "literal",
+                "value": 48
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "car",
+              "type": "assign",
+              "value": {
+                "name": "sprite",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "car.x",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "left": {
+                    "name": "i",
+                    "type": "ref"
+                  },
+                  "op": "*",
+                  "right": {
+                    "type": "literal",
+                    "value": 44
+                  },
+                  "type": "math"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "car.y",
+              "type": "assign",
+              "value": {
+                "name": "lane.y",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "car.dir",
+              "type": "assign",
+              "value": {
+                "name": "lane.dir",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "car.speed",
+              "type": "assign",
+              "value": {
+                "name": "lane.speed",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "car.image",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": "ship"
+              }
+            },
+            {
+              "target": "cars",
+              "type": "add",
+              "value": {
+                "name": "car",
+                "type": "ref"
+              }
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 2
+          },
+          "type": "repeat_range",
+          "varName": "i"
+        }
+      ],
+      "list": {
+        "name": "lanes",
+        "type": "ref"
+      },
+      "thenStmt": null,
+      "type": "each",
+      "varName": "lane",
+      "where": null
+    },
+    {
+      "subject": "cars",
+      "tag": "hostile",
+      "type": "tag"
+    },
+    {
+      "name": "hop",
+      "recipe": {
+        "dur": 0.06,
+        "f0": 400,
+        "f1": 800,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "name": "splat",
+      "recipe": {
+        "dur": 0.3,
+        "f0": 900,
+        "f1": 60,
+        "kind": "tone",
+        "wave": "noise"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "name": "home",
+      "recipe": {
+        "dur": 0.25,
+        "f0": 500,
+        "f1": 1200,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "player.y",
+              "type": "remove",
+              "value": {
+                "type": "literal",
+                "value": 16
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "hop",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "key": "up",
+      "thenStmt": null,
+      "type": "when_key"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "player.y",
+              "type": "add",
+              "value": {
+                "type": "literal",
+                "value": 16
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "hop",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "left": {
+              "left": {
+                "name": "mode",
+                "type": "ref"
+              },
+              "right": {
+                "type": "literal",
+                "value": "play"
+              },
+              "type": "eq"
+            },
+            "right": {
+              "left": {
+                "name": "player.y",
+                "type": "ref"
+              },
+              "op": "<",
+              "right": {
+                "type": "literal",
+                "value": 112
+              },
+              "type": "cmp"
+            },
+            "type": "and"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "key": "down",
+      "thenStmt": null,
+      "type": "when_key"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "player.x",
+              "type": "remove",
+              "value": {
+                "type": "literal",
+                "value": 16
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "hop",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "left": {
+              "left": {
+                "name": "mode",
+                "type": "ref"
+              },
+              "right": {
+                "type": "literal",
+                "value": "play"
+              },
+              "type": "eq"
+            },
+            "right": {
+              "left": {
+                "name": "player.x",
+                "type": "ref"
+              },
+              "op": ">",
+              "right": {
+                "type": "literal",
+                "value": 8
+              },
+              "type": "cmp"
+            },
+            "type": "and"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "key": "left",
+      "thenStmt": null,
+      "type": "when_key"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "player.x",
+              "type": "add",
+              "value": {
+                "type": "literal",
+                "value": 16
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "hop",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "left": {
+              "left": {
+                "name": "mode",
+                "type": "ref"
+              },
+              "right": {
+                "type": "literal",
+                "value": "play"
+              },
+              "type": "eq"
+            },
+            "right": {
+              "left": {
+                "name": "player.x",
+                "type": "ref"
+              },
+              "op": "<",
+              "right": {
+                "type": "literal",
+                "value": 112
+              },
+              "type": "cmp"
+            },
+            "type": "and"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "key": "right",
+      "thenStmt": null,
+      "type": "when_key"
+    },
+    {
+      "body": [
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "neq"
+          },
+          "thenStmt": {
+            "type": "return",
+            "value": null
+          },
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "target": "car.x",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "car.x",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "left": {
+                    "name": "car.dir",
+                    "type": "ref"
+                  },
+                  "op": "*",
+                  "right": {
+                    "name": "car.speed",
+                    "type": "ref"
+                  },
+                  "type": "math"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "car.x",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 132
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "car.x",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "type": "literal",
+                    "value": 0
+                  },
+                  "op": "-",
+                  "right": {
+                    "type": "literal",
+                    "value": 8
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "car.x",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": -8
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "car.x",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 132
+                }
+              },
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "cars",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "car",
+          "where": null
+        },
+        {
+          "body": [
+            {
+              "target": "score",
+              "type": "add",
+              "value": {
+                "type": "literal",
+                "value": 1
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "home",
+              "type": "play_sound"
+            },
+            {
+              "body": [
+                {
+                  "target": "car.speed",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "car.speed",
+                      "type": "ref"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 0.12
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "list": {
+                "name": "cars",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "car",
+              "where": null
+            },
+            {
+              "target": "player.x",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 60
+              }
+            },
+            {
+              "target": "player.y",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 112
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "player.y",
+              "type": "ref"
+            },
+            "op": "<=",
+            "right": {
+              "type": "literal",
+              "value": 16
+            },
+            "type": "cmp"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "target": "lives",
+          "type": "remove",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        },
+        {
+          "kind": "sound",
+          "name": "splat",
+          "type": "play_sound"
+        },
+        {
+          "target": "player.x",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 60
+          }
+        },
+        {
+          "target": "player.y",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 112
+          }
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "lives",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "eq"
+          },
+          "thenStmt": {
+            "target": "mode",
+            "type": "assign",
+            "value": {
+              "type": "literal",
+              "value": "lose"
+            }
+          },
+          "type": "if"
+        }
+      ],
+      "itemVar": "car",
+      "thenStmt": null,
+      "type": "when_hit"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "args": {
+            "color": "dark gray",
+            "h": {
+              "type": "literal",
+              "value": 64
+            },
+            "w": {
+              "type": "literal",
+              "value": 128
+            },
+            "x": {
+              "type": "literal",
+              "value": 0
+            },
+            "y": {
+              "type": "literal",
+              "value": 40
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "args": {
+            "color": "dark green",
+            "h": {
+              "type": "literal",
+              "value": 24
+            },
+            "w": {
+              "type": "literal",
+              "value": 128
+            },
+            "x": {
+              "type": "literal",
+              "value": 0
+            },
+            "y": {
+              "type": "literal",
+              "value": 104
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "args": {
+            "color": "dark green",
+            "h": {
+              "type": "literal",
+              "value": 24
+            },
+            "w": {
+              "type": "literal",
+              "value": 128
+            },
+            "x": {
+              "type": "literal",
+              "value": 0
+            },
+            "y": {
+              "type": "literal",
+              "value": 8
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "args": {
+            "spriteNameExpr": {
+              "name": "home.image",
+              "type": "ref"
+            },
+            "x": {
+              "name": "home.x",
+              "type": "ref"
+            },
+            "y": {
+              "name": "home.y",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "sprite",
+          "type": "draw"
+        },
+        {
+          "body": [],
+          "list": {
+            "name": "cars",
+            "type": "ref"
+          },
+          "thenStmt": {
+            "args": {
+              "spriteNameExpr": {
+                "name": "car.image",
+                "type": "ref"
+              },
+              "x": {
+                "name": "car.x",
+                "type": "ref"
+              },
+              "y": {
+                "name": "car.y",
+                "type": "ref"
+              }
+            },
+            "hud": false,
+            "shape": "sprite",
+            "type": "draw"
+          },
+          "type": "each",
+          "varName": "car",
+          "where": null
+        },
+        {
+          "args": {
+            "spriteNameExpr": {
+              "name": "player.image",
+              "type": "ref"
+            },
+            "x": {
+              "name": "player.x",
+              "type": "ref"
+            },
+            "y": {
+              "name": "player.y",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "sprite",
+          "type": "draw"
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "score {score}  lives {lives}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 2
+          },
+          "y": {
+            "type": "literal",
+            "value": 0
+          }
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "red",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "GAME OVER"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 32
+          },
+          "y": {
+            "type": "literal",
+            "value": 50
+          }
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "made it home {score} times"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 8
+          },
+          "y": {
+            "type": "literal",
+            "value": 66
+          }
+        }
+      ],
+      "name": "screen_lose",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "hunt.fc": [
     {
       "game": "hunt",
@@ -5762,6 +7057,968 @@
         },
         "type": "item_of"
       }
+    }
+  ],
+  "load_missing_default.fc": [
+    {
+      "target": "x",
+      "type": "assign",
+      "value": {
+        "key": {
+          "type": "literal",
+          "value": "t_never_saved"
+        },
+        "type": "load"
+      }
+    }
+  ],
+  "map_dims_and_solid.fc": [
+    {
+      "ch": "#",
+      "props": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "brick"
+          },
+          "solid": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        "type": "object_expr"
+      },
+      "type": "tile_def"
+    },
+    {
+      "ch": ".",
+      "props": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "grass"
+          }
+        },
+        "type": "object_expr"
+      },
+      "type": "tile_def"
+    },
+    {
+      "body": [
+        {
+          "type": "literal",
+          "value": "########"
+        },
+        {
+          "type": "literal",
+          "value": "#......#"
+        },
+        {
+          "type": "literal",
+          "value": "#......#"
+        },
+        {
+          "type": "literal",
+          "value": "########"
+        }
+      ],
+      "type": "map_def"
+    },
+    {
+      "target": "w",
+      "type": "assign",
+      "value": {
+        "name": "world.width",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "h",
+      "type": "assign",
+      "value": {
+        "name": "world.height",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "wall",
+      "type": "assign",
+      "value": {
+        "type": "solid_at",
+        "x": {
+          "type": "literal",
+          "value": 4
+        },
+        "y": {
+          "type": "literal",
+          "value": 4
+        }
+      }
+    },
+    {
+      "target": "floor",
+      "type": "assign",
+      "value": {
+        "type": "solid_at",
+        "x": {
+          "type": "literal",
+          "value": 12
+        },
+        "y": {
+          "type": "literal",
+          "value": 12
+        }
+      }
+    },
+    {
+      "target": "outside",
+      "type": "assign",
+      "value": {
+        "type": "solid_at",
+        "x": {
+          "type": "literal",
+          "value": 200
+        },
+        "y": {
+          "type": "literal",
+          "value": 200
+        }
+      }
+    }
+  ],
+  "map_without_tiles.fc": [
+    {
+      "body": [
+        {
+          "type": "literal",
+          "value": "##"
+        },
+        {
+          "type": "literal",
+          "value": "##"
+        }
+      ],
+      "type": "map_def"
+    },
+    {
+      "target": "anywhere",
+      "type": "assign",
+      "value": {
+        "type": "solid_at",
+        "x": {
+          "type": "literal",
+          "value": 4
+        },
+        "y": {
+          "type": "literal",
+          "value": 4
+        }
+      }
+    },
+    {
+      "target": "w",
+      "type": "assign",
+      "value": {
+        "name": "world.width",
+        "type": "ref"
+      }
+    }
+  ],
+  "maze.fc": [
+    {
+      "ch": "#",
+      "props": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "brick"
+          },
+          "solid": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        "type": "object_expr"
+      },
+      "type": "tile_def"
+    },
+    {
+      "body": [
+        {
+          "type": "literal",
+          "value": "####################"
+        },
+        {
+          "type": "literal",
+          "value": "#        #         #"
+        },
+        {
+          "type": "literal",
+          "value": "# ###### # ####### #"
+        },
+        {
+          "type": "literal",
+          "value": "# #    # #       # #"
+        },
+        {
+          "type": "literal",
+          "value": "# # ## # ##### # # #"
+        },
+        {
+          "type": "literal",
+          "value": "# # ## #     # # # #"
+        },
+        {
+          "type": "literal",
+          "value": "# #    ##### # #   #"
+        },
+        {
+          "type": "literal",
+          "value": "# ###### #   # ### #"
+        },
+        {
+          "type": "literal",
+          "value": "#        # ###     #"
+        },
+        {
+          "type": "literal",
+          "value": "######## #     ### #"
+        },
+        {
+          "type": "literal",
+          "value": "#        # ### #   #"
+        },
+        {
+          "type": "literal",
+          "value": "# ######## # # # ###"
+        },
+        {
+          "type": "literal",
+          "value": "#          # #     #"
+        },
+        {
+          "type": "literal",
+          "value": "# ########## ##### #"
+        },
+        {
+          "type": "literal",
+          "value": "#                  #"
+        },
+        {
+          "type": "literal",
+          "value": "####################"
+        }
+      ],
+      "type": "map_def"
+    },
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "image": {
+            "type": "literal",
+            "value": "hero"
+          },
+          "speed": {
+            "type": "literal",
+            "value": 1
+          },
+          "x": {
+            "type": "literal",
+            "value": 8
+          },
+          "y": {
+            "type": "literal",
+            "value": 8
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "player",
+      "type": "follow"
+    },
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "coins",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "spots",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 56
+              },
+              "y": {
+                "type": "literal",
+                "value": 8
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 144
+              },
+              "y": {
+                "type": "literal",
+                "value": 32
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 24
+              },
+              "y": {
+                "type": "literal",
+                "value": 64
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 88
+              },
+              "y": {
+                "type": "literal",
+                "value": 56
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 144
+              },
+              "y": {
+                "type": "literal",
+                "value": 104
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 16
+              },
+              "y": {
+                "type": "literal",
+                "value": 112
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 96
+              },
+              "y": {
+                "type": "literal",
+                "value": 112
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 64
+              },
+              "y": {
+                "type": "literal",
+                "value": 112
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "c",
+          "type": "assign",
+          "value": {
+            "name": "sprite",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "c.x",
+          "type": "assign",
+          "value": {
+            "name": "spot.x",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "c.y",
+          "type": "assign",
+          "value": {
+            "name": "spot.y",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "c.image",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": "coin"
+          }
+        },
+        {
+          "target": "coins",
+          "type": "add",
+          "value": {
+            "name": "c",
+            "type": "ref"
+          }
+        }
+      ],
+      "list": {
+        "name": "spots",
+        "type": "ref"
+      },
+      "thenStmt": null,
+      "type": "each",
+      "varName": "spot",
+      "where": null
+    },
+    {
+      "subject": "coins",
+      "tag": "pickups",
+      "type": "tag"
+    },
+    {
+      "target": "ghosts",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "spooky",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 144
+              },
+              "y": {
+                "type": "literal",
+                "value": 8
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 8
+              },
+              "y": {
+                "type": "literal",
+                "value": 112
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "g",
+          "type": "assign",
+          "value": {
+            "name": "sprite",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "g.x",
+          "type": "assign",
+          "value": {
+            "name": "spot.x",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "g.y",
+          "type": "assign",
+          "value": {
+            "name": "spot.y",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "g.image",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": "ghost"
+          }
+        },
+        {
+          "target": "ghosts",
+          "type": "add",
+          "value": {
+            "name": "g",
+            "type": "ref"
+          }
+        }
+      ],
+      "list": {
+        "name": "spooky",
+        "type": "ref"
+      },
+      "thenStmt": null,
+      "type": "each",
+      "varName": "spot",
+      "where": null
+    },
+    {
+      "kind": "chase",
+      "speed": {
+        "type": "literal",
+        "value": 0.32
+      },
+      "subject": "ghosts",
+      "target": "player",
+      "through": true,
+      "type": "behavior"
+    },
+    {
+      "subject": "ghosts",
+      "tag": "hostile",
+      "type": "tag"
+    },
+    {
+      "name": "ding",
+      "recipe": {
+        "dur": 0.08,
+        "f0": 700,
+        "f1": 1200,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "name": "win",
+      "recipe": {
+        "dur": 0.5,
+        "f0": 400,
+        "f1": 1400,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "name": "caught",
+      "recipe": {
+        "dur": 0.45,
+        "f0": 800,
+        "f1": 60,
+        "kind": "tone",
+        "wave": "noise"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "target": "score",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        },
+        {
+          "kind": "sound",
+          "name": "ding",
+          "type": "play_sound"
+        },
+        {
+          "color": null,
+          "count": {
+            "type": "literal",
+            "value": 10
+          },
+          "ref": {
+            "name": "coin",
+            "type": "ref"
+          },
+          "type": "burst"
+        },
+        {
+          "body": [
+            {
+              "target": "mode",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": "win"
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "win",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "left": {
+              "expr": {
+                "name": "coins",
+                "type": "ref"
+              },
+              "type": "count"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "itemVar": "coin",
+      "thenStmt": null,
+      "type": "when_pickup"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "mode",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": "lose"
+              }
+            },
+            {
+              "kind": "sound",
+              "name": "caught",
+              "type": "play_sound"
+            },
+            {
+              "color": "red",
+              "count": {
+                "type": "literal",
+                "value": 24
+              },
+              "ref": {
+                "name": "player",
+                "type": "ref"
+              },
+              "type": "burst"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "itemVar": "ghost",
+      "thenStmt": null,
+      "type": "when_hit"
+    },
+    {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
+      "body": [
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "neq"
+          },
+          "thenStmt": {
+            "type": "return",
+            "value": null
+          },
+          "type": "if"
+        },
+        {
+          "speed": null,
+          "target": "player",
+          "type": "move_with_arrows"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "type": "draw_map"
+        },
+        {
+          "body": [],
+          "list": {
+            "name": "coins",
+            "type": "ref"
+          },
+          "thenStmt": {
+            "args": {
+              "spriteNameExpr": {
+                "name": "c.image",
+                "type": "ref"
+              },
+              "x": {
+                "name": "c.x",
+                "type": "ref"
+              },
+              "y": {
+                "name": "c.y",
+                "type": "ref"
+              }
+            },
+            "hud": false,
+            "shape": "sprite",
+            "type": "draw"
+          },
+          "type": "each",
+          "varName": "c",
+          "where": null
+        },
+        {
+          "body": [],
+          "list": {
+            "name": "ghosts",
+            "type": "ref"
+          },
+          "thenStmt": {
+            "args": {
+              "spriteNameExpr": {
+                "name": "g.image",
+                "type": "ref"
+              },
+              "x": {
+                "name": "g.x",
+                "type": "ref"
+              },
+              "y": {
+                "name": "g.y",
+                "type": "ref"
+              }
+            },
+            "hud": false,
+            "shape": "sprite",
+            "type": "draw"
+          },
+          "type": "each",
+          "varName": "g",
+          "where": null
+        },
+        {
+          "args": {
+            "spriteNameExpr": {
+              "name": "player.image",
+              "type": "ref"
+            },
+            "x": {
+              "name": "player.x",
+              "type": "ref"
+            },
+            "y": {
+              "name": "player.y",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "sprite",
+          "type": "draw"
+        },
+        {
+          "color": "yellow",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "coins {score} of 8"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 2
+          },
+          "y": {
+            "type": "literal",
+            "value": 2
+          }
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "red",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "THE GHOSTS GOT YOU"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 50
+          }
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "coins {score} of 8"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 34
+          },
+          "y": {
+            "type": "literal",
+            "value": 66
+          }
+        }
+      ],
+      "name": "screen_lose",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "yellow",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "YOU GOT THEM ALL!"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 14
+          },
+          "y": {
+            "type": "literal",
+            "value": 50
+          }
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "coins {score} of 8"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 34
+          },
+          "y": {
+            "type": "literal",
+            "value": 66
+          }
+        }
+      ],
+      "name": "screen_win",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
     }
   ],
   "mp-dots.fc": [
@@ -8529,6 +10786,98 @@
       "varName": "n"
     }
   ],
+  "save_load_list.fc": [
+    {
+      "target": "l",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "type": "literal",
+            "value": 10
+          },
+          {
+            "type": "literal",
+            "value": 20
+          },
+          {
+            "type": "literal",
+            "value": 30
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "key": {
+        "type": "literal",
+        "value": "t_list"
+      },
+      "type": "save",
+      "value": {
+        "name": "l",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "m",
+      "type": "assign",
+      "value": {
+        "key": {
+          "type": "literal",
+          "value": "t_list"
+        },
+        "type": "load"
+      }
+    },
+    {
+      "target": "second",
+      "type": "assign",
+      "value": {
+        "index": {
+          "type": "literal",
+          "value": 2
+        },
+        "list": {
+          "name": "m",
+          "type": "ref"
+        },
+        "type": "item_of"
+      }
+    }
+  ],
+  "save_load_roundtrip.fc": [
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 7
+      }
+    },
+    {
+      "key": {
+        "type": "literal",
+        "value": "t_roundtrip"
+      },
+      "type": "save",
+      "value": {
+        "name": "score",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "back",
+      "type": "assign",
+      "value": {
+        "key": {
+          "type": "literal",
+          "value": "t_roundtrip"
+        },
+        "type": "load"
+      }
+    }
+  ],
   "set_make_noop.fc": [
     {
       "target": "x",
@@ -9540,6 +11889,23 @@
         "draw"
       ],
       "type": "rungame"
+    }
+  ],
+  "solid_at_no_map.fc": [
+    {
+      "target": "x",
+      "type": "assign",
+      "value": {
+        "type": "solid_at",
+        "x": {
+          "type": "literal",
+          "value": 10
+        },
+        "y": {
+          "type": "literal",
+          "value": 10
+        }
+      }
     }
   ],
   "space-invaders.fc": [

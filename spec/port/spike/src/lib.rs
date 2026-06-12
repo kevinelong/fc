@@ -196,7 +196,8 @@ enum LitVal { Num(f64), Str(String), Bool(bool) }
 #[derive(Clone)]
 enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
     ListLit(Vec<Expr>), Random(Box<Expr>), ItemOf(Box<Expr>, Box<Expr>),
-    Object(Vec<(String, Expr)>), Sprite(String, Box<Expr>), ListOfSprites(Box<Expr>, Box<Expr>), Count(Box<Expr>) }
+    Object(Vec<(String, Expr)>), Sprite(String, Box<Expr>), ListOfSprites(Box<Expr>, Box<Expr>), Count(Box<Expr>),
+    Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
     Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), Bare(Expr), Key(String) }
@@ -222,7 +223,13 @@ enum Stmt {
     Jump(String, f64), Broadcast(Expr), NetJoin(String, String), DefSfx(String, SfxRecipe),
     Meter(Expr, Expr, Expr, Expr, Expr, Expr, String),
     Damage(String, Expr), Heal(String, Expr), Knock(String, String, Expr),
+    Save(Expr, Expr), TileDef(String, Expr), MapDef(Vec<String>), DrawMap,
+    Behavior(BehaviorArgs), Animate(String, Vec<String>, f64),
+    Burst(Expr, Option<Expr>, Option<Expr>, Option<Expr>, Option<String>),
 }
+#[derive(Clone)]
+struct BehaviorArgs { kind: String, subject: String, target: String,
+    speed: Option<Expr>, x1: Option<Expr>, x2: Option<Expr>, through: bool }
 #[derive(Clone)]
 struct SfxRecipe { tone: bool, wave: String, f0: f64, f1: Option<f64>, dur: f64, notes: Vec<f64> }
 #[derive(Clone, Default)]
@@ -267,6 +274,13 @@ fn parse_expr(ts: &[Tok]) -> Expr {
         return Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(parse_expr(&ts[1..]))); }
     // phrase atoms (reached only with no top-level math operator)
     if ts[0].is_word("random") { return Expr::Random(Box::new(parse_expr(&ts[1..]))); }
+    if ts[0].is_word("load") && ts.len()>=2 { return Expr::Load(Box::new(parse_expr(&ts[1..]))); }
+    if ts[0].is_word("solid") && ts.len()>=4 && ts[1].is_word("at") {
+        let rest=&ts[2..];
+        if let Some(ci)=rest.iter().position(|t| t.t==6) { if ci>0 {
+            return Expr::SolidAt(Box::new(parse_expr(&rest[..ci])), Box::new(parse_expr(&rest[ci+1..])));
+        }}
+    }
     if ts[0].is_word("item") { if let Some(k)=find_word(ts,"of") {
         return Expr::ItemOf(Box::new(parse_expr(&ts[1..k])), Box::new(parse_expr(&ts[k+1..]))); } }
     if ts[0].is_word("the") && ts.len()>=3 && ts[1].is_word("number") && ts[2].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[3..]))); }
@@ -339,6 +353,61 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="clear" && ts.len()>=2 && ts[1].is_word("screen") {
         let color = if let Some(k)=find_word(ts,"to") { word_join(&ts[k+1..]) } else { String::new() };
         return Stmt::ClearScreen(color);
+    }
+    if first=="save" { if let Some(ai)=find_word(ts,"as") { if ai>=2 {
+        return Stmt::Save(parse_expr(&ts[1..ai]), parse_expr(&ts[ai+1..]));
+    }}}
+    if first=="tile" && ts.len()>=4 && ts[1].t==1 && ts[2].is_word("is") {
+        return Stmt::TileDef(ts[1].sval().to_string(), parse_expr(&ts[3..]));
+    }
+    if first=="map" && ts.len()==2 && ts[1].is_word("is") { return Stmt::MapDef(Vec::new()); }
+    if first=="draw" && ts.len()==2 && ts[1].is_word("map") { return Stmt::DrawMap; }
+    if ts.len()>=2 && ts[0].t==3 && ts[1].t==3 &&
+        matches!(ts[1].sval(), "chase"|"chases"|"wander"|"wanders"|"patrol"|"patrols") {
+        let twi = ts.iter().enumerate().position(|(i,t)| t.is_word("through") &&
+            ts.get(i+1).map_or(false,|n| n.is_word("walls")));
+        let through = twi.is_some();
+        let toks: Vec<Tok> = if let Some(i)=twi { let mut v=ts[..i].to_vec(); v.extend_from_slice(&ts[i+2..]); v } else { ts.to_vec() };
+        let subject = toks[0].sval().to_string();
+        let verb_owned = toks[1].sval().trim_end_matches('s').to_string();
+        let verb = verb_owned.as_str();
+        let sp = find_word(&toks, "speed");
+        let speed = sp.map(|i| parse_expr(&toks[i+1..]));
+        let end = sp.unwrap_or(toks.len());
+        if verb=="chase" {
+            let target = toks.get(2).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
+            return Stmt::Behavior(BehaviorArgs{kind:"chase".into(), subject, target, speed, x1:None, x2:None, through});
+        }
+        if verb=="wander" {
+            return Stmt::Behavior(BehaviorArgs{kind:"wander".into(), subject, target:String::new(), speed, x1:None, x2:None, through});
+        }
+        if verb=="patrol" {
+            if let (Some(bi), Some(ai)) = (find_word(&toks,"between"), find_word(&toks,"and")) { if bi>0 && ai>bi {
+                return Stmt::Behavior(BehaviorArgs{kind:"patrol".into(), subject, target:String::new(), speed,
+                    x1:Some(parse_expr(&toks[bi+1..ai])), x2:Some(parse_expr(&toks[ai+1..end])), through});
+            }}
+        }
+    }
+    if first=="animate" && ts.len()>=4 && ts[1].t==3 && ts[2].is_word("with") {
+        let mut frames=Vec::new(); let mut i=3usize;
+        while i<ts.len() && ts[i].t==1 { frames.push(ts[i].sval().to_string()); i+=1; }
+        let mut every=10.0;
+        if i<ts.len() && ts[i].is_word("every") { if let Some(t)=ts.get(i+1) { if let TokVal::Num(n)=t.v { every=n; } } }
+        if !frames.is_empty() { return Stmt::Animate(ts[1].sval().to_string(), frames, every); }
+    }
+    if first=="burst" {
+        if let Some(ai)=find_word(ts,"at") { if ai>1 {
+            let ii = ts.iter().enumerate().position(|(k,t)| k>ai && t.is_word("in"));
+            let place_end = ii.unwrap_or(ts.len());
+            let place = &ts[ai+1..place_end];
+            let color = ii.map(|k| ts[k+1..].iter().map(|t| t.sval().to_string()).collect::<Vec<_>>().join(" "));
+            let count_end = core::cmp::max(2, ai.saturating_sub(1)).min(ai);
+            let count = parse_expr(&ts[1..count_end]);
+            if let Some(ci)=place.iter().position(|t| t.t==6) { if ci>0 {
+                return Stmt::Burst(count, Some(parse_expr(&place[..ci])), Some(parse_expr(&place[ci+1..])), None, color);
+            }}
+            return Stmt::Burst(count, None, None, Some(parse_expr(place)), color);
+        }}
     }
     if first=="draw" { return parse_draw(ts); }
     if first=="write" { return parse_write(ts); }
@@ -444,7 +513,13 @@ fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
         let mut stmt = parse_line(&lines[i].toks);
         let mut j = i + 1;
         while j < lines.len() && lines[j].indent > min_indent { j += 1; }
-        if j > i + 1 { let body = parse_block(lines, i+1, min_indent+1); set_body(&mut stmt, body); }
+        if j > i + 1 {
+            if let Stmt::MapDef(rows) = &mut stmt {
+                for l in &lines[i+1..j] {
+                    if l.toks.len()==1 && l.toks[0].t==1 { rows.push(l.toks[0].sval().to_string()); }
+                }
+            } else { let body = parse_block(lines, i+1, min_indent+1); set_body(&mut stmt, body); }
+        }
         out.push(stmt);
         i = if j > i + 1 { j } else { i + 1 };
     }
@@ -501,6 +576,8 @@ fn emit_expr(e: &Expr, out: &mut String) {
         Expr::Math(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"math\"}"); }
         Expr::ListLit(items)=>{ out.push_str("{\"items\":["); for (i,e) in items.iter().enumerate(){ if i>0 {out.push(',');} emit_expr(e,out);} out.push_str("],\"type\":\"listliteral\"}"); }
         Expr::Random(m)=>{ out.push_str("{\"max\":"); emit_expr(m,out); out.push_str(",\"type\":\"random\"}"); }
+        Expr::Load(k)=>{ out.push_str("{\"key\":"); emit_expr(k,out); out.push_str(",\"type\":\"load\"}"); }
+        Expr::SolidAt(x,y)=>{ out.push_str("{\"type\":\"solid_at\",\"x\":"); emit_expr(x,out); out.push_str(",\"y\":"); emit_expr(y,out); out.push('}'); }
         Expr::ItemOf(idx,l)=>{ out.push_str("{\"index\":"); emit_expr(idx,out); out.push_str(",\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"item_of\"}"); }
         Expr::Object(props)=>{ out.push_str("{\"props\":{");
             let mut kv: Vec<&(String,Expr)> = props.iter().collect(); kv.sort_by(|a,b| a.0.as_str().cmp(b.0.as_str()));
@@ -613,6 +690,33 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::Knock(t,src,d)=>{ out.push_str("{\"distance\":"); emit_expr(d,out); out.push_str(",\"source\":"); json_str(src,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"knock\"}"); }
         Stmt::Damage(t,a)=>{ out.push_str("{\"amount\":"); emit_expr(a,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"damage\"}"); }
         Stmt::Heal(t,a)=>{ out.push_str("{\"amount\":"); emit_expr(a,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"heal\"}"); }
+        Stmt::Save(v,k)=>{ out.push_str("{\"key\":"); emit_expr(k,out); out.push_str(",\"type\":\"save\",\"value\":"); emit_expr(v,out); out.push('}'); }
+        Stmt::TileDef(c,p)=>{ out.push_str("{\"ch\":"); json_str(c,out); out.push_str(",\"props\":"); emit_expr(p,out); out.push_str(",\"type\":\"tile_def\"}"); }
+        Stmt::MapDef(rows)=>{ out.push_str("{\"body\":["); for (i,r) in rows.iter().enumerate() { if i>0 {out.push(',');} out.push_str("{\"type\":\"literal\",\"value\":"); json_str(r,out); out.push('}'); } out.push_str("],\"type\":\"map_def\"}"); }
+        Stmt::DrawMap=>{ out.push_str("{\"type\":\"draw_map\"}"); }
+        Stmt::Behavior(b)=>{
+            out.push_str("{\"kind\":"); json_str(&b.kind,out);
+            out.push_str(",\"speed\":"); match &b.speed { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            out.push_str(",\"subject\":"); json_str(&b.subject,out);
+            if b.kind=="chase" { out.push_str(",\"target\":"); json_str(&b.target,out); }
+            out.push_str(",\"through\":"); out.push_str(if b.through {"true"} else {"false"});
+            out.push_str(",\"type\":\"behavior\"");
+            if b.kind=="patrol" {
+                out.push_str(",\"x1\":"); match &b.x1 { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+                out.push_str(",\"x2\":"); match &b.x2 { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            }
+            out.push('}');
+        }
+        Stmt::Animate(s2,f,e)=>{ out.push_str("{\"every\":"); json_num(*e,out); out.push_str(",\"frames\":["); for (i,x) in f.iter().enumerate() { if i>0 {out.push(',');} json_str(x,out); } out.push_str("],\"subject\":"); json_str(s2,out); out.push_str(",\"type\":\"animate\"}"); }
+        Stmt::Burst(c,x,y,r,col)=>{
+            out.push_str("{\"color\":"); match col { Some(cs)=>json_str(cs,out), None=>out.push_str("null") }
+            out.push_str(",\"count\":"); emit_expr(c,out);
+            if let Some(e)=r { out.push_str(",\"ref\":"); emit_expr(e,out); }
+            out.push_str(",\"type\":\"burst\"");
+            if let Some(e)=x { out.push_str(",\"x\":"); emit_expr(e,out); }
+            if let Some(e)=y { out.push_str(",\"y\":"); emit_expr(e,out); }
+            out.push('}');
+        }
         Stmt::Meter(cur,mx,x,y,w,h,color)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"current\":"); emit_expr(cur,out); out.push_str(",\"h\":"); emit_expr(h,out); out.push_str(",\"max\":"); emit_expr(mx,out); out.push_str(",\"type\":\"meter\",\"w\":"); emit_expr(w,out); out.push_str(",\"x\":"); emit_expr(x,out); out.push_str(",\"y\":"); emit_expr(y,out); out.push('}'); }
         Stmt::DefSfx(name,rec)=>{
             out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"recipe\":{");
@@ -875,10 +979,20 @@ fn loose_eq(a: &Val, b: &Val) -> bool {
         _ => false,
     }
 }
+// JSON-round-trip semantics for the save/load STORE (mirrors the JS stub).
+fn deep_clone(v: &Val) -> Val {
+    match v {
+        Val::List(l) => Val::List(Rc::new(RefCell::new(l.borrow().iter().map(deep_clone).collect()))),
+        Val::Obj(o) => Val::Obj(Rc::new(RefCell::new(o.borrow().iter().map(|(k,x)| (k.clone(), deep_clone(x))).collect()))),
+        _ => v.clone(),
+    }
+}
 
-struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64 }
+struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
+    store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String> }
 impl Rt {
-    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0 } }
+    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
+        store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new() } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
@@ -939,6 +1053,19 @@ impl Rt {
             Expr::ItemOf(idx, list) => { let i = as_num(&self.eval(idx)) as i64; match self.eval(list) { Val::List(l) => { let b=l.borrow(); if i>=1 && (i as usize)<=b.len() { b[(i-1) as usize].clone() } else { Val::Undef } } _=>Val::Undef } }
             Expr::Object(props) => { let mut m=BTreeMap::new(); for (k,v) in props { let val=self.eval(v); m.insert(k.clone(), val); } Val::Obj(Rc::new(RefCell::new(m))) }
             Expr::Count(e) => match self.eval(e) { Val::List(l)=>Val::Num(l.borrow().len() as f64), Val::Str(s)=>Val::Num(s.chars().count() as f64), _=>Val::Num(0.0) },
+            Expr::Load(k) => { let key = display(&self.eval(k)); match self.store.get(&key) { Some(v)=>deep_clone(v), None=>Val::Num(0.0) } }
+            Expr::SolidAt(x, y) => {
+                let xv = as_num(&self.eval(x)); let yv = as_num(&self.eval(y));
+                if self.map_rows.is_empty() { return Val::Bool(false); }
+                if xv < 0.0 || yv < 0.0 { return Val::Bool(false); }   // JS: rows[-1] is undefined
+                let row = match self.map_rows.get((yv / 8.0) as usize) { Some(r)=>r, None=>return Val::Bool(false) };
+                let ch = match row.chars().nth((xv / 8.0) as usize) { Some(c)=>c, None=>return Val::Bool(false) };
+                let solid = match self.tile_defs.get(&ch.to_string()) {
+                    Some(Val::Obj(o)) => o.borrow().get("solid").map(|v| truthy(v)).unwrap_or(false),
+                    _ => false,
+                };
+                Val::Bool(solid)
+            }
             _ => Val::Undef,
         }
     }
@@ -1046,6 +1173,77 @@ impl Rt {
                 let y = (if let Some(e)=&w.y { as_num(&self.eval(e)) } else { 0.0 }) - oy;
                 let col = resolve_color(w.color.as_deref().unwrap_or(""));
                 self.cmds.push(Cmd::Text(txt, x, y, col));
+            }
+            Stmt::Save(v, k) => {
+                let key = display(&self.eval(k));
+                let val = self.eval(v);
+                self.store.insert(key, deep_clone(&val));
+            }
+            Stmt::TileDef(ch, props) => {
+                let p = self.eval(props);
+                let stored = if let Val::Obj(_) = p { p } else { Val::Obj(Rc::new(RefCell::new(BTreeMap::new()))) };
+                self.tile_defs.insert(ch.clone(), stored);
+            }
+            Stmt::MapDef(rows) => {
+                self.map_rows = rows.clone();
+                if !rows.is_empty() {
+                    let mut cols = 0usize;
+                    for r in rows { let n = r.chars().count(); if n > cols { cols = n; } }
+                    let w = if cols*8 > 128 { (cols*8) as f64 } else { 128.0 };
+                    let h = if rows.len()*8 > 128 { (rows.len()*8) as f64 } else { 128.0 };
+                    let mut m = BTreeMap::new();
+                    m.insert("width".to_string(), Val::Num(w));
+                    m.insert("height".to_string(), Val::Num(h));
+                    self.vars.insert("world".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
+                }
+            }
+            Stmt::DrawMap => {} // tiles render host-side; no exec-visible effect
+            Stmt::Behavior(b) => {
+                let subj = self.get_var(&b.subject);
+                let speed_once: Option<f64> = match &b.speed { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
+                let items: Vec<Val> = match &subj {
+                    Val::List(l) => l.borrow().clone(),
+                    Val::Obj(_) => { let mut v=Vec::new(); v.push(subj.clone()); v }
+                    _ => Vec::new(),
+                };
+                for it in items { if let Val::Obj(o) = it {
+                    let x1 = match &b.x1 { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
+                    let x2 = match &b.x2 { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
+                    let member_speed = match o.borrow().get("speed") { Some(Val::Num(n))=>Some(*n), _=>None };
+                    let spd = match speed_once { Some(sv)=>sv, None=>member_speed.unwrap_or(0.5) };
+                    let mut m = BTreeMap::new();
+                    m.insert("kind".to_string(), Val::Str(b.kind.clone()));
+                    if b.kind == "chase" { m.insert("target".to_string(), Val::Str(b.target.clone())); }
+                    if b.kind == "patrol" {
+                        m.insert("x1".to_string(), Val::Num(x1.unwrap_or(0.0)));
+                        m.insert("x2".to_string(), Val::Num(x2.unwrap_or(0.0)));
+                        m.insert("dir".to_string(), Val::Num(1.0));
+                    }
+                    if b.through { m.insert("through".to_string(), Val::Bool(true)); }
+                    m.insert("speed".to_string(), Val::Num(spd));
+                    o.borrow_mut().insert("behavior".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
+                }}
+            }
+            Stmt::Animate(subject, frames, every) => {
+                let subj = self.get_var(subject);
+                let items: Vec<Val> = match &subj {
+                    Val::List(l) => l.borrow().clone(),
+                    Val::Obj(_) => { let mut v=Vec::new(); v.push(subj.clone()); v }
+                    _ => Vec::new(),
+                };
+                for it in items { if let Val::Obj(o) = it {
+                    let mut m = BTreeMap::new();
+                    m.insert("frames".to_string(), Val::List(Rc::new(RefCell::new(frames.iter().map(|f| Val::Str(f.clone())).collect()))));
+                    m.insert("every".to_string(), Val::Num(*every));
+                    o.borrow_mut().insert("animation".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
+                }}
+            }
+            Stmt::Burst(count, x, y, rref, _color) => {
+                let _ = self.eval(count);
+                if let Some(e)=x { let _=self.eval(e); }
+                if let Some(e)=y { let _=self.eval(e); }
+                if let Some(e)=rref { let _=self.eval(e); }
+                // particles are a host/frame concern; no exec-visible state
             }
             _ => {} // tag/when_*/sprite/etc: no command in single-exec render slice
         }
