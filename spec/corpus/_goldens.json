@@ -23,6 +23,25 @@
       "label": "score9"
     }
   },
+  "animate_and_burst.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "player": {
+        "x": 10,
+        "y": 10,
+        "image": "hero",
+        "animation": {
+          "frames": [
+            "hero_down",
+            "hero_up"
+          ],
+          "every": 6
+        }
+      },
+      "ok": 1
+    }
+  },
   "assign_dotted_autovivify.fc": {
     "say": [],
     "errors": [],

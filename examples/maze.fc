@@ -56,6 +56,7 @@ define sound "caught" as noise from 800 to 60 over 0.45
 when player picks up any coin
   add 1 to score
   play sound "ding"
+  burst 10 sparks at coin
   if the number of coins is 0
     mode is "win"
     play sound "win"
@@ -64,6 +65,7 @@ when player hits any ghost
   if mode is "play"
     mode is "lose"
     play sound "caught"
+    burst 24 sparks at player in red
 
 mode is "play"
 

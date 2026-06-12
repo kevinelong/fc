@@ -1710,6 +1710,36 @@ function parse(source) {
       }
     }
 
+    // -- animate player with "hero_down" "hero_up" every 10 frames --
+    if (first === 'animate' && raw.length >= 4 && raw[2] && tv(raw[2]) === 'with') {
+      const frames = [];
+      let i = 3;
+      while (i < raw.length && raw[i].type === 'string') { frames.push(raw[i].value); i++; }
+      let every = 10;
+      if (i < raw.length && tv(raw[i]) === 'every' && raw[i + 1] && raw[i + 1].type === 'number') {
+        every = Number(raw[i + 1].value);
+      }
+      if (frames.length) return { type: 'animate', subject: raw[1].value, frames, every, lineNum };
+    }
+
+    // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
+    if (first === 'burst') {
+      const ai = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
+      if (ai > 1) {
+        const ii = raw.findIndex((t, k) => k > ai && t.type === 'word' && tv(t) === 'in');
+        const placeEnd = ii > 0 ? ii : raw.length;
+        const place = raw.slice(ai + 1, placeEnd);
+        const color = ii > 0 ? raw.slice(ii + 1).map(t => t.value).join(' ') : null;
+        const countToks = raw.slice(1, Math.max(2, ai - 1));   // the word before `at` is a decorative noun
+        const count = parseExpression(countToks);
+        const ci = place.findIndex(t => t.type === 'comma');
+        if (ci > 0) {
+          return { type: 'burst', count, x: parseExpression(place.slice(0, ci)), y: parseExpression(place.slice(ci + 1)), color, lineNum };
+        }
+        return { type: 'burst', count, ref: parseExpression(place), color, lineNum };
+      }
+    }
+
     // -- join game "X" room "Y"  (open the multiplayer relay socket) --
     if (first === 'join' && tv(raw[1]) === 'game') {
       const strs = raw.filter(t => t.type === 'string').map(t => t.value);
@@ -2724,6 +2754,8 @@ class Runtime {
     this.tileDefs = {};
     this.map = null;
     this.behaviorSubjects = [];
+    this.animSubjects = [];
+    this.particles = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2760,6 +2792,8 @@ class Runtime {
     this.tileDefs = {};
     this.map = null;
     this.behaviorSubjects = [];
+    this.animSubjects = [];
+    this.particles = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -3529,6 +3563,33 @@ class Runtime {
           break;
         }
 
+        case 'animate': {
+          const v = this.getVar(stmt.subject);
+          const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+          for (const m of items) m.animation = { frames: stmt.frames.slice(), every: stmt.every };
+          if (!this.animSubjects.includes(stmt.subject)) this.animSubjects.push(stmt.subject);
+          break;
+        }
+
+        case 'burst': {
+          let x, y;
+          if (stmt.ref) {
+            const o = this.evalExpr(stmt.ref);
+            if (!o || typeof o.x !== 'number') break;
+            x = o.x + 4; y = o.y + 4;
+          } else { x = this.evalExpr(stmt.x); y = this.evalExpr(stmt.y); }
+          const n = Math.max(1, Math.min(64, this.evalExpr(stmt.count) | 0));
+          const palette = stmt.color ? [resolveColor(stmt.color)] : ['#ffec27', '#fff1e8', '#ffa300'];
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 0.4 + Math.random() * 1.4;
+            this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                                  life: 16 + (Math.random() * 18 | 0), color: palette[i % palette.length] });
+          }
+          if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3628,6 +3689,35 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // Cycle `animate X with ...` frames using the global tick.
+  applyAnimations() {
+    for (const name of this.animSubjects || []) {
+      const v = this.vars[name];
+      const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+      for (const m of items) {
+        const a = m.animation;
+        if (!a || !a.frames || !a.frames.length) continue;
+        m.image = a.frames[Math.floor((this.tick || 0) / (a.every || 10)) % a.frames.length];
+      }
+    }
+  }
+
+  // Move, age and draw the particle pool (created by `burst`). Runs in the draw phase.
+  updateParticles() {
+    if (!this.particles.length) return;
+    const ox = this.camera.x, oy = this.camera.y;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.96; p.vy *= 0.96;
+      p.life--;
+      if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+      ctx.fillStyle = p.color;
+      const s = p.life > 10 ? 2 : 1;
+      ctx.fillRect(Math.floor(p.x - ox), Math.floor(p.y - oy), s, s);
+    }
   }
 
   // Apply chase / wander / patrol behaviors each frame (set once, runs forever).
@@ -3912,6 +4002,8 @@ class Runtime {
 
       // Built-in enemy behaviors (ghosts chase player · bats wander · guard patrols)
       self.applyBehaviors();
+      // Frame-swap any `animate X with ...` subjects
+      self.applyAnimations();
 
       // Gravity: if the user set a positive `gravity`, the player accelerates
       // downward each frame (dy builds up, then moves y). `jump player` sets a
@@ -3955,6 +4047,9 @@ class Runtime {
       for (let i = 1; i < funcNames.length; i++) {
         self.callFunc(funcNames[i]);
       }
+
+      // Particles draw on top of the game layer
+      self.updateParticles();
 
       // Auto-dispatch to a screen function matching current mode
       const mode = self.vars.mode;

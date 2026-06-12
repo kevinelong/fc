@@ -1,0 +1,5 @@
+player is {x: 10, y: 10, image: "hero"}
+animate player with "hero_down" "hero_up" every 6 frames
+burst 5 sparks at 20, 20
+burst 3 stars at player in red
+ok is 1
