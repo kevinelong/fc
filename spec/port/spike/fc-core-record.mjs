@@ -28,6 +28,10 @@ const errorsDiv = { textContent: '' };
 let __FRAME = null;
 const requestAnimationFrame = (f) => { __FRAME = f; return 0; };   // capture so the harness can step frames
 const __step = () => { const f = __FRAME; __FRAME = null; if (f) f(); };
+const __KEYNAMES = ['up','down','left','right','space','a','b'];
+const __setKey = (code, on) => { __RT_KS()[__KEYNAMES[code]] = !!on; };
+let __RT_KS = () => keyState;   // overridden once a Runtime exists
+const __bindRT = (rt) => { __RT_KS = () => rt.keyState; };
 const cancelAnimationFrame = noop, clearInterval = noop;
 const setInterval = () => 0;
 const performance = { now: () => 0 };
@@ -3674,4 +3678,4 @@ let debounceTimer = null;
 
 
 export { parse, Runtime, tokenizeLine, singularize, resolveColor };
-export { __CMDS, __step };
+export { __CMDS, __step, __setKey, __bindRT };

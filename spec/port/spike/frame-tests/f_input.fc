@@ -1,0 +1,10 @@
+world is {width: 128, height: 128}
+player is {x: 60, y: 60, image: "hero", speed: 2, facing: "down"}
+jumps is 0
+when "space" is pressed
+  add 1 to jumps
+to update
+  move player with arrows
+to draw
+  write "x {player.x} y {player.y} f {player.facing} w {player.walking} j {jumps}" at 2, 2 in white on hud
+run game with update and draw
