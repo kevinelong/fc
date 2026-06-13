@@ -989,10 +989,12 @@ fn deep_clone(v: &Val) -> Val {
 }
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
-    store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String> }
+    store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String> }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
-        store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None } }
+        store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new() } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
@@ -1139,11 +1141,7 @@ impl Rt {
         };
         if let Some(f0) = fs.get(0) { if let Some(b) = self.funcs.get(f0).cloned() { self.exec_block(&b); self.returning = false; } }
         // behaviors motion (chase/patrol; wander needs rng — excluded from frame tests)
-        let names: Vec<String> = self.vars.iter().filter_map(|(k, v)| {
-            let has = |o: &Rc<RefCell<BTreeMap<String, Val>>>| o.borrow().contains_key("behavior");
-            match v { Val::Obj(o) if has(o) => Some(k.clone()),
-                      Val::List(l) if l.borrow().iter().any(|m| matches!(m, Val::Obj(o) if has(o))) => Some(k.clone()), _ => None }
-        }).collect();
+        let names: Vec<String> = self.behavior_subjects.clone();   // JS iterates registered subjects only
         let (ww, wh) = self.world_dims();
         for name in names {
             let items: Vec<Val> = match self.get_var(&name) { Val::List(l) => l.borrow().clone(), v @ Val::Obj(_) => { let mut t = Vec::new(); t.push(v); t } _ => Vec::new() };
@@ -1221,6 +1219,47 @@ impl Rt {
                 }
                 p.borrow_mut().insert("x".to_string(), Val::Num(px));
                 p.borrow_mut().insert("y".to_string(), Val::Num(py));
+            }
+        }
+        // tag collisions: pickups (remove + handler) then hostile (handler), mirroring checkCollisions
+        if let Val::Obj(p) = self.get_var("player") {
+            if let (Some(px), Some(py)) = (Self::obj_num(&p, "x"), Self::obj_num(&p, "y")) {
+                let pickup_lists = self.tags.get("pickups").cloned().unwrap_or_default();
+                for ln in pickup_lists {
+                    if let Val::List(l) = self.get_var(&ln) {
+                        let mut i = l.borrow().len();
+                        while i > 0 { i -= 1;
+                            let hit = { let b = l.borrow(); match &b[i] { Val::Obj(o) => match (Self::obj_num(o, "x"), Self::obj_num(o, "y")) {
+                                (Some(ix), Some(iy)) => (px - ix).abs() < 8.0 && (py - iy).abs() < 8.0, _ => false }, _ => false } };
+                            if hit {
+                                let item = l.borrow_mut().remove(i);
+                                let sing = singularize(&ln);
+                                if let Some(body) = self.pickup_handlers.get(&sing).cloned() {
+                                    self.vars.insert(sing, item);
+                                    self.exec_block(&body); self.returning = false;
+                                } else { self.vars.insert(sing, item); }
+                            }
+                        }
+                    }
+                }
+                let hostile_lists = self.tags.get("hostile").cloned().unwrap_or_default();
+                for ln in hostile_lists {
+                    if let Val::List(l) = self.get_var(&ln) {
+                        let mut touched: Option<Val> = None;
+                        for it in l.borrow().iter() { if let Val::Obj(o) = it {
+                            if let (Some(ix), Some(iy)) = (Self::obj_num(o, "x"), Self::obj_num(o, "y")) {
+                                if (px - ix).abs() < 8.0 && (py - iy).abs() < 8.0 { touched = Some(it.clone()); break; }
+                            }
+                        }}
+                        if let Some(item) = touched {
+                            let sing = singularize(&ln);
+                            if let Some(body) = self.hit_handlers.get(&sing).cloned() {
+                                self.vars.insert(sing, item);
+                                self.exec_block(&body); self.returning = false;
+                            }
+                        }
+                    }
+                }
             }
         }
         // camera follow (clamped to world)
@@ -1317,7 +1356,10 @@ impl Rt {
                 self.cmds.push(Cmd::Text(txt, x, y, col));
             }
             Stmt::Follow(t) => { self.follow = Some(t.clone()); }
-            Stmt::RunGame(fs) => { self.frame_step(fs); }
+            Stmt::Tag(subject, tag) => { let e = self.tags.entry(tag.clone()).or_insert_with(Vec::new); if !e.contains(subject) { e.push(subject.clone()); } }
+            Stmt::WhenPickup(item, body) => { self.pickup_handlers.insert(item.clone(), body.clone()); }
+            Stmt::WhenHit(item, body) => { self.hit_handlers.insert(item.clone(), body.clone()); }
+            Stmt::RunGame(fs) => { self.run_fs = fs.clone(); self.frame_step(&fs.clone()); }
             Stmt::Save(v, k) => {
                 let key = display(&self.eval(k));
                 let val = self.eval(v);
@@ -1384,6 +1426,7 @@ impl Rt {
                     m.insert("speed".to_string(), Val::Num(spd));
                     o.borrow_mut().insert("behavior".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
                 }}
+                if !self.behavior_subjects.contains(&b.subject) { self.behavior_subjects.push(b.subject.clone()); }
             }
             Stmt::Animate(subject, frames, every) => {
                 let subj = self.get_var(subject);
@@ -1460,6 +1503,14 @@ enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f6
 
 include!("sprites_gen.rs");
 fn js_floor(x: f64) -> f64 { let t = x as i64 as f64; if t > x { t - 1.0 } else { t } }
+fn singularize(plural: &str) -> String {
+    let s = plural.to_lowercase();
+    if s.ends_with("ies") { return alloc::format!("{}y", &s[..s.len()-3]); }
+    if s.ends_with("ses") { return s[..s.len()-2].to_string(); }
+    if s.ends_with("es") && (s.ends_with("xes") || s.ends_with("shes") || s.ends_with("ches")) { return s[..s.len()-2].to_string(); }
+    if s.ends_with('s') && s.len() > 1 { return s[..s.len()-1].to_string(); }
+    s
+}
 // Mirror of index.html drawSprite(): one 1x1 rect per opaque pixel (recorder parity).
 fn blit_sprite(name: &str, x: f64, y: f64, cmds: &mut Vec<Cmd>) {
     let hex = match SPRITES.iter().find(|(n, _)| *n == name) { Some((_, h)) => *h, None => return };
@@ -1486,6 +1537,25 @@ fn emit_cmd(c: &Cmd, out: &mut String) {
     let program = parse_program(&src);
     let mut rt = Rt::new(seed);
     rt.exec_block(&program);
+    let mut s = String::new();
+    s.push('[');
+    for (i,c) in rt.cmds.iter().enumerate() { if i>0 {s.push(',');} emit_cmd(c,&mut s); }
+    s.push(']');
+    unsafe { *core::ptr::addr_of_mut!(LIVE_RT) = Some(rt); }   // keep for step_frame()
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
+}
+
+// Multi-frame stepping: parse_render runs frame 1 and stashes the runtime;
+// each step_frame() call advances one more frame and returns that frame's cmds.
+static mut LIVE_RT: Option<Rt> = None;
+#[no_mangle] pub extern "C" fn step_frame() -> u32 {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return 0 };
+    rt.cmds.clear();
+    rt.ops = 0;
+    let fs = rt.run_fs.clone();
+    rt.frame_step(&fs);
     let mut s = String::new();
     s.push('[');
     for (i,c) in rt.cmds.iter().enumerate() { if i>0 {s.push(',');} emit_cmd(c,&mut s); }

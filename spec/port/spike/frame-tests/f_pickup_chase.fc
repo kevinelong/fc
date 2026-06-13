@@ -1,0 +1,26 @@
+player is {x: 20, y: 20, image: "hero"}
+coins is []
+c is sprite
+c.x is 26
+c.y is 20
+c.image is "coin"
+add c to coins
+coins are pickups
+score is 0
+when player picks up any coin
+  add 10 to score
+ghost is {x: 90, y: 20, speed: 3}
+ghosts is []
+add ghost to ghosts
+ghosts chase player
+ghosts are hostile
+hits is 0
+when player hits any ghost
+  add 1 to hits
+left is 1
+to update
+  add 1 to player.x
+  left is the number of coins
+to draw
+  write "s {score} h {hits} g {ghost.x} c {left}" at 2, 2 in white on hud
+run game with update and draw

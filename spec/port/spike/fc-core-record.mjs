@@ -25,7 +25,10 @@ const STORE = (() => { const m = new Map(); return {
 }; })();
 const editor = { value: '' };
 const errorsDiv = { textContent: '' };
-const requestAnimationFrame = noop, cancelAnimationFrame = noop, clearInterval = noop;
+let __FRAME = null;
+const requestAnimationFrame = (f) => { __FRAME = f; return 0; };   // capture so the harness can step frames
+const __step = () => { const f = __FRAME; __FRAME = null; if (f) f(); };
+const cancelAnimationFrame = noop, clearInterval = noop;
 const setInterval = () => 0;
 const performance = { now: () => 0 };
 const document = { getElementById: () => null, createElement: () => ({ getContext: () => ctx, style: {} }) };
@@ -3671,4 +3674,4 @@ let debounceTimer = null;
 
 
 export { parse, Runtime, tokenizeLine, singularize, resolveColor };
-export { __CMDS };
+export { __CMDS, __step };
