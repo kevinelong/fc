@@ -1,0 +1,3 @@
+hero is {x: 30, y: 30, image: "hero", facing: "left", walking: yes}
+clear screen to black
+draw sprite hero at 30, 30

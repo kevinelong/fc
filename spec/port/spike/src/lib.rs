@@ -1364,7 +1364,30 @@ impl Rt {
                         let x2=(if let Some(e)=&a.x2 {as_num(&self.eval(e))} else {0.0})-ox; let y2=(if let Some(e)=&a.y2 {as_num(&self.eval(e))} else {0.0})-oy;
                         self.cmds.push(Cmd::Line(x1,y1,x2,y2,col));
                     }
-                    _ => {} // sprite: deferred (host-side blit)
+                    "sprite" => {
+                        let mut name = a.sprite_name.clone().unwrap_or_default();
+                        let mut bounce = 0.0;
+                        if name.is_empty() {
+                            if let Some(e) = &a.sprite_name_expr {
+                                match self.eval(e) {
+                                    Val::Str(rs) => { name = rs.to_lowercase().replace(' ', "_"); }
+                                    Val::Obj(o) => {
+                                        let img = match o.borrow().get("image") { Some(Val::Str(s)) => s.to_lowercase().replace(' ', "_"), _ => String::new() };
+                                        let facing = match o.borrow().get("facing") { Some(Val::Str(f)) => Some(f.clone()), _ => None };
+                                        name = if let Some(f) = facing {
+                                            let variant = alloc::format!("{}_{}", img, f);
+                                            if SPRITES.iter().any(|(n,_)| *n == variant) { variant } else { img }
+                                        } else { img };
+                                        let walking = matches!(o.borrow().get("walking"), Some(Val::Bool(true)));
+                                        if walking && ((self.tick / 12) % 2) == 1 { bounce = -1.0; }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        blit_sprite(&name, x, y + bounce, &mut self.cmds);
+                    }
+                    _ => {}
                 }
             }
             Stmt::Write(w) => {

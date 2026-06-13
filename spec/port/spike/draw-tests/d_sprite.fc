@@ -1,0 +1,4 @@
+player is {x: 10, y: 12, image: "hero", facing: "right"}
+clear screen to black
+draw sprite "coin" at 4, 4
+draw sprite player.image at 20, 20
