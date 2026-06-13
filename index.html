@@ -4367,6 +4367,7 @@ let runtime = new Runtime();
 let debounceTimer = null;
 
 function run(source) {
+  if (typeof WASMCORE !== "undefined" && WASMCORE.active) { WASMCORE.run(source); return; }   // experimental Rust→WASM core
   runtime.reset();
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 128, 128);
@@ -4417,6 +4418,7 @@ function normalizeKey(k) {
 
 // Press/release helpers shared by physical keys and the on-screen gamepad.
 function pressKey(key) {
+  if (typeof WASMCORE !== "undefined" && WASMCORE.active) WASMCORE.setKey(key, true);
   const wasPressed = runtime.keyState[key];
   runtime.keyState[key] = true;
   if (wasPressed) return;
@@ -4432,6 +4434,7 @@ function pressKey(key) {
   }
 }
 function releaseKey(key) {
+  if (typeof WASMCORE !== "undefined" && WASMCORE.active) WASMCORE.setKey(key, false);
   runtime.keyState[key] = false;
 }
 
@@ -5334,6 +5337,71 @@ run game with update`,
     });
   });
 })();
+</script>
+<script>
+// ============================================================
+// Experimental Rust→WASM core, opt-in via ?core=wasm
+// Renders ONE frame of your program through the ported Rust core
+// (spec/port/spike) and its command buffer — a static preview proving the
+// wasm core's rendering. LIVE stepping is intentionally NOT looped here: the
+// spike's bump allocator never reclaims (4MB) and its panic handler is
+// `loop {}`, so a sustained 60fps loop OOMs and hangs the tab within ~1s.
+// Frame-by-frame correctness is verified in spec/port/spike (frames-run.mjs,
+// 6 frames bit-identical); making it loop in-browser is gated on an allocator
+// + non-hanging panic handler (a phase-3b task). The JS core remains the
+// default and the reference; drop ?core=wasm to use it.
+// ============================================================
+window.WASMCORE = (function () {
+  const KEYCODE = { up: 0, down: 1, left: 2, right: 3, space: 4, a: 5, b: 6 };
+  const WASM_URL = 'spec/port/spike/target/wasm32-unknown-unknown/release/fc_spike.wasm';
+  let w = null, loading = null;
+  const enc = new TextEncoder(), dec = new TextDecoder();
+
+  function readJson(n) { return JSON.parse(dec.decode(new Uint8Array(w.memory.buffer, w.res_ptr(), n))); }
+  function writeSrc(code) { const b = enc.encode(code); new Uint8Array(w.memory.buffer, w.src_ptr(), b.length).set(b); return b.length; }
+  function paint(cmds) {
+    for (const c of cmds) {
+      ctx.fillStyle = c.color; ctx.strokeStyle = c.color;
+      if (c.op === 'rect') ctx.fillRect(c.x, c.y, c.w, c.h);
+      else if (c.op === 'circle') { ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); }
+      else if (c.op === 'line') { ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); ctx.stroke(); }
+      else if (c.op === 'text') drawText(c.text, c.x, c.y, c.color);   // reuse the JS 3x5 font for exact parity
+    }
+  }
+  return {
+    active: /[?&]core=wasm\b/.test(location.search),
+    async load() {
+      if (w) return w;
+      if (!loading) loading = (async () => {
+        let m;
+        try { m = await WebAssembly.instantiateStreaming(fetch(WASM_URL), {}); }   // server sends application/wasm
+        catch (_) { const buf = await fetch(WASM_URL).then(r => r.arrayBuffer()); m = await WebAssembly.instantiate(buf, {}); }
+        w = m.instance.exports; return w;
+      })();
+      return loading;
+    },
+    setKey(name, on) { if (w && name in KEYCODE) { try { w.set_key(KEYCODE[name], on ? 1 : 0); } catch (_) {} } },
+    async run(source) {
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 128, 128);
+      try {
+        await this.load();
+        const len = writeSrc(source);
+        paint(readJson(w.parse_render(len, 0)));   // render exactly ONE frame (safe: no looping → no OOM/panic hang)
+      } catch (e) {
+        if (typeof errorsDiv !== 'undefined') errorsDiv.textContent = 'wasm core failed (' + e.message + ') — drop ?core=wasm for the JS core.';
+      }
+    },
+  };
+})();
+// run()/pressKey()/releaseKey() check WASMCORE.active and route to the wasm core themselves.
+if (WASMCORE.active) {
+  addEventListener('DOMContentLoaded', () => {
+    const b = document.createElement('div');
+    b.id = 'wasm-badge'; b.textContent = '⚡ core: wasm — static preview (frame 1)';
+    b.style.cssText = 'position:fixed;bottom:6px;left:6px;z-index:99;font:10px "Share Tech Mono",monospace;color:#ffec27;background:#161616cc;border:1px solid #5a4a28;border-radius:4px;padding:3px 7px;pointer-events:none';
+    document.body.appendChild(b);
+  });
+}
 </script>
 </body>
 </html>
