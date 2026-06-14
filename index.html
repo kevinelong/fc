@@ -5341,20 +5341,18 @@ run game with update`,
 <script>
 // ============================================================
 // Experimental Rust→WASM core, opt-in via ?core=wasm
-// Renders ONE frame of your program through the ported Rust core
-// (spec/port/spike) and its command buffer — a static preview proving the
-// wasm core's rendering. LIVE stepping is intentionally NOT looped here: the
-// spike's bump allocator never reclaims (4MB) and its panic handler is
-// `loop {}`, so a sustained 60fps loop OOMs and hangs the tab within ~1s.
-// Frame-by-frame correctness is verified in spec/port/spike (frames-run.mjs,
-// 6 frames bit-identical); making it loop in-browser is gated on an allocator
-// + non-hanging panic handler (a phase-3b task). The JS core remains the
-// default and the reference; drop ?core=wasm to use it.
+// Runs your program LIVE through the ported Rust core (spec/port/spike): each
+// frame the core advances (step_frame) and emits a command buffer we paint to
+// the canvas; keys bridge in via set_key. Frame-by-frame correctness is proven
+// headlessly (frames-run.mjs, bit-identical) and the core soaks 3000+ frames
+// with flat memory (dlmalloc reclaims). SUBSET — not yet through wasm: sound,
+// multiplayer, screens/buttons, particles, wander (RNG/trig). Those no-op; the
+// JS core stays the default + reference. Drop ?core=wasm to use it.
 // ============================================================
 window.WASMCORE = (function () {
   const KEYCODE = { up: 0, down: 1, left: 2, right: 3, space: 4, a: 5, b: 6 };
   const WASM_URL = 'spec/port/spike/target/wasm32-unknown-unknown/release/fc_spike.wasm';
-  let w = null, loading = null;
+  let w = null, loading = null, raf = null;
   const enc = new TextEncoder(), dec = new TextDecoder();
 
   function readJson(n) { return JSON.parse(dec.decode(new Uint8Array(w.memory.buffer, w.res_ptr(), n))); }
@@ -5368,8 +5366,20 @@ window.WASMCORE = (function () {
       else if (c.op === 'text') drawText(c.text, c.x, c.y, c.color);   // reuse the JS 3x5 font for exact parity
     }
   }
+  function loop() {
+    if (!w) return;
+    try { paint(readJson(w.step_frame())); }
+    catch (e) {                                   // a wasm trap throws here (no longer a tab hang) — stop cleanly
+      raf = null;
+      const badge = document.getElementById('wasm-badge');
+      if (badge) badge.textContent = '⚡ core: wasm — stopped (' + e.message + ')';
+      return;
+    }
+    raf = requestAnimationFrame(loop);
+  }
   return {
     active: /[?&]core=wasm\b/.test(location.search),
+    stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } },
     async load() {
       if (w) return w;
       if (!loading) loading = (async () => {
@@ -5382,11 +5392,13 @@ window.WASMCORE = (function () {
     },
     setKey(name, on) { if (w && name in KEYCODE) { try { w.set_key(KEYCODE[name], on ? 1 : 0); } catch (_) {} } },
     async run(source) {
+      this.stop();
       ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 128, 128);
       try {
         await this.load();
         const len = writeSrc(source);
-        paint(readJson(w.parse_render(len, 0)));   // render exactly ONE frame (safe: no looping → no OOM/panic hang)
+        paint(readJson(w.parse_render(len, 0)));   // frame 1 (initial exec + first draw)
+        raf = requestAnimationFrame(loop);          // then step live — dlmalloc keeps memory bounded
       } catch (e) {
         if (typeof errorsDiv !== 'undefined') errorsDiv.textContent = 'wasm core failed (' + e.message + ') — drop ?core=wasm for the JS core.';
       }
@@ -5397,7 +5409,7 @@ window.WASMCORE = (function () {
 if (WASMCORE.active) {
   addEventListener('DOMContentLoaded', () => {
     const b = document.createElement('div');
-    b.id = 'wasm-badge'; b.textContent = '⚡ core: wasm — static preview (frame 1)';
+    b.id = 'wasm-badge'; b.textContent = '⚡ core: wasm (live)';
     b.style.cssText = 'position:fixed;bottom:6px;left:6px;z-index:99;font:10px "Share Tech Mono",monospace;color:#ffec27;background:#161616cc;border:1px solid #5a4a28;border-radius:4px;padding:3px 7px;pointer-events:none';
     document.body.appendChild(b);
   });

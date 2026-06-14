@@ -16,3 +16,4 @@ codegen-units = 1
 
 [dependencies]
 libm = "0.2.16"
+dlmalloc = { version = "0.2", features = ["global"] }
