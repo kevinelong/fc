@@ -4366,11 +4366,53 @@ class Runtime {
 let runtime = new Runtime();
 let debounceTimer = null;
 
+// Conservative "did you mean?" hint: flags a line-leading word that is a SINGLE
+// typo (Damerau-Levenshtein 1) from a real command word and isn't a user
+// function or an assignment. Validated to produce ZERO false positives across
+// every examples/*.fc + the spec corpus. Engine-agnostic (runs before routing),
+// non-blocking — the program still runs. fc is deliberately lenient (unknown
+// verbs no-op), so this is the one place a beginner gets told about a typo.
+const LINT_VERBS = ['draw','write','say','add','remove','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk'];
+function damerau(a, b) {
+  const m = a.length, n = b.length;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+    const c = a[i - 1] === b[j - 1] ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[m][n];
+}
+function lintHints(source) {
+  const funcs = new Set();
+  for (const line of source.split('\n')) { const m = line.trim().match(/^to\s+(?:screen\s+)?([a-zA-Z_]\w*)/i); if (m) funcs.add(m[1].toLowerCase()); }
+  const notes = [], lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t || t.startsWith('--') || t.startsWith('#')) continue;
+    const m = t.match(/^([a-zA-Z]\w*)/); if (!m) continue;
+    const w = m[1].toLowerCase();
+    if (LINT_VERBS.includes(w) || funcs.has(w)) continue;
+    if (/^\w+(\.\w+)*\s+(is|are)\b/i.test(t)) continue;   // assignment, not a command
+    let best = null, bd = 99;
+    for (const v of LINT_VERBS) { const dd = damerau(w, v); if (dd < bd) { bd = dd; best = v; } }
+    if (bd === 1) notes.push(`Line ${i + 1}: I don't know "${w}" — did you mean "${best}"?`);
+  }
+  return notes;
+}
+
 function run(source) {
   // wasm is the default engine; WASMCORE.run() falls back to runJSCore() itself
   // if the wasm fails to load. ?core=js (or no WebAssembly) keeps the JS core.
-  if (typeof WASMCORE !== "undefined" && WASMCORE.active) { WASMCORE.run(source); return; }
+  const hints = lintHints(source);
+  if (typeof WASMCORE !== "undefined" && WASMCORE.active) {
+    WASMCORE.run(source);
+    if (hints.length) errorsDiv.textContent = hints.join('\n');   // wasm doesn't manage errorsDiv except on fallback
+    return;
+  }
   runJSCore(source);
+  if (hints.length) errorsDiv.textContent = (errorsDiv.textContent ? errorsDiv.textContent + '\n' : '') + hints.join('\n');
 }
 function runJSCore(source) {
   runtime.reset();
