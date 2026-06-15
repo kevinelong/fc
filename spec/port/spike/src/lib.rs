@@ -546,6 +546,8 @@ fn json_str(s: &str, out: &mut String) {
     out.push('"');
 }
 fn json_num(n: f64, out: &mut String) {
+    // NaN/Infinity -> null, matching JSON.stringify (JSON has no NaN literal).
+    if n != n || n == f64::INFINITY || n == f64::NEG_INFINITY { out.push_str("null"); return; }
     // no_std: f64::fract/abs/is_finite are std-only, so test integrality via i64 round-trip.
     if n >= -9e15 && n <= 9e15 { let i = n as i64; if i as f64 == n { out.push_str(&format!("{}", i)); return; } }
     out.push_str(&format!("{}", n));
@@ -946,7 +948,12 @@ fn truthy(v: &Val) -> bool {
         Val::Str(s)=>!s.is_empty() && s!="no",
         Val::List(l)=>!l.borrow().is_empty(), Val::Obj(o)=>!o.borrow().is_empty() }
 }
-fn as_num(v: &Val) -> f64 { match v { Val::Num(n)=>*n, Val::Str(s)=>js_parse_float(s), Val::Bool(b)=>if *b {1.0} else {0.0}, _=>0.0 } }
+fn as_num(v: &Val) -> f64 { match v {
+    Val::Num(n)=>*n, Val::Str(s)=>js_parse_float(s), Val::Bool(b)=>if *b {1.0} else {0.0},
+    // match JS Number(): undefined/object -> NaN; [] -> 0, [x] -> Number(x), [x,..] -> NaN
+    Val::Undef=>f64::NAN, Val::Obj(_)=>f64::NAN,
+    Val::List(l)=>{ let b=l.borrow(); match b.len() { 0=>0.0, 1=>as_num(&b[0]), _=>f64::NAN } },
+} }
 fn to_number(s: &str) -> Option<f64> { let t=s.trim(); if t.is_empty() { Some(0.0) } else { t.parse::<f64>().ok() } }
 // Minimal JSON -> Val for incoming multiplayer peer states (the bridge feeds
 // JSON.stringify(NET.peers) each frame). Numbers via the same f64 parse the
@@ -1420,11 +1427,14 @@ impl Rt {
             Stmt::Assign(t, v) => { let val=self.eval(v); self.set_var(t, val); }
             Stmt::Add(t, v) => {
                 let val=self.eval(v); let cur=self.get_var(t);
+                // amount mirrors JS: `typeof val==='string' ? parseFloat(val)||0 : val`
+                let amount = match &val { Val::Str(s) => { let p = js_parse_float(s); if p != p { 0.0 } else { p } }, Val::Undef => f64::NAN, o => as_num(o) };
                 match cur {
                     Val::List(l) => l.borrow_mut().push(val),
                     Val::Str(s) => self.set_var(t, Val::Str(s + &display(&val))),
-                    Val::Num(n) => self.set_var(t, Val::Num(n + as_num(&val))),
-                    Val::Undef => self.set_var(t, Val::Num(as_num(&val))),
+                    // JS `(current || 0) + amount` — a NaN/0 accumulator coerces to 0
+                    Val::Num(n) => self.set_var(t, Val::Num((if n != n { 0.0 } else { n }) + amount)),
+                    Val::Undef => self.set_var(t, Val::Num(amount)),
                     _ => {}
                 }
             }
