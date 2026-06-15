@@ -5361,6 +5361,7 @@ window.WASMCORE = (function () {
     for (const c of cmds) {
       if (c.op === 'sound') { if (c.kind === 'music') AUDIO.music(c.name); else AUDIO.play(c.name); continue; }  // route to the JS audio engine
       if (c.op === 'defsfx') { AUDIO.defineSfx(c.name, c.recipe); continue; }  // register a custom `define sound`
+      if (c.op === 'net') { if (c.kind === 'join') NET.join(c.a, c.b); else if (c.kind === 'broadcast') { try { NET.broadcast(JSON.parse(c.a)); } catch (_) {} } continue; }  // multiplayer
       ctx.fillStyle = c.color; ctx.strokeStyle = c.color;
       if (c.op === 'rect') ctx.fillRect(c.x, c.y, c.w, c.h);
       else if (c.op === 'circle') { ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); }
@@ -5368,9 +5369,14 @@ window.WASMCORE = (function () {
       else if (c.op === 'text') drawText(c.text, c.x, c.y, c.color);   // reuse the JS 3x5 font for exact parity
     }
   }
+  function feedNet() {   // push incoming multiplayer state into the core before the frame
+    if (!w || !w.set_net) return;
+    const len = writeSrc(JSON.stringify(NET.peers || []));   // SRC is free after parse_render
+    w.set_net(len, NET.connected() ? 1 : 0);
+  }
   function loop() {
     if (!w) return;
-    try { paint(readJson(w.step_frame())); }
+    try { feedNet(); paint(readJson(w.step_frame())); }
     catch (e) {                                   // a wasm trap throws here (no longer a tab hang) — stop cleanly
       raf = null;
       const badge = document.getElementById('wasm-badge');

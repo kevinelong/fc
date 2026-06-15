@@ -948,6 +948,55 @@ fn truthy(v: &Val) -> bool {
 }
 fn as_num(v: &Val) -> f64 { match v { Val::Num(n)=>*n, Val::Str(s)=>js_parse_float(s), Val::Bool(b)=>if *b {1.0} else {0.0}, _=>0.0 } }
 fn to_number(s: &str) -> Option<f64> { let t=s.trim(); if t.is_empty() { Some(0.0) } else { t.parse::<f64>().ok() } }
+// Minimal JSON -> Val for incoming multiplayer peer states (the bridge feeds
+// JSON.stringify(NET.peers) each frame). Numbers via the same f64 parse the
+// lexer uses; strings are UTF-8-lossy. Mirrors the Val shapes emit_val produces.
+fn json_to_val(s: &str) -> Val { let b = s.as_bytes(); let mut i = 0usize; jv_value(b, &mut i) }
+fn jv_ws(b: &[u8], i: &mut usize) { while *i < b.len() && matches!(b[*i], b' '|b'\t'|b'\n'|b'\r') { *i += 1; } }
+fn jv_value(b: &[u8], i: &mut usize) -> Val {
+    jv_ws(b, i);
+    if *i >= b.len() { return Val::Undef; }
+    match b[*i] {
+        b'{' => jv_obj(b, i),
+        b'[' => jv_arr(b, i),
+        b'"' => Val::Str(jv_string(b, i)),
+        b't' => { *i += 4.min(b.len() - *i); Val::Bool(true) }
+        b'f' => { *i += 5.min(b.len() - *i); Val::Bool(false) }
+        b'n' => { *i += 4.min(b.len() - *i); Val::Undef }
+        _ => jv_number(b, i),
+    }
+}
+fn jv_string(b: &[u8], i: &mut usize) -> String {
+    *i += 1;
+    let mut out: Vec<u8> = Vec::new();
+    while *i < b.len() && b[*i] != b'"' {
+        if b[*i] == b'\\' && *i + 1 < b.len() { *i += 1; match b[*i] { b'n'=>out.push(b'\n'), b't'=>out.push(b'\t'), b'r'=>out.push(b'\r'), c=>out.push(c) } }
+        else { out.push(b[*i]); }
+        *i += 1;
+    }
+    if *i < b.len() { *i += 1; }
+    String::from_utf8_lossy(&out).into_owned()
+}
+fn jv_number(b: &[u8], i: &mut usize) -> Val {
+    let start = *i;
+    while *i < b.len() && matches!(b[*i], b'0'..=b'9'|b'-'|b'+'|b'.'|b'e'|b'E') { *i += 1; }
+    Val::Num(core::str::from_utf8(&b[start..*i]).unwrap_or("0").parse::<f64>().unwrap_or(0.0))
+}
+fn jv_arr(b: &[u8], i: &mut usize) -> Val {
+    *i += 1; let mut v = Vec::new();
+    loop { jv_ws(b, i); if *i >= b.len() || b[*i] == b']' { if *i < b.len() { *i += 1; } break; } v.push(jv_value(b, i)); jv_ws(b, i); if *i < b.len() && b[*i] == b',' { *i += 1; } }
+    Val::List(Rc::new(RefCell::new(v)))
+}
+fn jv_obj(b: &[u8], i: &mut usize) -> Val {
+    *i += 1; let mut m = BTreeMap::new();
+    loop {
+        jv_ws(b, i); if *i >= b.len() || b[*i] == b'}' { if *i < b.len() { *i += 1; } break; }
+        if b[*i] != b'"' { break; }
+        let key = jv_string(b, i); jv_ws(b, i); if *i < b.len() && b[*i] == b':' { *i += 1; }
+        m.insert(key, jv_value(b, i)); jv_ws(b, i); if *i < b.len() && b[*i] == b',' { *i += 1; }
+    }
+    Val::Obj(Rc::new(RefCell::new(m)))
+}
 fn display(v: &Val) -> String {
     match v { Val::Num(n)=>{ let mut s=String::new(); json_num(*n,&mut s); s } Val::Str(s)=>s.clone(),
         Val::Bool(b)=>if *b {"true".to_string()} else {"false".to_string()}, _=>String::new() }
@@ -1626,6 +1675,11 @@ impl Rt {
                 }
             }
             Stmt::PlaySound(kind, name) => { self.cmds.push(Cmd::Sound(kind.clone(), name.clone())); }
+            Stmt::NetJoin(game, room) => { self.cmds.push(Cmd::Net("join".to_string(), game.clone(), room.clone())); }
+            Stmt::Broadcast(e) => {
+                let v = self.eval(e);   // JS only broadcasts objects/arrays
+                if matches!(v, Val::Obj(_) | Val::List(_)) { let mut j = String::new(); emit_val(&v, &mut j); self.cmds.push(Cmd::Net("broadcast".to_string(), j, String::new())); }
+            }
             Stmt::DefSfx(name, rec) => {
                 // build the recipe JSON the JS AUDIO.defineSfx/playRecipe expects
                 let mut r = String::from("{");
@@ -1695,7 +1749,7 @@ fn resolve_color(name: &str) -> String {
 enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String),
     // host-side effects routed through the command buffer (the bridge consumes
     // these and calls the existing JS AUDIO engine — single audio source).
-    Sound(String,String), DefSfx(String,String) }
+    Sound(String,String), DefSfx(String,String), Net(String,String,String) }
 
 include!("sprites_gen.rs");
 fn js_floor(x: f64) -> f64 { let t = x as i64 as f64; if t > x { t - 1.0 } else { t } }
@@ -1727,6 +1781,7 @@ fn emit_cmd(c: &Cmd, out: &mut String) {
         Cmd::Text(t,x,y,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"text\",\"text\":"); json_str(t,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
         Cmd::Sound(kind,name)=>{ out.push_str("{\"kind\":"); json_str(kind,out); out.push_str(",\"name\":"); json_str(name,out); out.push_str(",\"op\":\"sound\"}"); }
         Cmd::DefSfx(name,recipe)=>{ out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"op\":\"defsfx\",\"recipe\":"); out.push_str(recipe); out.push('}'); }
+        Cmd::Net(kind,a,b)=>{ out.push_str("{\"a\":"); json_str(a,out); out.push_str(",\"b\":"); json_str(b,out); out.push_str(",\"kind\":"); json_str(kind,out); out.push_str(",\"op\":\"net\"}"); }
     }
 }
 #[no_mangle] pub extern "C" fn parse_render(len: u32, seed: u32) -> u32 {
@@ -1758,6 +1813,16 @@ static mut LIVE_RT: Option<Rt> = None;
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };
     rt.mouse.0 = x as f64; rt.mouse.1 = y as f64;
     if down != 0 { rt.mouse.2 = true; }   // one-shot click, consumed in frame_step
+}
+// Host feeds incoming multiplayer state each frame: peers JSON (written to the
+// SRC buffer) + the live connection flag, exposed to fc as `peers`/`connected`.
+#[no_mangle] pub extern "C" fn set_net(len: u32, connected: u32) {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };
+    let n = (len as usize).min(SRC_CAP);
+    let bytes = unsafe { core::slice::from_raw_parts(addr_of!(SRC) as *const u8, n) }.to_vec();
+    let s = String::from_utf8_lossy(&bytes);
+    rt.vars.insert("peers".to_string(), json_to_val(&s));
+    rt.vars.insert("connected".to_string(), Val::Bool(connected != 0));
 }
 #[no_mangle] pub extern "C" fn step_frame() -> u32 {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return 0 };
