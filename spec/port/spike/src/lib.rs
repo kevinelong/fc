@@ -1578,6 +1578,23 @@ impl Rt {
                     }
                 }
             }
+            Stmt::PlaySound(kind, name) => { self.cmds.push(Cmd::Sound(kind.clone(), name.clone())); }
+            Stmt::DefSfx(name, rec) => {
+                // build the recipe JSON the JS AUDIO.defineSfx/playRecipe expects
+                let mut r = String::from("{");
+                if rec.tone {
+                    r.push_str("\"kind\":\"tone\",\"wave\":"); json_str(&rec.wave, &mut r);
+                    r.push_str(",\"f0\":"); json_num(rec.f0, &mut r);
+                    if let Some(f1) = rec.f1 { r.push_str(",\"f1\":"); json_num(f1, &mut r); }
+                    r.push_str(",\"dur\":"); json_num(rec.dur, &mut r);
+                } else {
+                    r.push_str("\"kind\":\"notes\",\"notes\":[");
+                    for (i, nf) in rec.notes.iter().enumerate() { if i > 0 { r.push(','); } json_num(*nf, &mut r); }
+                    r.push_str("],\"dur\":"); json_num(rec.dur, &mut r);
+                }
+                r.push('}');
+                self.cmds.push(Cmd::DefSfx(name.clone(), r));
+            }
             _ => {} // tag/when_*/sprite/etc: no command in single-exec render slice
         }
     }
@@ -1628,7 +1645,10 @@ fn resolve_color(name: &str) -> String {
     "#fff1e8".to_string()
 }
 #[derive(Clone)]
-enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String) }
+enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String),
+    // host-side effects routed through the command buffer (the bridge consumes
+    // these and calls the existing JS AUDIO engine — single audio source).
+    Sound(String,String), DefSfx(String,String) }
 
 include!("sprites_gen.rs");
 fn js_floor(x: f64) -> f64 { let t = x as i64 as f64; if t > x { t - 1.0 } else { t } }
@@ -1658,6 +1678,8 @@ fn emit_cmd(c: &Cmd, out: &mut String) {
         Cmd::Circle(x,y,r,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"circle\",\"r\":"); json_num(*r,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
         Cmd::Line(x1,y1,x2,y2,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"line\",\"x1\":"); json_num(*x1,out); out.push_str(",\"x2\":"); json_num(*x2,out); out.push_str(",\"y1\":"); json_num(*y1,out); out.push_str(",\"y2\":"); json_num(*y2,out); out.push('}'); }
         Cmd::Text(t,x,y,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"text\",\"text\":"); json_str(t,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
+        Cmd::Sound(kind,name)=>{ out.push_str("{\"kind\":"); json_str(kind,out); out.push_str(",\"name\":"); json_str(name,out); out.push_str(",\"op\":\"sound\"}"); }
+        Cmd::DefSfx(name,recipe)=>{ out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"op\":\"defsfx\",\"recipe\":"); out.push_str(recipe); out.push('}'); }
     }
 }
 #[no_mangle] pub extern "C" fn parse_render(len: u32, seed: u32) -> u32 {
