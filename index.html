@@ -4367,7 +4367,12 @@ let runtime = new Runtime();
 let debounceTimer = null;
 
 function run(source) {
-  if (typeof WASMCORE !== "undefined" && WASMCORE.active) { WASMCORE.run(source); return; }   // experimental Rust→WASM core
+  // wasm is the default engine; WASMCORE.run() falls back to runJSCore() itself
+  // if the wasm fails to load. ?core=js (or no WebAssembly) keeps the JS core.
+  if (typeof WASMCORE !== "undefined" && WASMCORE.active) { WASMCORE.run(source); return; }
+  runJSCore(source);
+}
+function runJSCore(source) {
   runtime.reset();
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 128, 128);
@@ -5340,14 +5345,15 @@ run game with update`,
 </script>
 <script>
 // ============================================================
-// Experimental Rust→WASM core, opt-in via ?core=wasm
+// Rust→WASM core — the DEFAULT engine (opt out with ?core=js).
 // Runs your program LIVE through the ported Rust core (spec/port/spike): each
-// frame the core advances (step_frame) and emits a command buffer we paint to
-// the canvas; keys bridge in via set_key. Frame-by-frame correctness is proven
-// headlessly (frames-run.mjs, bit-identical) and the core soaks 3000+ frames
-// with flat memory (dlmalloc reclaims). SUBSET — not yet through wasm: sound,
-// multiplayer, screens/buttons, particles, wander (RNG/trig). Those no-op; the
-// JS core stays the default + reference. Drop ?core=wasm to use it.
+// frame the core advances (step_frame) and emits a command buffer the bridge
+// paints; input bridges via set_key/set_mouse, sound/buttons/multiplayer route
+// host effects (sound/defsfx/net) through the same buffer + set_net feeds peers.
+// Conformance is bit-identical to the JS reference (5 diff harnesses: lexer/
+// parser/exec/render/frames) and the core soaks 3000+ frames with flat memory
+// (dlmalloc). If the wasm fails to load or traps, the bridge falls back to the
+// JS core transparently (run() -> runJSCore). The JS core remains the reference.
 // ============================================================
 window.WASMCORE = (function () {
   const KEYCODE = { up: 0, down: 1, left: 2, right: 3, space: 4, a: 5, b: 6 };
@@ -5386,7 +5392,7 @@ window.WASMCORE = (function () {
     raf = requestAnimationFrame(loop);
   }
   return {
-    active: /[?&]core=wasm\b/.test(location.search),
+    active: !/[?&]core=js\b/.test(location.search) && typeof WebAssembly !== 'undefined',   // wasm is the default; ?core=js opts out
     stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } },
     async load() {
       if (w) return w;
@@ -5409,7 +5415,10 @@ window.WASMCORE = (function () {
         paint(readJson(w.parse_render(len, 0)));   // frame 1 (initial exec + first draw)
         raf = requestAnimationFrame(loop);          // then step live — dlmalloc keeps memory bounded
       } catch (e) {
-        if (typeof errorsDiv !== 'undefined') errorsDiv.textContent = 'wasm core failed (' + e.message + ') — drop ?core=wasm for the JS core.';
+        // wasm unavailable or trapped — permanent, transparent fallback to the JS core
+        this.active = false;
+        const badge = document.getElementById('wasm-badge'); if (badge) badge.remove();
+        if (typeof runJSCore === 'function') runJSCore(source);
       }
     },
   };
