@@ -976,13 +976,17 @@ fn deep_clone(v: &Val) -> Val {
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
-    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle> }
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
+    button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
+    buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool) }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
-        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new() } }
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
+        button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
@@ -1145,6 +1149,29 @@ impl Rt {
                 if let Some(t) = then { self.exec_block(&[t]); self.returning = false; }
                 if !body.is_empty() { self.exec_block(&body); self.returning = false; }
             }
+        }
+        // button clicks + generic mouse handler — uses self.buttons from the
+        // PREVIOUS frame's draw (JS frame() order: keys → buttons → mouse)
+        if self.mouse.2 {
+            let (mx, my) = (self.mouse.0, self.mouse.1);
+            let mobj = Rc::new(RefCell::new(BTreeMap::new()));
+            mobj.borrow_mut().insert("x".to_string(), Val::Num(mx));
+            mobj.borrow_mut().insert("y".to_string(), Val::Num(my));
+            self.vars.insert("mouse".to_string(), Val::Obj(mobj));
+            let hit = self.buttons.iter()
+                .find(|(_, bx, by, bw, bh)| mx >= *bx && mx < *bx + *bw && my >= *by && my < *by + *bh)
+                .map(|(l, _, _, _, _)| l.clone());
+            if let Some(label) = hit {
+                if let Some((then, body)) = self.button_handlers.get(&label).cloned() {
+                    if let Some(t) = then { self.exec_block(&[t]); self.returning = false; }
+                    if !body.is_empty() { self.exec_block(&body); self.returning = false; }
+                }
+            }
+            if let Some((then, body)) = self.mouse_handlers.get("clicked").cloned() {
+                if let Some(t) = then { self.exec_block(&[t]); self.returning = false; }
+                if !body.is_empty() { self.exec_block(&body); self.returning = false; }
+            }
+            self.mouse.2 = false;   // consume the click
         }
         self.tick += 1;
         let prev: Option<(f64, f64)> = match self.get_var("player") {
@@ -1321,6 +1348,7 @@ impl Rt {
         }
         // draw fns, then particles on top of the game layer, then screen dispatch
         // by mode (mirrors JS render order).
+        self.buttons.clear();   // repopulated by Button stmts in the draw fns below
         for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b); self.returning = false; } }
         self.update_particles();
         if let Val::Str(mode) = self.get_var("mode") {
@@ -1427,6 +1455,25 @@ impl Rt {
                 self.cmds.push(Cmd::Text(txt, x, y, col));
             }
             Stmt::WhenKey(key, then, body) => { self.key_handlers.insert(key.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
+            Stmt::WhenButton(label, then, body) => { self.button_handlers.insert(label.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
+            Stmt::WhenMouse(event, then, body) => { self.mouse_handlers.insert(event.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
+            Stmt::Goto(target) => {
+                if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }
+                self.set_var("mode", Val::Str(target.clone()));
+                self.buttons.clear();   // old buttons must not catch stale clicks
+            }
+            Stmt::GoBack => { if let Some(m) = self.screen_stack.pop() { self.set_var("mode", Val::Str(m)); self.buttons.clear(); } }
+            Stmt::Button(label, xe, ye) => {
+                // mirror drawButton(): HUD-space box (no camera) + label text
+                let x = js_floor(as_num(&self.eval(xe)));
+                let y = js_floor(as_num(&self.eval(ye)));
+                let w = (label.chars().count() as f64) * 4.0 + 8.0;
+                let h = 11.0;
+                self.buttons.push((label.to_lowercase(), x, y, w, h));
+                self.cmds.push(Cmd::Rect(x, y, w, h, "#29adff".to_string()));
+                self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, w - 2.0, h - 2.0, "#1d2b53".to_string()));
+                self.cmds.push(Cmd::Text(label.clone(), x + 4.0, y + 3.0, "#fff1e8".to_string()));
+            }
             Stmt::MoveArrows(target, speed) => {
                 if let Val::Obj(o) = self.get_var(target) {
                     let sp = match speed { Some(e)=>as_num(&self.eval(e)), None=>Self::obj_num(&o,"speed").unwrap_or(1.0) };
@@ -1706,6 +1753,11 @@ static mut LIVE_RT: Option<Rt> = None;
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };
     let name = match code { 0=>"up",1=>"down",2=>"left",3=>"right",4=>"space",5=>"a",6=>"b",_=>return };
     rt.key_state.insert(name.to_string(), on != 0);
+}
+#[no_mangle] pub extern "C" fn set_mouse(x: i32, y: i32, down: u32) {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };
+    rt.mouse.0 = x as f64; rt.mouse.1 = y as f64;
+    if down != 0 { rt.mouse.2 = true; }   // one-shot click, consumed in frame_step
 }
 #[no_mangle] pub extern "C" fn step_frame() -> u32 {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return 0 };

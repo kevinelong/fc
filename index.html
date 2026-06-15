@@ -5393,6 +5393,7 @@ window.WASMCORE = (function () {
       return loading;
     },
     setKey(name, on) { if (w && name in KEYCODE) { try { w.set_key(KEYCODE[name], on ? 1 : 0); } catch (_) {} } },
+    setMouse(x, y) { if (w && w.set_mouse) { try { w.set_mouse(x | 0, y | 0, 1); } catch (_) {} } },   // canvas tap -> button/mouse handlers
     async run(source) {
       this.stop();
       ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 128, 128);
@@ -5409,6 +5410,13 @@ window.WASMCORE = (function () {
 })();
 // run()/pressKey()/releaseKey() check WASMCORE.active and route to the wasm core themselves.
 if (WASMCORE.active) {
+  // route canvas taps into the wasm core (button hit-test + `when mouse clicked`)
+  const wasmTap = (clientX, clientY) => {
+    const r = canvas.getBoundingClientRect();
+    WASMCORE.setMouse(Math.floor((clientX - r.left) * 128 / r.width), Math.floor((clientY - r.top) * 128 / r.height));
+  };
+  canvas.addEventListener('pointerdown', e => wasmTap(e.clientX, e.clientY));
+  canvas.addEventListener('touchstart', e => { if (e.touches[0]) wasmTap(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
   addEventListener('DOMContentLoaded', () => {
     const b = document.createElement('div');
     b.id = 'wasm-badge'; b.textContent = '⚡ core: wasm (live)';
