@@ -1011,6 +1011,10 @@ fn loose_eq(a: &Val, b: &Val) -> bool {
         (_, Val::Bool(y)) => loose_eq(a, &Val::Num(if *y {1.0} else {0.0})),
         (Val::Num(x), Val::Str(s)) => to_number(s).map(|n| *x==n).unwrap_or(false),
         (Val::Str(s), Val::Num(y)) => to_number(s).map(|n| n==*y).unwrap_or(false),
+        // objects/lists compare by REFERENCE identity, like JS === (so
+        // `remove tail from body` matches the exact element item N returned)
+        (Val::Obj(x), Val::Obj(y)) => Rc::ptr_eq(x, y),
+        (Val::List(x), Val::List(y)) => Rc::ptr_eq(x, y),
         _ => false,
     }
 }
@@ -1038,15 +1042,19 @@ impl Rt {
         buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
-        let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
+        // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
+        // chars like '·' survive; '{' and '}' are ASCII so byte-scanning is safe.
+        let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0; let mut seg = 0;
         while i < bytes.len() {
             if bytes[i] == b'{' { if let Some(close) = s[i+1..].find('}') {
+                out.push_str(&s[seg..i]);
                 let inner = &s[i+1..i+1+close];
                 out.push_str(&display(&self.get_var(inner.trim())));
-                i += close + 2; continue;
+                i += close + 2; seg = i; continue;
             } }
-            out.push(bytes[i] as char); i += 1;
+            i += 1;
         }
+        out.push_str(&s[seg..]);
         out
     }
     fn rng(&mut self) -> f64 {
