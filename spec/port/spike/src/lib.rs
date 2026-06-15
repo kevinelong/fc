@@ -976,11 +976,13 @@ fn deep_clone(v: &Val) -> Val {
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
-    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)> }
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle> }
+// Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
+struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
-        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new() } }
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new() } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         let mut out = String::new(); let bytes = s.as_bytes(); let mut i = 0;
@@ -1000,6 +1002,22 @@ impl Rt {
         let mut t = (a ^ (a >> 15)).wrapping_mul(1 | a);
         t = t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t)) ^ t;
         ((t ^ (t >> 14)) as f64) / 4294967296.0
+    }
+    // Move/age the particle pool and emit one rect per live particle. JS iterates
+    // from the end down, splicing dead ones — so command order is reverse-index.
+    fn update_particles(&mut self) {
+        if self.particles.is_empty() { return; }
+        let (ox, oy) = self.camera;
+        let mut i = self.particles.len();
+        while i > 0 {
+            i -= 1;
+            let (px, py);
+            { let p = &mut self.particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 1; px = p.x; py = p.y; }
+            if self.particles[i].life <= 0 { self.particles.remove(i); continue; }
+            let s = if self.particles[i].life > 10 { 2.0 } else { 1.0 };
+            let color = self.particles[i].color.clone();
+            self.cmds.push(Cmd::Rect(libm::floor(px - ox), libm::floor(py - oy), s, s, color));
+        }
     }
     fn get_var(&self, path: &str) -> Val {
         let parts: Vec<&str> = path.split('.').collect();
@@ -1177,16 +1195,38 @@ impl Rt {
                     if mx >= hi { dir = -1.0; }
                     b.borrow_mut().insert("dir".to_string(), Val::Num(dir));
                     vx = dir * spd;
-                } else { continue; } // wander: rng-dependent, out of frame-test scope
+                } else if kind == "wander" {
+                    // JS short-circuit: when both vx,vy are 0/undefined the 0.02
+                    // rng check is SKIPPED and only the angle draw happens — so the
+                    // rng draw order matches `(!b.vx && !b.vy) || Math.random()<0.02`.
+                    let bvx = Self::obj_num(&b, "vx").unwrap_or(0.0);
+                    let bvy = Self::obj_num(&b, "vy").unwrap_or(0.0);
+                    let (mut nvx, mut nvy) = (bvx, bvy);
+                    let need = if bvx == 0.0 && bvy == 0.0 { true } else { self.rng() < 0.02 };
+                    if need {
+                        let a = self.rng() * core::f64::consts::PI * 2.0;
+                        nvx = libm::cos(a); nvy = libm::sin(a);
+                    }
+                    b.borrow_mut().insert("vx".to_string(), Val::Num(nvx));
+                    b.borrow_mut().insert("vy".to_string(), Val::Num(nvy));
+                    vx = nvx * spd; vy = nvy * spd;
+                } else { continue; }
+                let is_wander = kind == "wander";
                 let (nx, ny) = (mx + vx, my + vy);
                 let (mut fx, mut fy) = (mx, my);
                 if through || !self.map_solid_box(nx, ny) { fx = nx; fy = ny; }
-                else if !self.map_solid_box(nx, my) { fx = nx; }
-                else if !self.map_solid_box(mx, ny) { fy = ny; }
+                else if !self.map_solid_box(nx, my) { fx = nx; if is_wander { let v = -Self::obj_num(&b, "vy").unwrap_or(0.0); b.borrow_mut().insert("vy".to_string(), Val::Num(v)); } }
+                else if !self.map_solid_box(mx, ny) { fy = ny; if is_wander { let v = -Self::obj_num(&b, "vx").unwrap_or(0.0); b.borrow_mut().insert("vx".to_string(), Val::Num(v)); } }
+                else if is_wander { let nvx = -Self::obj_num(&b, "vx").unwrap_or(0.0); let nvy = -Self::obj_num(&b, "vy").unwrap_or(0.0); b.borrow_mut().insert("vx".to_string(), Val::Num(nvx)); b.borrow_mut().insert("vy".to_string(), Val::Num(nvy)); }
                 if fx < 0.0 { fx = 0.0; } if fy < 0.0 { fy = 0.0; }
                 let (mxw, myw) = (ww - 8.0, wh - 8.0);
-                if fx > mxw { fx = mxw; if let Some(d) = Self::obj_num(&b, "dir") { if d != 0.0 { b.borrow_mut().insert("dir".to_string(), Val::Num(-1.0)); } } }
-                if fy > myw { fy = myw; }
+                if fx > mxw { fx = mxw;
+                    let bvx = Self::obj_num(&b, "vx").unwrap_or(0.0); if bvx != 0.0 { b.borrow_mut().insert("vx".to_string(), Val::Num(-bvx)); }
+                    let d = Self::obj_num(&b, "dir").unwrap_or(0.0); if d != 0.0 { b.borrow_mut().insert("dir".to_string(), Val::Num(-1.0)); }
+                }
+                if fy > myw { fy = myw;
+                    let bvy = Self::obj_num(&b, "vy").unwrap_or(0.0); if bvy != 0.0 { b.borrow_mut().insert("vy".to_string(), Val::Num(-bvy)); }
+                }
                 o.borrow_mut().insert("x".to_string(), Val::Num(fx));
                 o.borrow_mut().insert("y".to_string(), Val::Num(fy));
             }}
@@ -1279,8 +1319,10 @@ impl Rt {
                 }
             }
         }
-        // draw fns, then screen dispatch by mode (mirrors JS order; particles drawn between)
+        // draw fns, then particles on top of the game layer, then screen dispatch
+        // by mode (mirrors JS render order).
         for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b); self.returning = false; } }
+        self.update_particles();
         if let Val::Str(mode) = self.get_var("mode") {
             let sname = alloc::format!("screen_{}", mode);
             if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b); self.returning = false; }
@@ -1497,12 +1539,44 @@ impl Rt {
                     o.borrow_mut().insert("animation".to_string(), Val::Obj(Rc::new(RefCell::new(m))));
                 }}
             }
-            Stmt::Burst(count, x, y, rref, _color) => {
-                let _ = self.eval(count);
-                if let Some(e)=x { let _=self.eval(e); }
-                if let Some(e)=y { let _=self.eval(e); }
-                if let Some(e)=rref { let _=self.eval(e); }
-                // particles are a host/frame concern; no exec-visible state
+            Stmt::Burst(count, x, y, rref, color) => {
+                // eval order mirrors JS: ref (or x,y) first, then count; an
+                // invalid ref emits nothing (and skips the count eval).
+                let pos = if let Some(r) = rref {
+                    match self.eval(r) {
+                        Val::Obj(ob) => match (Self::obj_num(&ob, "x"), Self::obj_num(&ob, "y")) {
+                            (Some(ox), Some(oy)) => Some((ox + 4.0, oy + 4.0)),
+                            _ => None,
+                        },
+                        _ => None,
+                    }
+                } else {
+                    let xv = x.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(0.0);
+                    let yv = y.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(0.0);
+                    Some((xv, yv))
+                };
+                if let Some((px, py)) = pos {
+                    let n = (as_num(&self.eval(count)) as i64).max(1).min(64);
+                    let palette: Vec<String> = match color {
+                        Some(c) => { let mut v = Vec::new(); v.push(resolve_color(c)); v }
+                        None => { let mut v = Vec::new(); v.push("#ffec27".to_string()); v.push("#fff1e8".to_string()); v.push("#ffa300".to_string()); v }
+                    };
+                    for i in 0..n {
+                        let a = self.rng() * core::f64::consts::PI * 2.0;
+                        let sp = 0.4 + self.rng() * 1.4;
+                        let life = 16 + (self.rng() * 18.0) as i64;   // JS: 16 + (random()*18 | 0)
+                        self.particles.push(Particle {
+                            x: px, y: py,
+                            vx: libm::cos(a) * sp, vy: libm::sin(a) * sp,
+                            life: life as i32,
+                            color: palette[(i as usize) % palette.len()].clone(),
+                        });
+                    }
+                    if self.particles.len() > 400 {
+                        let excess = self.particles.len() - 400;
+                        self.particles.drain(0..excess);
+                    }
+                }
             }
             _ => {} // tag/when_*/sprite/etc: no command in single-exec render slice
         }

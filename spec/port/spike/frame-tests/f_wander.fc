@@ -1,0 +1,11 @@
+bat is {x: 64, y: 48, image: "ghost", speed: 2}
+bats is []
+add bat to bats
+bats wander
+to update
+  t is 1
+to draw
+  clear screen to black
+  draw sprite bat.image at bat.x, bat.y
+  write "x {bat.x} y {bat.y}" at 2, 2 in white on hud
+run game with update and draw

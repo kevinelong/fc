@@ -1,0 +1,7 @@
+hero is {x: 64, y: 64, image: "hero"}
+to update
+  burst 5 sparks at 64, 64
+to draw
+  clear screen to black
+  draw sprite hero.image at hero.x, hero.y
+run game with update and draw
