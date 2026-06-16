@@ -424,6 +424,53 @@
       "x": false
     }
   },
+  "sprite_sugar_random.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "world": {
+        "width": 120,
+        "height": 80
+      },
+      "hero": {
+        "x": 56,
+        "y": 36,
+        "image": "hero",
+        "hp": 4,
+        "facing": "down",
+        "dx": 0,
+        "dy": 1
+      },
+      "rocks": [
+        {
+          "x": 105,
+          "y": 23,
+          "image": "rock"
+        },
+        {
+          "x": 54,
+          "y": 56,
+          "image": "rock"
+        },
+        {
+          "x": 11,
+          "y": 53,
+          "image": "rock"
+        },
+        {
+          "x": 107,
+          "y": 56,
+          "image": "rock"
+        },
+        {
+          "x": 69,
+          "y": 19,
+          "image": "rock"
+        }
+      ],
+      "n": 5
+    }
+  },
   "truthy_empty_list.fc": {
     "say": [],
     "errors": [],

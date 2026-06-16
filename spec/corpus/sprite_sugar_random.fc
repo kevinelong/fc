@@ -1,0 +1,4 @@
+world is {width: 120, height: 80}
+hero is centered sprite {image: "hero", hp: 4, facing: "down"}
+rocks is list of 5 sprites {image: "rock"}
+n is the number of rocks

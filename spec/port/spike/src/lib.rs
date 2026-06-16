@@ -1140,6 +1140,38 @@ impl Rt {
                 };
                 Val::Bool(solid)
             }
+            Expr::Sprite(pos, props) => {
+                let (ww, wh) = self.world_dims();
+                let mut m = BTreeMap::new();
+                if pos == "centered" {
+                    m.insert("x".to_string(), Val::Num(js_floor((ww - 8.0) / 2.0)));
+                    m.insert("y".to_string(), Val::Num(js_floor((wh - 8.0) / 2.0)));
+                } else { m.insert("x".to_string(), Val::Num(0.0)); m.insert("y".to_string(), Val::Num(0.0)); }
+                if let Val::Obj(p) = self.eval(props) { for (k, v) in p.borrow().iter() { m.insert(k.clone(), v.clone()); } }
+                // facing -> dx/dy (so projectiles/walking work before the first face verb)
+                if let Some(Val::Str(f)) = m.get("facing").cloned() {
+                    let (dx, dy) = dir_vec(&f);
+                    if dx != 0.0 || dy != 0.0 { m.entry("dx".to_string()).or_insert(Val::Num(dx)); m.entry("dy".to_string()).or_insert(Val::Num(dy)); }
+                }
+                Val::Obj(Rc::new(RefCell::new(m)))
+            }
+            Expr::ListOfSprites(count, props) => {
+                let n = as_num(&self.eval(count)) as i64;
+                let (ww, wh) = self.world_dims();
+                let mut existing = self.collect_sprite_positions();
+                let mut items = Vec::new();
+                let mut i = 0;
+                while i < n {
+                    let (px, py) = self.find_empty_spot(&existing, ww, wh);
+                    let mut m = BTreeMap::new();
+                    m.insert("x".to_string(), Val::Num(px)); m.insert("y".to_string(), Val::Num(py));
+                    if let Val::Obj(p) = self.eval(props) { for (k, v) in p.borrow().iter() { m.insert(k.clone(), v.clone()); } }
+                    items.push(Val::Obj(Rc::new(RefCell::new(m))));
+                    existing.push((px, py));
+                    i += 1;
+                }
+                Val::List(Rc::new(RefCell::new(items)))
+            }
             _ => Val::Undef,
         }
     }
@@ -1181,6 +1213,31 @@ impl Rt {
             let h = match b.get("height") { Some(Val::Num(n)) => *n, _ => 128.0 };
             (w, h)
         } else { (128.0, 128.0) }
+    }
+    // every {x,y} object currently in vars (incl. list items) — for sprite placement
+    fn collect_sprite_positions(&self) -> Vec<(f64, f64)> {
+        fn pos_of(o: &Rc<RefCell<BTreeMap<String, Val>>>) -> Option<(f64, f64)> {
+            let b = o.borrow();
+            match (b.get("x"), b.get("y")) { (Some(Val::Num(x)), Some(Val::Num(y))) => Some((*x, *y)), _ => None }
+        }
+        let mut out = Vec::new();
+        for v in self.vars.values() { match v {
+            Val::Obj(o) => { if let Some(p) = pos_of(o) { out.push(p); } }
+            Val::List(l) => { for it in l.borrow().iter() { if let Val::Obj(o) = it { if let Some(p) = pos_of(o) { out.push(p); } } } }
+            _ => {}
+        } }
+        out
+    }
+    // mirror JS _findEmptySpot: random spot >=12px from existing (80 tries, then fallback)
+    fn find_empty_spot(&mut self, existing: &[(f64, f64)], ww: f64, wh: f64) -> (f64, f64) {
+        let max_w = if ww - 16.0 > 16.0 { ww - 16.0 } else { 16.0 };
+        let max_h = if wh - 16.0 > 16.0 { wh - 16.0 } else { 16.0 };
+        for _ in 0..80 {
+            let x = 4.0 + js_floor(self.rng() * max_w);
+            let y = 4.0 + js_floor(self.rng() * max_h);
+            if existing.iter().all(|(ox, oy)| libm::fabs(x - ox) >= 12.0 || libm::fabs(y - oy) >= 12.0) { return (x, y); }
+        }
+        (4.0 + js_floor(self.rng() * max_w), 4.0 + js_floor(self.rng() * max_h))
     }
     fn map_solid_box(&self, x: f64, y: f64) -> bool {
         if self.map_rows.is_empty() || x + 7.0 < 0.0 || y + 7.0 < 0.0 { return false; }
