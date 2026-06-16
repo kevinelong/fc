@@ -41,8 +41,27 @@
     header h1{font-size:24px}
   }
 </style>
+<style>
+  .bar{position:sticky;top:0;z-index:11;background:#05050c;border-bottom:1px solid #23233a;padding:7px 14px;font-size:12px;color:#9aa3b2;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .dots{display:inline-flex;gap:5px}
+  .dot{width:13px;height:13px;border-radius:50%;border:1px solid #3a3a55;background:#11111e;font-size:9px;line-height:12px;text-align:center;color:#6a6a85}
+  .dot.done{background:#2c6e2c;border-color:#3e9e3e;color:#dfffe0}
+  .step.done{border-color:#2c6e2c}
+  .step.done .nm .badge{background:#3e9e3e}
+  .goal{font-size:13px;color:#ffec27;margin:2px 0 8px}
+  .goal b{color:#fff}
+  button.chk{background:#1d3a1d;color:#dfffe0;border:1px solid #2c6e2c;border-radius:4px;padding:4px 12px;font:bold 12px 'Share Tech Mono',monospace;cursor:pointer;margin-left:6px}
+  button.chk:hover{background:#2c6e2c}
+  .res{font-size:12.5px;margin-top:8px;min-height:1.2em}
+  .res.ok{color:#9f9}
+  .res.no{color:#ffb37a}
+  #recap{background:#0e1c0e;border:1px solid #2c6e2c;border-radius:6px;padding:14px 16px;margin:16px 0;display:none;font-size:13.5px;color:#cdd6e0}
+  #recap.show{display:block}
+  #recap b{color:#9f9}
+</style>
 </head>
 <body>
+<div class="bar"><b style="color:#c8a96e">Progress</b><span class="dots" id="dots"></span><span id="prog" style="color:#9f9"></span><span style="margin-left:auto"><a href="#yourturn" style="color:#ffec27;text-decoration:none">🎯 your turn ↓</a></span></div>
 <header>
   <h1>FANTASY COMPUTER · LEARN</h1>
   <p>Build a real little game one step at a time. Every step is a complete program you can <b style="color:#9f9">edit</b> and <b style="color:#9f9">▸ Run</b> right here, or <b style="color:#c8a96e">✎ Open in editor</b> to keep going.</p>
@@ -56,6 +75,11 @@
   <div class="sec">TUTORIAL · Make a coin collector</div>
   <div class="sec-note">Each step adds ONE idea to the step before it. Run each one, then move on — by the last step you have a finished game.</div>
   <div id="tut"></div>
+
+  <div class="sec" id="yourturn">🎯 YOUR TURN · do it yourself</div>
+  <div class="sec-note">Now <b style="color:#9f9">you</b> write the code. Each one is missing a line or two — read the goal, fill it in, <b style="color:#9f9">▸ Run</b> to test, then <b style="color:#dfffe0">✓ Check</b>. This is where it sticks.</div>
+  <div id="challenges"></div>
+  <div id="recap"></div>
 
   <div class="sec">HOW-TO RECIPES</div>
   <div class="sec-note">Short answers to common "how do I…?" questions. Each is a tiny complete program — grab it and drop it into your game.</div>
@@ -206,13 +230,84 @@ to draw
 run game with update and draw`],
 ];
 
+// ── do-it-yourself challenges: each is missing a line; check is source-based ──
+const CHALLENGES = [
+  ["Move the hero",
+   "The hero just sits there. Inside <b>to update</b>, add the line <b>move hero with arrows</b> — then ▸ Run and use the arrow keys.",
+`hero is {x: 60, y: 60, image: "hero"}
+to update
+  -- add your line here
+to draw
+  clear screen to dark blue
+  draw sprite hero.image at hero.x, hero.y
+run game with update and draw`,
+   src => /move\s+\w+\s+with\s+arrows/i.test(src),
+   "Add (inside to update):  move hero with arrows"],
+  ["Make the coin collectable",
+   "You can walk through the coin. Tag the list as collectable — add the line <b>coins are pickups</b>.",
+`player is {x: 30, y: 60, image: "hero"}
+coins is []
+c is sprite
+c.x is 90
+c.y is 60
+c.image is "coin"
+add c to coins
+-- tag the coins as collectable here
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`,
+   src => /\bcoins?\s+are\s+pickups\b/i.test(src),
+   "Add:  coins are pickups"],
+  ["Reward the player",
+   "When the player picks up a coin, TWO things should happen. In the handler add <b>add 1 to score</b> AND <b>play sound \"coin\"</b>.",
+`player is {x: 30, y: 60, image: "hero"}
+coins is []
+c is sprite
+c.x is 90
+c.y is 60
+c.image is "coin"
+add c to coins
+coins are pickups
+score is 0
+when player picks up any coin
+  -- add 2 lines here
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  each coin in coins draw sprite coin.image at coin.x, coin.y
+  draw sprite player.image at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+run game with update and draw`,
+   src => /add\s+1\s+to\s+score/i.test(src) && /play\s+sound/i.test(src),
+   "You need BOTH lines:  add 1 to score   and   play sound \"coin\""],
+];
+
 const enc = code => '/?embed=1&code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
 const editUrl = code => '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
 const stage = document.getElementById('stage'), sName = document.getElementById('stage-name'), sDesc = document.getElementById('stage-desc');
 function run(name, code){ stage.src = enc(code); sName.textContent = name; sDesc.textContent = 'Click the screen, then use the arrow keys.'; window.scrollTo({top:0, behavior:'smooth'}); }
 
-function card(container, prefix, i, title, why, code){
-  const el = document.createElement('div'); el.className = 'step';
+// ── progress (persisted across visits) ──
+const TOTAL = STEPS.length + CHALLENGES.length;
+let progress = new Set();
+try { progress = new Set(JSON.parse(localStorage.getItem('fc_learn_progress') || '[]')); } catch(_){}
+function save(){ try { localStorage.setItem('fc_learn_progress', JSON.stringify([...progress])); } catch(_){} }
+function renderProgress(){
+  const dots = document.getElementById('dots'); dots.innerHTML = '';
+  STEPS.forEach((_, i) => { const d=document.createElement('span'); d.className='dot'+(progress.has('t'+i)?' done':''); d.textContent=progress.has('t'+i)?'✓':(i+1); d.title='Step '+(i+1); dots.appendChild(d); });
+  CHALLENGES.forEach((_, i) => { const d=document.createElement('span'); d.className='dot'+(progress.has('c'+i)?' done':''); d.textContent=progress.has('c'+i)?'✓':'🎯'; d.title='Challenge '+(i+1); dots.appendChild(d); });
+  document.getElementById('prog').textContent = progress.size + ' of ' + TOTAL;
+  document.getElementById('recap').classList.toggle('show', CHALLENGES.every((_, i) => progress.has('c'+i)));
+}
+function mark(id, el){ if (progress.has(id)) return; progress.add(id); save(); if (el) el.classList.add('done'); renderProgress(); }
+
+function card(container, prefix, i, title, why, code, doneId){
+  const el = document.createElement('div'); el.className = 'step' + (doneId && progress.has(doneId) ? ' done' : '');
   const badge = prefix ? `<span class="badge">${prefix} ${i}</span>` : '';
   el.innerHTML = `<div class="nm">${badge}${title.replace(/</g,'&lt;')}</div><div class="why">${why}</div>`;
   const ta = document.createElement('textarea');
@@ -220,18 +315,38 @@ function card(container, prefix, i, title, why, code){
   ta.rows = Math.max(2, code.split('\n').length);
   el.appendChild(ta);
   const actions = document.createElement('div'); actions.className = 'actions';
-  const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick = () => run(title, ta.value); actions.appendChild(b);
+  const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick = () => { run(title, ta.value); if (doneId) mark(doneId, el); }; actions.appendChild(b);
   const e = document.createElement('a'); e.className='edit'; e.textContent='✎ Open in editor'; e.target='_blank'; e.rel='noopener';
   e.href = editUrl(code); e.onclick = () => { e.href = editUrl(ta.value); }; actions.appendChild(e);
   el.appendChild(actions);
   container.appendChild(el);
 }
 
+function challengeCard(container, i, ch){
+  const [title, goal, code, check, hint] = ch;
+  const el = document.createElement('div'); el.className = 'step' + (progress.has('c'+i) ? ' done' : '');
+  el.innerHTML = `<div class="nm"><span class="badge">🎯 ${i+1}</span>${title}</div><div class="goal">Goal: ${goal}</div>`;
+  const ta = document.createElement('textarea'); ta.className='code'; ta.value=code; ta.spellcheck=false; ta.autocapitalize='off'; ta.rows=Math.max(3, code.split('\n').length);
+  el.appendChild(ta);
+  const actions = document.createElement('div'); actions.className='actions';
+  const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick=()=>run(title, ta.value); actions.appendChild(b);
+  const c = document.createElement('button'); c.className='chk'; c.textContent='✓ Check'; actions.appendChild(c);
+  el.appendChild(actions);
+  const res = document.createElement('div'); res.className='res'; if (progress.has('c'+i)){ res.className='res ok'; res.textContent='✓ Done — nice work!'; }
+  c.onclick = () => { if (check(ta.value)) { res.className='res ok'; res.textContent='✓ Correct — nice work!'; mark('c'+i, el); } else { res.className='res no'; res.textContent='✗ Not yet — ' + hint + '   (Tap ▸ Run to see what it does.)'; } };
+  el.appendChild(res);
+  container.appendChild(el);
+}
+
 const tut = document.getElementById('tut');
-STEPS.forEach((s, i) => card(tut, 'Step', i+1, s[0], s[1], s[2]));
+STEPS.forEach((s, i) => card(tut, 'Step', i+1, s[0], s[1], s[2], 't'+i));
+const chc = document.getElementById('challenges');
+CHALLENGES.forEach((ch, i) => challengeCard(chc, i, ch));
 const rec = document.getElementById('recipes');
 RECIPES.forEach(r => card(rec, '', 0, r[0], r[1], r[2]));
 
+document.getElementById('recap').innerHTML = '🎓 <b>You did it!</b> You can now move a sprite with input, tag collectables, and reward the player with score + sound — the heart of any game. <a href="' + editUrl(STEPS[STEPS.length-1][2]) + '" target="_blank" rel="noopener" style="color:#ffec27">Open the full coin collector in the editor →</a> and keep going: add an enemy (<b>ghosts chase player</b>), a timer, or a win screen.';
+renderProgress();
 run('Step 1 · A hero you can move', STEPS[0][2]);
 </script>
 </body>
