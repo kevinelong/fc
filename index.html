@@ -310,7 +310,7 @@ body.touch.playing #back-btn {
     Open any demo to play it and see exactly how it&rsquo;s made.&nbsp;
     <a href="/learn/">learn</a> &middot;
     <a href="/docs/">reference</a> &middot;
-    <a href="/fc.apk" download>📱 Android app</a> &middot;
+    <a id="apk-link" href="/fc.apk" download>📱 Android app</a> &middot;
     <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a> &middot;
     <span id="lr-version"></span>
   </div>
@@ -5490,6 +5490,37 @@ if (WASMCORE.active) {
     document.body.appendChild(b);
   });
 }
+</script>
+<script>
+/* In-app APK update nudge. Web is unaffected (only runs when packaged: the
+   APK serves over localhost/file:). The footer "📱 Android app" download link
+   (#apk-link) is pointless inside the app, so we hide it; then we fetch the
+   latest published version manifest (via a <script> tag to dodge CORS — the
+   APK origin is localhost/file:). If a newer APK exists we turn that same slot
+   into a passive "update available — reinstall" link; otherwise nothing shows. */
+var FC_APK_VERSION = 0; /* baked by copy-web-assets.sh from pubspec versionCode */
+(function () {
+  var packaged = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+  if (!packaged) return;
+  var link = document.getElementById('apk-link');
+  if (link) link.style.display = 'none';
+  var s = document.createElement('script');
+  s.src = 'https://codeonline.io/fc-version.js?t=' + Date.now();
+  s.onload = function () {
+    var latest = (window.FC_LATEST && window.FC_LATEST.versionCode) | 0;
+    if (link && latest > (FC_APK_VERSION | 0)) {
+      link.textContent = '⬆ update available — reinstall';
+      link.href = 'https://codeonline.io/fc.apk';
+      link.removeAttribute('download');
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.style.color = '#9f9';
+      link.style.display = '';
+    }
+  };
+  s.onerror = function () {};
+  document.head.appendChild(s);
+})();
 </script>
 </body>
 </html>
