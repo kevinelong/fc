@@ -22,7 +22,7 @@ static GLOBAL: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 
 // alloc self-test: sum of squares 0..99 via a heap Vec  (== 328350)
 #[no_mangle] pub extern "C" fn alloc_selftest() -> u32 {
-    let mut v: alloc::vec::Vec<u32> = alloc::vec::Vec::new();
+    let mut v: Vec<u32> = Vec::new();
     for i in 0..100u32 { v.push(i * i); }
     v.iter().sum()
 }
@@ -1036,7 +1036,7 @@ fn deep_clone(v: &Val) -> Val {
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
-    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool) }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
@@ -1044,7 +1044,7 @@ struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
-        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
         buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
     fn interpolate(&self, s: &str) -> String {
@@ -1454,6 +1454,68 @@ impl Rt {
                         }
                     }
                 }
+                // projectiles: move each bullet by dir*speed, despawn off-world or on a
+                // solid, damage+defeat a hostile it hits. Mirrors JS checkCollisions'
+                // projectile pass (runs after pickups/hostile). Was entirely absent, so
+                // bullets/arrows never moved in the wasm core (space-invaders, coin-quest).
+                let proj_lists = self.tags.get("projectiles").cloned().unwrap_or_default();
+                let solid_lists = self.tags.get("solid").cloned().unwrap_or_default();
+                let host_lists = self.tags.get("hostile").cloned().unwrap_or_default();
+                for ln in proj_lists {
+                    if let Val::List(l) = self.get_var(&ln) {
+                        let mut bi = l.borrow().len();
+                        while bi > 0 { bi -= 1;
+                            let bullet = { let b = l.borrow(); if bi >= b.len() { continue; } b[bi].clone() };
+                            let o = match bullet { Val::Obj(ref oo) => oo.clone(), _ => continue };
+                            if Self::obj_num(&o, "x").is_none() { continue; }
+                            let sp = Self::obj_num(&o, "speed").unwrap_or(2.0);
+                            if let Some(dx) = Self::obj_num(&o, "dx") { let x = Self::obj_num(&o, "x").unwrap_or(0.0); o.borrow_mut().insert("x".into(), Val::Num(x + dx * sp)); }
+                            if let Some(dy) = Self::obj_num(&o, "dy") { let y = Self::obj_num(&o, "y").unwrap_or(0.0); o.borrow_mut().insert("y".into(), Val::Num(y + dy * sp)); }
+                            let nx = Self::obj_num(&o, "x").unwrap_or(0.0);
+                            let ny = Self::obj_num(&o, "y").unwrap_or(0.0);
+                            if nx < -8.0 || nx > ww + 8.0 || ny < -8.0 || ny > wh + 8.0 { l.borrow_mut().remove(bi); continue; }
+                            // solid hit -> despawn (no damage)
+                            let mut consumed = false;
+                            for sn in &solid_lists {
+                                if let Val::List(sl) = self.get_var(sn) {
+                                    for s in sl.borrow().iter() { if let Val::Obj(so) = s {
+                                        if let (Some(sx), Some(sy)) = (Self::obj_num(so, "x"), Self::obj_num(so, "y")) {
+                                            if (nx - sx).abs() < 8.0 && (ny - sy).abs() < 8.0 { consumed = true; break; }
+                                        }
+                                    }}
+                                }
+                                if consumed { break; }
+                            }
+                            if consumed { l.borrow_mut().remove(bi); continue; }
+                            // hostile hit -> damage; defeat fires "when X is defeated"
+                            for hn in &host_lists {
+                                if consumed { break; }
+                                if let Val::List(hl) = self.get_var(hn) {
+                                    let mut hi = hl.borrow().len();
+                                    while hi > 0 { hi -= 1;
+                                        let enemy = { let hb = hl.borrow(); if hi >= hb.len() { continue; } hb[hi].clone() };
+                                        let eo = match enemy { Val::Obj(ref e) => e.clone(), _ => continue };
+                                        let (ex, ey) = match (Self::obj_num(&eo, "x"), Self::obj_num(&eo, "y")) { (Some(a), Some(b)) => (a, b), _ => continue };
+                                        if (nx - ex).abs() < 8.0 && (ny - ey).abs() < 8.0 {
+                                            let hp = Self::obj_num(&eo, "hp").unwrap_or(1.0) - 1.0;
+                                            eo.borrow_mut().insert("hp".into(), Val::Num(hp));
+                                            if hp <= 0.0 {
+                                                hl.borrow_mut().remove(hi);
+                                                let sing = singularize(hn);
+                                                if let Some(body) = self.defeat_handlers.get(&sing).cloned() {
+                                                    self.vars.insert(sing, enemy.clone());
+                                                    self.exec_block(&body); self.returning = false;
+                                                }
+                                            }
+                                            l.borrow_mut().remove(bi);
+                                            consumed = true; break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         // camera follow (clamped to world)
@@ -1587,6 +1649,33 @@ impl Rt {
                 self.buttons.clear();   // old buttons must not catch stale clicks
             }
             Stmt::GoBack => { if let Some(m) = self.screen_stack.pop() { self.set_var("mode", Val::Str(m)); self.buttons.clear(); } }
+            // `jump <target> <force>` — upward velocity impulse (pairs with `gravity is N`).
+            // Mirrors JS: obj.dy = -force. Without this arm the stmt was a silent no-op,
+            // so flappy's flap / pitfall's hop did nothing in the wasm core (gravity-only fall).
+            Stmt::Jump(target, force) => { if let Val::Obj(o) = self.get_var(target) { o.borrow_mut().insert("dy".to_string(), Val::Num(-*force)); } }
+            // `show meter CURRENT of MAX at X,Y size W,H in COLOR` — HUD progress bar.
+            // Mirrors JS drawMeter (border/track/fill rects + centered percent text).
+            // Was a silent no-op, so coin-quest's HP meter never drew in the wasm core.
+            Stmt::Meter(cur_e, max_e, x_e, y_e, w_e, h_e, color) => {
+                let cur = as_num(&self.eval(cur_e));
+                let mut max = as_num(&self.eval(max_e)); if max == 0.0 || max.is_nan() { max = 1.0; }
+                let x = js_floor(as_num(&self.eval(x_e)));
+                let y = js_floor(as_num(&self.eval(y_e)));
+                let w = { let v = js_floor(as_num(&self.eval(w_e))); if v < 3.0 { 3.0 } else { v } };
+                let h = { let v = js_floor(as_num(&self.eval(h_e))); if v < 3.0 { 3.0 } else { v } };
+                let frac = { let f = cur / max; if f < 0.0 { 0.0 } else if f > 1.0 { 1.0 } else { f } };
+                self.cmds.push(Cmd::Rect(x, y, w, h, "#000000".to_string()));
+                self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, w - 2.0, h - 2.0, "#5f574f".to_string()));
+                let fill_w = js_floor((w - 2.0) * frac + 0.5);
+                if fill_w > 0.0 { self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, fill_w, h - 2.0, resolve_color(color))); }
+                if w >= 18.0 && h >= 5.0 {
+                    let mut pct = display(&Val::Num(js_floor(frac * 100.0 + 0.5))); pct.push('%');
+                    let text_w = (pct.chars().count() as f64) * 4.0 - 1.0;
+                    let tx = x + { let v = js_floor((w - text_w) / 2.0); if v < 1.0 { 1.0 } else { v } };
+                    let ty = y + js_floor((h - 5.0) / 2.0);
+                    self.cmds.push(Cmd::Text(pct, tx, ty, "#fff1e8".to_string()));
+                }
+            }
             Stmt::Button(label, xe, ye) => {
                 // mirror drawButton(): HUD-space box (no camera) + label text
                 let x = js_floor(as_num(&self.eval(xe)));
@@ -1623,10 +1712,42 @@ impl Rt {
                     }
                 }
             }
+            // `move X by DX, DY [blocked by WALLS]` — per-axis move that slides along
+            // solid wall boxes. Mirrors JS move_by. Was parsed/emitted but never executed,
+            // so hunt's `move me by vx,vy blocked by walls` left the player pinned in place.
+            Stmt::MoveBy(target, dx_e, dy_e, blocked_by) => {
+                if let Val::Obj(o) = self.get_var(target) {
+                    let dx = { let v = as_num(&self.eval(dx_e)); if v.is_nan() { 0.0 } else { v } };
+                    let dy = { let v = as_num(&self.eval(dy_e)); if v.is_nan() { 0.0 } else { v } };
+                    let walls: Vec<(f64, f64, f64, f64)> = match blocked_by {
+                        Some(name) => match self.get_var(name) {
+                            Val::List(l) => l.borrow().iter().filter_map(|it| match it {
+                                Val::Obj(w) => Self::obj_num(w, "x").map(|wx| (wx, Self::obj_num(w, "y").unwrap_or(0.0), Self::obj_num(w, "w").unwrap_or(8.0), Self::obj_num(w, "h").unwrap_or(8.0))),
+                                _ => None,
+                            }).collect(),
+                            _ => Vec::new(),
+                        },
+                        None => Vec::new(),
+                    };
+                    let sz = Self::obj_num(&o, "w").unwrap_or(6.0);
+                    let blocked = |px: f64, py: f64| -> bool {
+                        for (wx, wy, ww, wh) in &walls {
+                            if px + sz > *wx && px < *wx + *ww && py + sz > *wy && py < *wy + *wh { return true; }
+                        }
+                        false
+                    };
+                    let ox = Self::obj_num(&o, "x").unwrap_or(0.0);
+                    let oy = Self::obj_num(&o, "y").unwrap_or(0.0);
+                    if !blocked(ox + dx, oy) { o.borrow_mut().insert("x".into(), Val::Num(ox + dx)); }
+                    let ox2 = Self::obj_num(&o, "x").unwrap_or(0.0);
+                    if !blocked(ox2, oy + dy) { o.borrow_mut().insert("y".into(), Val::Num(oy + dy)); }
+                }
+            }
             Stmt::Follow(t) => { self.follow = Some(t.clone()); }
             Stmt::Tag(subject, tag) => { let e = self.tags.entry(tag.clone()).or_insert_with(Vec::new); if !e.contains(subject) { e.push(subject.clone()); } }
             Stmt::WhenPickup(item, body) => { self.pickup_handlers.insert(item.clone(), body.clone()); }
             Stmt::WhenHit(item, body) => { self.hit_handlers.insert(item.clone(), body.clone()); }
+            Stmt::WhenDefeat(item, body) => { self.defeat_handlers.insert(item.clone(), body.clone()); }
             Stmt::RunGame(fs) => { self.run_fs = fs.clone(); self.frame_step(&fs.clone()); }
             Stmt::Save(v, k) => {
                 let key = display(&self.eval(k));

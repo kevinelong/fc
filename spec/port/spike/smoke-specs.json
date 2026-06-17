@@ -1,0 +1,70 @@
+{
+  "_doc": "Per-game interaction-aware smoke specs, authored by the fc-game-smoke-specs workflow (one agent per game) then hand-checked. Consumed by smoke.mjs. keys: [{frame,code,down}] with codes 0=up 1=down 2=left 3=right 4=space 5=a 6=b. start_click: optional {frame,x,y} dispatched before that frame's step (for games that enter play via a button click rather than a key). expect.min_draw_ops: conservative floor on draw ops in the final frame of a healthy play scene. expect.must_change_by_frame: by this frame the scene must differ from frame 1.",
+
+  "breakout": {
+    "keys": [{"frame":1,"code":3,"down":1},{"frame":6,"code":3,"down":0},{"frame":8,"code":2,"down":1},{"frame":16,"code":2,"down":0},{"frame":18,"code":3,"down":1},{"frame":26,"code":3,"down":0}],
+    "expect": {"min_draw_ops":38,"must_change_by_frame":3},
+    "note": "Slide paddle right/left/right under the autonomously-moving ball. Healthy: 40 bricks + paddle + ball + HUD (~43 ops)."
+  },
+
+  "coin-quest": {
+    "start_click": {"frame":1,"x":56,"y":45},
+    "keys": [{"frame":3,"code":3,"down":1},{"frame":9,"code":3,"down":0},{"frame":10,"code":1,"down":1},{"frame":16,"code":1,"down":0},{"frame":18,"code":4,"down":1},{"frame":19,"code":4,"down":0},{"frame":21,"code":2,"down":1},{"frame":27,"code":2,"down":0},{"frame":28,"code":0,"down":1}],
+    "expect": {"min_draw_ops":22,"must_change_by_frame":6},
+    "note": "Title->play needs a CLICK on the 'play' button (box 44,40 w24 h11 -> center 56,45); no keyboard start. Then walk right/down, fire (space), walk left/up. Healthy play scene: bg + 12 trees + 8 coins + 3 medkits + 3 enemies + player + HUD + HP meter (>30 ops). This is the exact scene the missing centered-sprite/list-of-sprites eval blanked."
+  },
+
+  "flappy": {
+    "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":8,"code":4,"down":1},{"frame":9,"code":4,"down":0},{"frame":14,"code":4,"down":1},{"frame":15,"code":4,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":26,"code":4,"down":1},{"frame":27,"code":4,"down":0}],
+    "expect": {"min_draw_ops":2,"must_change_by_frame":4},
+    "note": "Tap SPACE to flap against gravity. Pipes spawn every 180f so none in-window; only bg + ship + score HUD. Ship y must move by frame 4."
+  },
+
+  "frogger": {
+    "keys": [{"frame":2,"code":0,"down":1},{"frame":3,"code":0,"down":0},{"frame":6,"code":0,"down":1},{"frame":7,"code":0,"down":0},{"frame":10,"code":0,"down":1},{"frame":11,"code":0,"down":0},{"frame":14,"code":2,"down":1},{"frame":15,"code":2,"down":0},{"frame":18,"code":3,"down":1},{"frame":19,"code":3,"down":0},{"frame":22,"code":0,"down":1},{"frame":23,"code":0,"down":0},{"frame":26,"code":0,"down":1},{"frame":27,"code":0,"down":0}],
+    "expect": {"min_draw_ops":15,"must_change_by_frame":3},
+    "note": "Hop the frog up across lanes (with a left/right wiggle). Cars also drift each frame. Healthy: bg + lane rects + star + 12 cars + frog + HUD (~19 ops)."
+  },
+
+  "hunt": {
+    "keys": [{"frame":2,"code":3,"down":1},{"frame":8,"code":3,"down":0},{"frame":9,"code":4,"down":1},{"frame":10,"code":4,"down":0},{"frame":12,"code":1,"down":1},{"frame":18,"code":1,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":23,"code":3,"down":1},{"frame":28,"code":3,"down":0}],
+    "expect": {"min_draw_ops":10,"must_change_by_frame":5},
+    "note": "Multiplayer deathmatch; solo run shows 'waiting...' but movement+shooting are local. Hold right (moves player by ~f5), fire (white bullet), move down, fire, move right. Healthy: 9 wall rects + player + HUD + waiting banner (~12 ops)."
+  },
+
+  "maze": {
+    "keys": [{"frame":2,"code":3,"down":1},{"frame":12,"code":3,"down":0},{"frame":13,"code":1,"down":1},{"frame":22,"code":1,"down":0},{"frame":23,"code":3,"down":1},{"frame":29,"code":3,"down":0}],
+    "expect": {"min_draw_ops":20,"must_change_by_frame":6},
+    "note": "Walk hero east, then down, then east. Ghosts chase each frame so motion is doubly guaranteed. Healthy: bg + wall tiles + 8 coins + 2 ghosts + hero + HUD (>20 ops)."
+  },
+
+  "mp-dots": {
+    "keys": [{"frame":1,"code":3,"down":1},{"frame":12,"code":3,"down":0},{"frame":12,"code":1,"down":1},{"frame":24,"code":1,"down":0}],
+    "expect": {"min_draw_ops":2,"must_change_by_frame":3},
+    "note": "Multiplayer tag; tagging needs peers (can't exercise solo). Move the red dot right then down at 1.5px/f; its x/y must shift. Healthy solo: bg + player rect + HUD (~3 ops)."
+  },
+
+  "pitfall": {
+    "keys": [{"frame":3,"code":4,"down":1},{"frame":4,"code":4,"down":0},{"frame":18,"code":4,"down":1},{"frame":19,"code":4,"down":0}],
+    "expect": {"min_draw_ops":3,"must_change_by_frame":5},
+    "note": "Tap SPACE to hop (gravity 0.25). Logs spawn every 140f so none in-window; only player jump changes the scene. Healthy: bg + floor + hero + score HUD (~4 ops)."
+  },
+
+  "pong": {
+    "keys": [{"frame":1,"code":1,"down":1},{"frame":12,"code":1,"down":0},{"frame":14,"code":0,"down":1},{"frame":26,"code":0,"down":0}],
+    "expect": {"min_draw_ops":4,"must_change_by_frame":2},
+    "note": "Drive left paddle down then up; ball moves autonomously. Healthy: bg + 2 paddles + ball + 2 HUD scores (~5 ops)."
+  },
+
+  "snake": {
+    "keys": [{"frame":2,"code":0,"down":1},{"frame":6,"code":0,"down":0},{"frame":16,"code":3,"down":1},{"frame":20,"code":3,"down":0}],
+    "expect": {"min_draw_ops":3,"must_change_by_frame":16},
+    "note": "Auto-moves right; turn up (f2) then right (f16). Snake advances every 14 ticks so the head first moves ~f14-15; differs from frame 1 by f16. Healthy: bg + body rect(s) + apple + HUD (~4 ops)."
+  },
+
+  "space-invaders": {
+    "keys": [{"frame":2,"code":3,"down":1},{"frame":3,"code":4,"down":1},{"frame":4,"code":4,"down":0},{"frame":8,"code":3,"down":0},{"frame":10,"code":2,"down":1},{"frame":14,"code":2,"down":0},{"frame":16,"code":4,"down":1},{"frame":17,"code":4,"down":0},{"frame":20,"code":3,"down":1},{"frame":26,"code":3,"down":0}],
+    "expect": {"min_draw_ops":18,"must_change_by_frame":4},
+    "note": "Formation marches every 32f so in-window changes come from input. Move ship right + fire (bullet sprite appears), move left, fire, move right. Healthy: 18 aliens + ship + HUD (~20 ops)."
+  }
+}
