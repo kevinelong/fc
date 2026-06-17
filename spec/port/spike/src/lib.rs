@@ -196,7 +196,7 @@ enum Stmt {
     If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Vec<Stmt>),
     RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
     RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>),
-    Every(f64, String, Vec<Stmt>),
+    Every(f64, String, Vec<Stmt>, u32),
     Tag(String, String),
     WhenPickup(String, Vec<Stmt>), WhenHit(String, Vec<Stmt>), WhenDefeat(String, Vec<Stmt>),
     WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
@@ -328,7 +328,10 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="repeat" { return parse_repeat(ts); }
     if first=="every" && ts.len()>=3 {
         let n = if let TokVal::Num(n)=ts[1].v { n } else { 0.0 };
-        return Stmt::Every(n, ts[2].sval().to_string(), Vec::new());
+        // unique per-statement id so each `every` keeps its OWN execution counter
+        // (JS keys these by source line) — see the exec arm and EVERY_ID.
+        let id = unsafe { let i = EVERY_ID; EVERY_ID += 1; i };
+        return Stmt::Every(n, ts[2].sval().to_string(), Vec::new(), id);
     }
     if first=="when" { return parse_when(ts); }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
@@ -488,7 +491,7 @@ fn parse_when(ts: &[Tok]) -> Stmt {
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
     match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
-        |Stmt::Forever(b)|Stmt::Every(_,_,b)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
+        |Stmt::Forever(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
         |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
@@ -511,7 +514,9 @@ fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
     }
     out
 }
+static mut EVERY_ID: u32 = 0;   // monotonic id source for `every` statements (reset per program)
 fn parse_program(src: &[u8]) -> Vec<Stmt> {
+    unsafe { EVERY_ID = 0; }
     let mut lines: Vec<Line> = Vec::new();
     for raw in src.split(|&b| b == b'\n') {
         let (indent, toks) = lex_line(raw);
@@ -618,7 +623,7 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::RepeatWhile(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_while\"}"); }
         Stmt::RepeatUntil(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_until\"}"); }
         Stmt::Forever(b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"type\":\"forever\"}"); }
-        Stmt::Every(n,u,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"n\":"); json_num(*n,out); out.push_str(",\"type\":\"every\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Every(n,u,b,_)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"n\":"); json_num(*n,out); out.push_str(",\"type\":\"every\",\"unit\":"); json_str(u,out); out.push('}'); }
         Stmt::Tag(s,t)=>{ out.push_str("{\"subject\":"); json_str(s,out); out.push_str(",\"tag\":"); json_str(t,out); out.push_str(",\"type\":\"tag\"}"); }
         Stmt::WhenPickup(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_pickup\"}"); }
         Stmt::WhenHit(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_hit\"}"); }
@@ -1036,7 +1041,7 @@ fn deep_clone(v: &Val) -> Val {
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
-    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool) }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
@@ -1044,7 +1049,7 @@ struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
-        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
         buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
     fn interpolate(&self, s: &str) -> String {
@@ -1580,7 +1585,18 @@ impl Rt {
             Stmt::RepeatWhile(c, body) => { while self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
             Stmt::RepeatUntil(c, body) => { while !self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
             Stmt::Forever(body) => { let mut i=0; while i<1000 && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); i+=1; } }
-            Stmt::Every(n, unit, body) => { let period = if unit=="seconds" { (n*60.0 + 0.5) as i64 } else { *n as i64 }; let period=if period<1 {1} else {period}; if 1 % period == 0 { self.exec_block(body); } }
+            // `every N frames/seconds` — run body on a cadence. JS keeps a per-statement
+            // counter that ticks once PER EXECUTION (not per frame) and fires when
+            // counter % period == 0. We mirror that with a per-`id` counter so it's correct
+            // both in a game loop (runs once/frame) AND in a top-level script (runs once →
+            // counter 1, never fires for period>1). Was `1 % period`, which fired only for
+            // period 1 — so `every N>1` (mp-dots broadcast, flappy pipes, ...) never ran.
+            Stmt::Every(n, unit, body, id) => {
+                let period = if unit=="seconds" { (n*60.0 + 0.5) as i64 } else { *n as i64 };
+                let period = if period < 1 { 1u64 } else { period as u64 };
+                let c = { let e = self.every_counts.entry(*id).or_insert(0); *e += 1; *e };
+                if c % period == 0 { self.exec_block(body); }
+            }
             Stmt::Each(var, list, where_, then, body) => {
                 if let Val::List(l) = self.eval(list) {
                     let items: Vec<Val> = l.borrow().clone();

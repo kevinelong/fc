@@ -32,6 +32,10 @@ const __KEYNAMES = ['up','down','left','right','space','a','b'];
 const __setKey = (code, on) => { __RT_KS()[__KEYNAMES[code]] = !!on; };
 let __RT_KS = () => keyState;   // overridden once a Runtime exists
 const __bindRT = (rt) => { __RT_KS = () => rt.keyState; };
+// Feed incoming multiplayer peer state for the next frame() (the two-instance
+// harness mutates NET.peers in place — the proxy's set trap is a no-op, but its
+// get returns the live array, so frame()'s `self.vars.peers = NET.peers` sees it).
+const __setNet = (peers) => { NET.peers.length = 0; for (const p of (peers || [])) NET.peers.push(p); };
 const cancelAnimationFrame = noop, clearInterval = noop;
 const setInterval = () => 0;
 const performance = { now: () => 0 };
@@ -3678,4 +3682,4 @@ let debounceTimer = null;
 
 
 export { parse, Runtime, tokenizeLine, singularize, resolveColor };
-export { __CMDS, __step, __setKey, __bindRT };
+export { __CMDS, __step, __setKey, __bindRT, __setNet };
