@@ -54,10 +54,14 @@ const SCENARIOS = {
   // on a cell that belongs to the peer (its head or its trail), not a wall/self.
   'cycles': { N: 26, seeds: [0, 1], keys: [[], []], mechanic: 'crash', minDraw: 8 },
 
-  'hunt': { N: 40, seeds: [0, 1],
-    keys: [ [{ frame: 2, code: 3, down: 1 }, { frame: 10, code: 3, down: 0 }, { frame: 12, code: 4, down: 1 }, { frame: 13, code: 4, down: 0 }, { frame: 16, code: 1, down: 1 }, { frame: 28, code: 1, down: 0 }],
-            [{ frame: 2, code: 2, down: 1 }, { frame: 10, code: 2, down: 0 }, { frame: 12, code: 4, down: 1 }, { frame: 13, code: 4, down: 0 }, { frame: 16, code: 0, down: 1 }, { frame: 28, code: 0, down: 0 }] ],
-    mechanic: null, minDraw: 8 },
+  // Maze deathmatch. Seeds 0/1 spawn P0 at (108,12), P1 at (12,108). P0 drives left
+  // along the top corridor to x~11, faces down, and fires down the left column into
+  // the stationary P1 — the bullet frags P1 (~frame 113, P0.frags 0->1). Proves the
+  // shoot -> bullet-flies -> hit-a-peer path across two instances.
+  'hunt': { N: 120, seeds: [0, 1],
+    keys: [ [{ frame: 1, code: 2, down: 1 }, { frame: 70, code: 2, down: 0 }, { frame: 71, code: 1, down: 1 }, { frame: 74, code: 1, down: 0 }, { frame: 72, code: 4, down: 1 }, { frame: 73, code: 4, down: 0 }],
+            [] ],
+    mechanic: 'frag', minDraw: 8 },
 };
 
 // --- wasm pair: run two wired instances, return per-frame draws + peer streams + broadcast tags ---
@@ -156,6 +160,16 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
       if (!confirmed) fails.push('mechanic: no peer-trail/head crash observed (collision rule not exercised)');
       else spec._detail = detail;
     }
+    if (spec.mechanic === 'frag') {
+      // a rider's broadcast `frags` rises from 0 -> its bullet hit a peer
+      let scorer = -1, at = -1;
+      for (let p = 0; p < 2 && scorer < 0; p++) {
+        const st = wp.state[p];
+        for (let f = 1; f < spec.N; f++) if (st[f - 1] && st[f] && (st[f].frags | 0) > (st[f - 1].frags | 0)) { scorer = p; at = f; break; }
+      }
+      if (scorer < 0) fails.push('mechanic: no frag observed (bullet never hit a peer)');
+      else spec._detail = `p${scorer} fragged a peer @frame ${at + 1} (frags 0->${wp.state[scorer][at].frags})`;
+    }
     // DETERMINISM: re-run the wired session, expect identical draws
     let wp2; try { wp2 = await runWasmPair(src, spec.N, spec.seeds, kms); } catch (e) { fails.push(`determinism re-run trap: ${e.message}`); }
     if (wp2) for (let p = 0; p < 2; p++) { const d = firstDiff(wp.draws[p], wp2.draws[p]); if (d >= 0) fails.push(`nondeterministic p${p} @frame ${d + 1}`); }
@@ -164,7 +178,7 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
   if (fails.length === 0) {
     pass++;
     const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)`
-      : spec.mechanic === 'crash' ? ` · ${spec._detail}` : ' · parity+determinism (frag not asserted)';
+      : (spec.mechanic === 'crash' || spec.mechanic === 'frag') ? ` · ${spec._detail}` : ' · parity+determinism';
     out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}`);
   } else { fail++; out.push(`FAIL  ${game.padEnd(10)} ` + fails.join(' | ')); }
 }
