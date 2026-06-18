@@ -5486,6 +5486,11 @@ if (WASMCORE.active) {
   };
   canvas.addEventListener('pointerdown', e => wasmTap(e.clientX, e.clientY));
   canvas.addEventListener('touchstart', e => { if (e.touches[0]) wasmTap(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  // Warm the wasm during idle so the FIRST Run has no decode/compile/instantiate
+  // lag (load() is idempotent + cached, so the later run() reuses this instance).
+  const warmWasm = () => { WASMCORE.load().catch(() => {}); };
+  if ('requestIdleCallback' in window) requestIdleCallback(warmWasm, { timeout: 2500 });
+  else setTimeout(warmWasm, 800);
   addEventListener('DOMContentLoaded', () => {
     const b = document.createElement('div');
     b.id = 'wasm-badge'; b.textContent = '⚡ core: wasm (live)';
