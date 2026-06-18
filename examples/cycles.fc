@@ -1,0 +1,120 @@
+-- LIGHT CYCLES  ·  multiplayer (Tron / Atari "Surround").  Arrows / D-pad to steer.
+-- You leave a wall of light behind you. Don't hit a wall, your own trail, or anyone
+-- else's. Last rider alive wins the round. Open on two devices in the same room.
+-- Click the screen first so it hears the keys.
+
+join game "cycles" room "grid"
+
+step is 4
+
+-- everyone rides on the SAME 4px grid (cells 1..29) so trails line up exactly
+cx is 1 + random 28
+cy is 1 + random 28
+me is {x: 0, y: 0, dx: 4, dy: 0, alive: yes, dead: 0, wins: 0, claimed: no, trail: []}
+me.x is cx * 4
+me.y is cy * 4
+-- head toward the middle so you don't start facing a wall
+if me.x > 64
+  me.dx is 0 - step
+
+define sound "crash" as noise from 900 to 60 over 0.3
+
+to update
+  if me.alive
+    -- steer: you can only turn onto the OTHER axis (no instant reverse)
+    if key "up"
+      if me.dy is 0
+        me.dx is 0
+        me.dy is 0 - step
+    if key "down"
+      if me.dy is 0
+        me.dx is 0
+        me.dy is step
+    if key "left"
+      if me.dx is 0
+        me.dx is 0 - step
+        me.dy is 0
+    if key "right"
+      if me.dx is 0
+        me.dx is step
+        me.dy is 0
+
+    -- advance one cell on a cadence (this is the cycle's speed)
+    every 3 frames
+      add {x: me.x, y: me.y} to me.trail
+      me.x is me.x + me.dx
+      me.y is me.y + me.dy
+
+      -- hit the arena edge?
+      if me.x < 4 or me.x > 116 or me.y < 4 or me.y > 116
+        me.alive is no
+      -- crossed my own wall?
+      each seg in me.trail
+        if seg.x is me.x and seg.y is me.y
+          me.alive is no
+      -- crossed someone else's wall (or rammed them head-on)?
+      each foe in peers
+        if foe.x is me.x and foe.y is me.y
+          me.alive is no
+        each seg in foe.trail
+          if seg.x is me.x and seg.y is me.y
+            me.alive is no
+
+      if me.alive is no
+        me.dead is 50
+        play sound "crash"
+  else
+    -- crashed: count down, then respawn for a fresh round
+    me.dead is me.dead - 1
+    if me.dead <= 0
+      cx is 1 + random 28
+      cy is 1 + random 28
+      me.x is cx * 4
+      me.y is cy * 4
+      me.dx is step
+      me.dy is 0
+      if me.x > 64
+        me.dx is 0 - step
+      me.trail is []
+      me.alive is yes
+      me.claimed is no
+
+  -- if I'm the last one standing this round, take the win (once)
+  if me.alive
+    if me.claimed is no
+      others is the number of peers
+      down is 0
+      each foe in peers
+        if foe.alive is no
+          down is down + 1
+      if others > 0
+        if down is others
+          me.wins is me.wins + 1
+          me.claimed is yes
+
+  -- share my head + my whole wall a few times a second
+  every 2 frames
+    broadcast {x: me.x, y: me.y, alive: me.alive, wins: me.wins, trail: me.trail}
+
+to draw
+  clear screen to black
+  -- other riders + their walls (red)
+  each foe in peers
+    each seg in foe.trail
+      draw rect at seg.x, seg.y size 3, 3 in red
+    draw rect at foe.x, foe.y size 4, 4 in red
+  -- my wall (blue) + my head (white alive / red crashed)
+  each seg in me.trail
+    draw rect at seg.x, seg.y size 3, 3 in blue
+  if me.alive
+    draw rect at me.x, me.y size 4, 4 in white
+  else
+    draw rect at me.x, me.y size 4, 4 in red
+
+  others is the number of peers
+  if me.alive
+    write "wins {me.wins}  ·  {others} rivals" at 4, 2 in white on hud
+  else
+    write "CRASHED - respawning..." at 4, 2 in red on hud
+
+run game with update and draw

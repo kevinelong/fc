@@ -14,6 +14,12 @@
     "note": "Title->play needs a CLICK on the 'play' button (box 44,40 w24 h11 -> center 56,45); no keyboard start. Then walk right/down, fire (space), walk left/up. Healthy play scene: bg + 12 trees + 8 coins + 3 medkits + 3 enemies + player + HUD + HP meter (>30 ops). This is the exact scene the missing centered-sprite/list-of-sprites eval blanked."
   },
 
+  "cycles": {
+    "keys": [{"frame":7,"code":1,"down":1},{"frame":8,"code":1,"down":0}],
+    "expect": {"min_draw_ops":8,"must_change_by_frame":4},
+    "note": "Solo (no peers) the cycle rides toward center leaving a light-wall; tap down (f7) turns it, exercising the no-reverse steering. Trail grows so draw ops climb; head moves every 3 frames. No crash in 30f (far wall is ~63f away)."
+  },
+
   "flappy": {
     "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":8,"code":4,"down":1},{"frame":9,"code":4,"down":0},{"frame":14,"code":4,"down":1},{"frame":15,"code":4,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":26,"code":4,"down":1},{"frame":27,"code":4,"down":0}],
     "expect": {"min_draw_ops":2,"must_change_by_frame":4},

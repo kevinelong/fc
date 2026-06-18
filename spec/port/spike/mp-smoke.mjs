@@ -46,6 +46,14 @@ const SCENARIOS = {
   // up (aim + kill-mark window + victim detect), so here we only assert that the
   // two wired instances stay in JS<->wasm parity, are deterministic, and keep
   // rendering while consuming each other's peer stream. Frag is NOT asserted.
+  // Light cycles. Seeds 0/1 spawn both riders on the SAME top row heading toward
+  // each other (P0 right from x=32, P1 left from x=76) — with NO input they ram
+  // each other's light-wall head-on around frame 17. Proves the broadcast->peers
+  // trail-list path AND the peer-collision rule end-to-end (a list payload, which
+  // neither mp-dots nor hunt broadcast). Mechanic: a rider's `alive` flips to no
+  // on a cell that belongs to the peer (its head or its trail), not a wall/self.
+  'cycles': { N: 26, seeds: [0, 1], keys: [[], []], mechanic: 'crash', minDraw: 8 },
+
   'hunt': { N: 40, seeds: [0, 1],
     keys: [ [{ frame: 2, code: 3, down: 1 }, { frame: 10, code: 3, down: 0 }, { frame: 12, code: 4, down: 1 }, { frame: 13, code: 4, down: 0 }, { frame: 16, code: 1, down: 1 }, { frame: 28, code: 1, down: 0 }],
             [{ frame: 2, code: 2, down: 1 }, { frame: 10, code: 2, down: 0 }, { frame: 12, code: 4, down: 1 }, { frame: 13, code: 4, down: 0 }, { frame: 16, code: 0, down: 1 }, { frame: 28, code: 0, down: 0 }] ],
@@ -60,8 +68,8 @@ async function runWasmPair(src, N, seeds, kms) {
     const readCmds = n => JSON.parse(dec.decode(new Uint8Array(w.memory.buffer, w.res_ptr(), n)));
     return { w, writeSrc, readCmds };
   }));
-  const draws = [[], []], peerFed = [[], []], bcastTag = [[], []];
-  let lastBcast = [null, null];
+  const draws = [[], []], peerFed = [[], []], bcastTag = [[], []], state = [[], []];
+  let lastBcast = [null, null], lastState = [null, null];
   for (let f = 0; f < N; f++) {
     const incoming = [lastBcast[1], lastBcast[0]];          // A hears B, B hears A
     const nextBcast = [null, null];
@@ -75,11 +83,12 @@ async function runWasmPair(src, N, seeds, kms) {
       const cmds = readCmds(n);
       draws[p].push(drawOnly(cmds));
       const b = lastBroadcast(cmds);
-      if (b !== null) { nextBcast[p] = b; try { bcastTag[p].push(JSON.parse(b).tag); } catch (_) {} }
+      if (b !== null) { nextBcast[p] = b; try { const o = JSON.parse(b); bcastTag[p].push(o.tag); lastState[p] = o; } catch (_) {} }
+      state[p].push(lastState[p]);                          // carry last broadcast state on silent frames
     }
     for (let p = 0; p < 2; p++) if (nextBcast[p] !== null) lastBcast[p] = nextBcast[p];
   }
-  return { draws, peerFed, bcastTag };
+  return { draws, peerFed, bcastTag, state };
 }
 
 // --- one JS instance, fed the SAME inputs + the peer stream captured from wasm ---
@@ -128,6 +137,25 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
       else if (init[0] === init[1]) fails.push(`mechanic: both seeds gave equal tag ${init[0]} (no clear it/runner)`);
       else { const lo = init[0] < init[1] ? 0 : 1; if (!(finl[lo] > init[lo])) fails.push(`mechanic: runner p${lo} tag did not rise (start ${init[lo]} -> end ${finl[lo]}); tag never transferred`); }
     }
+    if (spec.mechanic === 'crash') {
+      // find a rider whose `alive` flips true->false on a cell owned by the peer
+      let confirmed = false, detail = '';
+      for (let p = 0; p < 2 && !confirmed; p++) {
+        const st = wp.state[p];
+        for (let f = 1; f < spec.N; f++) {
+          if (st[f - 1] && st[f] && st[f - 1].alive && !st[f].alive) {
+            const hx = st[f].x, hy = st[f].y;
+            const inBounds = hx >= 4 && hx <= 116 && hy >= 4 && hy <= 116;        // not a wall crash
+            let peer = null; try { peer = JSON.parse(wp.peerFed[p][f])[0]; } catch (_) {}
+            const headOn = peer && peer.x === hx && peer.y === hy;
+            const onTrail = peer && (peer.trail || []).some(s => s.x === hx && s.y === hy);
+            if (inBounds && (headOn || onTrail)) { confirmed = true; detail = `p${p} crashed @(${hx},${hy}) into peer ${headOn ? 'head-on' : 'wall'}`; break; }
+          }
+        }
+      }
+      if (!confirmed) fails.push('mechanic: no peer-trail/head crash observed (collision rule not exercised)');
+      else spec._detail = detail;
+    }
     // DETERMINISM: re-run the wired session, expect identical draws
     let wp2; try { wp2 = await runWasmPair(src, spec.N, spec.seeds, kms); } catch (e) { fails.push(`determinism re-run trap: ${e.message}`); }
     if (wp2) for (let p = 0; p < 2; p++) { const d = firstDiff(wp.draws[p], wp2.draws[p]); if (d >= 0) fails.push(`nondeterministic p${p} @frame ${d + 1}`); }
@@ -135,7 +163,8 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
 
   if (fails.length === 0) {
     pass++;
-    const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)` : ' · parity+determinism (frag not asserted)';
+    const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)`
+      : spec.mechanic === 'crash' ? ` · ${spec._detail}` : ' · parity+determinism (frag not asserted)';
     out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}`);
   } else { fail++; out.push(`FAIL  ${game.padEnd(10)} ` + fails.join(' | ')); }
 }
