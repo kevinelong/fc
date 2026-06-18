@@ -1,0 +1,99 @@
+-- ONLINE PONG  ·  multiplayer paddle tennis.  Up / Down (or D-pad) to move.
+-- Shows that a SHARED object (the ball) works in the broadcast/peers model:
+-- the player with the lowest id is the "host" — it owns the ball, simulates it,
+-- and broadcasts it; everyone else mirrors the host's ball. (No server needed —
+-- same lowest/highest-id election as Tag's "it".)  Open on two devices.
+-- Click the screen first so it hears the keys.
+
+join game "pong" room "table"
+
+me is {id: 0, y: 56, host: no, bx: 64, by: 64, vx: 2, vy: 1, sl: 0, sr: 0}
+me.id is 1 + random 99998
+
+define sound "ping" as square from 400 to 800 over 0.04
+
+to update
+  -- elect the host: lowest id among me + peers owns the ball
+  amhost is yes
+  each peer in peers
+    if peer.id < me.id
+      amhost is no
+  me.host is amhost
+
+  -- everyone drives their own paddle
+  if key "up" me.y is me.y - 3
+  if key "down" me.y is me.y + 3
+  if me.y < 0 me.y is 0
+  if me.y > 112 me.y is 112
+
+  if amhost
+    -- I am the ball authority. The right paddle is my opponent (a peer).
+    rightY is 56
+    each peer in peers
+      rightY is peer.y
+    me.bx is me.bx + me.vx
+    me.by is me.by + me.vy
+    if me.by < 0
+      me.by is 0
+      me.vy is 0 - me.vy
+    if me.by > 125
+      me.by is 125
+      me.vy is 0 - me.vy
+    -- bounce off the left (my) paddle
+    if me.bx < 8
+      if me.by + 3 > me.y and me.by < me.y + 16
+        me.bx is 8
+        me.vx is 0 - me.vx
+        play sound "ping"
+    -- bounce off the right (opponent) paddle
+    if me.bx > 117
+      if me.by + 3 > rightY and me.by < rightY + 16
+        me.bx is 117
+        me.vx is 0 - me.vx
+        play sound "ping"
+    -- someone missed: score and serve again
+    if me.bx < 0
+      me.sr is me.sr + 1
+      me.bx is 64
+      me.by is 64
+      me.vx is 2
+    if me.bx > 128
+      me.sl is me.sl + 1
+      me.bx is 64
+      me.by is 64
+      me.vx is 0 - 2
+  else
+    -- client: mirror the host's authoritative ball + score
+    each peer in peers
+      if peer.host
+        me.bx is peer.bx
+        me.by is peer.by
+        me.sl is peer.sl
+        me.sr is peer.sr
+
+  broadcast {id: me.id, y: me.y, host: me.host, bx: me.bx, by: me.by, sl: me.sl, sr: me.sr}
+
+to draw
+  clear screen to black
+  -- left paddle = host, right paddle = client; pick the right Ys for my role
+  leftY is me.y
+  rightY is me.y
+  each peer in peers
+    if amhost
+      rightY is peer.y
+    else
+      leftY is peer.y
+  draw rect at 4, leftY size 3, 16 in white
+  draw rect at 121, rightY size 3, 16 in white
+  draw rect at me.bx, me.by size 3, 3 in white
+  write "{me.sl}" at 40, 3 in white on hud
+  write "{me.sr}" at 84, 3 in white on hud
+  if the number of peers is 0
+    write "waiting for opponent..." at 18, 60 in yellow on hud
+  else
+    if amhost
+      write "you serve (left)" at 30, 118 in green on hud
+    else
+      write "opponent serves" at 30, 118 in green on hud
+
+run game with update and draw

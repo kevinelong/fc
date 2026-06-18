@@ -23,6 +23,7 @@ const wait = ms => ({ wait: ms });
 // per-game input: click the canvas, then a few keystrokes so the trail/scene fills out
 const RECIPES = {
   cycles: [wait(250), press('ArrowDown', 1), wait(450)],   // ride inward, one bend, still alive
+  'pong-online': [wait(120), press('ArrowDown', 2), wait(380)],   // ball mid-flight, paddle nudged
   // add more games here to (re)capture them with this tool
 };
 

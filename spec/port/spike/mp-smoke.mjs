@@ -62,6 +62,12 @@ const SCENARIOS = {
     keys: [ [{ frame: 1, code: 2, down: 1 }, { frame: 70, code: 2, down: 0 }, { frame: 71, code: 1, down: 1 }, { frame: 74, code: 1, down: 0 }, { frame: 72, code: 4, down: 1 }, { frame: 73, code: 4, down: 0 }],
             [] ],
     mechanic: 'frag', minDraw: 8 },
+
+  // Online Pong — a SHARED object (the ball). Lowest id = host: it owns + simulates
+  // the ball and broadcasts it; the client mirrors it. Proves the broadcast/peers
+  // model handles authoritative shared state via id-election (NO engine change). No
+  // input needed — the host serves, the ball flies, and the client must track it.
+  'pong-online': { N: 24, seeds: [0, 1], keys: [[], []], mechanic: 'pong-sync', minDraw: 4 },
 };
 
 // --- wasm pair: run two wired instances, return per-frame draws + peer streams + broadcast tags ---
@@ -170,6 +176,17 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
       if (scorer < 0) fails.push('mechanic: no frag observed (bullet never hit a peer)');
       else spec._detail = `p${scorer} fragged a peer @frame ${at + 1} (frags 0->${wp.state[scorer][at].frags})`;
     }
+    if (spec.mechanic === 'pong-sync') {
+      const fin = [wp.state[0].at(-1), wp.state[1].at(-1)];
+      const hp = (fin[0] && fin[0].host) ? 0 : 1, cp = 1 - hp;   // host vs client instance
+      const H = wp.state[hp].filter(Boolean).map(s => s.bx), C = wp.state[cp].filter(Boolean).map(s => s.bx);
+      const hostSet = new Set(H), distinctH = hostSet.size;
+      const clientChanged = new Set(C).size >= 2;
+      const clientTracksHost = C.some((v, i) => i > 0 && hostSet.has(v));
+      if (distinctH < 3) fails.push(`mechanic: host ball didn't move (distinct bx=${distinctH})`);
+      else if (!(clientChanged && clientTracksHost)) fails.push('mechanic: client did not mirror the host ball (shared object not synced)');
+      else spec._detail = `host=p${hp}; ball moved (${distinctH} positions), client mirrored it`;
+    }
     // DETERMINISM: re-run the wired session, expect identical draws
     let wp2; try { wp2 = await runWasmPair(src, spec.N, spec.seeds, kms); } catch (e) { fails.push(`determinism re-run trap: ${e.message}`); }
     if (wp2) for (let p = 0; p < 2; p++) { const d = firstDiff(wp.draws[p], wp2.draws[p]); if (d >= 0) fails.push(`nondeterministic p${p} @frame ${d + 1}`); }
@@ -178,7 +195,7 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
   if (fails.length === 0) {
     pass++;
     const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)`
-      : (spec.mechanic === 'crash' || spec.mechanic === 'frag') ? ` · ${spec._detail}` : ' · parity+determinism';
+      : ['crash', 'frag', 'pong-sync'].includes(spec.mechanic) ? ` · ${spec._detail}` : ' · parity+determinism';
     out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}`);
   } else { fail++; out.push(`FAIL  ${game.padEnd(10)} ` + fails.join(' | ')); }
 }

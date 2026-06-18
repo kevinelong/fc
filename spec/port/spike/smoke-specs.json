@@ -20,6 +20,12 @@
     "note": "Solo (no peers) the cycle rides toward center leaving a light-wall; tap down (f7) turns it, exercising the no-reverse steering. Trail grows so draw ops climb; head moves every 3 frames. No crash in 30f (far wall is ~63f away)."
   },
 
+  "pong-online": {
+    "keys": [{"frame":3,"code":1,"down":1},{"frame":12,"code":1,"down":0}],
+    "expect": {"min_draw_ops":4,"must_change_by_frame":2},
+    "note": "Solo, you are the host: the ball serves and flies on its own (scene changes by f2). Tap down to nudge your paddle. Draws 2 paddles + ball + 2 score texts + a banner."
+  },
+
   "flappy": {
     "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":8,"code":4,"down":1},{"frame":9,"code":4,"down":0},{"frame":14,"code":4,"down":1},{"frame":15,"code":4,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":26,"code":4,"down":1},{"frame":27,"code":4,"down":0}],
     "expect": {"min_draw_ops":2,"must_change_by_frame":4},
