@@ -1,0 +1,7 @@
+a is 0
+n is 0
+repeat 10 times
+  n is n + 1
+  if n > 3
+    every 2 frames
+      add 1 to a

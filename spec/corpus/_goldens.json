@@ -204,6 +204,14 @@
       "r": "equal"
     }
   },
+  "every_in_conditional_loop.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": 3,
+      "n": 10
+    }
+  },
   "every_two_blocks_line_keyed.fc": {
     "say": [],
     "errors": [],
