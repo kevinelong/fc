@@ -4384,6 +4384,27 @@ function damerau(a, b) {
   }
   return d[m][n];
 }
+// Inline error marking: render "Line N: ..." messages as clickable rows that
+// select that line in the editor (the browser highlights + scrolls to it). A
+// textarea can't style individual lines, so click-to-select is the lightweight
+// faithful version of "mark the offending line".
+function selectEditorLine(n) {
+  const ls = editor.value.split('\n');
+  if (!(n >= 1 && n <= ls.length)) return;
+  let s = 0; for (let i = 0; i < n - 1; i++) s += ls[i].length + 1;
+  editor.focus(); editor.setSelectionRange(s, s + ls[n - 1].length);
+}
+function showErrors(text, append) {
+  if (!append) errorsDiv.innerHTML = '';
+  if (!text) return;
+  for (const line of String(text).split('\n')) {
+    const row = document.createElement('div');
+    row.textContent = line;
+    const m = line.match(/\bline\s+(\d+)/i);
+    if (m) { row.style.cursor = 'pointer'; row.style.textDecoration = 'underline'; row.title = 'Jump to line ' + m[1]; row.onclick = () => selectEditorLine(+m[1]); }
+    errorsDiv.appendChild(row);
+  }
+}
 function lintHints(source) {
   const funcs = new Set();
   for (const line of source.split('\n')) { const m = line.trim().match(/^to\s+(?:screen\s+)?([a-zA-Z_]\w*)/i); if (m) funcs.add(m[1].toLowerCase()); }
@@ -4408,17 +4429,20 @@ function run(source) {
   const hints = lintHints(source);
   if (typeof WASMCORE !== "undefined" && WASMCORE.active) {
     WASMCORE.run(source);
-    if (hints.length) errorsDiv.textContent = hints.join('\n');   // wasm doesn't manage errorsDiv except on fallback
+    // if still active it was a clean wasm run -> clear stale errors; if it fell
+    // back, runJSCore already showed its errors, so just append the lint hints.
+    if (WASMCORE.active) errorsDiv.innerHTML = '';
+    if (hints.length) showErrors(hints.join('\n'), true);
     return;
   }
   runJSCore(source);
-  if (hints.length) errorsDiv.textContent = (errorsDiv.textContent ? errorsDiv.textContent + '\n' : '') + hints.join('\n');
+  if (hints.length) showErrors(hints.join('\n'), true);
 }
 function runJSCore(source) {
   runtime.reset();
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 128, 128);
-  errorsDiv.textContent = '';
+  errorsDiv.innerHTML = '';
 
   if (!source.trim()) return;
 
@@ -4440,7 +4464,7 @@ function runJSCore(source) {
   }
 
   if (runtime.errors.length > 0) {
-    errorsDiv.textContent = runtime.errors.join('\n');
+    showErrors(runtime.errors.join('\n'));
   }
 }
 
