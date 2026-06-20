@@ -2050,3 +2050,14 @@ static mut LIVE_RT: Option<Rt> = None;
     unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
     m as u32
 }
+// Read-only snapshot of the LIVE runtime's variables (for the live inspect panel).
+// Same JSON shape as parse_exec_to_json's vars, but over the running game's state.
+#[no_mangle] pub extern "C" fn dump_vars() -> u32 {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_ref() } { Some(r) => r, None => return 0 };
+    let mut s = String::from("{");
+    for (i,(k,v)) in rt.vars.iter().enumerate() { if i>0 { s.push(','); } json_str(k,&mut s); s.push(':'); emit_val(v,&mut s); }
+    s.push('}');
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
+}
