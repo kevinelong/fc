@@ -78,6 +78,7 @@ const COMMANDS = [
   ["Decisions & loops","repeat with","A counted loop with a counter variable.","clear screen to black\nrepeat with i from 1 to 8\n  draw circle at i * 14, 64 size 5 in pink"],
   ["Decisions & loops","each ... in","Loop over every item in a list.","coins is list of 6 sprites {image: \"coin\"}\nclear screen to dark green\neach c in coins draw sprite c.image at c.x, c.y"],
   ["Decisions & loops","every N frames","Run something on a timed cadence.","n is 0\nto update\n  every 30 frames add 1 to n\nto draw\n  clear screen to black\n  write \"ticks {n}\" at 30, 58 in white\nrun game with update and draw"],
+  ["Decisions & loops","time limit","Optional match countdown. Sets the `timer` value (whole seconds left) and fires `when time runs out` at zero. No limit set = nothing changes.","mode is \"play\"\ntime limit is 3 seconds\nwhen time runs out\n  mode is \"over\"\nto update\nto draw\n  clear screen to dark blue\n  if mode is \"play\" write \"time {timer}\" at 40, 56 in yellow\n  if mode is \"over\" write \"TIME UP!\" at 40, 56 in red\nrun game with update and draw"],
 
   ["Functions","to NAME / call","Define a reusable action, then call it by name.","to box at x, y\n  draw rect at x, y size 12, 12 in orange\nclear screen to black\nbox at 30, 40\nbox at 82, 80"],
 

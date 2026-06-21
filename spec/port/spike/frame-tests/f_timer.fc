@@ -1,0 +1,12 @@
+mode is "play"
+time limit is 5 frames
+when time runs out
+  mode is "over"
+to update
+  tick is 1
+to draw
+  if mode is "play"
+    write "t {timer}" at 2, 2 in white on hud
+  if mode is "over"
+    write "TIME UP" at 30, 60 in red on hud
+run game with update and draw

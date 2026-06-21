@@ -1,0 +1,40 @@
+-- TIME ATTACK  ·  grab every coin before the clock hits zero!  Arrows / D-pad to move.
+-- Shows the optional match timer: `time limit is N seconds`, the `timer` HUD value,
+-- and `when time runs out`.  Click the screen first so it hears the keys.
+
+world is {width: 128, height: 128}
+mode is "play"
+score is 0
+
+time limit is 20 seconds
+
+player is centered sprite {image: "hero", speed: 1.5}
+coins is list of 8 sprites {image: "coin"}
+coins are pickups
+follow player with camera
+
+when player picks up any coin
+  add 1 to score
+
+when time runs out
+  mode is "over"
+
+to update
+  if mode is "play"
+    move player with arrows
+
+to draw
+  clear screen to dark blue
+  if mode is "play"
+    each coin in coins
+      draw sprite "coin" at coin.x, coin.y
+    draw sprite player at player.x, player.y
+    write "score {score}" at 2, 2 in white on hud
+    write "time {timer}" at 92, 2 in yellow on hud
+    if timer < 6
+      write "hurry!" at 48, 2 in red on hud
+  if mode is "over"
+    write "TIME UP!" at 44, 50 in red on hud
+    write "you grabbed {score}" at 34, 64 in white on hud
+
+run game with update and draw

@@ -201,6 +201,7 @@ enum Stmt {
     WhenPickup(String, Vec<Stmt>), WhenHit(String, Vec<Stmt>), WhenDefeat(String, Vec<Stmt>),
     WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
     WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
+    TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
     ClearScreen(String), Draw(DrawArgs), Write(WriteArgs),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -332,6 +333,13 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         // (JS keys these by source line) — see the exec arm and EVERY_ID.
         let id = unsafe { let i = EVERY_ID; EVERY_ID += 1; i };
         return Stmt::Every(n, ts[2].sval().to_string(), Vec::new(), id);
+    }
+    if first=="time" && ts.get(1).map_or(false, |t| t.is_word("limit")) {
+        let start = find_word(ts, "is").map(|i| i+1).unwrap_or(2);
+        let mut end = ts.len(); let mut unit = "seconds";
+        if end > start && ts[end-1].is_word("seconds") { end -= 1; }
+        else if end > start && ts[end-1].is_word("frames") { unit = "frames"; end -= 1; }
+        return Stmt::TimeLimit(parse_expr(&ts[start..end]), unit.to_string());
     }
     if first=="when" { return parse_when(ts); }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
@@ -475,6 +483,7 @@ fn parse_when(ts: &[Tok]) -> Stmt {
     let last = || ts.last().map(|t| t.sval().to_string()).unwrap_or_default();
     let first_str = || ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
     let inline_after = |w: &str| ts.iter().position(|t| t.is_word(w)).and_then(|k| if k+1 < ts.len() { Some(Box::new(parse_line(&ts[k+1..]))) } else { None });
+    if has("time") && has("runs") && has("out") { return Stmt::WhenTimeout(inline_after("out"), Vec::new()); }
     if has("picks") && has("up") { return Stmt::WhenPickup(last(), Vec::new()); }
     if has("hits") { return Stmt::WhenHit(last(), Vec::new()); }
     if has("defeated") { return Stmt::WhenDefeat(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default(), Vec::new()); }
@@ -492,7 +501,7 @@ fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
     match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
         |Stmt::Forever(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
-        |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
+        |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
 fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
@@ -629,6 +638,8 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenHit(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_hit\"}"); }
         Stmt::WhenDefeat(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_defeat\"}"); }
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
+        Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
+        Stmt::TimeLimit(v,u)=>{ out.push_str("{\"type\":\"time_limit\",\"unit\":"); json_str(u,out); out.push_str(",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::WhenButton(l,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"label\":"); json_str(l,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_button\"}"); }
         Stmt::WhenMouse(ev,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"event\":"); json_str(ev,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_mouse\"}"); }
         Stmt::ClearScreen(c)=>{ out.push_str("{\"color\":"); json_str(c,out); out.push_str(",\"type\":\"clearscreen\"}"); }
@@ -1041,7 +1052,7 @@ fn deep_clone(v: &Val) -> Val {
 
 struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
-    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
+    tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool) }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
@@ -1049,7 +1060,7 @@ struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
-        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), particles: Vec::new(),
+        tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
         buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
     fn interpolate(&self, s: &str) -> String {
@@ -1268,6 +1279,19 @@ impl Rt {
     // ONE frame, mirroring index.html startGameLoop frame() — the headless slice
     // (skipped, like the JS record run: input handlers, autowalk, tag collisions).
     fn frame_step(&mut self, fs: &[String]) {
+        // optional match timer (JS frame() order: right after peers/connected, before keys)
+        if self.time_limit_frames.is_some() {
+            if self.time_left > 0 { self.time_left -= 1; }
+            let left = if self.time_left < 0 { 0 } else { self.time_left };
+            self.set_var("timer", Val::Num(((left + 59) / 60) as f64));
+            if self.time_left <= 0 && !self.timeout_fired {
+                self.timeout_fired = true;
+                if let Some((then, body)) = self.timeout_handler.clone() {
+                    if let Some(t) = then { self.exec_block(&[t]); self.returning = false; }
+                    if !body.is_empty() { self.exec_block(&body); self.returning = false; }
+                }
+            }
+        }
         // when "<key>" is pressed — fire each held key's handler (JS frame() order: first)
         let held: Vec<String> = self.key_handlers.keys().filter(|k| *self.key_state.get(*k).unwrap_or(&false)).cloned().collect();
         for k in held {
@@ -1659,6 +1683,14 @@ impl Rt {
             Stmt::WhenKey(key, then, body) => { self.key_handlers.insert(key.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
             Stmt::WhenButton(label, then, body) => { self.button_handlers.insert(label.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
             Stmt::WhenMouse(event, then, body) => { self.mouse_handlers.insert(event.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
+            Stmt::WhenTimeout(then, body) => { self.timeout_handler = Some((then.as_ref().map(|b| (**b).clone()), body.clone())); }
+            Stmt::TimeLimit(value, unit) => {
+                let secs = as_num(&self.eval(value));
+                let frames = if unit=="seconds" { js_floor(secs*60.0 + 0.5) } else { js_floor(secs + 0.5) };
+                let f = if frames < 0.0 { 0 } else { frames as i64 };
+                self.time_limit_frames = Some(f); self.time_left = f; self.timeout_fired = false;
+                self.set_var("timer", Val::Num(((f + 59) / 60) as f64));
+            }
             Stmt::Goto(target) => {
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }
                 self.set_var("mode", Val::Str(target.clone()));

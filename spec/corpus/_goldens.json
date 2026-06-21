@@ -479,6 +479,14 @@
       "n": 5
     }
   },
+  "time_limit_static.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "timer": 30,
+      "shown": 30
+    }
+  },
   "truthy_empty_list.fc": {
     "say": [],
     "errors": [],

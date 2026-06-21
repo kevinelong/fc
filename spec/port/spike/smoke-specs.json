@@ -26,6 +26,12 @@
     "note": "Solo, you are the host: the ball serves and flies on its own (scene changes by f2). Tap down to nudge your paddle. Draws 2 paddles + ball + 2 score texts + a banner."
   },
 
+  "time-attack": {
+    "keys": [{"frame":1,"code":3,"down":1},{"frame":1,"code":1,"down":1}],
+    "expect": {"min_draw_ops":20,"must_change_by_frame":3},
+    "note": "Roam (hold right+down) grabbing coins before the 20s timer expires. Showcases `time limit`/`timer` HUD/`when time runs out`. Timer stays 20 in 30f (won't fire); draws 8 coins + player + HUD."
+  },
+
   "flappy": {
     "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":8,"code":4,"down":1},{"frame":9,"code":4,"down":0},{"frame":14,"code":4,"down":1},{"frame":15,"code":4,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":26,"code":4,"down":1},{"frame":27,"code":4,"down":0}],
     "expect": {"min_draw_ops":2,"must_change_by_frame":4},

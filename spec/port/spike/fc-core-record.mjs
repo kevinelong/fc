@@ -997,6 +997,16 @@ function parse(source) {
       return { type: 'every', n: Number(raw[1].value), unit, body: [], lineNum };
     }
 
+    // -- time limit is N seconds  (optional match countdown; sets `timer` + `when time runs out`) --
+    if (first === 'time' && raw[1] && tv(raw[1]) === 'limit') {
+      const isIdx = raw.findIndex(t => tv(t) === 'is');
+      let body = isIdx >= 0 ? raw.slice(isIdx + 1) : raw.slice(2);
+      let unit = 'seconds';
+      if (body.length && tv(body[body.length - 1]) === 'seconds') body = body.slice(0, -1);
+      else if (body.length && tv(body[body.length - 1]) === 'frames') { unit = 'frames'; body = body.slice(0, -1); }
+      return { type: 'time_limit', value: parseExpression(body), unit, lineNum };
+    }
+
     // -- jump X [by N]  (upward velocity impulse; pairs with `gravity is N`) --
     if (first === 'jump') {
       const target = raw[1] ? raw[1].value : 'player';
@@ -1371,6 +1381,11 @@ function parse(source) {
   function parseWhen(raw, lineNum) {
     // when "key" is pressed / when mouse is clicked / when key is in [...]
     const rest = raw.slice(1);
+    // when time runs out  (the optional match timer reached zero)
+    if (rest.length >= 3 && tv(rest[0]) === 'time' && tv(rest[1]) === 'runs' && tv(rest[2]) === 'out') {
+      const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
+      return { type: 'when_timeout', thenStmt: action, body: [], lineNum };
+    }
     // when "space" is pressed
     if (rest.length >= 3 && rest[0].type === 'string' && tv(rest[1]) === 'is' && tv(rest[2]) === 'pressed') {
       const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
@@ -2096,7 +2111,7 @@ class Runtime {
     this.keyState = {};
     this.keyJustPressed = {};
     this.mouseState = { x: 0, y: 0, down: false, clicked: false };
-    this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.eventHandlers = { key: {}, key_in: [], mouse: {}, timeout: null }; this.timeLimitFrames = undefined; this.timeoutFired = false;
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.tileDefs = {};
     this.map = null;
@@ -2134,7 +2149,7 @@ class Runtime {
     this.animFrame = null;
     this._rafId = null;
     this._watchdog = null;
-    this.eventHandlers = { key: {}, key_in: [], mouse: {} };
+    this.eventHandlers = { key: {}, key_in: [], mouse: {}, timeout: null }; this.timeLimitFrames = undefined; this.timeoutFired = false;
     this.tags = { solid: [], pickups: [], hostile: [], deadly: [], passable: [] };
     this.tileDefs = {};
     this.map = null;
@@ -2602,6 +2617,20 @@ class Runtime {
 
         case 'when_key': {
           this.eventHandlers.key[stmt.key.toLowerCase()] = stmt;
+          break;
+        }
+
+        case 'when_timeout': {
+          this.eventHandlers.timeout = stmt;
+          break;
+        }
+
+        case 'time_limit': {
+          const secs = Number(this.evalExpr(stmt.value)) || 0;
+          this.timeLimitFrames = Math.max(0, Math.round(stmt.unit === 'seconds' ? secs * 60 : secs));
+          this.timeLeftFrames = this.timeLimitFrames;
+          this.timeoutFired = false;
+          this.vars.timer = Math.ceil(this.timeLeftFrames / 60);
           break;
         }
 
@@ -3293,6 +3322,17 @@ class Runtime {
       // expose live multiplayer state to fc programs each frame
       self.vars.peers = NET.peers;
       self.vars.connected = NET.connected();
+      // optional match timer: tick down once/frame, expose `timer` (whole seconds
+      // left), fire `when time runs out` once at zero. No limit set -> no-op.
+      if (typeof self.timeLimitFrames === 'number') {
+        if (self.timeLeftFrames > 0) self.timeLeftFrames--;
+        self.vars.timer = Math.max(0, Math.ceil(self.timeLeftFrames / 60));
+        if (self.timeLeftFrames <= 0 && !self.timeoutFired) {
+          self.timeoutFired = true;
+          const h = self.eventHandlers.timeout;
+          if (h) { if (h.thenStmt) self.exec([h.thenStmt]); if (h.body && h.body.length) self.exec(h.body); }
+        }
+      }
       // Process "when key" event handlers
       for (const [key, handler] of Object.entries(self.eventHandlers.key)) {
         if (self.keyState[key]) {
