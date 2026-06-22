@@ -134,10 +134,10 @@ function setCookie(res, name, value, maxAgeMs) {
 function clearCookie(res, name) { setCookie(res, name, '', 0); }
 function json(res, code, obj) { const b = JSON.stringify(obj); res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(b); }
 function redirect(res, to) { res.writeHead(302, { Location: to }); res.end(); }
-function readBody(req) {
+function readBody(req, max = 1e4) {
   return new Promise((resolve) => {
     let data = ''; let tooBig = false;
-    req.on('data', c => { data += c; if (data.length > 1e4) { tooBig = true; req.destroy(); } });
+    req.on('data', c => { data += c; if (data.length > max) { tooBig = true; req.destroy(); } });
     req.on('end', () => { if (tooBig) return resolve({}); try { resolve(JSON.parse(data || '{}')); } catch (_) { resolve({}); } });
     req.on('error', () => resolve({}));
   });
@@ -328,7 +328,7 @@ const server = http.createServer(async (req, res) => {
       if (!csrfOk) return json(res, 403, { error: 'bad request' });
       const user = sessionUser(parseCookies(req)[COOKIE]);
       if (!user) return json(res, 401, { error: 'sign in to publish' });
-      const body = await readBody(req);
+      const body = await readBody(req, 32 * 1024);   // games can be up to 16KB; allow headroom for JSON envelope
       const code = String(body.code || '');
       if (!code.trim()) return json(res, 400, { error: 'nothing to publish' });
       if (code.length > 16000) return json(res, 400, { error: 'game too big to publish (16 KB max)' });

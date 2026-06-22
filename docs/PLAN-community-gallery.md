@@ -1,8 +1,28 @@
-# Plan — Community gallery (publish & browse user games)
+# Community gallery — STATUS: SHIPPED (verified live 2026-06-22)
+
+**Already built and live**, both ends:
+- Backend (`apid/server.js`): `GET /api/games/community` (last 60, `mine` flag),
+  `POST /api/games/publish` (sign-in required · 16KB cap · name sanitized · 20-per-
+  user + 500-total caps), `DELETE /api/games/community/:id` (your own only).
+- Frontend (`index.html`): a `🌐 publish` button (signed-in users) and a community
+  shelf in the launcher (`renderCommunity()`) that loads a game on click + delete-
+  your-own.
+
+Moderation model = **sign-in + post-moderation** (delete-your-own + caps + name
+filter), NOT the curated/pre-approval flow this doc originally proposed. Fix landed
+2026-06-22: publish advertised 16KB but `readBody` truncated at 10KB → raised the
+publish body cap to 32KB so the stated limit actually works.
+
+**The one open decision** (unchanged): move to **curated/pre-moderation** (a
+`status:'pending'` gate + an admin approve action + an admin identity in `.env`)
+if you want approval-before-visible for a kids-facing audience. That's a deliberate
+UX + trust change, so it stays a decision — the current live model is post-moderation.
+
+---
+Original plan (for reference / the curated path, if chosen):
 
 Goal: let players publish a game from the editor and browse others' published
-games in the launcher. **Decision-gated** — it needs a backend + moderation
-stance, which is why it's a plan, not yet built.
+games in the launcher.
 
 ## What already exists (reuse)
 - Cloud saves (signed-in state sync) — there is already an authenticated backend
