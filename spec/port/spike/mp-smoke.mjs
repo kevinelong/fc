@@ -68,6 +68,14 @@ const SCENARIOS = {
   // model handles authoritative shared state via id-election (NO engine change). No
   // input needed — the host serves, the ball flies, and the client must track it.
   'pong-online': { N: 24, seeds: [0, 1], keys: [[], []], mechanic: 'pong-sync', minDraw: 4 },
+
+  // Joust. Seeds 0/1 spawn P0 at x=41 (left), P1 at x=76 (right). P0 holds right and
+  // flaps often (stays HIGH); P1 holds left and flaps rarely (sinks LOW). They meet
+  // mid-arena and P0, being above, unseats P1 — P0.score 0->1. Proves the flap/gravity
+  // physics + the height-based joust collision across two instances.
+  'joust': { N: 46, seeds: [0, 1], mechanic: 'joust', minDraw: 3,
+    keys: [ [{ frame: 1, code: 3, down: 1 }, { frame: 2, code: 4, down: 1 }, { frame: 3, code: 4, down: 0 }, { frame: 8, code: 4, down: 1 }, { frame: 9, code: 4, down: 0 }, { frame: 14, code: 4, down: 1 }, { frame: 15, code: 4, down: 0 }, { frame: 20, code: 4, down: 1 }, { frame: 21, code: 4, down: 0 }, { frame: 26, code: 4, down: 1 }, { frame: 27, code: 4, down: 0 }, { frame: 32, code: 4, down: 1 }, { frame: 33, code: 4, down: 0 }],
+            [{ frame: 1, code: 2, down: 1 }, { frame: 2, code: 4, down: 1 }, { frame: 3, code: 4, down: 0 }, { frame: 26, code: 4, down: 1 }, { frame: 27, code: 4, down: 0 }] ] },
 };
 
 // --- wasm pair: run two wired instances, return per-frame draws + peer streams + broadcast tags ---
@@ -176,6 +184,16 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
       if (scorer < 0) fails.push('mechanic: no frag observed (bullet never hit a peer)');
       else spec._detail = `p${scorer} fragged a peer @frame ${at + 1} (frags 0->${wp.state[scorer][at].frags})`;
     }
+    if (spec.mechanic === 'joust') {
+      // a knight unseats a rival from above -> its broadcast `score` rises from 0
+      let scorer = -1, at = -1;
+      for (let p = 0; p < 2 && scorer < 0; p++) {
+        const st = wp.state[p];
+        for (let f = 1; f < spec.N; f++) if (st[f - 1] && st[f] && (st[f].score | 0) > (st[f - 1].score | 0)) { scorer = p; at = f; break; }
+      }
+      if (scorer < 0) fails.push('mechanic: no joust observed (no knight unseated a rival)');
+      else spec._detail = `p${scorer} unseated a rival @frame ${at + 1} (score 0->${wp.state[scorer][at].score})`;
+    }
     if (spec.mechanic === 'pong-sync') {
       const fin = [wp.state[0].at(-1), wp.state[1].at(-1)];
       const hp = (fin[0] && fin[0].host) ? 0 : 1, cp = 1 - hp;   // host vs client instance
@@ -208,7 +226,7 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
   if (fails.length === 0) {
     pass++;
     const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)`
-      : ['crash', 'frag', 'pong-sync'].includes(spec.mechanic) ? ` · ${spec._detail}` : ' · parity+determinism';
+      : ['crash', 'frag', 'pong-sync', 'joust'].includes(spec.mechanic) ? ` · ${spec._detail}` : ' · parity+determinism';
     out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}${spec._clock || ''}`);
   } else { fail++; out.push(`FAIL  ${game.padEnd(10)} ` + fails.join(' | ')); }
 }

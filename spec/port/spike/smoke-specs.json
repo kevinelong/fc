@@ -32,6 +32,12 @@
     "note": "Roam (hold right+down) grabbing coins before the 20s timer expires. Showcases `time limit`/`timer` HUD/`when time runs out`. Timer stays 20 in 30f (won't fire); draws 8 coins + player + HUD."
   },
 
+  "joust": {
+    "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":3,"code":3,"down":1},{"frame":10,"code":4,"down":1},{"frame":11,"code":4,"down":0},{"frame":18,"code":4,"down":1},{"frame":19,"code":4,"down":0}],
+    "expect": {"min_draw_ops":3,"must_change_by_frame":2},
+    "note": "Solo (no rival): flap (space) against gravity + drift right. Bird's y changes by f2 from gravity/flap. Draws ground + bird + HUD + waiting banner."
+  },
+
   "flappy": {
     "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":8,"code":4,"down":1},{"frame":9,"code":4,"down":0},{"frame":14,"code":4,"down":1},{"frame":15,"code":4,"down":0},{"frame":20,"code":4,"down":1},{"frame":21,"code":4,"down":0},{"frame":26,"code":4,"down":1},{"frame":27,"code":4,"down":0}],
     "expect": {"min_draw_ops":2,"must_change_by_frame":4},

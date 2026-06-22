@@ -24,6 +24,7 @@ const wait = ms => ({ wait: ms });
 const RECIPES = {
   cycles: [wait(250), press('ArrowDown', 1), wait(450)],   // ride inward, one bend, still alive
   'pong-online': [wait(120), press('ArrowDown', 2), wait(380)],   // ball mid-flight, paddle nudged
+  joust: [wait(100), press('Space', 2, 140), press('ArrowRight', 3, 90), wait(200)],   // bird aloft, mid-drift
   // add more games here to (re)capture them with this tool
 };
 

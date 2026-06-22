@@ -1,0 +1,76 @@
+-- JOUST  ·  multiplayer flying duel.  Flap (SPACE / tap) to fly, left/right to steer.
+-- Ram a rival from ABOVE to unseat them and score; get hit from above and you drop.
+-- Open on two devices in the same room. Click the screen first so it hears the keys.
+
+join game "joust" room "arena"
+
+-- gravity + jump act on the `player`, so our knight IS the player (like Flappy)
+gravity is 0.2
+player is {x: 64, y: 50, dy: 0, id: 0, alive: yes, score: 0, hurt: 0, dead: 0}
+player.x is 16 + random 96
+player.id is random 100000
+
+define sound "flap" as square from 300 to 600 over 0.05
+define sound "joust" as noise from 800 to 90 over 0.2
+
+when "space" is pressed
+  if player.alive
+    jump player 2.2
+    play sound "flap"
+when mouse is clicked
+  if player.alive
+    jump player 2.2
+
+to update
+  if player.alive
+    if key "left" player.x is player.x - 1.2
+    if key "right" player.x is player.x + 1.2
+    if player.x < 2 player.x is 2
+    if player.x > 118 player.x is 118
+    if player.hurt > 0
+      player.hurt is player.hurt - 1
+
+    -- the joust: overlap a rival and the HIGHER knight unseats the lower one
+    each foe in peers
+      if foe.alive
+        if foe.x > player.x - 8 and foe.x < player.x + 8
+          if foe.y > player.y - 8 and foe.y < player.y + 8
+            if player.hurt is 0
+              if player.y < foe.y
+                add 1 to player.score
+                player.hurt is 30
+                play sound "joust"
+              if player.y > foe.y
+                player.alive is no
+                player.dead is 40
+                player.hurt is 30
+  else
+    -- unseated: drop, then respawn back up top
+    player.dead is player.dead - 1
+    if player.dead <= 0
+      player.x is 16 + random 96
+      player.y is 16
+      player.dy is 0
+      player.alive is yes
+
+  broadcast {x: player.x, y: player.y, id: player.id, alive: player.alive, score: player.score}
+
+to draw
+  clear screen to dark blue
+  draw rect at 0, 122 size 128, 6 in brown
+  -- rivals (red) with their scores
+  each foe in peers
+    if foe.alive
+      draw rect at foe.x, foe.y size 6, 6 in red
+      write "{foe.score}" at foe.x, foe.y - 7 in white on hud
+  -- me: yellow flying, gray while downed
+  if player.alive
+    draw rect at player.x, player.y size 6, 6 in yellow
+  else
+    draw rect at player.x, player.y size 6, 6 in dark gray
+  write "you {player.score}" at 4, 2 in yellow on hud
+  others is the number of peers
+  if others is 0
+    write "waiting for a rival..." at 16, 110 in white on hud
+
+run game with update and draw
