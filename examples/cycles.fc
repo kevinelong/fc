@@ -1,100 +1,122 @@
 -- LIGHT CYCLES  ·  multiplayer (Tron / Atari "Surround").  Arrows / D-pad to steer.
 -- You leave a wall of light behind you. Don't hit a wall, your own trail, or anyone
--- else's. Last rider alive wins the round. Open on two devices in the same room.
--- Click the screen first so it hears the keys.
+-- else's. Last rider alive wins the round. Now a TIMED MATCH: most round-wins when
+-- the clock hits zero takes the game. Open on two devices. Click the screen first.
 
 join game "cycles" room "grid"
 
 step is 4
 
+mode is "play"
 -- everyone rides on the SAME 4px grid (cells 1..29) so trails line up exactly
 cx is 1 + random 28
 cy is 1 + random 28
-me is {x: 0, y: 0, dx: 4, dy: 0, alive: yes, dead: 0, wins: 0, claimed: no, trail: []}
+me is {x: 0, y: 0, dx: 4, dy: 0, alive: yes, dead: 0, wins: 0, claimed: no, trail: [], id: 0, host: no, clock: 0}
 me.x is cx * 4
 me.y is cy * 4
+me.id is random 100000
 -- head toward the middle so you don't start facing a wall
 if me.x > 64
   me.dx is 0 - step
 
+-- optional match timer (the lowest-id player owns the authoritative clock)
+time limit is 30 seconds
+
 define sound "crash" as noise from 900 to 60 over 0.3
 
+when time runs out
+  mode is "over"
+
 to update
-  if me.alive
-    -- steer: you can only turn onto the OTHER axis (no instant reverse)
-    if key "up"
-      if me.dy is 0
-        me.dx is 0
-        me.dy is 0 - step
-    if key "down"
-      if me.dy is 0
-        me.dx is 0
-        me.dy is step
-    if key "left"
-      if me.dx is 0
-        me.dx is 0 - step
-        me.dy is 0
-    if key "right"
-      if me.dx is 0
-        me.dx is step
-        me.dy is 0
+  -- host election: lowest id owns the clock and shares it; others adopt it
+  amhost is yes
+  each peer in peers
+    if peer.id < me.id
+      amhost is no
+  me.host is amhost
+  if amhost
+    me.clock is timer
+  else
+    each peer in peers
+      if peer.host
+        me.clock is peer.clock
 
-    -- advance one cell on a cadence (this is the cycle's speed)
-    every 3 frames
-      add {x: me.x, y: me.y} to me.trail
-      me.x is me.x + me.dx
-      me.y is me.y + me.dy
+  if mode is "play"
+    if me.alive
+      -- steer: you can only turn onto the OTHER axis (no instant reverse)
+      if key "up"
+        if me.dy is 0
+          me.dx is 0
+          me.dy is 0 - step
+      if key "down"
+        if me.dy is 0
+          me.dx is 0
+          me.dy is step
+      if key "left"
+        if me.dx is 0
+          me.dx is 0 - step
+          me.dy is 0
+      if key "right"
+        if me.dx is 0
+          me.dx is step
+          me.dy is 0
 
-      -- hit the arena edge?
-      if me.x < 4 or me.x > 116 or me.y < 4 or me.y > 116
-        me.alive is no
-      -- crossed my own wall?
-      each seg in me.trail
-        if seg.x is me.x and seg.y is me.y
+      -- advance one cell on a cadence (this is the cycle's speed)
+      every 3 frames
+        add {x: me.x, y: me.y} to me.trail
+        me.x is me.x + me.dx
+        me.y is me.y + me.dy
+
+        -- hit the arena edge?
+        if me.x < 4 or me.x > 116 or me.y < 4 or me.y > 116
           me.alive is no
-      -- crossed someone else's wall (or rammed them head-on)?
-      each foe in peers
-        if foe.x is me.x and foe.y is me.y
-          me.alive is no
-        each seg in foe.trail
+        -- crossed my own wall?
+        each seg in me.trail
           if seg.x is me.x and seg.y is me.y
             me.alive is no
+        -- crossed someone else's wall (or rammed them head-on)?
+        each foe in peers
+          if foe.x is me.x and foe.y is me.y
+            me.alive is no
+          each seg in foe.trail
+            if seg.x is me.x and seg.y is me.y
+              me.alive is no
 
-      if me.alive is no
-        me.dead is 50
-        play sound "crash"
-  else
-    -- crashed: count down, then respawn for a fresh round
-    me.dead is me.dead - 1
-    if me.dead <= 0
-      cx is 1 + random 28
-      cy is 1 + random 28
-      me.x is cx * 4
-      me.y is cy * 4
-      me.dx is step
-      me.dy is 0
-      if me.x > 64
-        me.dx is 0 - step
-      me.trail is []
-      me.alive is yes
-      me.claimed is no
+        if me.alive is no
+          me.dead is 50
+          play sound "crash"
+    else
+      -- crashed: count down, then respawn for a fresh round
+      me.dead is me.dead - 1
+      if me.dead <= 0
+        cx is 1 + random 28
+        cy is 1 + random 28
+        me.x is cx * 4
+        me.y is cy * 4
+        me.dx is step
+        me.dy is 0
+        if me.x > 64
+          me.dx is 0 - step
+        me.trail is []
+        me.alive is yes
+        me.claimed is no
 
-  -- if I'm the last one standing this round, take the win (once)
-  if me.alive
-    if me.claimed is no
-      others is the number of peers
-      down is 0
-      each foe in peers
-        if foe.alive is no
-          down is down + 1
-      if others > 0
-        if down is others
-          me.wins is me.wins + 1
-          me.claimed is yes
+    -- if I'm the last one standing this round, take the win (once)
+    if me.alive
+      if me.claimed is no
+        others is the number of peers
+        down is 0
+        each foe in peers
+          if foe.alive is no
+            down is down + 1
+        if others > 0
+          if down is others
+            me.wins is me.wins + 1
+            me.claimed is yes
 
-  -- share my head + my whole wall a few times a second
+  -- share my head + my whole wall + host clock a few times a second
   every 2 frames
-    broadcast {x: me.x, y: me.y, alive: me.alive, wins: me.wins, trail: me.trail}
+    broadcast {x: me.x, y: me.y, alive: me.alive, wins: me.wins, id: me.id, host: me.host, clock: me.clock, trail: me.trail}
 
 to draw
   clear screen to black
@@ -112,9 +134,21 @@ to draw
     draw rect at me.x, me.y size 4, 4 in red
 
   others is the number of peers
-  if me.alive
-    write "wins {me.wins}  ·  {others} rivals" at 4, 2 in white on hud
-  else
-    write "CRASHED - respawning..." at 4, 2 in red on hud
+  if mode is "play"
+    write "wins {me.wins}" at 4, 2 in white on hud
+    if me.clock < 6
+      write "time {me.clock}" at 78, 2 in red on hud
+    else
+      write "time {me.clock}" at 78, 2 in yellow on hud
+  if mode is "over"
+    best is me.wins
+    each foe in peers
+      if foe.wins > best
+        best is foe.wins
+    if me.wins >= best
+      write "TIME! you win" at 28, 50 in green on hud
+    else
+      write "TIME! you lose" at 28, 50 in red on hud
+    write "wins {me.wins}" at 42, 62 in white on hud
 
 run game with update and draw

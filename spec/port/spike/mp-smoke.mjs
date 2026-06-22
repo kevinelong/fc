@@ -41,7 +41,7 @@ const hold = codes => codes.map(c => ({ frame: 1, code: c, down: 1 }));
 const SCENARIOS = {
   // Both dots march into the top-left corner (up+left); they pile onto (2,2),
   // so the runner ends up within 6px of "it" and gets tagged.
-  'mp-dots': { N: 90, seeds: [0, 1], keys: [hold([0, 2]), hold([0, 2])], mechanic: 'tag-transfer', minDraw: 2 },
+  'mp-dots': { N: 200, seeds: [0, 1], keys: [hold([0, 2]), hold([0, 2])], mechanic: 'tag-transfer', checkClock: true, minDraw: 2 },
   // Maze deathmatch. A scripted frag across two instances is too fragile to line
   // up (aim + kill-mark window + victim detect), so here we only assert that the
   // two wired instances stay in JS<->wasm parity, are deterministic, and keep
@@ -187,6 +187,19 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
       else if (!(clientChanged && clientTracksHost)) fails.push('mechanic: client did not mirror the host ball (shared object not synced)');
       else spec._detail = `host=p${hp}; ball moved (${distinctH} positions), client mirrored it`;
     }
+    if (spec.checkClock) {
+      // authoritative match clock: host's `clock` ticks down + the client mirrors it
+      const fin = [wp.state[0].at(-1), wp.state[1].at(-1)];
+      const hp = (fin[0] && fin[0].host) ? 0 : 1, cp = 1 - hp;
+      const H = wp.state[hp].filter(Boolean).map(s => s.clock).filter(v => typeof v === 'number');
+      const C = wp.state[cp].filter(Boolean).map(s => s.clock).filter(v => typeof v === 'number');
+      const counted = H.length >= 2 && H[H.length - 1] < H[0];
+      const hostSet = new Set(H);
+      const clientTracks = C.some(v => v > 0 && hostSet.has(v));
+      if (!counted) fails.push(`clock: host clock did not count down (${H[0]} -> ${H.at(-1)})`);
+      else if (!clientTracks) fails.push('clock: client did not mirror the host clock');
+      else spec._clock = ` · clock ${H[0]}->${H.at(-1)} (host p${hp}), client synced`;
+    }
     // DETERMINISM: re-run the wired session, expect identical draws
     let wp2; try { wp2 = await runWasmPair(src, spec.N, spec.seeds, kms); } catch (e) { fails.push(`determinism re-run trap: ${e.message}`); }
     if (wp2) for (let p = 0; p < 2; p++) { const d = firstDiff(wp.draws[p], wp2.draws[p]); if (d >= 0) fails.push(`nondeterministic p${p} @frame ${d + 1}`); }
@@ -196,7 +209,7 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
     pass++;
     const extra = spec.mechanic === 'tag-transfer' ? ` · tag ${wp.bcastTag[0][0]}/${wp.bcastTag[1][0]} -> ${wp.bcastTag[0].at(-1)}/${wp.bcastTag[1].at(-1)} (transfer ok)`
       : ['crash', 'frag', 'pong-sync'].includes(spec.mechanic) ? ` · ${spec._detail}` : ' · parity+determinism';
-    out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}`);
+    out.push(`PASS  ${game.padEnd(10)} 2 wired instances · ${spec.N}f${extra}${spec._clock || ''}`);
   } else { fail++; out.push(`FAIL  ${game.padEnd(10)} ` + fails.join(' | ')); }
 }
 
