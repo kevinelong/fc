@@ -137,3 +137,35 @@ first; a real curriculum; possibly grants/CSR. **Metric.** schools licensed, sea
 You can't monetize an audience you don't have, so appeal (A) precedes revenue (B);
 and the same teacher investment (A3) is the on-ramp to the only durable revenue
 (B3). Free-for-learners is both the ethic and the flywheel.
+
+---
+
+## Appeal build queue — "meanwhile" (no accounts/gates needed)
+Already shipped this arc: gallery empty-state, For Teachers page + Lesson 1, moving
+starter, Support link. Already present (don't rebuild): recipes (learn/ HOW-TO),
+share/embed (🔗 share), "Your Turn" challenges (learn/). The buildable-now queue:
+
+- **A · "Remix these" shelf** (flywheel seed). 5–6 *tiny, tweak-friendly* games on
+  the home, each with an explicit "your turn: change X" hint, that open straight
+  into the editor (not just play). Inline in `index.html` (code as strings, like
+  the New-Game starter) — no new files, no test-suite entanglement. Each verified
+  to run clean through the engine. *Why:* the create-loop is empty; this gives a
+  first-timer an obvious next move after the bouncing-ball starter and seeds the
+  publish habit. *Metric:* remix-tile opens → edits.
+- **B · Juicy demos** (broaden the "wow"). 1–2 flashy single-player examples
+  (particle arcade shooter; simple gravity platformer). Full pipeline: `examples/`,
+  launcher tile + icon, thumbnail, visual golden, smoke spec, idle parity 1:1.
+  *Why:* only `maze` uses particles today; flashier demos showcase the engine and
+  are short-form-video fodder. *Metric:* demo opens, share clicks.
+- **C · Featured ordering.** Lead the grid with the strongest demos (multiplayer +
+  juicy). Light frontend. *Why:* best-first lifts first-impression.
+- **D · Teacher Lessons 2 & 3.** Build on the For Teachers page: enemies/avoidance,
+  then title screens & menus (or a 2-player multiplayer lesson). Lesson code
+  verified. *Why:* the multiplier audience; also the school-sales depth.
+- **E · Printable cheat-sheet.** A one-page, print-friendly commands + game-loop
+  skeleton for a classroom handout. *Why:* teachers want a paper artifact.
+- **F · Projects page** (`/projects/`). Guided "build a Snake / shooter / platformer"
+  mini-projects — a step up from one-off recipes. *Why:* depth for hobbyists +
+  self-directed learners.
+
+Build order: A + C (home flywheel) → B (wow) → D + E (teachers) → F (depth).

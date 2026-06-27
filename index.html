@@ -162,6 +162,12 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
 .lr-tile .del:hover { color: #ff6a6a; }
 #lr-community { display: none; max-width: 480px; margin: 0 auto 12px; }
+#lr-remix { max-width: 720px; margin: 0 auto 14px; }
+.lr-remix-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.lr-remix-tile { flex: 1 1 128px; min-width: 116px; background: #1b1710; border: 1px solid #5a4a28; border-radius: 7px; padding: 8px 10px; cursor: pointer; transition: border-color .12s; }
+.lr-remix-tile:hover { border-color: #c8a96e; }
+.lr-remix-tile .rn { color: #ffec27; font-size: 13px; font-weight: 600; }
+.lr-remix-tile .rh { color: #8a7340; font-size: 11px; margin-top: 2px; line-height: 1.35; }
 #lr-foot { max-width: 720px; margin: 26px auto 0; color: #8a7340; font-size: 12px; border-top: 1px solid #3a2f18; padding-top: 12px; line-height: 1.6; }
 #lr-foot a { color: #c8a96e; }
 #lr-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -303,6 +309,7 @@ body.touch.playing #back-btn {
       <button type="button" id="lr-new">+ New Game</button>
     </div>
   </div>
+  <div id="lr-remix"></div>
   <div id="lr-yours"></div>
   <div id="lr-community"></div>
   <div id="lr-grid"></div>
@@ -5103,6 +5110,33 @@ run game with update and draw`;
     }
     window.fcRenderCommunity = renderCommunity;
     renderCommunity();
+
+    // ✨ Remix-these shelf — tiny tweak-friendly games that open straight into the
+    // editor with a "change this" hint. Seeds the create-loop for first-timers.
+    const REMIX = [
+      { name: 'Move me', hint: 'change the color or size', code: 'hero is {x: 64, y: 64}\nto update\n  move hero with arrows\nto draw\n  clear screen to dark blue\n  write "use arrow keys!" at 30, 8 in white on hud\n  draw circle at hero.x, hero.y size 9 in yellow\nrun game with update and draw' },
+      { name: 'Falling star', hint: 'make it faster: the 2', code: 'y is 0\nto update\n  y is y + 2\n  if y > 128\n    y is 0\nto draw\n  clear screen to black\n  draw circle at 64, y size 6 in yellow\n  write "make it faster: change the 2" at 6, 8 in white on hud\nrun game with update and draw' },
+      { name: 'Sparkles', hint: 'change 12, or the color', code: 'to update\n  every 10 frames\n    burst 12 sparks at 64, 64 in yellow\nto draw\n  clear screen to dark purple\n  write "change 12, or yellow!" at 18, 8 in white on hud\nrun game with update and draw' },
+      { name: 'Make a sign', hint: 'change the words', code: 'clear screen to dark blue\nwrite "HELLO!" at 44, 54 in yellow on hud\nwrite "change the words above" at 22, 68 in white on hud' },
+      { name: 'Bouncer', hint: 'change the bounce: 2', code: 'ball is {y: 20, dy: 2}\nto update\n  ball.y is ball.y + ball.dy\n  if ball.y > 118\n    ball.dy is 0 - 2\n  if ball.y < 8\n    ball.dy is 2\nto draw\n  clear screen to black\n  draw circle at 64, ball.y size 8 in red\n  write "change the bounce: 2" at 20, 8 in white on hud\nrun game with update and draw' },
+    ];
+    function renderRemix() {
+      const wrap = document.getElementById('lr-remix'); if (!wrap) return;
+      wrap.innerHTML = '';
+      const sub = document.createElement('div'); sub.className = 'lr-sub2';
+      sub.textContent = '✨ Remix these — open one and change a line';
+      wrap.appendChild(sub);
+      const row = document.createElement('div'); row.className = 'lr-remix-row';
+      REMIX.forEach(g => {
+        const t = document.createElement('div'); t.className = 'lr-remix-tile';
+        const nm = document.createElement('div'); nm.className = 'rn'; nm.textContent = g.name; t.appendChild(nm);
+        const h = document.createElement('div'); h.className = 'rh'; h.textContent = '✏️ ' + g.hint; t.appendChild(h);
+        t.onclick = () => { loadAndRun(g.code, false); setGameDesc({ name: g.name, desc: 'remix it — ' + g.hint }); if (!isTouch) editor.focus(); };
+        row.appendChild(t);
+      });
+      wrap.appendChild(row);
+    }
+    renderRemix();
   })();
 
   // --- Quick Help overlay + tap-to-load starter programs (inline, offline-safe) ---
