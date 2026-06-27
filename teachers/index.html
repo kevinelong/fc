@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codeonline.io for teachers — plain-English coding for the classroom</title>
+<meta name="description" content="A free, no-install, plain-English way to teach coding by making games. Runs on Chromebooks and phones, works offline, multiplayer built in.">
+<style>
+  :root { --bg:#14110a; --panel:#1b1710; --ink:#d8c9a8; --muted:#8a7340; --gold:#c8a96e; --hi:#ffec27; --line:#3a2f18; --good:#9f9; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+  a { color:var(--gold); }
+  h1 { font-size:30px; margin:0 0 6px; color:#f0e6cf; }
+  h2 { font-size:20px; margin:34px 0 10px; color:var(--hi); border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:16px; margin:18px 0 4px; color:var(--gold); }
+  .sub { color:var(--muted); margin:0 0 18px; }
+  .lead { font-size:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:14px 0; }
+  .cta { display:inline-block; background:#10240f; color:var(--good); border:1px solid #2c6e2c; border-radius:6px; padding:9px 15px; text-decoration:none; font-weight:600; margin:4px 8px 4px 0; }
+  .cta.alt { background:#241c0f; color:var(--hi); border-color:#5a4a28; }
+  ul { padding-left:20px; } li { margin:3px 0; }
+  ol.steps > li { margin:10px 0; }
+  code { background:#241c0f; color:#ffd9a0; padding:1px 5px; border-radius:3px; font-size:14px; }
+  pre { background:#0d0b06; border:1px solid var(--line); border-radius:6px; padding:12px; overflow:auto; color:#cbeccb; font-size:13px; line-height:1.5; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
+  .foot { color:var(--muted); font-size:13px; border-top:1px solid var(--line); margin-top:40px; padding-top:14px; }
+  .pill { display:inline-block; background:#241c0f; border:1px solid var(--line); border-radius:20px; padding:2px 10px; font-size:12px; color:var(--gold); margin:2px 4px 2px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="sub"><a href="/">&larr; codeonline.io</a></p>
+  <h1>codeonline for classrooms</h1>
+  <p class="lead sub">Teach coding by making games — in <b style="color:var(--hi)">plain English</b>.
+  No installs, no logins required, works on the devices you already have.</p>
+
+  <p>
+    <a class="cta" href="/">Try it now</a>
+    <a class="cta alt" href="/learn/">Open the tutorial</a>
+    <a class="cta alt" href="/docs/">Command reference</a>
+  </p>
+
+  <h2>Why it works in a real classroom</h2>
+  <div class="grid">
+    <div class="panel">
+      <h3>Nothing to install</h3>
+      Runs in any browser — locked-down school Chromebooks, lab PCs, or student
+      phones. It&rsquo;s also an offline app (PWA) and an Android APK, so spotty
+      Wi-Fi won&rsquo;t stop a lesson.
+    </div>
+    <div class="panel">
+      <h3>Reads like English</h3>
+      <code>move player with arrows</code>, <code>when player picks up any coin</code>.
+      The syntax wall that stops most beginners is gone — great for younger students
+      and English-language learners.
+    </div>
+    <div class="panel">
+      <h3>Instant, visual feedback</h3>
+      Type a line, press Run, see it move. Built-in sprite, sound, and map editors
+      mean students make something they&rsquo;re proud of in one period.
+    </div>
+    <div class="panel">
+      <h3>Multiplayer built in</h3>
+      Tag, Light Cycles, Online Pong and more — two students, two phones, same room.
+      A ready-made group activity that no other beginner tool offers out of the box.
+    </div>
+  </div>
+  <p><span class="pill">Free</span><span class="pill">No account to code</span><span class="pill">Offline-capable</span><span class="pill">Phone + Chromebook</span><span class="pill">Ages ~8+</span></p>
+
+  <h2>Lesson 1 — &ldquo;Make your first game&rdquo; (45 minutes)</h2>
+  <div class="panel">
+    <b>Goal:</b> every student leaves with a tiny game they wrote and can share.<br>
+    <b>You need:</b> one device per student (or per pair), a browser, the URL
+    <code>codeonline.io</code>. No setup, no accounts.
+  </div>
+
+  <h3>Warm-up (5 min)</h3>
+  <p>Open <code>codeonline.io</code> on the board. Open the <b>Light Cycles</b> (or
+  <b>Tag</b>) demo, play 30 seconds, then click into the editor and show them: it&rsquo;s
+  just English. Change one word (a color) and Run.</p>
+
+  <h3>Build together (15 min)</h3>
+  <p>Have everyone type this and press Run:</p>
+  <pre>player is {x: 60, y: 60, image: "hero"}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+score is 0
+
+when player picks up any coin
+  add 1 to score
+
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  each coin in coins
+    draw sprite "coin" at coin.x, coin.y
+  draw sprite player at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+run game with update and draw</pre>
+  <p>Walk through it line by line — it reads like a description of the game. Click
+  the screen, use the arrow keys, collect coins.</p>
+
+  <h3>Make it yours (15 min)</h3>
+  <p>Challenge cards — students pick one or more:</p>
+  <ul>
+    <li>Change the hero and coin <b>sprites</b> (open the pixel editor).</li>
+    <li>Add a <b>time limit</b>: <code>time limit is 30 seconds</code> and
+        <code>when time runs out</code> &rarr; show &ldquo;TIME UP&rdquo;.</li>
+    <li>Add a <b>sound</b> on pickup: <code>play sound "coin"</code>.</li>
+    <li>Make the coins <b>more</b> or change the world size.</li>
+  </ul>
+
+  <h3>Share (10 min)</h3>
+  <p>Each student copies their <b>share link</b> (or, signed in, hits
+  <b style="color:var(--good)">&#127760; publish</b>) and trades with a partner to
+  play. Quick gallery walk: a few volunteers show theirs on the board.</p>
+
+  <div class="panel"><b>Extension / next lessons:</b> enemies you avoid
+  (<code>hostile</code> tags), a title screen and menus, a two-player multiplayer
+  game, scoring and high-score saving. The <a href="/docs/">reference</a> has a
+  runnable example for every command, and <a href="/learn/">the tutorial</a> is a
+  self-paced path students can follow independently.</div>
+
+  <h2>Privacy &amp; safety</h2>
+  <ul>
+    <li><b>No account is needed to code.</b> Programs run locally in the browser;
+        students can learn and build without signing in or giving any personal info.</li>
+    <li><b>Sign-in is optional</b> — only to save your games to the cloud or publish
+        to the community gallery. The published gallery is moderated (anyone can
+        report; authors and admins can remove).</li>
+    <li><b>Coming for schools:</b> a no-account <b>classroom code</b> mode — students
+        join a class with a code and a display name, no email, no personal data — so
+        it fits COPPA/FERPA expectations out of the box.</li>
+  </ul>
+
+  <h2>Want it for your school?</h2>
+  <p>A classroom dashboard (rosters, progress, a private class gallery) and a full
+  curriculum are on the roadmap. If you&rsquo;d like to pilot codeonline with your
+  class or school, get in touch:
+  <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">Kevin Long</a>.</p>
+
+  <p><a class="cta" href="/">Start with your class &rarr;</a></p>
+
+  <div class="foot">codeonline.io — a free, plain-English fantasy console for learning to code by making games. Made by <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">Kevin Long</a>.</div>
+</div>
+</body>
+</html>

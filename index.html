@@ -310,8 +310,10 @@ body.touch.playing #back-btn {
     Open any demo to play it and see exactly how it&rsquo;s made.&nbsp;
     <a href="/learn/">learn</a> &middot;
     <a href="/docs/">reference</a> &middot;
+    <a href="/teachers/">teachers</a> &middot;
     <a id="apk-link" href="/fc.apk" download>📱 Android app</a> &middot;
     <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a> &middot;
+    <a href="https://github.com/sponsors/kevinelong" target="_blank" rel="noopener" title="Help keep codeonline.io free + online">&#9829; support</a> &middot;
     <span id="lr-version"></span>
   </div>
 </div>
@@ -5064,9 +5066,17 @@ draw circle at 64, 80 size 10 in yellow`;
       const wrap = document.getElementById('lr-community'); if (!wrap) return;
       fetch('/api/games/community', { credentials: 'same-origin' }).then(r => r.json()).then(d => {
         const games = (d && d.games) || [];
-        if (!games.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
         wrap.style.display = 'block'; wrap.innerHTML = '';
-        const sub = document.createElement('div'); sub.className = 'lr-sub2'; sub.textContent = 'Community'; wrap.appendChild(sub);
+        const sub = document.createElement('div'); sub.className = 'lr-sub2';
+        sub.textContent = '🌐 Community games' + (games.length ? ' — tap to play & remix' : '');
+        wrap.appendChild(sub);
+        if (!games.length) {                                   // inviting empty-state — the publish/remix loop reads even at zero content
+          const empty = document.createElement('div');
+          empty.style.cssText = 'color:#8a7340;font-size:12px;padding:4px 2px 2px';
+          empty.innerHTML = 'No games shared yet &mdash; <b>be the first!</b> Make one, then hit <b style="color:#9f9">&#127760; publish</b> in the editor to share it here.';
+          wrap.appendChild(empty);
+          return;
+        }
         const grid = document.createElement('div'); grid.className = 'lr-grid-y';
         games.forEach(g => {
           const t = document.createElement('div'); t.className = 'lr-tile community';
