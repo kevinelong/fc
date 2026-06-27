@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fc cheat sheet — codeonline.io</title>
+<style>
+  body { margin:0; background:#fff; color:#111; font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .page { max-width:900px; margin:0 auto; padding:18px 22px 30px; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; border-bottom:2px solid #111; padding-bottom:6px; margin-bottom:12px; }
+  h1 { font-size:22px; margin:0; } .top a { color:#444; font-size:12px; text-decoration:none; }
+  .cols { column-count:2; column-gap:22px; }
+  @media (max-width:620px){ .cols{ column-count:1; } }
+  .card { break-inside:avoid; border:1px solid #ccc; border-radius:6px; padding:8px 10px; margin:0 0 10px; }
+  h2 { font-size:13px; margin:0 0 5px; text-transform:uppercase; letter-spacing:.04em; color:#0a58c2; }
+  code { font-family:"SFMono-Regular",Consolas,monospace; font-size:12px; background:#f3f3f3; padding:0 3px; border-radius:3px; }
+  pre { font-family:"SFMono-Regular",Consolas,monospace; font-size:11.5px; line-height:1.35; background:#f7f7f7; border:1px solid #e2e2e2; border-radius:4px; padding:7px 8px; margin:4px 0; white-space:pre-wrap; }
+  ul { margin:4px 0; padding-left:16px; } li { margin:1px 0; }
+  .note { color:#555; font-size:11px; }
+  .print { float:right; font-size:12px; }
+  @media print { .print, .top a { display:none; } body{ font-size:11.5px; } .page{ padding:0; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <h1>fc &mdash; one-page cheat sheet</h1>
+    <span><a href="/teachers/">&larr; teachers</a> &nbsp; <a class="print" href="#" onclick="window.print();return false">🖨 print</a> &nbsp; <span class="note">codeonline.io</span></span>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h2>The game skeleton</h2>
+      <pre>to update      -- runs every frame (logic)
+  ...
+to draw        -- runs every frame (pictures)
+  clear screen to dark blue
+  ...
+run game with update and draw</pre>
+      <span class="note">Comments start with <code>--</code>. A program with no game loop just draws once.</span>
+    </div>
+
+    <div class="card">
+      <h2>Variables &amp; objects</h2>
+      <ul>
+        <li><code>score is 0</code> &mdash; a value (set with <code>is</code>)</li>
+        <li><code>add 1 to score</code> · <code>remove 1 from score</code></li>
+        <li><code>hero is {x: 64, y: 64, hp: 3}</code> &mdash; an object</li>
+        <li><code>hero.x is hero.x + 1</code> &mdash; a field</li>
+        <li><code>coins is []</code> · <code>add c to coins</code> &mdash; a list</li>
+        <li><code>each c in coins</code> &mdash; loop over a list</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Draw</h2>
+      <ul>
+        <li><code>clear screen to dark blue</code></li>
+        <li><code>draw circle at 64, 64 size 8 in red</code></li>
+        <li><code>draw rect at 10, 10 size 20, 6 in white</code></li>
+        <li><code>draw sprite "hero" at x, y</code></li>
+        <li><code>write "score {score}" at 2, 2 in white on hud</code></li>
+      </ul>
+      <span class="note">Screen is 128&times;128. <code>{ }</code> drops a value into text.</span>
+    </div>
+
+    <div class="card">
+      <h2>Decisions &amp; loops</h2>
+      <pre>if score > 10
+  write "you win!" at 40, 60 in yellow
+repeat 5 times
+  ...
+every 30 frames
+  ...
+time limit is 30 seconds
+when time runs out
+  mode is "over"</pre>
+    </div>
+
+    <div class="card">
+      <h2>Move</h2>
+      <ul>
+        <li><code>move player with arrows</code></li>
+        <li><code>gravity is 0.2</code> + <code>jump player 2.5</code></li>
+        <li><code>follow player with camera</code></li>
+        <li><code>ghosts chase player</code> · <code>bats wander</code></li>
+      </ul>
+      <span class="note">Gravity/jump act on the <code>player</code>.</span>
+    </div>
+
+    <div class="card">
+      <h2>Collisions (by rule)</h2>
+      <pre>coins are pickups
+when player picks up any coin
+  add 1 to score
+
+rocks are solid       -- blocks movement
+foes are hostile
+when player hits any foe
+  remove 1 from lives</pre>
+    </div>
+
+    <div class="card">
+      <h2>Input</h2>
+      <ul>
+        <li><code>when "space" is pressed</code> ...</li>
+        <li><code>if key "right"</code> ...</li>
+        <li><code>when mouse is clicked</code> (gives <code>mouse.x</code>, <code>mouse.y</code>)</li>
+        <li><code>show button "play" at 50, 70</code></li>
+        <li><code>when button "play" is clicked</code> · <code>go to play</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Sound &amp; sparks</h2>
+      <ul>
+        <li><code>play sound "coin"</code> (pickup, jump, shoot, hurt, win…)</li>
+        <li><code>define sound "pop" as square from 600 to 1200 over 0.06</code></li>
+        <li><code>play music "theme"</code></li>
+        <li><code>burst 10 sparks at x, y in yellow</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Colors</h2>
+      <span class="note">black, dark blue, dark green, brown, dark gray, light gray, white, red, orange, yellow, green, blue, indigo, pink, peach (&amp; cyan, magenta, purple, gold…).</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

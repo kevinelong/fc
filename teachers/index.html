@@ -40,6 +40,7 @@
     <a class="cta" href="/">Try it now</a>
     <a class="cta alt" href="/learn/">Open the tutorial</a>
     <a class="cta alt" href="/docs/">Command reference</a>
+    <a class="cta alt" href="/teachers/cheatsheet.html">&#128424; Printable cheat sheet</a>
   </p>
 
   <h2>Why it works in a real classroom</h2>
@@ -123,6 +124,96 @@ run game with update and draw</pre>
   game, scoring and high-score saving. The <a href="/docs/">reference</a> has a
   runnable example for every command, and <a href="/learn/">the tutorial</a> is a
   self-paced path students can follow independently.</div>
+
+  <h2>Lesson 2 — Add a challenge: enemies (30 minutes)</h2>
+  <div class="panel"><b>Goal:</b> add an enemy that chases the player, and lose a
+  life when it catches you. Students see that &ldquo;enemy AI&rdquo; and collisions
+  are <i>one line each</i> in fc.</div>
+  <h3>The new ideas</h3>
+  <ul>
+    <li><code>ghosts chase player</code> &mdash; built-in chase behavior (no math!).</li>
+    <li><code>ghosts are hostile</code> &mdash; tags them as dangerous.</li>
+    <li><code>when player hits any ghost</code> &mdash; runs when they touch.</li>
+  </ul>
+  <p>Build on Lesson 1 (or paste this whole game):</p>
+  <pre>world is {width: 128, height: 128}
+player is {x: 64, y: 90, image: "hero", speed: 1.5}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+score is 0
+lives is 3
+
+ghost is {x: 64, y: 16, image: "slime", speed: 0.7}
+ghosts is []
+add ghost to ghosts
+ghosts chase player
+ghosts are hostile
+
+when player picks up any coin
+  add 1 to score
+when player hits any ghost
+  remove 1 from lives
+
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  each coin in coins
+    draw sprite "coin" at coin.x, coin.y
+  each g in ghosts
+    draw sprite "slime" at g.x, g.y
+  draw sprite player at player.x, player.y
+  write "score {score}  lives {lives}" at 2, 2 in white on hud
+run game with update and draw</pre>
+  <p><b>Discuss:</b> the slime <i>follows</i> the player because of one English line.
+  Ask students to make it faster (<code>speed</code>), add a second ghost, or end
+  the game when <code>lives</code> hits 0.</p>
+
+  <h2>Lesson 3 — A title screen &amp; sharing (20 minutes)</h2>
+  <div class="panel"><b>Goal:</b> add a start menu, then share the finished game.
+  Introduces <b>screens</b> (a game can have more than one).</div>
+  <h3>The new ideas</h3>
+  <ul>
+    <li><code>mode is "title"</code> &mdash; which screen we&rsquo;re on.</li>
+    <li><code>to screen title</code> / <code>to screen play</code> &mdash; each screen
+        draws itself; fc shows the one matching <code>mode</code>.</li>
+    <li><code>show button "play"</code> + <code>when button "play" is clicked</code>
+        + <code>go to play</code> &mdash; a menu in three lines.</li>
+  </ul>
+  <pre>mode is "title"
+
+to screen title
+  clear screen to dark blue
+  write "COIN HUNT" at 34, 40 in yellow on hud
+  write "tap PLAY to start" at 28, 56 in white on hud
+  show button "play" at 50, 74
+
+when button "play" is clicked
+  go to play
+
+player is {x: 64, y: 90, image: "hero", speed: 1.5}
+coins is list of 6 sprites {image: "coin"}
+coins are pickups
+score is 0
+when player picks up any coin
+  add 1 to score
+
+to update
+  if mode is "play"
+    move player with arrows
+
+to screen play
+  clear screen to dark green
+  each coin in coins
+    draw sprite "coin" at coin.x, coin.y
+  draw sprite player at player.x, player.y
+  write "score {score}" at 2, 2 in white on hud
+
+run game with update and draw</pre>
+  <p><b>Share it:</b> click <b>&#128279; share</b> to copy a link that opens this exact
+  game in anyone&rsquo;s browser — or, signed in, <b style="color:var(--good)">&#127760;
+  publish</b> it to the community gallery. Have students trade links and play each
+  other&rsquo;s.</p>
 
   <h2>Privacy &amp; safety</h2>
   <ul>

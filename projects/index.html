@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projects — build a game step by step · codeonline.io</title>
+<meta name="description" content="Guided build-a-game projects in fc: a catch game, a dodger, a shooter, a paint toy. Open a working starter in the editor and make it yours.">
+<style>
+  :root { --bg:#14110a; --panel:#1b1710; --ink:#d8c9a8; --muted:#8a7340; --gold:#c8a96e; --hi:#ffec27; --line:#3a2f18; --good:#9f9; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+  a { color:var(--gold); }
+  h1 { font-size:30px; margin:0 0 6px; color:#f0e6cf; }
+  .sub { color:var(--muted); }
+  h2 { font-size:19px; margin:6px 0 4px; color:var(--hi); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:16px 0; }
+  .meta { color:var(--muted); font-size:12px; margin:0 0 8px; }
+  .pill { display:inline-block; background:#241c0f; border:1px solid var(--line); border-radius:20px; padding:1px 9px; font-size:11px; color:var(--gold); margin-right:6px; }
+  pre.code { background:#0d0b06; border:1px solid var(--line); border-radius:6px; padding:11px; overflow:auto; color:#cbeccb; font-size:12.5px; line-height:1.5; }
+  code { background:#241c0f; color:#ffd9a0; padding:1px 5px; border-radius:3px; font-size:14px; }
+  .open { display:inline-block; background:#10240f; color:var(--good); border:1px solid #2c6e2c; border-radius:6px; padding:8px 14px; font-weight:600; cursor:pointer; font-size:14px; margin:8px 0 4px; }
+  ul { padding-left:20px; } li { margin:2px 0; }
+  .foot { color:var(--muted); font-size:13px; border-top:1px solid var(--line); margin-top:36px; padding-top:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="sub"><a href="/">&larr; codeonline.io</a></p>
+  <h1>Projects</h1>
+  <p class="sub">Build a whole game, step by step. Each one opens a <b>working starter</b>
+  in the editor — run it, then follow the &ldquo;make it yours&rdquo; steps. Every
+  demo on the <a href="/">home page</a> is also a template: open it and read the code.</p>
+
+  <div class="card">
+    <h2>🪙 Catch</h2>
+    <p class="meta"><span class="pill">beginner</span> learn: input, falling things, a score.</p>
+    <pre class="code">paddle is {x: 60}
+coin is {x: 64, y: 0}
+score is 0
+to update
+  if key "left" paddle.x is paddle.x - 3
+  if key "right" paddle.x is paddle.x + 3
+  coin.y is coin.y + 2
+  if coin.y > 124
+    coin.x is 8 + random 112
+    coin.y is 0
+to draw
+  clear screen to dark blue
+  draw rect at paddle.x, 120 size 16, 4 in white
+  draw circle at coin.x, coin.y size 4 in yellow
+  write "catch the coins! {score}" at 6, 4 in white on hud
+run game with update and draw</pre>
+    <button class="open" onclick="openProject(this)">🛠 Open in editor</button>
+    <b>Make it yours:</b>
+    <ul>
+      <li>Add catching: when the coin reaches the paddle row, check
+          <code>coin.x</code> is near <code>paddle.x</code> &rarr; <code>add 1 to score</code>.</li>
+      <li>Speed the coin up as the score rises.</li>
+      <li>Add a <code>play sound "coin"</code> on a catch.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>☄️ Dodge</h2>
+    <p class="meta"><span class="pill">beginner</span> learn: avoidance, respawning obstacles.</p>
+    <pre class="code">player is {x: 64}
+rock is {x: 30, y: 0}
+to update
+  if key "left" player.x is player.x - 3
+  if key "right" player.x is player.x + 3
+  rock.y is rock.y + 2
+  if rock.y > 128
+    rock.x is 8 + random 112
+    rock.y is 0
+to draw
+  clear screen to black
+  draw rect at rock.x, rock.y size 6, 6 in red
+  draw circle at player.x, 118 size 6 in green
+  write "dodge the rocks!" at 30, 4 in white on hud
+run game with update and draw</pre>
+    <button class="open" onclick="openProject(this)">🛠 Open in editor</button>
+    <b>Make it yours:</b>
+    <ul>
+      <li>Add a <code>lives</code> counter; lose one when a rock hits you.</li>
+      <li>Add a second rock (a list of rocks).</li>
+      <li>Add a <code>time limit is 30 seconds</code> — survive the clock.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>🚀 Shooter</h2>
+    <p class="meta"><span class="pill">intermediate</span> learn: shooting, projectiles, lists.</p>
+    <pre class="code">ship is {x: 64}
+bullets is []
+bullets are projectiles
+when "space" is pressed
+  b is sprite {x: ship.x, y: 110, dx: 0, dy: -1, speed: 3}
+  add b to bullets
+to update
+  if key "left" ship.x is ship.x - 2
+  if key "right" ship.x is ship.x + 2
+to draw
+  clear screen to dark blue
+  draw rect at ship.x, 116 size 8, 6 in white
+  each b in bullets
+    draw rect at b.x, b.y size 2, 4 in yellow
+  write "press space to shoot" at 18, 4 in white on hud
+run game with update and draw</pre>
+    <button class="open" onclick="openProject(this)">🛠 Open in editor</button>
+    <b>Make it yours:</b>
+    <ul>
+      <li>Add targets: a list of sprites tagged <code>hostile</code>, and
+          <code>when target is defeated</code> &rarr; <code>add 1 to score</code>.</li>
+      <li>Make hit targets <code>burst 8 sparks</code> for some juice.</li>
+      <li>Make the targets move down over time.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>🎨 Paint</h2>
+    <p class="meta"><span class="pill">beginner</span> learn: the mouse, building a list, creativity.</p>
+    <pre class="code">dots is []
+when mouse is clicked
+  d is {x: mouse.x, y: mouse.y}
+  add d to dots
+to draw
+  clear screen to black
+  each d in dots
+    draw circle at d.x, d.y size 4 in pink
+  write "tap to paint!" at 36, 4 in white on hud
+run game with update and draw</pre>
+    <button class="open" onclick="openProject(this)">🛠 Open in editor</button>
+    <b>Make it yours:</b>
+    <ul>
+      <li>Change the brush color or size.</li>
+      <li>Pick a random color for each dot.</li>
+      <li>Add a key that clears the canvas (<code>dots is []</code>).</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>More templates</h2>
+    <p>Want a Snake, a platformer, or a multiplayer game? Open the matching demo on
+    the <a href="/">home page</a> — <b>Snake</b>, <b>Pitfall Hop</b>, <b>Tag</b> — read
+    its code, and remix it. Teachers: see the <a href="/teachers/">lesson plans</a>.</p>
+  </div>
+
+  <div class="foot">codeonline.io — learn to code by making games, in plain English.</div>
+</div>
+<script>
+  function openProject(btn) {
+    var code = btn.closest('.card').querySelector('.code').textContent;
+    location.href = 'https://codeonline.io/?code=' + encodeURIComponent(btoa(code));
+  }
+</script>
+</body>
+</html>
