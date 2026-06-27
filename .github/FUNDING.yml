@@ -1,0 +1,17 @@
+# Funding wiring for the repo "Sponsor" button + the site's ♥ support link.
+#
+# IMPORTANT: this file is INERT until you actually enable a funding platform.
+# Enabling GitHub Sponsors is a MANUAL, owner-only web flow (no API/CLI for it):
+# join the Sponsors program, accept terms, set up a Stripe Connect payout, and
+# pass tax + identity verification. Until that's done, the Sponsor button simply
+# won't appear and github.com/sponsors/kevinelong shows your profile, not a
+# checkout. See docs/GROWTH-PLAN.md (B1) for the step-by-step.
+#
+# Fast alternative if you want donations flowing this week: Ko-fi / Buy Me a
+# Coffee (account in ~5 min, payouts via PayPal/Stripe, no waitlist). To switch,
+# comment out `github:` below, fill in `ko_fi:` (or `custom:`), and repoint the
+# footer link in index.html (the `#lr-foot a[title*="Support"]` anchor).
+
+github: [kevinelong]          # active once you finish GitHub Sponsors onboarding
+# ko_fi: your-handle           # uncomment for Ko-fi (faster to set up)
+# custom: ["https://www.buymeacoffee.com/your-handle"]

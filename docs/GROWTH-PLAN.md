@@ -84,6 +84,22 @@ Ko-fi). **Effort.** trivial. **Dependency.** enable GitHub Sponsors / create Ko-
 **Metric.** monthly recurring from sponsors vs hosting cost (break-even = "self-
 supporting" in the literal sense).
 
+**Status (2026-06-27):** the footer ♥ support link is live (→ GitHub Sponsors)
+and `.github/FUNDING.yml` is wired, BUT nothing can accept money yet — that step
+is **owner-only and not automatable**. Enabling GitHub Sponsors has **no API/CLI**;
+it is a manual web onboarding tied to your identity + bank:
+1. Go to github.com/sponsors → join the program, accept the terms.
+2. Set up the payout (Stripe Connect) — bank details.
+3. Complete tax + identity verification (W-9 / W-8).
+4. Add tiers. The repo Sponsor button + the site link then go live automatically.
+
+Faster alternative (recommended if you want donations this week): **Ko-fi / Buy
+Me a Coffee** — ~5 min, payout via PayPal/Stripe, no waitlist. To use it: create
+the account, then edit `.github/FUNDING.yml` (`ko_fi:`/`custom:`) and repoint the
+footer link in `index.html` (the ♥ support anchor in `#lr-foot`). I can do the
+file wiring in seconds once you pick a platform/handle; only the account creation
+is yours.
+
 ### B2. Self-serve Pro (~$3–5/mo or one-time)  ·  🔒 (Stripe account)
 **Why.** Keep the core free forever (ethic + growth); charge individuals who want
 power features. Passive, self-serve, mission-safe.
