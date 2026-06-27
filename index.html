@@ -4894,10 +4894,17 @@ run game with update`;
     return c;
   }
   const NEW_GAME_STARTER =
-`-- a fresh start — edit this, it runs as you type
-clear screen to dark blue
-write "hello!" at 40, 56 in white on hud
-draw circle at 64, 80 size 10 in yellow`;
+`-- your first game! every line is plain English — change a color, a number, a word
+ball is {x: 20, y: 70, speed: 1.5}
+to update
+  ball.x is ball.x + ball.speed
+  if ball.x > 120 ball.speed is 0 - 1.5
+  if ball.x < 8 ball.speed is 1.5
+to draw
+  clear screen to dark blue
+  write "edit me!" at 48, 10 in yellow on hud
+  draw circle at ball.x, ball.y size 8 in red
+run game with update and draw`;
 
   const APP_VERSION = 'v3.4';
   const gameDescEl = document.getElementById('game-desc');
