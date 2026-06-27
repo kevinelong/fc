@@ -32,6 +32,12 @@
     "note": "Roam (hold right+down) grabbing coins before the 20s timer expires. Showcases `time limit`/`timer` HUD/`when time runs out`. Timer stays 20 in 30f (won't fire); draws 8 coins + player + HUD."
   },
 
+  "bubble-pop": {
+    "keys": [],
+    "expect": {"min_draw_ops":4,"must_change_by_frame":3},
+    "note": "Tap-to-pop is mouse-driven (not asserted here). A seeded bubble rises from frame 1 (motion by f3); draws bg + bubble(s) + 2 HUD text ops (~5). No keyboard input."
+  },
+
   "joust": {
     "keys": [{"frame":2,"code":4,"down":1},{"frame":3,"code":4,"down":0},{"frame":3,"code":3,"down":1},{"frame":10,"code":4,"down":1},{"frame":11,"code":4,"down":0},{"frame":18,"code":4,"down":1},{"frame":19,"code":4,"down":0}],
     "expect": {"min_draw_ops":3,"must_change_by_frame":2},

@@ -1,0 +1,45 @@
+-- BUBBLE POP  ·  tap the bubbles before they float off the top!
+-- Each pop bursts into sparks with a satisfying sound. Click/tap the screen.
+
+bubbles is []
+first is sprite
+first.x is 64
+first.y is 96
+first.alive is yes
+add first to bubbles
+score is 0
+
+define sound "pop" as square from 600 to 1200 over 0.06
+
+when mouse is clicked
+  each b in bubbles
+    if b.alive
+      if mouse.x > b.x - 9 and mouse.x < b.x + 9
+        if mouse.y > b.y - 9 and mouse.y < b.y + 9
+          b.alive is no
+          add 1 to score
+          burst 10 sparks at b.x, b.y in pink
+          play sound "pop"
+
+to update
+  -- a new bubble rises now and then
+  every 24 frames
+    b is sprite
+    b.x is 14 + random 100
+    b.y is 124
+    b.alive is yes
+    add b to bubbles
+  -- float them upward
+  each b in bubbles
+    if b.alive
+      b.y is b.y - 1
+
+to draw
+  clear screen to dark blue
+  each b in bubbles
+    if b.alive
+      draw circle at b.x, b.y size 7 in pink
+  write "score {score}" at 4, 4 in white on hud
+  write "tap the bubbles!" at 34, 118 in white on hud
+
+run game with update and draw
