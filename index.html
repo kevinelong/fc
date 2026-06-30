@@ -177,6 +177,14 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
 .lr-tile .del:hover { color: #ff6a6a; }
 #lr-community { display: none; max-width: 480px; margin: 0 auto 12px; }
+#lr-hero { max-width: 720px; margin: 0 auto 16px; }
+.lr-hero-in { display: flex; gap: 14px; align-items: center; background: #1b1710; border: 1px solid #3a2f18; border-radius: 10px; padding: 10px; cursor: pointer; }
+.lr-hero-in:hover { border-color: #5a4a28; }
+.lr-hero-in video { width: 300px; max-width: 48vw; border-radius: 6px; display: block; background: #000; }
+.lr-hero-cap .h1 { color: #ffec27; font-size: 16px; font-weight: 700; }
+.lr-hero-cap .h2 { color: #c8a96e; font-size: 13px; margin-top: 4px; line-height: 1.4; }
+.lr-hero-cap .h3 { color: #9f9; font-size: 13px; margin-top: 8px; }
+@media (max-width: 520px) { .lr-hero-in { flex-direction: column; align-items: stretch; } .lr-hero-in video { width: 100%; max-width: 100%; } }
 #lr-featured { max-width: 720px; margin: 0 auto 14px; }
 .lr-feat { display: flex; gap: 12px; align-items: center; background: linear-gradient(90deg,#241c2e,#1b1710); border: 1px solid #5a4a28; border-radius: 9px; padding: 10px 12px; cursor: pointer; transition: border-color .12s; }
 .lr-feat:hover { border-color: #ffec27; }
@@ -324,12 +332,22 @@ body.touch.playing #back-btn {
   <div id="lr-head">
     <div>
       <div id="lr-title">&#9656; fc</div>
-      <div id="lr-sub">fantasy computer &mdash; games in plain English, <b style="color:#ffec27">multiplayer built in</b>. Pick one to play and read its code, or start your own.</div>
+      <div id="lr-sub">Write a game in plain English. Play it on your phone. <b style="color:#ffec27">Multiplayer built in.</b></div>
     </div>
     <div id="lr-actions">
       <div id="account"></div>
       <button type="button" id="lr-open">↧ Open shared</button>
       <button type="button" id="lr-new">+ New Game</button>
+    </div>
+  </div>
+  <div id="lr-hero">
+    <div class="lr-hero-in" id="lr-hero-card" title="Start a new game">
+      <video src="/learn/first-game.mp4" muted autoplay loop playsinline preload="metadata" aria-hidden="true"></video>
+      <div class="lr-hero-cap">
+        <div class="h1">You type English. A game runs.</div>
+        <div class="h2">No setup, no syntax to memorize — make something that moves in minutes, right in your browser.</div>
+        <div class="h3">▸ tap to start your own</div>
+      </div>
     </div>
   </div>
   <div id="lr-featured"></div>
@@ -5007,6 +5025,7 @@ run game with update and draw`;
 
     const ver = document.getElementById('lr-version'); if (ver) ver.textContent = APP_VERSION;
     document.getElementById('lr-new').onclick = newGame;
+    { const hc = document.getElementById('lr-hero-card'); if (hc) hc.onclick = newGame; }
     const homeBtn = document.getElementById('tool-home'); if (homeBtn) homeBtn.onclick = showHome;
     const runTool = document.getElementById('tool-run'); if (runTool) runTool.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
     // share: a link that opens the current code in anyone's browser
