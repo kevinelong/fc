@@ -4982,7 +4982,11 @@ run game with update and draw`;
       .then(src => { loadAndRun(src, true); setGameDesc(g); })
       .catch(() => { openGameView(); errorsDiv.textContent = "Couldn't load (use the live site, not a local file)."; });
   }
-  function newGame() { clearGameDesc(); loadAndRun(NEW_GAME_STARTER, false); if (!isTouch) editor.focus(); }
+  let _firstNewGameBlip = false;   // a soft, once-per-session confirmation on the "start creating" moment
+  function newGame() {
+    clearGameDesc(); loadAndRun(NEW_GAME_STARTER, false); if (!isTouch) editor.focus();
+    if (!_firstNewGameBlip) { _firstNewGameBlip = true; try { AUDIO.play('pickup'); } catch (_) {} }
+  }
 
   (function buildLauncher() {
     const grid = document.getElementById('lr-grid');
