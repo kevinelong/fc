@@ -177,6 +177,14 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
 .lr-tile .del:hover { color: #ff6a6a; }
 #lr-community { display: none; max-width: 480px; margin: 0 auto 12px; }
+#lr-featured { max-width: 720px; margin: 0 auto 14px; }
+.lr-feat { display: flex; gap: 12px; align-items: center; background: linear-gradient(90deg,#241c2e,#1b1710); border: 1px solid #5a4a28; border-radius: 9px; padding: 10px 12px; cursor: pointer; transition: border-color .12s; }
+.lr-feat:hover { border-color: #ffec27; }
+.lr-feat img { width: 74px; height: 74px; image-rendering: pixelated; border: 1px solid #5a4a28; border-radius: 6px; background: #000; flex: 0 0 auto; }
+.lr-feat .ft-label { color: #ffec27; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.lr-feat .ft-name { color: #f0e6cf; font-size: 18px; font-weight: 600; margin: 1px 0 2px; }
+.lr-feat .ft-desc { color: #8a7340; font-size: 12px; line-height: 1.35; }
+.lr-feat .ft-play { color: #9f9; font-size: 12px; margin-top: 3px; }
 #lr-remix { max-width: 720px; margin: 0 auto 14px; }
 .lr-remix-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .lr-remix-tile { flex: 1 1 128px; min-width: 116px; background: #1b1710; border: 1px solid #5a4a28; border-radius: 7px; padding: 8px 10px; cursor: pointer; transition: border-color .12s; }
@@ -324,6 +332,7 @@ body.touch.playing #back-btn {
       <button type="button" id="lr-new">+ New Game</button>
     </div>
   </div>
+  <div id="lr-featured"></div>
   <div id="lr-remix"></div>
   <div id="lr-yours"></div>
   <div id="lr-community"></div>
@@ -4974,6 +4983,28 @@ run game with update and draw`;
       t.onclick = () => openGame(g);
       grid.appendChild(t);
     });
+    // ⭐ Featured today — a deterministic daily pick so returning visitors see
+    // something fresh (and it rotates without any server/state).
+    (function featuredToday() {
+      const wrap = document.getElementById('lr-featured'); if (!wrap) return;
+      const now = new Date();
+      const dayNum = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+      const g = GAMES[dayNum % GAMES.length];
+      const card = document.createElement('div'); card.className = 'lr-feat';
+      const shot = document.createElement('img'); shot.loading = 'lazy'; shot.alt = '';
+      shot.src = 'examples/thumbs/' + g.file + '.png';
+      shot.onerror = () => { try { card.replaceChild(makeIcon(g.sprite || g.icon), shot); } catch (_) {} };
+      card.appendChild(shot);
+      const box = document.createElement('div');
+      box.innerHTML = '<div class="ft-label">⭐ Featured today' + (g.tag ? ' · ' + g.tag : '') + '</div>' +
+        '<div class="ft-name"></div><div class="ft-desc"></div><div class="ft-play">▸ tap to play &amp; remix</div>';
+      box.querySelector('.ft-name').textContent = g.name;
+      box.querySelector('.ft-desc').textContent = g.desc || '';
+      card.appendChild(box);
+      card.onclick = () => openGame(g);
+      wrap.appendChild(card);
+    })();
+
     const ver = document.getElementById('lr-version'); if (ver) ver.textContent = APP_VERSION;
     document.getElementById('lr-new').onclick = newGame;
     const homeBtn = document.getElementById('tool-home'); if (homeBtn) homeBtn.onclick = showHome;
