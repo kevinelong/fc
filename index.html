@@ -4977,9 +4977,10 @@ run game with update and draw`;
   }
   function openGameView() { document.body.classList.remove('home'); }
   function loadAndRun(src, play) { editor.value = src; openGameView(); run(src); setPlaying(!!play); }
+  let _currentDemo = null;   // {file, src} of the last opened built-in demo — lets Share emit the clean /g/<file> link while it's unmodified
   function openGame(g) {
     fetch('examples/' + g.file + '.fc').then(r => r.text())
-      .then(src => { loadAndRun(src, true); setGameDesc(g); })
+      .then(src => { loadAndRun(src, true); setGameDesc(g); _currentDemo = { file: g.file, src: src }; })
       .catch(() => { openGameView(); errorsDiv.textContent = "Couldn't load (use the live site, not a local file)."; });
   }
   let _firstNewGameBlip = false;   // a soft, once-per-session confirmation on the "start creating" moment
@@ -5044,7 +5045,10 @@ run game with update and draw`;
     };
     const shareTool = document.getElementById('tool-share');
     if (shareTool) shareTool.onclick = async () => {
-      const url = location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));
+      // unmodified built-in demo → the clean, preview-rich /g/<name> link; otherwise the self-contained ?code link
+      const url = (_currentDemo && editor.value.trim() === _currentDemo.src.trim())
+        ? location.origin + '/g/' + _currentDemo.file + '/'
+        : location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));
       try {
         if (navigator.share && isTouch) { await navigator.share({ title: 'My fc game', url }); return; }
         await navigator.clipboard.writeText(url);

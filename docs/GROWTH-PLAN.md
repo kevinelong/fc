@@ -187,8 +187,16 @@ with dismissal). Buildable-now:
 - **#6 Daily featured game.** A "featured today" highlight that rotates
   deterministically by date, so returning visitors see something fresh. Frontend
   only. *Metric:* returning-visitor demo opens.
-- **#1 Per-game share previews** (architecture). `?code=` is client-side base64, so
-  it can't carry its own OG tags. Tractable path: a tiny share route (`/g/<demo>`)
-  serving a per-demo OG card (the existing thumbnail) that then opens the game;
-  built-in demos first, dynamic user-game cards = a documented next step (needs a
-  server render endpoint in apid). *Metric:* shared-game click-through.
+- **#1 Per-game share previews** — SHIPPED for built-in demos (2026-06-30).
+  `tools/gen-share-pages.cjs` generates, per `examples/*.fc`: a 1200x630 OG card
+  (`share/<name>.png`, the game's thumbnail + title/tagline parsed from the .fc's
+  first comment line) and a scraper-friendly `g/<name>/index.html` with that game's
+  OG/Twitter tags that JS-redirects a human into the playable game
+  (`/?code=<url-encoded base64>` — note: base64 MUST be encodeURIComponent'd or the
+  `+` becomes a space and the wrong game loads). The in-app 🔗 Share button emits
+  the clean `/g/<name>/` link when the loaded code is an unmodified built-in demo,
+  else the self-contained `?code=` link. Verified: scrapers see per-game OG tags
+  (curl), humans land in the right game, share button switches correctly.
+  **Next step (gated, not built):** dynamic cards for *user* `?code=`/gallery games
+  needs a server render path (an apid-served `/s/<id>` that stores the game + serves
+  HTML with OG tags), since client `?code=` can't carry meta for scrapers.
