@@ -95,7 +95,14 @@ canvas {
   mix-blend-mode: multiply;
 }
 #editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-#editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
+#editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; line-height: 1.5; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
+/* syntax-highlight overlay: a colored layer behind a transparent-text textarea. Both share EXACT metrics so the caret lands on the colored glyphs. Progressive enhancement — class is added by JS; absent = a plain textarea. */
+#editor-hl-wrap.hl-on { position: relative; flex: 1; min-height: 0; display: flex; }
+#editor-hl-wrap.hl-on #editor { color: transparent; background: transparent; caret-color: #a8d8ea; position: relative; z-index: 1; }
+#editor-hl-wrap.hl-on #editor::selection { background: rgba(120,160,210,0.35); }
+#editor-hl { margin: 0; border: 1px solid transparent; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; line-height: 1.5; tab-size: 2; white-space: pre; word-wrap: normal; letter-spacing: normal; box-sizing: border-box; position: absolute; inset: 0; overflow: hidden; background: #16213e; color: #a8d8ea; pointer-events: none; }
+#editor-hl .h-cmt { color: #6a8a6a; } #editor-hl .h-str { color: #e0b86a; } #editor-hl .h-num { color: #d88ad8; }
+#editor-hl .h-verb { color: #7fd4ff; } #editor-hl .h-kw { color: #ffec27; } #editor-hl .h-is { color: #c89af0; } #editor-hl .h-bool { color: #ff9aa8; } #editor-hl .h-punc { color: #8aa0b0; }
 #kbar { display: flex; gap: 5px; overflow-x: auto; padding: 4px 0; margin-bottom: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
 #kbar::-webkit-scrollbar { height: 5px; }
 #kbar::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
@@ -108,7 +115,7 @@ canvas {
   #app { flex-direction: column; }
 }
 @media (max-width: 600px) {
-  #editor { font-size: 12px; }
+  #editor, #editor-hl { font-size: 12px; }
 }
 
 /* On-screen gamepad: hidden by default, shown on coarse-pointer (touch) devices.
@@ -4565,6 +4572,77 @@ editor.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => run(editor.value), 500);
 });
+
+// ---- syntax highlighting (progressive enhancement; reuses fc's verb list) ----
+// A position-preserving tokenizer: emits EVERY character (so the colored layer
+// lines up char-for-char with the textarea), classifying comments/strings/numbers/
+// punctuation and coloring words by role (verb / control keyword / is-are / boolean).
+(function fcSyntaxHighlight() {
+  try {
+    const CONTROL = new Set(['if', 'else', 'repeat', 'each', 'every', 'times', 'while', 'until', 'forever', 'when', 'to', 'run', 'game', 'with', 'and', 'in', 'of', 'return', 'stop', 'go', 'back', 'screen', 'button', 'time', 'limit', 'runs', 'out', 'picks', 'up', 'hits', 'defeated', 'pressed', 'clicked', 'mouse', 'key', 'not', 'or']);
+    const VERBS = new Set((typeof LINT_VERBS !== 'undefined' ? LINT_VERBS : []));
+    const BOOL = new Set(['yes', 'no', 'true', 'false', 'on', 'off']);
+    const ISARE = new Set(['is', 'are']);
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const span = (cls, s) => '<span class="' + cls + '">' + esc(s) + '</span>';
+
+    function hl(text) {
+      let out = '';
+      for (const line of text.split('\n')) {
+        out += hlLine(line) + '\n';
+      }
+      return out;
+    }
+    function hlLine(line) {
+      // comments: -- ... or a # at the first non-space
+      const t = line.replace(/^(\s*)/, '');
+      const lead = line.slice(0, line.length - t.length);
+      const ci = line.indexOf('--');
+      let body = line, tail = '';
+      if (ci >= 0) { body = line.slice(0, ci); tail = span('h-cmt', line.slice(ci)); }
+      else if (t.startsWith('#')) { return esc(lead) + span('h-cmt', t); }
+      let out = '', i = 0;
+      while (i < body.length) {
+        const c = body[i];
+        if (c === '"') {                                   // string
+          let j = i + 1; while (j < body.length && body[j] !== '"') j++;
+          out += span('h-str', body.slice(i, Math.min(j + 1, body.length))); i = j + 1;
+        } else if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(body[i + 1] || ''))) {  // number
+          let j = i; while (j < body.length && /[0-9.]/.test(body[j])) j++;
+          out += span('h-num', body.slice(i, j)); i = j;
+        } else if (/[A-Za-z_]/.test(c)) {                  // word
+          let j = i; while (j < body.length && /[A-Za-z0-9_]/.test(body[j])) j++;
+          const w = body.slice(i, j), lw = w.toLowerCase();
+          const cls = ISARE.has(lw) ? 'h-is' : BOOL.has(lw) ? 'h-bool' : VERBS.has(lw) ? 'h-verb' : CONTROL.has(lw) ? 'h-kw' : null;
+          out += cls ? span(cls, w) : esc(w); i = j;
+        } else if (/[{}\[\](),.:+\-*/<>=]/.test(c)) {       // punctuation/operators
+          out += span('h-punc', c); i++;
+        } else { out += esc(c); i++; }                     // whitespace & misc
+      }
+      return out + tail;
+    }
+
+    const ta = editor;
+    if (!ta || !ta.parentNode || /[?&]plain\b/.test(location.search)) return;
+    const wrap = document.createElement('div'); wrap.id = 'editor-hl-wrap'; wrap.className = 'hl-on';
+    const pre = document.createElement('pre'); pre.id = 'editor-hl'; pre.setAttribute('aria-hidden', 'true');
+    const code = document.createElement('code'); pre.appendChild(code);
+    ta.parentNode.insertBefore(wrap, ta);
+    wrap.appendChild(pre); wrap.appendChild(ta);
+
+    let last = null;
+    function refresh() {
+      const v = ta.value;
+      if (v === last) return; last = v;
+      code.innerHTML = hl(v);
+    }
+    function syncScroll() { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; }
+    ta.addEventListener('input', refresh);
+    ta.addEventListener('scroll', syncScroll, { passive: true });
+    // catch programmatic value changes (loadAndRun, share import, etc.) without hooking every setter
+    (function loop() { refresh(); syncScroll(); requestAnimationFrame(loop); })();
+  } catch (e) { /* any failure → plain textarea, no harm */ }
+})();
 
 // Key name normalization: "ArrowUp" -> "up", "ArrowLeft" -> "left", " " -> "space"
 function normalizeKey(k) {
