@@ -169,3 +169,26 @@ share/embed (🔗 share), "Your Turn" challenges (learn/). The buildable-now que
   self-directed learners.
 
 Build order: A + C (home flywheel) → B (wow) → D + E (teachers) → F (depth).
+
+## Polish queue — share/activation/retention (2026-06-30)
+Shipped: social OG card + meta (every shared link now previews). Already present
+(don't rebuild): **PWA install nudge** (beforeinstallprompt + iOS Add-to-Home tip,
+with dismissal). Buildable-now:
+
+- **#2 Landing clarity + motion.** A crisp what-is-this line + a small autoplaying
+  muted multiplayer/first-game clip on the home so the grid isn't all static — a
+  visitor sees something *move* immediately. *Metric:* bounce, first-run rate.
+- **#4 First-run delight.** A subtle one-per-session confirmation blip the first
+  time a game runs (the first-win moment), respecting the audio-unlock gesture.
+  *Risk:* annoyance — keep it quiet + once. *Metric:* qualitative.
+- **#5 SEO/branding hygiene.** `canonical` + `author` meta on the landing; OG tags
+  on the teachers/projects subpages so those links preview too. *Metric:* search
+  + share quality.
+- **#6 Daily featured game.** A "featured today" highlight that rotates
+  deterministically by date, so returning visitors see something fresh. Frontend
+  only. *Metric:* returning-visitor demo opens.
+- **#1 Per-game share previews** (architecture). `?code=` is client-side base64, so
+  it can't carry its own OG tags. Tractable path: a tiny share route (`/g/<demo>`)
+  serving a per-demo OG card (the existing thumbnail) that then opens the game;
+  built-in demos first, dynamic user-game cards = a documented next step (needs a
+  server render endpoint in apid). *Metric:* shared-game click-through.
