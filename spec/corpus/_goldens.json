@@ -179,6 +179,19 @@
       "result": "elifbody"
     }
   },
+  "english_ops.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 6,
+      "lives": 2,
+      "hi": 1,
+      "lo": 1,
+      "ge": 1,
+      "le": 1,
+      "eq": 1
+    }
+  },
   "eq_string_number.fc": {
     "say": [],
     "errors": [],

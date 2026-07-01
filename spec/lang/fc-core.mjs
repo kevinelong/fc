@@ -1181,6 +1181,14 @@ function parse(source) {
       return parseRemove(raw, lineNum);
     }
 
+    // -- increase X [by N] / decrease X [by N]  (plain-English aliases; desugar to add/remove) --
+    if (first === 'increase' || first === 'decrease') {
+      const byIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === 'by');
+      const value = byIdx > 0 ? parseExpression(raw.slice(byIdx + 1)) : { type: 'literal', value: 1 };
+      const target = tokensToRef(byIdx > 0 ? raw.slice(1, byIdx) : raw.slice(1));
+      return { type: first === 'increase' ? 'add' : 'remove', value, target, lineNum };
+    }
+
     // -- toggle X --
     if (first === 'toggle') {
       return { type: 'toggle', target: raw.slice(1).map(t => t.value).join('.'), lineNum };
@@ -1362,7 +1370,7 @@ function parse(source) {
 
   function isCommandWord(w) {
     if (userFuncs.has(w)) return true;
-    return ['draw', 'write', 'say', 'add', 'remove', 'clear', 'toggle', 'play', 'move',
+    return ['draw', 'write', 'say', 'add', 'remove', 'increase', 'decrease', 'clear', 'toggle', 'play', 'move',
       'flash', 'shake', 'stop', 'start', 'show', 'hide', 'emit', 'double', 'halve',
       'damage', 'heal', 'push', 'pull', 'set', 'put', 'get', 'load', 'save', 'pset', 'reverse', 'spawn', 'jump',
       'join', 'broadcast',
@@ -1522,8 +1530,30 @@ function parse(source) {
     return { type: 'if', condition, thenStmt, body: [], lineNum };
   }
 
+  // Collapse English comparison phrases into operator tokens ("is more/greater than"
+  // ->>, "is less/fewer than" / "is under/below"-><, "is over/above"->>, "is at least"
+  // ->>=, "is at most"-><=). Leaves `is not`, `is in`, `is between`, plain `is` alone.
+  function collapseCmp(tokens) {
+    const W = t => (t && t.type === 'word') ? tv(t) : null;
+    const out = [];
+    for (let i = 0; i < tokens.length; i++) {
+      if (W(tokens[i]) === 'is') {
+        const a = W(tokens[i + 1]), b = W(tokens[i + 2]);
+        if ((a === 'more' || a === 'greater') && b === 'than') { out.push({ type: 'operator', value: '>' }); i += 2; continue; }
+        if ((a === 'less' || a === 'fewer') && b === 'than') { out.push({ type: 'operator', value: '<' }); i += 2; continue; }
+        if (a === 'at' && b === 'least') { out.push({ type: 'operator', value: '>=' }); i += 2; continue; }
+        if (a === 'at' && b === 'most') { out.push({ type: 'operator', value: '<=' }); i += 2; continue; }
+        if (a === 'under' || a === 'below') { out.push({ type: 'operator', value: '<' }); i += 1; continue; }
+        if (a === 'over' || a === 'above') { out.push({ type: 'operator', value: '>' }); i += 1; continue; }
+      }
+      out.push(tokens[i]);
+    }
+    return out;
+  }
+
   function parseCondition(tokens) {
     if (tokens.length === 0) return { type: 'literal', value: false };
+    tokens = collapseCmp(tokens);
 
     // Handle `key "X"` with an optional `is held` / `is pressed` / `is down`
     // (or just `held` / `pressed` / `down`) suffix — check live key state.

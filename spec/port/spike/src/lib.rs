@@ -292,7 +292,40 @@ fn split_top_commas(ts: &[Tok]) -> Vec<&[Tok]> {
         6 if depth == 0 => { out.push(&ts[start..i]); start = i+1; }, _=>{} } }
     out.push(&ts[start..]); out
 }
+// Collapse English comparison phrases into operator tokens (mirrors the JS collapseCmp):
+// "is more/greater than"->>, "is less/fewer than" / "is under/below"-><, "is over/above"->>,
+// "is at least"->>=, "is at most"-><=. Leaves `is not`, `is in`, `is between`, plain `is`.
+fn collapse_cmp(ts: &[Tok]) -> Vec<Tok> {
+    let mut out: Vec<Tok> = Vec::new();
+    let mut i = 0;
+    while i < ts.len() {
+        if ts[i].is_word("is") {
+            let a = ts.get(i + 1).filter(|t| t.t == 3).map(|t| t.sval());
+            let b = ts.get(i + 2).filter(|t| t.t == 3).map(|t| t.sval());
+            let (op, skip): (Option<&str>, usize) = match (a, b) {
+                (Some("more"), Some("than")) | (Some("greater"), Some("than")) => (Some(">"), 2),
+                (Some("less"), Some("than")) | (Some("fewer"), Some("than")) => (Some("<"), 2),
+                (Some("at"), Some("least")) => (Some(">="), 2),
+                (Some("at"), Some("most")) => (Some("<="), 2),
+                (Some("under"), _) | (Some("below"), _) => (Some("<"), 1),
+                (Some("over"), _) | (Some("above"), _) => (Some(">"), 1),
+                _ => (None, 0),
+            };
+            if let Some(sym) = op {
+                out.push(Tok { t: 4, v: TokVal::Str(sym.to_string()) });
+                i += 1 + skip;
+                continue;
+            }
+        }
+        out.push(ts[i].clone());
+        i += 1;
+    }
+    out
+}
+
 fn parse_cond(ts: &[Tok]) -> Cond {
+    let owned = collapse_cmp(ts);
+    let ts: &[Tok] = &owned;
     if !ts.is_empty() && (ts[0].is_word("not") || ts[0].is_word("no")) { return Cond::NotExpr(parse_expr(&ts[1..])); }
     if let Some(k)=find_word(ts,"or") { return Cond::Or(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if let Some(k)=find_word(ts,"and") { return Cond::And(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
@@ -344,6 +377,14 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="when" { return parse_when(ts); }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
     if first=="remove" { if let Some(k)=find_word(ts,"from") { return Stmt::Remove(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
+    // increase X [by N] / decrease X [by N] — plain-English aliases; desugar to add/remove
+    if first=="increase" || first=="decrease" {
+        let (target, value) = match find_word(ts, "by") {
+            Some(k) => (tokens_to_ref(&ts[1..k]), parse_expr(&ts[k+1..])),
+            None => (tokens_to_ref(&ts[1..]), Expr::Lit(LitVal::Num(1.0))),
+        };
+        return if first=="increase" { Stmt::Add(target, value) } else { Stmt::Remove(target, value) };
+    }
     if first=="double" && ts.len()>=2 { return Stmt::Simple("double", join_dot(&ts[1..])); }
     if first=="halve" && ts.len()>=2 { return Stmt::Simple("halve", join_dot(&ts[1..])); }
     if first=="toggle" && ts.len()>=2 { return Stmt::Simple("toggle", join_dot(&ts[1..])); }
@@ -762,7 +803,7 @@ static mut OUT: [u8; OUT_CAP] = [0; OUT_CAP];
 // --- game sub-parsers ---------------------------------------------------------
 static mut UFUNCS: Vec<String> = Vec::new();
 fn is_command_word(w: &str) -> bool {
-    const CMDS: &[&str] = &["move","draw","write","say","add","remove","clear","play","stop","jump",
+    const CMDS: &[&str] = &["move","draw","write","say","add","remove","increase","decrease","clear","play","stop","jump",
         "walk","face","go","follow","run","when","repeat","every","each","toggle","double","halve",
         "broadcast","join","knock","damage","heal","show","pset","return","set","reverse","restore","block","to"];
     if CMDS.contains(&w) { return true; }

@@ -78,6 +78,7 @@ const COMMANDS = [
   ["Decisions & loops","repeat with","A counted loop with a counter variable.","clear screen to black\nrepeat with i from 1 to 8\n  draw circle at i * 14, 64 size 5 in pink"],
   ["Decisions & loops","each ... in","Loop over every item in a list.","coins is list of 6 sprites {image: \"coin\"}\nclear screen to dark green\neach c in coins draw sprite c.image at c.x, c.y"],
   ["Decisions & loops","every N frames","Run something on a timed cadence.","n is 0\nto update\n  every 30 frames add 1 to n\nto draw\n  clear screen to black\n  write \"ticks {n}\" at 30, 58 in white\nrun game with update and draw"],
+  ["Values","increase / decrease","Change a number in plain English (like add/remove). 'by N' is optional — bare means one.","score is 0\nlives is 3\nincrease score by 10\nincrease score\ndecrease lives by 1\nclear screen to black\nwrite \"score {score}\" at 30, 50 in yellow\nwrite \"lives {lives}\" at 30, 64 in white"],
   ["Decisions & loops","time limit","Optional match countdown. Sets the `timer` value (whole seconds left) and fires `when time runs out` at zero. No limit set = nothing changes.","mode is \"play\"\ntime limit is 3 seconds\nwhen time runs out\n  mode is \"over\"\nto update\nto draw\n  clear screen to dark blue\n  if mode is \"play\" write \"time {timer}\" at 40, 56 in yellow\n  if mode is \"over\" write \"TIME UP!\" at 40, 56 in red\nrun game with update and draw"],
 
   ["Functions","to NAME / call","Define a reusable action, then call it by name.","to box at x, y\n  draw rect at x, y size 12, 12 in orange\nclear screen to black\nbox at 30, 40\nbox at 82, 80"],
@@ -124,7 +125,7 @@ const COMMANDS = [
   ["Values & math","mod","Remainder after division (great for grids/wrapping).","clear screen to black\nrepeat with i from 1 to 24\n  c is i mod 4\n  draw circle at i * 5, c * 18 + 24 size 3 in pink"],
 
   ["Decisions & loops","repeat N times","Loop a fixed number of times, no counter needed.","clear screen to black\nrepeat 6 times\n  draw circle at random 128, random 128 size 8 in orange"],
-  ["Decisions & loops","comparisons","Test with is not, and >, <, >=, <=.","hp is 3\nclear screen to black\nif hp is not 0 write \"alive\" at 42, 50 in green\nif hp < 5 write \"careful\" at 34, 64 in orange"],
+  ["Decisions & loops","comparisons","Compare with plain words — is more than, is less than, is at least, is at most, is not — or the symbols >, <, >=, <=.","hp is 3\nscore is 12\nclear screen to black\nif hp is not 0 write \"alive\" at 42, 40 in green\nif hp is less than 5 write \"careful\" at 34, 54 in orange\nif score is at least 10 write \"nice score\" at 30, 68 in yellow"],
   ["Decisions & loops","and / or / not","Combine or negate conditions.","x is 5\nclear screen to black\nif x > 0 and x < 10 write \"in range\" at 30, 50 in white\nif not x write \"zero\" at 44, 64 in red"],
   ["Decisions & loops","between A and B","Inclusive range test.","score is 30\nclear screen to black\nif score is between 0 and 50 write \"low score\" at 26, 58 in yellow"],
   ["Decisions & loops","is in [list]","Membership test against a list.","pick is \"red\"\nclear screen to black\nif pick is in [red, blue, green] write \"primary!\" at 28, 58 in pink"],

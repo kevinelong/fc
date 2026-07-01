@@ -1,0 +1,20 @@
+score is 0
+lives is 3
+increase score by 5
+increase score
+decrease lives by 1
+hi is 0
+lo is 0
+ge is 0
+le is 0
+eq is 0
+if score is more than 4
+  hi is 1
+if score is less than 100
+  lo is 1
+if lives is at least 2
+  ge is 1
+if lives is at most 2
+  le is 1
+if score is 6
+  eq is 1
