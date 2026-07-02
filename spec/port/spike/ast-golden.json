@@ -1374,6 +1374,440 @@
       "type": "rungame"
     }
   ],
+  "bubble-pop.fc": [
+    {
+      "target": "bubbles",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "first",
+      "type": "assign",
+      "value": {
+        "name": "sprite",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "first.x",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 64
+      }
+    },
+    {
+      "target": "first.y",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 96
+      }
+    },
+    {
+      "target": "first.alive",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": true
+      }
+    },
+    {
+      "target": "bubbles",
+      "type": "add",
+      "value": {
+        "name": "first",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "name": "pop",
+      "recipe": {
+        "dur": 0.06,
+        "f0": 600,
+        "f1": 1200,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "b.alive",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": false
+                          }
+                        },
+                        {
+                          "target": "score",
+                          "type": "add",
+                          "value": {
+                            "type": "literal",
+                            "value": 1
+                          }
+                        },
+                        {
+                          "color": "pink",
+                          "count": {
+                            "type": "literal",
+                            "value": 10
+                          },
+                          "type": "burst",
+                          "x": {
+                            "name": "b.x",
+                            "type": "ref"
+                          },
+                          "y": {
+                            "name": "b.y",
+                            "type": "ref"
+                          }
+                        },
+                        {
+                          "kind": "sound",
+                          "name": "pop",
+                          "type": "play_sound"
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "left": {
+                            "name": "mouse.y",
+                            "type": "ref"
+                          },
+                          "op": ">",
+                          "right": {
+                            "left": {
+                              "name": "b.y",
+                              "type": "ref"
+                            },
+                            "op": "-",
+                            "right": {
+                              "type": "literal",
+                              "value": 9
+                            },
+                            "type": "math"
+                          },
+                          "type": "cmp"
+                        },
+                        "right": {
+                          "left": {
+                            "name": "mouse.y",
+                            "type": "ref"
+                          },
+                          "op": "<",
+                          "right": {
+                            "left": {
+                              "name": "b.y",
+                              "type": "ref"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 9
+                            },
+                            "type": "math"
+                          },
+                          "type": "cmp"
+                        },
+                        "type": "and"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "left": {
+                        "name": "mouse.x",
+                        "type": "ref"
+                      },
+                      "op": ">",
+                      "right": {
+                        "left": {
+                          "name": "b.x",
+                          "type": "ref"
+                        },
+                        "op": "-",
+                        "right": {
+                          "type": "literal",
+                          "value": 9
+                        },
+                        "type": "math"
+                      },
+                      "type": "cmp"
+                    },
+                    "right": {
+                      "left": {
+                        "name": "mouse.x",
+                        "type": "ref"
+                      },
+                      "op": "<",
+                      "right": {
+                        "left": {
+                          "name": "b.x",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 9
+                        },
+                        "type": "math"
+                      },
+                      "type": "cmp"
+                    },
+                    "type": "and"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "condition": {
+                "name": "b.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "bubbles",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "b",
+          "where": null
+        }
+      ],
+      "event": "clicked",
+      "thenStmt": null,
+      "type": "when_mouse"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "b",
+              "type": "assign",
+              "value": {
+                "name": "sprite",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "b.x",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "type": "literal",
+                  "value": 14
+                },
+                "op": "+",
+                "right": {
+                  "max": {
+                    "type": "literal",
+                    "value": 100
+                  },
+                  "type": "random"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "b.y",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 124
+              }
+            },
+            {
+              "target": "b.alive",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": true
+              }
+            },
+            {
+              "target": "bubbles",
+              "type": "add",
+              "value": {
+                "name": "b",
+                "type": "ref"
+              }
+            }
+          ],
+          "n": 24,
+          "type": "every",
+          "unit": "frames"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "b.y",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "b.y",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "name": "b.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "bubbles",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "b",
+          "where": null
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "dark blue",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "args": {
+                    "color": "pink",
+                    "h": {
+                      "type": "literal",
+                      "value": 7
+                    },
+                    "w": {
+                      "type": "literal",
+                      "value": 7
+                    },
+                    "x": {
+                      "name": "b.x",
+                      "type": "ref"
+                    },
+                    "y": {
+                      "name": "b.y",
+                      "type": "ref"
+                    }
+                  },
+                  "hud": false,
+                  "shape": "circle",
+                  "type": "draw"
+                }
+              ],
+              "condition": {
+                "name": "b.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "bubbles",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "b",
+          "where": null
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "score {score}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 4
+          },
+          "y": {
+            "type": "literal",
+            "value": 4
+          }
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "tap the bubbles!"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 34
+          },
+          "y": {
+            "type": "literal",
+            "value": 118
+          }
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "coin-quest.fc": [
     {
       "target": "world",
@@ -2300,7 +2734,16 @@
           "type": "if"
         },
         {
-          "body": [],
+          "body": [
+            {
+              "target": "player.invuln",
+              "type": "remove",
+              "value": {
+                "type": "literal",
+                "value": 1
+              }
+            }
+          ],
           "condition": {
             "left": {
               "name": "player.invuln",
@@ -2313,14 +2756,7 @@
             },
             "type": "cmp"
           },
-          "thenStmt": {
-            "target": "player.invuln",
-            "type": "remove",
-            "value": {
-              "type": "literal",
-              "value": 1
-            }
-          },
+          "thenStmt": null,
           "type": "if"
         },
         {
@@ -2495,7 +2931,12 @@
     {
       "body": [
         {
-          "body": [],
+          "body": [
+            {
+              "type": "return",
+              "value": null
+            }
+          ],
           "condition": {
             "left": {
               "name": "player.invuln",
@@ -2508,10 +2949,7 @@
             },
             "type": "cmp"
           },
-          "thenStmt": {
-            "type": "return",
-            "value": null
-          },
+          "thenStmt": null,
           "type": "if"
         },
         {
@@ -2540,7 +2978,16 @@
           }
         },
         {
-          "body": [],
+          "body": [
+            {
+              "target": "mode",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": "lose"
+              }
+            }
+          ],
           "condition": {
             "left": {
               "name": "player.hp",
@@ -2553,14 +3000,7 @@
             },
             "type": "cmp"
           },
-          "thenStmt": {
-            "target": "mode",
-            "type": "assign",
-            "value": {
-              "type": "literal",
-              "value": "lose"
-            }
-          },
+          "thenStmt": null,
           "type": "if"
         }
       ],
@@ -2798,36 +3238,41 @@
           }
         },
         {
-          "target": "player.x",
-          "type": "assign",
-          "value": {
-            "type": "literal",
-            "value": 128
-          }
-        },
-        {
-          "target": "player.y",
-          "type": "assign",
-          "value": {
-            "type": "literal",
-            "value": 96
-          }
-        },
-        {
-          "target": "player.hp",
-          "type": "assign",
-          "value": {
-            "name": "player.max_hp",
-            "type": "ref"
-          }
-        },
-        {
-          "target": "player.invuln",
-          "type": "assign",
-          "value": {
-            "type": "literal",
-            "value": 0
-          }
+          "body": [
+            {
+              "target": "player.x",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 128
+              }
+            },
+            {
+              "target": "player.y",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 96
+              }
+            },
+            {
+              "target": "player.hp",
+              "type": "assign",
+              "value": {
+                "name": "player.max_hp",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "player.invuln",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 0
+              }
+            }
+          ],
+          "type": "with"
         },
         {
           "target": "coins",
@@ -2879,6 +3324,1681 @@
     {
       "funcs": [
         "update"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "cycles.fc": [
+    {
+      "game": "cycles",
+      "room": "grid",
+      "type": "net_join"
+    },
+    {
+      "target": "step",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 4
+      }
+    },
+    {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
+      "target": "cx",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 1
+        },
+        "op": "+",
+        "right": {
+          "max": {
+            "type": "literal",
+            "value": 28
+          },
+          "type": "random"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "cy",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 1
+        },
+        "op": "+",
+        "right": {
+          "max": {
+            "type": "literal",
+            "value": 28
+          },
+          "type": "random"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "me",
+      "type": "assign",
+      "value": {
+        "props": {
+          "alive": {
+            "type": "literal",
+            "value": true
+          },
+          "claimed": {
+            "type": "literal",
+            "value": false
+          },
+          "clock": {
+            "type": "literal",
+            "value": 0
+          },
+          "dead": {
+            "type": "literal",
+            "value": 0
+          },
+          "dx": {
+            "type": "literal",
+            "value": 4
+          },
+          "dy": {
+            "type": "literal",
+            "value": 0
+          },
+          "host": {
+            "type": "literal",
+            "value": false
+          },
+          "id": {
+            "type": "literal",
+            "value": 0
+          },
+          "trail": {
+            "items": [],
+            "type": "listliteral"
+          },
+          "wins": {
+            "type": "literal",
+            "value": 0
+          },
+          "x": {
+            "type": "literal",
+            "value": 0
+          },
+          "y": {
+            "type": "literal",
+            "value": 0
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "me.x",
+      "type": "assign",
+      "value": {
+        "left": {
+          "name": "cx",
+          "type": "ref"
+        },
+        "op": "*",
+        "right": {
+          "type": "literal",
+          "value": 4
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "me.y",
+      "type": "assign",
+      "value": {
+        "left": {
+          "name": "cy",
+          "type": "ref"
+        },
+        "op": "*",
+        "right": {
+          "type": "literal",
+          "value": 4
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "me.id",
+      "type": "assign",
+      "value": {
+        "max": {
+          "type": "literal",
+          "value": 100000
+        },
+        "type": "random"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "me.dx",
+          "type": "assign",
+          "value": {
+            "left": {
+              "type": "literal",
+              "value": 0
+            },
+            "op": "-",
+            "right": {
+              "name": "step",
+              "type": "ref"
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "me.x",
+          "type": "ref"
+        },
+        "op": ">",
+        "right": {
+          "type": "literal",
+          "value": 64
+        },
+        "type": "cmp"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "type": "time_limit",
+      "unit": "seconds",
+      "value": {
+        "type": "literal",
+        "value": 30
+      }
+    },
+    {
+      "name": "crash",
+      "recipe": {
+        "dur": 0.3,
+        "f0": 900,
+        "f1": 60,
+        "kind": "tone",
+        "wave": "noise"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "target": "mode",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": "over"
+          }
+        }
+      ],
+      "thenStmt": null,
+      "type": "when_timeout"
+    },
+    {
+      "body": [
+        {
+          "target": "amhost",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "amhost",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": false
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "peer.id",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "name": "me.id",
+                  "type": "ref"
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "peer",
+          "where": null
+        },
+        {
+          "target": "me.host",
+          "type": "assign",
+          "value": {
+            "name": "amhost",
+            "type": "ref"
+          }
+        },
+        {
+          "body": [
+            {
+              "target": "me.clock",
+              "type": "assign",
+              "value": {
+                "name": "timer",
+                "type": "ref"
+              }
+            }
+          ],
+          "condition": {
+            "name": "amhost",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "me.clock",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.clock",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "name": "peer.host",
+                    "type": "ref"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "peer",
+              "where": null
+            }
+          ],
+          "type": "else"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "me.dx",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 0
+                          }
+                        },
+                        {
+                          "target": "me.dy",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "op": "-",
+                            "right": {
+                              "name": "step",
+                              "type": "ref"
+                            },
+                            "type": "math"
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.dy",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "key": "up",
+                    "type": "key_pressed"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                },
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "me.dx",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 0
+                          }
+                        },
+                        {
+                          "target": "me.dy",
+                          "type": "assign",
+                          "value": {
+                            "name": "step",
+                            "type": "ref"
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.dy",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "key": "down",
+                    "type": "key_pressed"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                },
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "me.dx",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "op": "-",
+                            "right": {
+                              "name": "step",
+                              "type": "ref"
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "me.dy",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 0
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.dx",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "key": "left",
+                    "type": "key_pressed"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                },
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "me.dx",
+                          "type": "assign",
+                          "value": {
+                            "name": "step",
+                            "type": "ref"
+                          }
+                        },
+                        {
+                          "target": "me.dy",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 0
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.dx",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "key": "right",
+                    "type": "key_pressed"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                },
+                {
+                  "body": [
+                    {
+                      "target": "me.trail",
+                      "type": "add",
+                      "value": {
+                        "props": {
+                          "x": {
+                            "name": "me.x",
+                            "type": "ref"
+                          },
+                          "y": {
+                            "name": "me.y",
+                            "type": "ref"
+                          }
+                        },
+                        "type": "object_expr"
+                      }
+                    },
+                    {
+                      "target": "me.x",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "name": "me.x",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "name": "me.dx",
+                          "type": "ref"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "me.y",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "name": "me.y",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "name": "me.dy",
+                          "type": "ref"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "me.alive",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": false
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "left": {
+                            "name": "me.x",
+                            "type": "ref"
+                          },
+                          "op": "<",
+                          "right": {
+                            "type": "literal",
+                            "value": 4
+                          },
+                          "type": "cmp"
+                        },
+                        "right": {
+                          "left": {
+                            "left": {
+                              "name": "me.x",
+                              "type": "ref"
+                            },
+                            "op": ">",
+                            "right": {
+                              "type": "literal",
+                              "value": 116
+                            },
+                            "type": "cmp"
+                          },
+                          "right": {
+                            "left": {
+                              "left": {
+                                "name": "me.y",
+                                "type": "ref"
+                              },
+                              "op": "<",
+                              "right": {
+                                "type": "literal",
+                                "value": 4
+                              },
+                              "type": "cmp"
+                            },
+                            "right": {
+                              "left": {
+                                "name": "me.y",
+                                "type": "ref"
+                              },
+                              "op": ">",
+                              "right": {
+                                "type": "literal",
+                                "value": 116
+                              },
+                              "type": "cmp"
+                            },
+                            "type": "or"
+                          },
+                          "type": "or"
+                        },
+                        "type": "or"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    },
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "target": "me.alive",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": false
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "left": {
+                                "name": "seg.x",
+                                "type": "ref"
+                              },
+                              "right": {
+                                "name": "me.x",
+                                "type": "ref"
+                              },
+                              "type": "eq"
+                            },
+                            "right": {
+                              "left": {
+                                "name": "seg.y",
+                                "type": "ref"
+                              },
+                              "right": {
+                                "name": "me.y",
+                                "type": "ref"
+                              },
+                              "type": "eq"
+                            },
+                            "type": "and"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "list": {
+                        "name": "me.trail",
+                        "type": "ref"
+                      },
+                      "thenStmt": null,
+                      "type": "each",
+                      "varName": "seg",
+                      "where": null
+                    },
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "target": "me.alive",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": false
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "left": {
+                                "name": "foe.x",
+                                "type": "ref"
+                              },
+                              "right": {
+                                "name": "me.x",
+                                "type": "ref"
+                              },
+                              "type": "eq"
+                            },
+                            "right": {
+                              "left": {
+                                "name": "foe.y",
+                                "type": "ref"
+                              },
+                              "right": {
+                                "name": "me.y",
+                                "type": "ref"
+                              },
+                              "type": "eq"
+                            },
+                            "type": "and"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        },
+                        {
+                          "body": [
+                            {
+                              "body": [
+                                {
+                                  "target": "me.alive",
+                                  "type": "assign",
+                                  "value": {
+                                    "type": "literal",
+                                    "value": false
+                                  }
+                                }
+                              ],
+                              "condition": {
+                                "left": {
+                                  "left": {
+                                    "name": "seg.x",
+                                    "type": "ref"
+                                  },
+                                  "right": {
+                                    "name": "me.x",
+                                    "type": "ref"
+                                  },
+                                  "type": "eq"
+                                },
+                                "right": {
+                                  "left": {
+                                    "name": "seg.y",
+                                    "type": "ref"
+                                  },
+                                  "right": {
+                                    "name": "me.y",
+                                    "type": "ref"
+                                  },
+                                  "type": "eq"
+                                },
+                                "type": "and"
+                              },
+                              "thenStmt": null,
+                              "type": "if"
+                            }
+                          ],
+                          "list": {
+                            "name": "foe.trail",
+                            "type": "ref"
+                          },
+                          "thenStmt": null,
+                          "type": "each",
+                          "varName": "seg",
+                          "where": null
+                        }
+                      ],
+                      "list": {
+                        "name": "peers",
+                        "type": "ref"
+                      },
+                      "thenStmt": null,
+                      "type": "each",
+                      "varName": "foe",
+                      "where": null
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "me.dead",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 50
+                          }
+                        },
+                        {
+                          "kind": "sound",
+                          "name": "crash",
+                          "type": "play_sound"
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.alive",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": false
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "n": 3,
+                  "type": "every",
+                  "unit": "frames"
+                }
+              ],
+              "condition": {
+                "name": "me.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "me.dead",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "me.dead",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "target": "cx",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "type": "literal",
+                          "value": 1
+                        },
+                        "op": "+",
+                        "right": {
+                          "max": {
+                            "type": "literal",
+                            "value": 28
+                          },
+                          "type": "random"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "cy",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "type": "literal",
+                          "value": 1
+                        },
+                        "op": "+",
+                        "right": {
+                          "max": {
+                            "type": "literal",
+                            "value": 28
+                          },
+                          "type": "random"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "me.x",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "name": "cx",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 4
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "me.y",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "name": "cy",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 4
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "me.dx",
+                      "type": "assign",
+                      "value": {
+                        "name": "step",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "target": "me.dy",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": 0
+                      }
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "me.dx",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "op": "-",
+                            "right": {
+                              "name": "step",
+                              "type": "ref"
+                            },
+                            "type": "math"
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "me.x",
+                          "type": "ref"
+                        },
+                        "op": ">",
+                        "right": {
+                          "type": "literal",
+                          "value": 64
+                        },
+                        "type": "cmp"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    },
+                    {
+                      "target": "me.trail",
+                      "type": "assign",
+                      "value": {
+                        "items": [],
+                        "type": "listliteral"
+                      }
+                    },
+                    {
+                      "target": "me.alive",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": true
+                      }
+                    },
+                    {
+                      "target": "me.claimed",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "me.dead",
+                      "type": "ref"
+                    },
+                    "op": "<=",
+                    "right": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "type": "else"
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "others",
+                      "type": "assign",
+                      "value": {
+                        "expr": {
+                          "name": "peers",
+                          "type": "ref"
+                        },
+                        "type": "count"
+                      }
+                    },
+                    {
+                      "target": "down",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": 0
+                      }
+                    },
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "target": "down",
+                              "type": "assign",
+                              "value": {
+                                "left": {
+                                  "name": "down",
+                                  "type": "ref"
+                                },
+                                "op": "+",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 1
+                                },
+                                "type": "math"
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "name": "foe.alive",
+                              "type": "ref"
+                            },
+                            "right": {
+                              "type": "literal",
+                              "value": false
+                            },
+                            "type": "eq"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "list": {
+                        "name": "peers",
+                        "type": "ref"
+                      },
+                      "thenStmt": null,
+                      "type": "each",
+                      "varName": "foe",
+                      "where": null
+                    },
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "target": "me.wins",
+                              "type": "assign",
+                              "value": {
+                                "left": {
+                                  "name": "me.wins",
+                                  "type": "ref"
+                                },
+                                "op": "+",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 1
+                                },
+                                "type": "math"
+                              }
+                            },
+                            {
+                              "target": "me.claimed",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": true
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "name": "down",
+                              "type": "ref"
+                            },
+                            "right": {
+                              "name": "others",
+                              "type": "ref"
+                            },
+                            "type": "eq"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "others",
+                          "type": "ref"
+                        },
+                        "op": ">",
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "cmp"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "me.claimed",
+                      "type": "ref"
+                    },
+                    "right": {
+                      "type": "literal",
+                      "value": false
+                    },
+                    "type": "eq"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "condition": {
+                "name": "me.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "type": "broadcast",
+              "value": {
+                "props": {
+                  "alive": {
+                    "name": "me.alive",
+                    "type": "ref"
+                  },
+                  "clock": {
+                    "name": "me.clock",
+                    "type": "ref"
+                  },
+                  "host": {
+                    "name": "me.host",
+                    "type": "ref"
+                  },
+                  "id": {
+                    "name": "me.id",
+                    "type": "ref"
+                  },
+                  "trail": {
+                    "name": "me.trail",
+                    "type": "ref"
+                  },
+                  "wins": {
+                    "name": "me.wins",
+                    "type": "ref"
+                  },
+                  "x": {
+                    "name": "me.x",
+                    "type": "ref"
+                  },
+                  "y": {
+                    "name": "me.y",
+                    "type": "ref"
+                  }
+                },
+                "type": "object_expr"
+              }
+            }
+          ],
+          "n": 2,
+          "type": "every",
+          "unit": "frames"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "args": {
+                    "color": "red",
+                    "h": {
+                      "type": "literal",
+                      "value": 3
+                    },
+                    "w": {
+                      "type": "literal",
+                      "value": 3
+                    },
+                    "x": {
+                      "name": "seg.x",
+                      "type": "ref"
+                    },
+                    "y": {
+                      "name": "seg.y",
+                      "type": "ref"
+                    }
+                  },
+                  "hud": false,
+                  "shape": "rect",
+                  "type": "draw"
+                }
+              ],
+              "list": {
+                "name": "foe.trail",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "seg",
+              "where": null
+            },
+            {
+              "args": {
+                "color": "red",
+                "h": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "x": {
+                  "name": "foe.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "foe.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "foe",
+          "where": null
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "blue",
+                "h": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "x": {
+                  "name": "seg.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "seg.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "me.trail",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "seg",
+          "where": null
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "white",
+                "h": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "x": {
+                  "name": "me.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "me.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "condition": {
+            "name": "me.alive",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "red",
+                "h": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "x": {
+                  "name": "me.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "me.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "type": "else"
+        },
+        {
+          "target": "others",
+          "type": "assign",
+          "value": {
+            "expr": {
+              "name": "peers",
+              "type": "ref"
+            },
+            "type": "count"
+          }
+        },
+        {
+          "body": [
+            {
+              "color": "white",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "wins {me.wins}"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 4
+              },
+              "y": {
+                "type": "literal",
+                "value": 2
+              }
+            },
+            {
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "time {me.clock}"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 78
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.clock",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "yellow",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "time {me.clock}"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 78
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "type": "else"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "target": "best",
+              "type": "assign",
+              "value": {
+                "name": "me.wins",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "best",
+                      "type": "assign",
+                      "value": {
+                        "name": "foe.wins",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "foe.wins",
+                      "type": "ref"
+                    },
+                    "op": ">",
+                    "right": {
+                      "name": "best",
+                      "type": "ref"
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "foe",
+              "where": null
+            },
+            {
+              "body": [
+                {
+                  "color": "green",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "TIME! you win"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 28
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 50
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.wins",
+                  "type": "ref"
+                },
+                "op": ">=",
+                "right": {
+                  "name": "best",
+                  "type": "ref"
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "TIME! you lose"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 28
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 50
+                  }
+                }
+              ],
+              "type": "else"
+            },
+            {
+              "color": "white",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "wins {me.wins}"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 42
+              },
+              "y": {
+                "type": "literal",
+                "value": 62
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "over"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
       ],
       "type": "rungame"
     }
@@ -2986,6 +5106,217 @@
         "value": 1
       },
       "type": "repeat_times"
+    }
+  ],
+  "english_ops.fc": [
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "lives",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 3
+      }
+    },
+    {
+      "target": "score",
+      "type": "add",
+      "value": {
+        "type": "literal",
+        "value": 5
+      }
+    },
+    {
+      "target": "score",
+      "type": "add",
+      "value": {
+        "type": "literal",
+        "value": 1
+      }
+    },
+    {
+      "target": "lives",
+      "type": "remove",
+      "value": {
+        "type": "literal",
+        "value": 1
+      }
+    },
+    {
+      "target": "hi",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "lo",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "ge",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "le",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "eq",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "hi",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "score",
+          "type": "ref"
+        },
+        "op": ">",
+        "right": {
+          "type": "literal",
+          "value": 4
+        },
+        "type": "cmp"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "lo",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "score",
+          "type": "ref"
+        },
+        "op": "<",
+        "right": {
+          "type": "literal",
+          "value": 100
+        },
+        "type": "cmp"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "ge",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "lives",
+          "type": "ref"
+        },
+        "op": ">=",
+        "right": {
+          "type": "literal",
+          "value": 2
+        },
+        "type": "cmp"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "le",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "lives",
+          "type": "ref"
+        },
+        "op": "<=",
+        "right": {
+          "type": "literal",
+          "value": 2
+        },
+        "type": "cmp"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "eq",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "score",
+          "type": "ref"
+        },
+        "right": {
+          "type": "literal",
+          "value": 6
+        },
+        "type": "eq"
+      },
+      "thenStmt": null,
+      "type": "if"
     }
   ],
   "eq_string_number.fc": [
@@ -3138,6 +5469,82 @@
         }
       ],
       "type": "else"
+    }
+  ],
+  "every_in_conditional_loop.fc": [
+    {
+      "target": "a",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "n",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "n",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "n",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "a",
+                  "type": "add",
+                  "value": {
+                    "type": "literal",
+                    "value": 1
+                  }
+                }
+              ],
+              "n": 2,
+              "type": "every",
+              "unit": "frames"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "n",
+              "type": "ref"
+            },
+            "op": ">",
+            "right": {
+              "type": "literal",
+              "value": 3
+            },
+            "type": "cmp"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "count": {
+        "type": "literal",
+        "value": 10
+      },
+      "type": "repeat_times"
     }
   ],
   "every_two_blocks_line_keyed.fc": [
@@ -7059,6 +9466,876 @@
       }
     }
   ],
+  "joust.fc": [
+    {
+      "game": "joust",
+      "room": "arena",
+      "type": "net_join"
+    },
+    {
+      "target": "gravity",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0.2
+      }
+    },
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "alive": {
+            "type": "literal",
+            "value": true
+          },
+          "dead": {
+            "type": "literal",
+            "value": 0
+          },
+          "dy": {
+            "type": "literal",
+            "value": 0
+          },
+          "hurt": {
+            "type": "literal",
+            "value": 0
+          },
+          "id": {
+            "type": "literal",
+            "value": 0
+          },
+          "score": {
+            "type": "literal",
+            "value": 0
+          },
+          "x": {
+            "type": "literal",
+            "value": 64
+          },
+          "y": {
+            "type": "literal",
+            "value": 50
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "player.x",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 16
+        },
+        "op": "+",
+        "right": {
+          "max": {
+            "type": "literal",
+            "value": 96
+          },
+          "type": "random"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "player.id",
+      "type": "assign",
+      "value": {
+        "max": {
+          "type": "literal",
+          "value": 100000
+        },
+        "type": "random"
+      }
+    },
+    {
+      "name": "flap",
+      "recipe": {
+        "dur": 0.05,
+        "f0": 300,
+        "f1": 600,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "name": "joust",
+      "recipe": {
+        "dur": 0.2,
+        "f0": 800,
+        "f1": 90,
+        "kind": "tone",
+        "wave": "noise"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "force": 2.2,
+              "target": "player",
+              "type": "jump"
+            },
+            {
+              "kind": "sound",
+              "name": "flap",
+              "type": "play_sound"
+            }
+          ],
+          "condition": {
+            "name": "player.alive",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "key": "space",
+      "thenStmt": null,
+      "type": "when_key"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "force": 2.2,
+              "target": "player",
+              "type": "jump"
+            }
+          ],
+          "condition": {
+            "name": "player.alive",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "event": "clicked",
+      "thenStmt": null,
+      "type": "when_mouse"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "body": [],
+              "condition": {
+                "key": "left",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "player.x",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "player.x",
+                    "type": "ref"
+                  },
+                  "op": "-",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.2
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "key": "right",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "player.x",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "player.x",
+                    "type": "ref"
+                  },
+                  "op": "+",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.2
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "player.x",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 2
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 118
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "player.x",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 118
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "player.hurt",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "player.hurt",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "player.hurt",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "body": [
+                                {
+                                  "body": [
+                                    {
+                                      "target": "player.score",
+                                      "type": "add",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": 1
+                                      }
+                                    },
+                                    {
+                                      "target": "player.hurt",
+                                      "type": "assign",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": 30
+                                      }
+                                    },
+                                    {
+                                      "kind": "sound",
+                                      "name": "joust",
+                                      "type": "play_sound"
+                                    }
+                                  ],
+                                  "condition": {
+                                    "left": {
+                                      "name": "player.y",
+                                      "type": "ref"
+                                    },
+                                    "op": "<",
+                                    "right": {
+                                      "name": "foe.y",
+                                      "type": "ref"
+                                    },
+                                    "type": "cmp"
+                                  },
+                                  "thenStmt": null,
+                                  "type": "if"
+                                },
+                                {
+                                  "body": [
+                                    {
+                                      "target": "player.alive",
+                                      "type": "assign",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": false
+                                      }
+                                    },
+                                    {
+                                      "target": "player.dead",
+                                      "type": "assign",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": 40
+                                      }
+                                    },
+                                    {
+                                      "target": "player.hurt",
+                                      "type": "assign",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": 30
+                                      }
+                                    }
+                                  ],
+                                  "condition": {
+                                    "left": {
+                                      "name": "player.y",
+                                      "type": "ref"
+                                    },
+                                    "op": ">",
+                                    "right": {
+                                      "name": "foe.y",
+                                      "type": "ref"
+                                    },
+                                    "type": "cmp"
+                                  },
+                                  "thenStmt": null,
+                                  "type": "if"
+                                }
+                              ],
+                              "condition": {
+                                "left": {
+                                  "name": "player.hurt",
+                                  "type": "ref"
+                                },
+                                "right": {
+                                  "type": "literal",
+                                  "value": 0
+                                },
+                                "type": "eq"
+                              },
+                              "thenStmt": null,
+                              "type": "if"
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "left": {
+                                "name": "foe.y",
+                                "type": "ref"
+                              },
+                              "op": ">",
+                              "right": {
+                                "left": {
+                                  "name": "player.y",
+                                  "type": "ref"
+                                },
+                                "op": "-",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 8
+                                },
+                                "type": "math"
+                              },
+                              "type": "cmp"
+                            },
+                            "right": {
+                              "left": {
+                                "name": "foe.y",
+                                "type": "ref"
+                              },
+                              "op": "<",
+                              "right": {
+                                "left": {
+                                  "name": "player.y",
+                                  "type": "ref"
+                                },
+                                "op": "+",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 8
+                                },
+                                "type": "math"
+                              },
+                              "type": "cmp"
+                            },
+                            "type": "and"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "left": {
+                            "name": "foe.x",
+                            "type": "ref"
+                          },
+                          "op": ">",
+                          "right": {
+                            "left": {
+                              "name": "player.x",
+                              "type": "ref"
+                            },
+                            "op": "-",
+                            "right": {
+                              "type": "literal",
+                              "value": 8
+                            },
+                            "type": "math"
+                          },
+                          "type": "cmp"
+                        },
+                        "right": {
+                          "left": {
+                            "name": "foe.x",
+                            "type": "ref"
+                          },
+                          "op": "<",
+                          "right": {
+                            "left": {
+                              "name": "player.x",
+                              "type": "ref"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 8
+                            },
+                            "type": "math"
+                          },
+                          "type": "cmp"
+                        },
+                        "type": "and"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "name": "foe.alive",
+                    "type": "ref"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "foe",
+              "where": null
+            }
+          ],
+          "condition": {
+            "name": "player.alive",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "target": "player.dead",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "player.dead",
+                  "type": "ref"
+                },
+                "op": "-",
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "math"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "player.x",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "type": "literal",
+                      "value": 16
+                    },
+                    "op": "+",
+                    "right": {
+                      "max": {
+                        "type": "literal",
+                        "value": 96
+                      },
+                      "type": "random"
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "player.y",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 16
+                  }
+                },
+                {
+                  "target": "player.dy",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 0
+                  }
+                },
+                {
+                  "target": "player.alive",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "player.dead",
+                  "type": "ref"
+                },
+                "op": "<=",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "type": "else"
+        },
+        {
+          "type": "broadcast",
+          "value": {
+            "props": {
+              "alive": {
+                "name": "player.alive",
+                "type": "ref"
+              },
+              "id": {
+                "name": "player.id",
+                "type": "ref"
+              },
+              "score": {
+                "name": "player.score",
+                "type": "ref"
+              },
+              "x": {
+                "name": "player.x",
+                "type": "ref"
+              },
+              "y": {
+                "name": "player.y",
+                "type": "ref"
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "dark blue",
+          "type": "clearscreen"
+        },
+        {
+          "args": {
+            "color": "brown",
+            "h": {
+              "type": "literal",
+              "value": 6
+            },
+            "w": {
+              "type": "literal",
+              "value": 128
+            },
+            "x": {
+              "type": "literal",
+              "value": 0
+            },
+            "y": {
+              "type": "literal",
+              "value": 122
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "args": {
+                    "color": "red",
+                    "h": {
+                      "type": "literal",
+                      "value": 6
+                    },
+                    "w": {
+                      "type": "literal",
+                      "value": 6
+                    },
+                    "x": {
+                      "name": "foe.x",
+                      "type": "ref"
+                    },
+                    "y": {
+                      "name": "foe.y",
+                      "type": "ref"
+                    }
+                  },
+                  "hud": false,
+                  "shape": "rect",
+                  "type": "draw"
+                },
+                {
+                  "color": "white",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "{foe.score}"
+                  },
+                  "type": "write",
+                  "x": {
+                    "name": "foe.x",
+                    "type": "ref"
+                  },
+                  "y": {
+                    "left": {
+                      "name": "foe.y",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 7
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "name": "foe.alive",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "foe",
+          "where": null
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "yellow",
+                "h": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "x": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "player.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "condition": {
+            "name": "player.alive",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "dark gray",
+                "h": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "x": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "player.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "type": "else"
+        },
+        {
+          "color": "yellow",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "you {player.score}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 4
+          },
+          "y": {
+            "type": "literal",
+            "value": 2
+          }
+        },
+        {
+          "target": "others",
+          "type": "assign",
+          "value": {
+            "expr": {
+              "name": "peers",
+              "type": "ref"
+            },
+            "type": "count"
+          }
+        },
+        {
+          "body": [
+            {
+              "color": "white",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "waiting for a rival..."
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 16
+              },
+              "y": {
+                "type": "literal",
+                "value": 110
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "others",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "load_missing_default.fc": [
     {
       "target": "x",
@@ -8028,10 +11305,34 @@
       "type": "net_join"
     },
     {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
       "target": "me",
       "type": "assign",
       "value": {
         "props": {
+          "amit": {
+            "type": "literal",
+            "value": false
+          },
+          "clock": {
+            "type": "literal",
+            "value": 0
+          },
+          "host": {
+            "type": "literal",
+            "value": false
+          },
+          "id": {
+            "type": "literal",
+            "value": 0
+          },
           "safe": {
             "type": "literal",
             "value": 0
@@ -8106,6 +11407,25 @@
       }
     },
     {
+      "target": "me.id",
+      "type": "assign",
+      "value": {
+        "max": {
+          "type": "literal",
+          "value": 100000
+        },
+        "type": "random"
+      }
+    },
+    {
+      "type": "time_limit",
+      "unit": "seconds",
+      "value": {
+        "type": "literal",
+        "value": 30
+      }
+    },
+    {
       "name": "tag",
       "recipe": {
         "dur": 0.12,
@@ -8119,196 +11439,734 @@
     {
       "body": [
         {
-          "body": [],
-          "condition": {
-            "key": "right",
-            "type": "key_pressed"
+          "target": "mode",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": "over"
+          }
+        }
+      ],
+      "thenStmt": null,
+      "type": "when_timeout"
+    },
+    {
+      "body": [
+        {
+          "target": "amhost",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "amhost",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": false
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "peer.id",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "name": "me.id",
+                  "type": "ref"
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
           },
-          "thenStmt": {
-            "target": "me.x",
-            "type": "assign",
-            "value": {
-              "left": {
-                "name": "me.x",
+          "thenStmt": null,
+          "type": "each",
+          "varName": "peer",
+          "where": null
+        },
+        {
+          "target": "me.host",
+          "type": "assign",
+          "value": {
+            "name": "amhost",
+            "type": "ref"
+          }
+        },
+        {
+          "body": [
+            {
+              "target": "me.clock",
+              "type": "assign",
+              "value": {
+                "name": "timer",
+                "type": "ref"
+              }
+            }
+          ],
+          "condition": {
+            "name": "amhost",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "me.clock",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.clock",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "name": "peer.host",
+                    "type": "ref"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
                 "type": "ref"
               },
-              "op": "+",
-              "right": {
-                "type": "literal",
-                "value": 1.5
-              },
-              "type": "math"
+              "thenStmt": null,
+              "type": "each",
+              "varName": "peer",
+              "where": null
             }
-          },
-          "type": "if"
+          ],
+          "type": "else"
         },
         {
-          "body": [],
-          "condition": {
-            "key": "left",
-            "type": "key_pressed"
-          },
-          "thenStmt": {
-            "target": "me.x",
-            "type": "assign",
-            "value": {
-              "left": {
-                "name": "me.x",
+          "body": [
+            {
+              "body": [],
+              "condition": {
+                "key": "right",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "me.x",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "me.x",
+                    "type": "ref"
+                  },
+                  "op": "+",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.5
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "key": "left",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "me.x",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "me.x",
+                    "type": "ref"
+                  },
+                  "op": "-",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.5
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "key": "up",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "me.y",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "me.y",
+                    "type": "ref"
+                  },
+                  "op": "-",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.5
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "key": "down",
+                "type": "key_pressed"
+              },
+              "thenStmt": {
+                "target": "me.y",
+                "type": "assign",
+                "value": {
+                  "left": {
+                    "name": "me.y",
+                    "type": "ref"
+                  },
+                  "op": "+",
+                  "right": {
+                    "type": "literal",
+                    "value": 1.5
+                  },
+                  "type": "math"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "me.x",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "me.x",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 2
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "me.x",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 120
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "me.x",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 120
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "me.y",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "me.y",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 2
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "me.y",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 120
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "me.y",
+                "type": "assign",
+                "value": {
+                  "type": "literal",
+                  "value": 120
+                }
+              },
+              "type": "if"
+            },
+            {
+              "target": "top",
+              "type": "assign",
+              "value": {
+                "name": "me.tag",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "top",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.tag",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "peer.tag",
+                      "type": "ref"
+                    },
+                    "op": ">",
+                    "right": {
+                      "name": "top",
+                      "type": "ref"
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
                 "type": "ref"
               },
-              "op": "-",
-              "right": {
+              "thenStmt": null,
+              "type": "each",
+              "varName": "peer",
+              "where": null
+            },
+            {
+              "target": "amit",
+              "type": "assign",
+              "value": {
                 "type": "literal",
-                "value": 1.5
+                "value": false
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "amit",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.tag",
+                  "type": "ref"
+                },
+                "op": ">=",
+                "right": {
+                  "name": "top",
+                  "type": "ref"
+                },
+                "type": "cmp"
               },
-              "type": "math"
-            }
-          },
-          "type": "if"
-        },
-        {
-          "body": [],
-          "condition": {
-            "key": "up",
-            "type": "key_pressed"
-          },
-          "thenStmt": {
-            "target": "me.y",
-            "type": "assign",
-            "value": {
-              "left": {
-                "name": "me.y",
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "target": "me.amit",
+              "type": "assign",
+              "value": {
+                "name": "amit",
                 "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "me.safe",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 40
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "amit",
+                  "type": "ref"
+                },
+                "right": {
+                  "name": "me.wasit",
+                  "type": "ref"
+                },
+                "type": "neq"
               },
-              "op": "-",
-              "right": {
-                "type": "literal",
-                "value": 1.5
-              },
-              "type": "math"
-            }
-          },
-          "type": "if"
-        },
-        {
-          "body": [],
-          "condition": {
-            "key": "down",
-            "type": "key_pressed"
-          },
-          "thenStmt": {
-            "target": "me.y",
-            "type": "assign",
-            "value": {
-              "left": {
-                "name": "me.y",
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "target": "me.wasit",
+              "type": "assign",
+              "value": {
+                "name": "amit",
                 "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "me.safe",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "me.safe",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.safe",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
               },
-              "op": "+",
-              "right": {
-                "type": "literal",
-                "value": 1.5
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "body": [
+                            {
+                              "body": [
+                                {
+                                  "body": [
+                                    {
+                                      "target": "me.tag",
+                                      "type": "assign",
+                                      "value": {
+                                        "left": {
+                                          "name": "top",
+                                          "type": "ref"
+                                        },
+                                        "op": "+",
+                                        "right": {
+                                          "type": "literal",
+                                          "value": 1
+                                        },
+                                        "type": "math"
+                                      }
+                                    },
+                                    {
+                                      "target": "me.safe",
+                                      "type": "assign",
+                                      "value": {
+                                        "type": "literal",
+                                        "value": 40
+                                      }
+                                    },
+                                    {
+                                      "kind": "sound",
+                                      "name": "tag",
+                                      "type": "play_sound"
+                                    }
+                                  ],
+                                  "condition": {
+                                    "left": {
+                                      "left": {
+                                        "name": "peer.y",
+                                        "type": "ref"
+                                      },
+                                      "op": ">",
+                                      "right": {
+                                        "left": {
+                                          "name": "me.y",
+                                          "type": "ref"
+                                        },
+                                        "op": "-",
+                                        "right": {
+                                          "type": "literal",
+                                          "value": 6
+                                        },
+                                        "type": "math"
+                                      },
+                                      "type": "cmp"
+                                    },
+                                    "right": {
+                                      "left": {
+                                        "name": "peer.y",
+                                        "type": "ref"
+                                      },
+                                      "op": "<",
+                                      "right": {
+                                        "left": {
+                                          "name": "me.y",
+                                          "type": "ref"
+                                        },
+                                        "op": "+",
+                                        "right": {
+                                          "type": "literal",
+                                          "value": 6
+                                        },
+                                        "type": "math"
+                                      },
+                                      "type": "cmp"
+                                    },
+                                    "type": "and"
+                                  },
+                                  "thenStmt": null,
+                                  "type": "if"
+                                }
+                              ],
+                              "condition": {
+                                "left": {
+                                  "left": {
+                                    "name": "peer.x",
+                                    "type": "ref"
+                                  },
+                                  "op": ">",
+                                  "right": {
+                                    "left": {
+                                      "name": "me.x",
+                                      "type": "ref"
+                                    },
+                                    "op": "-",
+                                    "right": {
+                                      "type": "literal",
+                                      "value": 6
+                                    },
+                                    "type": "math"
+                                  },
+                                  "type": "cmp"
+                                },
+                                "right": {
+                                  "left": {
+                                    "name": "peer.x",
+                                    "type": "ref"
+                                  },
+                                  "op": "<",
+                                  "right": {
+                                    "left": {
+                                      "name": "me.x",
+                                      "type": "ref"
+                                    },
+                                    "op": "+",
+                                    "right": {
+                                      "type": "literal",
+                                      "value": 6
+                                    },
+                                    "type": "math"
+                                  },
+                                  "type": "cmp"
+                                },
+                                "type": "and"
+                              },
+                              "thenStmt": null,
+                              "type": "if"
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "name": "peer.tag",
+                              "type": "ref"
+                            },
+                            "right": {
+                              "name": "top",
+                              "type": "ref"
+                            },
+                            "type": "eq"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "list": {
+                        "name": "peers",
+                        "type": "ref"
+                      },
+                      "thenStmt": null,
+                      "type": "each",
+                      "varName": "peer",
+                      "where": null
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "me.safe",
+                      "type": "ref"
+                    },
+                    "op": "<=",
+                    "right": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "amit",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": false
+                },
+                "type": "eq"
               },
-              "type": "math"
+              "thenStmt": null,
+              "type": "if"
             }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
           },
+          "thenStmt": null,
           "type": "if"
         },
         {
-          "body": [],
-          "condition": {
-            "left": {
-              "name": "me.x",
-              "type": "ref"
-            },
-            "op": "<",
-            "right": {
-              "type": "literal",
-              "value": 2
-            },
-            "type": "cmp"
-          },
-          "thenStmt": {
-            "target": "me.x",
-            "type": "assign",
-            "value": {
-              "type": "literal",
-              "value": 2
+          "body": [
+            {
+              "type": "broadcast",
+              "value": {
+                "props": {
+                  "amit": {
+                    "name": "me.amit",
+                    "type": "ref"
+                  },
+                  "clock": {
+                    "name": "me.clock",
+                    "type": "ref"
+                  },
+                  "host": {
+                    "name": "me.host",
+                    "type": "ref"
+                  },
+                  "id": {
+                    "name": "me.id",
+                    "type": "ref"
+                  },
+                  "tag": {
+                    "name": "me.tag",
+                    "type": "ref"
+                  },
+                  "x": {
+                    "name": "me.x",
+                    "type": "ref"
+                  },
+                  "y": {
+                    "name": "me.y",
+                    "type": "ref"
+                  }
+                },
+                "type": "object_expr"
+              }
             }
-          },
-          "type": "if"
-        },
+          ],
+          "n": 4,
+          "type": "every",
+          "unit": "frames"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
         {
-          "body": [],
-          "condition": {
-            "left": {
-              "name": "me.x",
-              "type": "ref"
-            },
-            "op": ">",
-            "right": {
-              "type": "literal",
-              "value": 120
-            },
-            "type": "cmp"
-          },
-          "thenStmt": {
-            "target": "me.x",
-            "type": "assign",
-            "value": {
-              "type": "literal",
-              "value": 120
-            }
-          },
-          "type": "if"
-        },
-        {
-          "body": [],
-          "condition": {
-            "left": {
-              "name": "me.y",
-              "type": "ref"
-            },
-            "op": "<",
-            "right": {
-              "type": "literal",
-              "value": 2
-            },
-            "type": "cmp"
-          },
-          "thenStmt": {
-            "target": "me.y",
-            "type": "assign",
-            "value": {
-              "type": "literal",
-              "value": 2
-            }
-          },
-          "type": "if"
-        },
-        {
-          "body": [],
-          "condition": {
-            "left": {
-              "name": "me.y",
-              "type": "ref"
-            },
-            "op": ">",
-            "right": {
-              "type": "literal",
-              "value": 120
-            },
-            "type": "cmp"
-          },
-          "thenStmt": {
-            "target": "me.y",
-            "type": "assign",
-            "value": {
-              "type": "literal",
-              "value": 120
-            }
-          },
-          "type": "if"
+          "color": "dark blue",
+          "type": "clearscreen"
         },
         {
           "target": "top",
@@ -8355,336 +12213,6 @@
           "type": "each",
           "varName": "peer",
           "where": null
-        },
-        {
-          "target": "amit",
-          "type": "assign",
-          "value": {
-            "type": "literal",
-            "value": false
-          }
-        },
-        {
-          "body": [
-            {
-              "target": "amit",
-              "type": "assign",
-              "value": {
-                "type": "literal",
-                "value": true
-              }
-            }
-          ],
-          "condition": {
-            "left": {
-              "name": "me.tag",
-              "type": "ref"
-            },
-            "op": ">=",
-            "right": {
-              "name": "top",
-              "type": "ref"
-            },
-            "type": "cmp"
-          },
-          "thenStmt": null,
-          "type": "if"
-        },
-        {
-          "body": [
-            {
-              "target": "me.safe",
-              "type": "assign",
-              "value": {
-                "type": "literal",
-                "value": 40
-              }
-            }
-          ],
-          "condition": {
-            "left": {
-              "name": "amit",
-              "type": "ref"
-            },
-            "right": {
-              "name": "me.wasit",
-              "type": "ref"
-            },
-            "type": "neq"
-          },
-          "thenStmt": null,
-          "type": "if"
-        },
-        {
-          "target": "me.wasit",
-          "type": "assign",
-          "value": {
-            "name": "amit",
-            "type": "ref"
-          }
-        },
-        {
-          "body": [
-            {
-              "target": "me.safe",
-              "type": "assign",
-              "value": {
-                "left": {
-                  "name": "me.safe",
-                  "type": "ref"
-                },
-                "op": "-",
-                "right": {
-                  "type": "literal",
-                  "value": 1
-                },
-                "type": "math"
-              }
-            }
-          ],
-          "condition": {
-            "left": {
-              "name": "me.safe",
-              "type": "ref"
-            },
-            "op": ">",
-            "right": {
-              "type": "literal",
-              "value": 0
-            },
-            "type": "cmp"
-          },
-          "thenStmt": null,
-          "type": "if"
-        },
-        {
-          "body": [
-            {
-              "body": [
-                {
-                  "body": [
-                    {
-                      "body": [
-                        {
-                          "body": [
-                            {
-                              "body": [
-                                {
-                                  "target": "me.tag",
-                                  "type": "assign",
-                                  "value": {
-                                    "left": {
-                                      "name": "top",
-                                      "type": "ref"
-                                    },
-                                    "op": "+",
-                                    "right": {
-                                      "type": "literal",
-                                      "value": 1
-                                    },
-                                    "type": "math"
-                                  }
-                                },
-                                {
-                                  "target": "me.safe",
-                                  "type": "assign",
-                                  "value": {
-                                    "type": "literal",
-                                    "value": 40
-                                  }
-                                },
-                                {
-                                  "kind": "sound",
-                                  "name": "tag",
-                                  "type": "play_sound"
-                                }
-                              ],
-                              "condition": {
-                                "left": {
-                                  "left": {
-                                    "name": "peer.y",
-                                    "type": "ref"
-                                  },
-                                  "op": ">",
-                                  "right": {
-                                    "left": {
-                                      "name": "me.y",
-                                      "type": "ref"
-                                    },
-                                    "op": "-",
-                                    "right": {
-                                      "type": "literal",
-                                      "value": 6
-                                    },
-                                    "type": "math"
-                                  },
-                                  "type": "cmp"
-                                },
-                                "right": {
-                                  "left": {
-                                    "name": "peer.y",
-                                    "type": "ref"
-                                  },
-                                  "op": "<",
-                                  "right": {
-                                    "left": {
-                                      "name": "me.y",
-                                      "type": "ref"
-                                    },
-                                    "op": "+",
-                                    "right": {
-                                      "type": "literal",
-                                      "value": 6
-                                    },
-                                    "type": "math"
-                                  },
-                                  "type": "cmp"
-                                },
-                                "type": "and"
-                              },
-                              "thenStmt": null,
-                              "type": "if"
-                            }
-                          ],
-                          "condition": {
-                            "left": {
-                              "left": {
-                                "name": "peer.x",
-                                "type": "ref"
-                              },
-                              "op": ">",
-                              "right": {
-                                "left": {
-                                  "name": "me.x",
-                                  "type": "ref"
-                                },
-                                "op": "-",
-                                "right": {
-                                  "type": "literal",
-                                  "value": 6
-                                },
-                                "type": "math"
-                              },
-                              "type": "cmp"
-                            },
-                            "right": {
-                              "left": {
-                                "name": "peer.x",
-                                "type": "ref"
-                              },
-                              "op": "<",
-                              "right": {
-                                "left": {
-                                  "name": "me.x",
-                                  "type": "ref"
-                                },
-                                "op": "+",
-                                "right": {
-                                  "type": "literal",
-                                  "value": 6
-                                },
-                                "type": "math"
-                              },
-                              "type": "cmp"
-                            },
-                            "type": "and"
-                          },
-                          "thenStmt": null,
-                          "type": "if"
-                        }
-                      ],
-                      "condition": {
-                        "left": {
-                          "name": "peer.tag",
-                          "type": "ref"
-                        },
-                        "right": {
-                          "name": "top",
-                          "type": "ref"
-                        },
-                        "type": "eq"
-                      },
-                      "thenStmt": null,
-                      "type": "if"
-                    }
-                  ],
-                  "list": {
-                    "name": "peers",
-                    "type": "ref"
-                  },
-                  "thenStmt": null,
-                  "type": "each",
-                  "varName": "peer",
-                  "where": null
-                }
-              ],
-              "condition": {
-                "left": {
-                  "name": "me.safe",
-                  "type": "ref"
-                },
-                "op": "<=",
-                "right": {
-                  "type": "literal",
-                  "value": 0
-                },
-                "type": "cmp"
-              },
-              "thenStmt": null,
-              "type": "if"
-            }
-          ],
-          "condition": {
-            "left": {
-              "name": "amit",
-              "type": "ref"
-            },
-            "right": {
-              "type": "literal",
-              "value": false
-            },
-            "type": "eq"
-          },
-          "thenStmt": null,
-          "type": "if"
-        },
-        {
-          "body": [
-            {
-              "type": "broadcast",
-              "value": {
-                "props": {
-                  "tag": {
-                    "name": "me.tag",
-                    "type": "ref"
-                  },
-                  "x": {
-                    "name": "me.x",
-                    "type": "ref"
-                  },
-                  "y": {
-                    "name": "me.y",
-                    "type": "ref"
-                  }
-                },
-                "type": "object_expr"
-              }
-            }
-          ],
-          "n": 4,
-          "type": "every",
-          "unit": "frames"
-        }
-      ],
-      "name": "update",
-      "params": [],
-      "type": "funcdef"
-    },
-    {
-      "body": [
-        {
-          "color": "dark blue",
-          "type": "clearscreen"
         },
         {
           "body": [
@@ -8796,7 +12324,7 @@
             }
           ],
           "condition": {
-            "name": "amit",
+            "name": "me.amit",
             "type": "ref"
           },
           "thenStmt": null,
@@ -8832,39 +12360,124 @@
           "type": "else"
         },
         {
-          "target": "others",
-          "type": "assign",
-          "value": {
-            "expr": {
-              "name": "peers",
-              "type": "ref"
-            },
-            "type": "count"
-          }
-        },
-        {
           "body": [
             {
-              "color": "red",
-              "hud": true,
-              "text": {
-                "type": "literal",
-                "value": "YOU'RE IT - tag someone!"
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "YOU'RE IT"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 6
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "condition": {
+                "name": "me.amit",
+                "type": "ref"
               },
-              "type": "write",
-              "x": {
-                "type": "literal",
-                "value": 6
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "green",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "RUN!"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 6
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "type": "else"
+            },
+            {
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "time {me.clock}"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 78
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.clock",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "type": "cmp"
               },
-              "y": {
-                "type": "literal",
-                "value": 2
-              }
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "yellow",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "time {me.clock}"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 78
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "type": "else"
             }
           ],
           "condition": {
-            "name": "amit",
-            "type": "ref"
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
           },
           "thenStmt": null,
           "type": "if"
@@ -8872,24 +12485,102 @@
         {
           "body": [
             {
-              "color": "green",
-              "hud": true,
-              "text": {
-                "type": "literal",
-                "value": "RUN!  {others} players"
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "TIME! you were IT"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 16
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 50
+                  }
+                },
+                {
+                  "color": "white",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "you lose"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 44
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 62
+                  }
+                }
+              ],
+              "condition": {
+                "name": "me.amit",
+                "type": "ref"
               },
-              "type": "write",
-              "x": {
-                "type": "literal",
-                "value": 6
-              },
-              "y": {
-                "type": "literal",
-                "value": 2
-              }
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "green",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "TIME! you escaped"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 16
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 50
+                  }
+                },
+                {
+                  "color": "white",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "you win!"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 44
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 62
+                  }
+                }
+              ],
+              "type": "else"
             }
           ],
-          "type": "else"
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "over"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
         }
       ],
       "name": "draw",
@@ -9778,6 +13469,1084 @@
         },
         "type": "math"
       }
+    }
+  ],
+  "pong-online.fc": [
+    {
+      "game": "pong",
+      "room": "table",
+      "type": "net_join"
+    },
+    {
+      "target": "me",
+      "type": "assign",
+      "value": {
+        "props": {
+          "bx": {
+            "type": "literal",
+            "value": 64
+          },
+          "by": {
+            "type": "literal",
+            "value": 64
+          },
+          "host": {
+            "type": "literal",
+            "value": false
+          },
+          "id": {
+            "type": "literal",
+            "value": 0
+          },
+          "sl": {
+            "type": "literal",
+            "value": 0
+          },
+          "sr": {
+            "type": "literal",
+            "value": 0
+          },
+          "vx": {
+            "type": "literal",
+            "value": 2
+          },
+          "vy": {
+            "type": "literal",
+            "value": 1
+          },
+          "y": {
+            "type": "literal",
+            "value": 56
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "me.id",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 1
+        },
+        "op": "+",
+        "right": {
+          "max": {
+            "type": "literal",
+            "value": 99998
+          },
+          "type": "random"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "name": "ping",
+      "recipe": {
+        "dur": 0.04,
+        "f0": 400,
+        "f1": 800,
+        "kind": "tone",
+        "wave": "square"
+      },
+      "type": "def_sfx"
+    },
+    {
+      "body": [
+        {
+          "target": "amhost",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "amhost",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": false
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "peer.id",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "name": "me.id",
+                  "type": "ref"
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "peer",
+          "where": null
+        },
+        {
+          "target": "me.host",
+          "type": "assign",
+          "value": {
+            "name": "amhost",
+            "type": "ref"
+          }
+        },
+        {
+          "body": [],
+          "condition": {
+            "key": "up",
+            "type": "key_pressed"
+          },
+          "thenStmt": {
+            "target": "me.y",
+            "type": "assign",
+            "value": {
+              "left": {
+                "name": "me.y",
+                "type": "ref"
+              },
+              "op": "-",
+              "right": {
+                "type": "literal",
+                "value": 3
+              },
+              "type": "math"
+            }
+          },
+          "type": "if"
+        },
+        {
+          "body": [],
+          "condition": {
+            "key": "down",
+            "type": "key_pressed"
+          },
+          "thenStmt": {
+            "target": "me.y",
+            "type": "assign",
+            "value": {
+              "left": {
+                "name": "me.y",
+                "type": "ref"
+              },
+              "op": "+",
+              "right": {
+                "type": "literal",
+                "value": 3
+              },
+              "type": "math"
+            }
+          },
+          "type": "if"
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "me.y",
+              "type": "ref"
+            },
+            "op": "<",
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "cmp"
+          },
+          "thenStmt": {
+            "target": "me.y",
+            "type": "assign",
+            "value": {
+              "type": "literal",
+              "value": 0
+            }
+          },
+          "type": "if"
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "me.y",
+              "type": "ref"
+            },
+            "op": ">",
+            "right": {
+              "type": "literal",
+              "value": 112
+            },
+            "type": "cmp"
+          },
+          "thenStmt": {
+            "target": "me.y",
+            "type": "assign",
+            "value": {
+              "type": "literal",
+              "value": 112
+            }
+          },
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "target": "rightY",
+              "type": "assign",
+              "value": {
+                "type": "literal",
+                "value": 56
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "rightY",
+                  "type": "assign",
+                  "value": {
+                    "name": "peer.y",
+                    "type": "ref"
+                  }
+                }
+              ],
+              "list": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "peer",
+              "where": null
+            },
+            {
+              "target": "me.bx",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "me.bx",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "name": "me.vx",
+                  "type": "ref"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "me.by",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "me.by",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "name": "me.vy",
+                  "type": "ref"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "me.by",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 0
+                  }
+                },
+                {
+                  "target": "me.vy",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "op": "-",
+                    "right": {
+                      "name": "me.vy",
+                      "type": "ref"
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.by",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "me.by",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 125
+                  }
+                },
+                {
+                  "target": "me.vy",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "op": "-",
+                    "right": {
+                      "name": "me.vy",
+                      "type": "ref"
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.by",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 125
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "me.bx",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": 8
+                      }
+                    },
+                    {
+                      "target": "me.vx",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "op": "-",
+                        "right": {
+                          "name": "me.vx",
+                          "type": "ref"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "kind": "sound",
+                      "name": "ping",
+                      "type": "play_sound"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "me.by",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "type": "math"
+                      },
+                      "op": ">",
+                      "right": {
+                        "name": "me.y",
+                        "type": "ref"
+                      },
+                      "type": "cmp"
+                    },
+                    "right": {
+                      "left": {
+                        "name": "me.by",
+                        "type": "ref"
+                      },
+                      "op": "<",
+                      "right": {
+                        "left": {
+                          "name": "me.y",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 16
+                        },
+                        "type": "math"
+                      },
+                      "type": "cmp"
+                    },
+                    "type": "and"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.bx",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 8
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "me.bx",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": 117
+                      }
+                    },
+                    {
+                      "target": "me.vx",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "op": "-",
+                        "right": {
+                          "name": "me.vx",
+                          "type": "ref"
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "kind": "sound",
+                      "name": "ping",
+                      "type": "play_sound"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "me.by",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "type": "math"
+                      },
+                      "op": ">",
+                      "right": {
+                        "name": "rightY",
+                        "type": "ref"
+                      },
+                      "type": "cmp"
+                    },
+                    "right": {
+                      "left": {
+                        "name": "me.by",
+                        "type": "ref"
+                      },
+                      "op": "<",
+                      "right": {
+                        "left": {
+                          "name": "rightY",
+                          "type": "ref"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 16
+                        },
+                        "type": "math"
+                      },
+                      "type": "cmp"
+                    },
+                    "type": "and"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.bx",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 117
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "me.sr",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "me.sr",
+                      "type": "ref"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "me.bx",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 64
+                  }
+                },
+                {
+                  "target": "me.by",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 64
+                  }
+                },
+                {
+                  "target": "me.vx",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.bx",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "me.sl",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "me.sl",
+                      "type": "ref"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "me.bx",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 64
+                  }
+                },
+                {
+                  "target": "me.by",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 64
+                  }
+                },
+                {
+                  "target": "me.vx",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 2
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "me.bx",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 128
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "condition": {
+            "name": "amhost",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "body": [
+                    {
+                      "target": "me.bx",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.bx",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "target": "me.by",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.by",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "target": "me.sl",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.sl",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "target": "me.sr",
+                      "type": "assign",
+                      "value": {
+                        "name": "peer.sr",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "name": "peer.host",
+                    "type": "ref"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "list": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "peer",
+              "where": null
+            }
+          ],
+          "type": "else"
+        },
+        {
+          "type": "broadcast",
+          "value": {
+            "props": {
+              "bx": {
+                "name": "me.bx",
+                "type": "ref"
+              },
+              "by": {
+                "name": "me.by",
+                "type": "ref"
+              },
+              "host": {
+                "name": "me.host",
+                "type": "ref"
+              },
+              "id": {
+                "name": "me.id",
+                "type": "ref"
+              },
+              "sl": {
+                "name": "me.sl",
+                "type": "ref"
+              },
+              "sr": {
+                "name": "me.sr",
+                "type": "ref"
+              },
+              "y": {
+                "name": "me.y",
+                "type": "ref"
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "target": "leftY",
+          "type": "assign",
+          "value": {
+            "name": "me.y",
+            "type": "ref"
+          }
+        },
+        {
+          "target": "rightY",
+          "type": "assign",
+          "value": {
+            "name": "me.y",
+            "type": "ref"
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "rightY",
+                  "type": "assign",
+                  "value": {
+                    "name": "peer.y",
+                    "type": "ref"
+                  }
+                }
+              ],
+              "condition": {
+                "name": "amhost",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "leftY",
+                  "type": "assign",
+                  "value": {
+                    "name": "peer.y",
+                    "type": "ref"
+                  }
+                }
+              ],
+              "type": "else"
+            }
+          ],
+          "list": {
+            "name": "peers",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "peer",
+          "where": null
+        },
+        {
+          "args": {
+            "color": "white",
+            "h": {
+              "type": "literal",
+              "value": 16
+            },
+            "w": {
+              "type": "literal",
+              "value": 3
+            },
+            "x": {
+              "type": "literal",
+              "value": 4
+            },
+            "y": {
+              "name": "leftY",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "args": {
+            "color": "white",
+            "h": {
+              "type": "literal",
+              "value": 16
+            },
+            "w": {
+              "type": "literal",
+              "value": 3
+            },
+            "x": {
+              "type": "literal",
+              "value": 121
+            },
+            "y": {
+              "name": "rightY",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "args": {
+            "color": "white",
+            "h": {
+              "type": "literal",
+              "value": 3
+            },
+            "w": {
+              "type": "literal",
+              "value": 3
+            },
+            "x": {
+              "name": "me.bx",
+              "type": "ref"
+            },
+            "y": {
+              "name": "me.by",
+              "type": "ref"
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "{me.sl}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 40
+          },
+          "y": {
+            "type": "literal",
+            "value": 3
+          }
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "{me.sr}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 84
+          },
+          "y": {
+            "type": "literal",
+            "value": 3
+          }
+        },
+        {
+          "body": [
+            {
+              "color": "yellow",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "waiting for opponent..."
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 18
+              },
+              "y": {
+                "type": "literal",
+                "value": 60
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "expr": {
+                "name": "peers",
+                "type": "ref"
+              },
+              "type": "count"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "color": "green",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "you serve (left)"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 30
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 118
+                  }
+                }
+              ],
+              "condition": {
+                "name": "amhost",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "color": "green",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "opponent serves"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 30
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 118
+                  }
+                }
+              ],
+              "type": "else"
+            }
+          ],
+          "type": "else"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
     }
   ],
   "pong.fc": [
@@ -11647,36 +16416,41 @@
               }
             },
             {
-              "target": "food.x",
-              "type": "assign",
-              "value": {
-                "left": {
-                  "name": "fx",
-                  "type": "ref"
+              "body": [
+                {
+                  "target": "food.x",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "fx",
+                      "type": "ref"
+                    },
+                    "op": "*",
+                    "right": {
+                      "type": "literal",
+                      "value": 8
+                    },
+                    "type": "math"
+                  }
                 },
-                "op": "*",
-                "right": {
-                  "type": "literal",
-                  "value": 8
-                },
-                "type": "math"
-              }
-            },
-            {
-              "target": "food.y",
-              "type": "assign",
-              "value": {
-                "left": {
-                  "name": "fy",
-                  "type": "ref"
-                },
-                "op": "*",
-                "right": {
-                  "type": "literal",
-                  "value": 8
-                },
-                "type": "math"
-              }
+                {
+                  "target": "food.y",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "fy",
+                      "type": "ref"
+                    },
+                    "op": "*",
+                    "right": {
+                      "type": "literal",
+                      "value": 8
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "type": "with"
             },
             {
               "target": "ate",
@@ -12840,6 +17614,452 @@
       "type": "rungame"
     }
   ],
+  "sprite_sugar_random.fc": [
+    {
+      "target": "world",
+      "type": "assign",
+      "value": {
+        "props": {
+          "height": {
+            "type": "literal",
+            "value": 80
+          },
+          "width": {
+            "type": "literal",
+            "value": 120
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "hero",
+      "type": "assign",
+      "value": {
+        "position": "centered",
+        "props": {
+          "props": {
+            "facing": {
+              "type": "literal",
+              "value": "down"
+            },
+            "hp": {
+              "type": "literal",
+              "value": 4
+            },
+            "image": {
+              "type": "literal",
+              "value": "hero"
+            }
+          },
+          "type": "object_expr"
+        },
+        "type": "sprite_expr"
+      }
+    },
+    {
+      "target": "rocks",
+      "type": "assign",
+      "value": {
+        "count": {
+          "type": "literal",
+          "value": 5
+        },
+        "props": {
+          "props": {
+            "image": {
+              "type": "literal",
+              "value": "rock"
+            }
+          },
+          "type": "object_expr"
+        },
+        "type": "list_of_sprites"
+      }
+    },
+    {
+      "target": "n",
+      "type": "assign",
+      "value": {
+        "expr": {
+          "name": "rocks",
+          "type": "ref"
+        },
+        "type": "count"
+      }
+    }
+  ],
+  "time-attack.fc": [
+    {
+      "target": "world",
+      "type": "assign",
+      "value": {
+        "props": {
+          "height": {
+            "type": "literal",
+            "value": 128
+          },
+          "width": {
+            "type": "literal",
+            "value": 128
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "type": "time_limit",
+      "unit": "seconds",
+      "value": {
+        "type": "literal",
+        "value": 20
+      }
+    },
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "position": "centered",
+        "props": {
+          "props": {
+            "image": {
+              "type": "literal",
+              "value": "hero"
+            },
+            "speed": {
+              "type": "literal",
+              "value": 1.5
+            }
+          },
+          "type": "object_expr"
+        },
+        "type": "sprite_expr"
+      }
+    },
+    {
+      "target": "coins",
+      "type": "assign",
+      "value": {
+        "count": {
+          "type": "literal",
+          "value": 8
+        },
+        "props": {
+          "props": {
+            "image": {
+              "type": "literal",
+              "value": "coin"
+            }
+          },
+          "type": "object_expr"
+        },
+        "type": "list_of_sprites"
+      }
+    },
+    {
+      "subject": "coins",
+      "tag": "pickups",
+      "type": "tag"
+    },
+    {
+      "target": "player",
+      "type": "follow"
+    },
+    {
+      "body": [
+        {
+          "target": "score",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "itemVar": "coin",
+      "thenStmt": null,
+      "type": "when_pickup"
+    },
+    {
+      "body": [
+        {
+          "target": "mode",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": "over"
+          }
+        }
+      ],
+      "thenStmt": null,
+      "type": "when_timeout"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "speed": null,
+              "target": "player",
+              "type": "move_with_arrows"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "dark blue",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "args": {
+                    "spriteName": "coin",
+                    "x": {
+                      "name": "coin.x",
+                      "type": "ref"
+                    },
+                    "y": {
+                      "name": "coin.y",
+                      "type": "ref"
+                    }
+                  },
+                  "hud": false,
+                  "shape": "sprite",
+                  "type": "draw"
+                }
+              ],
+              "list": {
+                "name": "coins",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "each",
+              "varName": "coin",
+              "where": null
+            },
+            {
+              "args": {
+                "spriteNameExpr": {
+                  "name": "player",
+                  "type": "ref"
+                },
+                "x": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "player.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "sprite",
+              "type": "draw"
+            },
+            {
+              "color": "white",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "score {score}"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 2
+              },
+              "y": {
+                "type": "literal",
+                "value": 2
+              }
+            },
+            {
+              "color": "yellow",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "time {timer}"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 92
+              },
+              "y": {
+                "type": "literal",
+                "value": 2
+              }
+            },
+            {
+              "body": [
+                {
+                  "color": "red",
+                  "hud": true,
+                  "text": {
+                    "type": "literal",
+                    "value": "hurry!"
+                  },
+                  "type": "write",
+                  "x": {
+                    "type": "literal",
+                    "value": 48
+                  },
+                  "y": {
+                    "type": "literal",
+                    "value": 2
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "timer",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 6
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "play"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "color": "red",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "TIME UP!"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 44
+              },
+              "y": {
+                "type": "literal",
+                "value": 50
+              }
+            },
+            {
+              "color": "white",
+              "hud": true,
+              "text": {
+                "type": "literal",
+                "value": "you grabbed {score}"
+              },
+              "type": "write",
+              "x": {
+                "type": "literal",
+                "value": 34
+              },
+              "y": {
+                "type": "literal",
+                "value": 64
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "mode",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "over"
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "time_limit_static.fc": [
+    {
+      "type": "time_limit",
+      "unit": "seconds",
+      "value": {
+        "type": "literal",
+        "value": 30
+      }
+    },
+    {
+      "target": "shown",
+      "type": "assign",
+      "value": {
+        "name": "timer",
+        "type": "ref"
+      }
+    }
+  ],
   "truthy_empty_list.fc": [
     {
       "target": "things",
@@ -12979,6 +18199,118 @@
         }
       ],
       "type": "else"
+    }
+  ],
+  "with_its.fc": [
+    {
+      "target": "coin",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "hp": {
+            "type": "literal",
+            "value": 3
+          },
+          "x": {
+            "type": "literal",
+            "value": 0
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "coin.x",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 5
+          }
+        },
+        {
+          "target": "coin.y",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 2
+          }
+        }
+      ],
+      "type": "with"
+    },
+    {
+      "body": [
+        {
+          "target": "player.x",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        },
+        {
+          "target": "player.hp",
+          "type": "remove",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        },
+        {
+          "body": [
+            {
+              "target": "player.x",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "player.x",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 100
+                },
+                "type": "math"
+              }
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "player.hp",
+              "type": "ref"
+            },
+            "op": ">=",
+            "right": {
+              "type": "literal",
+              "value": 2
+            },
+            "type": "cmp"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "type": "with"
     }
   ]
 }

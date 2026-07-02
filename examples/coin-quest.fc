@@ -55,7 +55,7 @@ to screen play
   each medkit in medkits draw sprite medkit.image at medkit.x, medkit.y
   each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
   each bullet in bullets draw sprite bullet at bullet.x, bullet.y
-  if player.invuln is 0 or player.invuln mod 6 > 2
+  if player.invuln is 0 or player.invuln mod 6 is more than 2
     draw sprite player at player.x, player.y
   -- HUD: health meter, coin score, experience
   write "HP" at 2, 3 in white on hud
@@ -81,11 +81,12 @@ to screen lose
 -- hold arrows to walk; release to stop. diagonal speed is normalized.
 to update
   if mode is not "play" return
-  if player.invuln > 0 remove 1 from player.invuln
+  if player.invuln is more than 0
+    decrease player.invuln by 1
   move player with arrows
 
 when player picks up any coin
-  add 1 to score
+  increase score by 1
   if no coins mode is "win"
 
 when player picks up any medkit
@@ -101,15 +102,17 @@ to shoot
   add bullet to bullets
 
 when player hits any enemy
-  if player.invuln > 0 return
+  if player.invuln is more than 0
+    return
   knock player away from enemy distance 16
   damage player 2
   player.invuln is 45
-  if player.hp < 1 mode is "lose"
+  if player.hp is less than 1
+    mode is "lose"
 
 -- shoot a slime down and earn experience
 when enemy is defeated
-  add 10 to xp
+  increase xp by 10
 
 -- navigation
 when button "play" is clicked
@@ -144,10 +147,11 @@ when button "toggle music" is clicked toggle music
 to restart game
   score is 0
   xp is 0
-  player.x is 128
-  player.y is 96
-  player.hp is player.max_hp
-  player.invuln is 0
+  with player
+    its x is 128
+    its y is 96
+    its hp is its max_hp
+    its invuln is 0
   coins is list of 8 sprites {image: "coin"}
   medkits is list of 3 sprites {image: "medkit"}
 

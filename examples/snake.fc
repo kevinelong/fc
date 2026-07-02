@@ -41,7 +41,7 @@ to update
   ny is hy + dy
 
   -- hit a wall?
-  if nx < 0 or nx > 120 or ny < 0 or ny > 120
+  if nx is less than 0 or nx is more than 120 or ny is less than 0 or ny is more than 120
     mode is "lose"
     play sound "die"
     return
@@ -62,12 +62,13 @@ to update
   -- eat the apple, or drop the tail
   ate is no
   if nx is food.x and ny is food.y
-    add 1 to score
+    increase score by 1
     play sound "eat"
     fx is random 15
     fy is random 15
-    food.x is fx * 8
-    food.y is fy * 8
+    with food
+      its x is fx * 8
+      its y is fy * 8
     ate is yes
   if not ate
     tail is item 1 of body
