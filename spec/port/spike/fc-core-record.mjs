@@ -816,12 +816,27 @@ function parse(source) {
     }
   }
 
-  function parseBlock(start, minIndent) {
+  // Rewrite `its <field>` -> `<subjectTokens> . <field>` inside a `with` block.
+  function rewriteIts(tokens, subjTokens) {
+    const out = [];
+    for (let k = 0; k < tokens.length; k++) {
+      const t = tokens[k];
+      if (t.type === 'word' && tv(t) === 'its') {
+        for (const st of subjTokens) out.push(st);
+        if (tokens[k + 1] && tokens[k + 1].type === 'word') out.push({ type: 'dot', value: '.' });
+      } else out.push(t);
+    }
+    if (tokens.indent !== undefined) out.indent = tokens.indent;
+    return out;
+  }
+
+  function parseBlock(start, minIndent, subjTokens) {
     const stmts = [];
     let i = start;
     while (i < lines.length && lines[i].indent >= minIndent) {
       if (lines[i].indent > minIndent) { i++; continue; } // skip deeper (grabbed by parent)
-      const stmt = parseLine(lines[i].tokens, lines[i].lineNum);
+      const toks = subjTokens ? rewriteIts(lines[i].tokens, subjTokens) : lines[i].tokens;
+      const stmt = parseLine(toks, lines[i].lineNum);
       // grab child block
       let j = i + 1;
       const children = [];
@@ -836,7 +851,8 @@ function parse(source) {
             .filter(l => l.tokens.length === 1 && l.tokens[0].type === 'string')
             .map(l => ({ type: 'literal', value: l.tokens[0].value }));
         } else {
-          stmt.body = parseBlock(i + 1, minIndent + 1);
+          const childSubj = stmt.type === 'with' ? toks.slice(1) : subjTokens;
+          stmt.body = parseBlock(i + 1, minIndent + 1, childSubj);
         }
       }
       stmts.push(stmt);
@@ -1195,6 +1211,11 @@ function parse(source) {
       const value = byIdx > 0 ? parseExpression(raw.slice(byIdx + 1)) : { type: 'literal', value: 1 };
       const target = tokensToRef(byIdx > 0 ? raw.slice(1, byIdx) : raw.slice(1));
       return { type: first === 'increase' ? 'add' : 'remove', value, target, lineNum };
+    }
+
+    // -- with X : a block whose `its <field>` lines resolve to X.<field> --
+    if (first === 'with' && raw.length >= 2) {
+      return { type: 'with', body: [], lineNum };
     }
 
     // -- toggle X --
@@ -2564,6 +2585,8 @@ class Runtime {
           }
           break;
         }
+
+        case 'with': { execList(stmt.body); break; }
 
         case 'forever': {
           // In non-game mode, just run a bunch of times

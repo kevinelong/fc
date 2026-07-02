@@ -195,7 +195,7 @@ enum Stmt {
     FuncDef(String, Vec<String>, Vec<Stmt>),
     If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Vec<Stmt>),
     RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
-    RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>),
+    RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>), With(Vec<Stmt>),
     Every(f64, String, Vec<Stmt>, u32),
     Tag(String, String),
     WhenPickup(String, Vec<Stmt>), WhenHit(String, Vec<Stmt>), WhenDefeat(String, Vec<Stmt>),
@@ -385,6 +385,8 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         };
         return if first=="increase" { Stmt::Add(target, value) } else { Stmt::Remove(target, value) };
     }
+    // with X : a block whose `its <field>` lines resolve to X.<field> (rewritten in parse_block)
+    if first=="with" && ts.len()>=2 { return Stmt::With(Vec::new()); }
     if first=="double" && ts.len()>=2 { return Stmt::Simple("double", join_dot(&ts[1..])); }
     if first=="halve" && ts.len()>=2 { return Stmt::Simple("halve", join_dot(&ts[1..])); }
     if first=="toggle" && ts.len()>=2 { return Stmt::Simple("toggle", join_dot(&ts[1..])); }
@@ -541,15 +543,27 @@ fn parse_when(ts: &[Tok]) -> Stmt {
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
     match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
-        |Stmt::Forever(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
+        |Stmt::Forever(b)|Stmt::With(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
         |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
-fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
+// Rewrite `its <field>` -> `<subj> . <field>` inside a `with` block (dot = token type 5).
+fn rewrite_its(toks: &[Tok], subj: &[Tok]) -> Vec<Tok> {
+    let mut out: Vec<Tok> = Vec::new();
+    for k in 0..toks.len() {
+        if toks[k].is_word("its") {
+            for st in subj { out.push(st.clone()); }
+            if toks.get(k+1).map(|t| t.t==3).unwrap_or(false) { out.push(Tok { t: 5, v: TokVal::Str(".".to_string()) }); }
+        } else { out.push(toks[k].clone()); }
+    }
+    out
+}
+fn parse_block(lines: &[Line], start: usize, min_indent: u32, subj: Option<&[Tok]>) -> Vec<Stmt> {
     let mut out = Vec::new(); let mut i = start;
     while i < lines.len() && lines[i].indent >= min_indent {
         if lines[i].indent > min_indent { i += 1; continue; }
-        let mut stmt = parse_line(&lines[i].toks);
+        let toks: Vec<Tok> = match subj { Some(s) => rewrite_its(&lines[i].toks, s), None => lines[i].toks.clone() };
+        let mut stmt = parse_line(&toks);
         let mut j = i + 1;
         while j < lines.len() && lines[j].indent > min_indent { j += 1; }
         if j > i + 1 {
@@ -557,7 +571,11 @@ fn parse_block(lines: &[Line], start: usize, min_indent: u32) -> Vec<Stmt> {
                 for l in &lines[i+1..j] {
                     if l.toks.len()==1 && l.toks[0].t==1 { rows.push(l.toks[0].sval().to_string()); }
                 }
-            } else { let body = parse_block(lines, i+1, min_indent+1); set_body(&mut stmt, body); }
+            } else {
+                let child_subj: Option<&[Tok]> = if matches!(stmt, Stmt::With(_)) { Some(&toks[1..]) } else { subj };
+                let body = parse_block(lines, i+1, min_indent+1, child_subj);
+                set_body(&mut stmt, body);
+            }
         }
         out.push(stmt);
         i = if j > i + 1 { j } else { i + 1 };
@@ -587,7 +605,7 @@ fn parse_program(src: &[u8]) -> Vec<Stmt> {
             }
         }
     }
-    parse_block(&lines, 0, 0)
+    parse_block(&lines, 0, 0, None)
 }
 
 // --- JSON emission (contract: sorted keys, no lineNum, ints w/o decimal, null) ---
@@ -673,6 +691,7 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::RepeatWhile(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_while\"}"); }
         Stmt::RepeatUntil(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_until\"}"); }
         Stmt::Forever(b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"type\":\"forever\"}"); }
+        Stmt::With(b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"type\":\"with\"}"); }
         Stmt::Every(n,u,b,_)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"n\":"); json_num(*n,out); out.push_str(",\"type\":\"every\",\"unit\":"); json_str(u,out); out.push('}'); }
         Stmt::Tag(s,t)=>{ out.push_str("{\"subject\":"); json_str(s,out); out.push_str(",\"tag\":"); json_str(t,out); out.push_str(",\"type\":\"tag\"}"); }
         Stmt::WhenPickup(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_pickup\"}"); }
@@ -1650,6 +1669,7 @@ impl Rt {
             Stmt::RepeatWhile(c, body) => { while self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
             Stmt::RepeatUntil(c, body) => { while !self.eval_cond(c) && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); } }
             Stmt::Forever(body) => { let mut i=0; while i<1000 && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); i+=1; } }
+            Stmt::With(body) => { self.exec_block(body); }   // scoping-only at parse time (`its` rewritten); run the body
             // `every N frames/seconds` — run body on a cadence. JS keeps a per-statement
             // counter that ticks once PER EXECUTION (not per frame) and fires when
             // counter % period == 0. We mirror that with a per-`id` counter so it's correct

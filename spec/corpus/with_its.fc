@@ -1,0 +1,10 @@
+coin is {x: 10, y: 20}
+player is {x: 0, hp: 3}
+with coin
+  increase its x by 5
+  increase its y by 2
+with player
+  increase its x by 1
+  decrease its hp by 1
+  if its hp is at least 2
+    its x is its x + 100
