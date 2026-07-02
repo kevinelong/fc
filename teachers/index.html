@@ -98,7 +98,7 @@ coins are pickups
 score is 0
 
 when player picks up any coin
-  add 1 to score
+  increase score by 1
 
 to update
   move player with arrows
@@ -158,9 +158,9 @@ ghosts chase player
 ghosts are hostile
 
 when player picks up any coin
-  add 1 to score
+  increase score by 1
 when player hits any ghost
-  remove 1 from lives
+  decrease lives by 1
 
 to update
   move player with arrows
@@ -175,7 +175,9 @@ to draw
 run game with update and draw</pre>
   <p><b>Discuss:</b> the slime <i>follows</i> the player because of one English line.
   Ask students to make it faster (<code>speed</code>), add a second ghost, or end
-  the game when <code>lives</code> hits 0.</p>
+  the game (<code>if lives is at most 0 ...</code>). Note the plain-English forms:
+  <code>increase</code>/<code>decrease ... by</code> and comparisons like
+  <code>is at least</code>, <code>is more than</code> read just like the design.</p>
 
   <h2>Lesson 3 — A title screen &amp; sharing (20 minutes)</h2>
   <div class="panel"><b>Goal:</b> add a start menu, then share the finished game.
@@ -204,7 +206,7 @@ coins is list of 6 sprites {image: "coin"}
 coins are pickups
 score is 0
 when player picks up any coin
-  add 1 to score
+  increase score by 1
 
 to update
   if mode is "play"
