@@ -27,6 +27,11 @@ const GITHUB_CLIENT_ID = ENV.GITHUB_CLIENT_ID || process.env.GITHUB_CLIENT_ID ||
 const GITHUB_CLIENT_SECRET = ENV.GITHUB_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET || '';
 const ORIGIN = (ENV.ORIGIN || process.env.ORIGIN || 'https://codeonline.io').replace(/\/$/, '');
 const PORT = Number(ENV.PORT || process.env.PORT || 8092);
+// Classroom mode — OFF by default (ships dark; /api/class/* returns 404 until enabled).
+// Privacy-first: a teacher account creates a class code; students join with the code and
+// a display name only — no email, no student accounts, no PII. See docs/PLAN-classroom.md.
+const ENABLE_CLASSROOM = (ENV.ENABLE_CLASSROOM || process.env.ENABLE_CLASSROOM || 'false').toLowerCase() === 'true';
+const CLASS = { MAX_STUDENTS: 60, MAX_PER_TEACHER: 20, MAX_ASSIGNED: 40, MAX_SUBMISSIONS: 200, IDLE_PURGE_MS: 90 * 24 * 60 * 60 * 1000, CODE_BODY_MAX: 32 * 1024 };
 const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
@@ -53,7 +58,7 @@ const EMAIL = { TTL: 10 * 60 * 1000, MAX_ATTEMPTS: 5, RESEND_COOLDOWN: 30 * 1000
 
 // ---- tiny JSON store (atomic writes) ----
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
-let db = { users: {}, nicks: {}, sessions: {}, states: {}, codes: {}, community: [] };
+let db = { users: {}, nicks: {}, sessions: {}, states: {}, codes: {}, community: [], classes: {} };
 try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); } catch (_) {}
 let saveTimer = null;
 function save() {
@@ -82,6 +87,46 @@ function validateNickname(raw) {
   if (isProfane(nick)) return { error: 'That nickname isn’t allowed.' };
   if (nickTaken(nick)) return { error: 'That nickname is taken.' };
   return { ok: true, nick };
+}
+
+// ---- classroom helpers ----
+// short, human-readable, unambiguous code (no I/O/0/1/L), e.g. "SKY-482"
+function genClassCode() {
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  for (let attempt = 0; attempt < 50; attempt++) {
+    let c = '';
+    for (let i = 0; i < 6; i++) c += A[crypto.randomInt(A.length)];
+    const code = c.slice(0, 3) + '-' + c.slice(3);
+    if (!db.classes[code]) return code;
+  }
+  return 'C-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+// a safe student display name: take a clean provided name, else generate one
+function studentName(raw) {
+  const n = String(raw || '').trim().slice(0, 20);
+  if (/^[A-Za-z0-9 ]{2,20}$/.test(n) && !isProfane(n)) return n;
+  return pick(adjectives) + pick(nouns);   // profanity-free by construction
+}
+// delete classes with no activity for IDLE_PURGE_MS (called opportunistically)
+function purgeIdleClasses() {
+  const now = Date.now(); let changed = false;
+  for (const [code, c] of Object.entries(db.classes || {})) {
+    if (now - (c.lastActive || c.createdAt || 0) > CLASS.IDLE_PURGE_MS) { delete db.classes[code]; changed = true; }
+  }
+  if (changed) save();
+}
+// what a client sees for a class. Everyone in the class can play the assigned games
+// and classmates' submissions (that's the point); only the teacher sees the roster.
+function classView(c, isOwner, myName) {
+  const v = {
+    code: c.code, name: c.name, teacher: c.ownerNick,
+    assigned: c.assigned.map(a => ({ id: a.id, title: a.title, code: a.code })),
+    submissions: c.submissions.map(s => ({ id: s.id, name: s.name, title: s.title, code: s.code, at: s.at })),
+    students: c.students.length, isOwner: !!isOwner,
+  };
+  if (myName) v.you = myName;
+  if (isOwner) v.roster = c.students.map(s => ({ name: s.name, joinedAt: s.joinedAt }));
+  return v;
 }
 
 // ---- sessions / users ----
@@ -351,6 +396,91 @@ const server = http.createServer(async (req, res) => {
       if (db.community[i].ownerId !== user.id) return json(res, 403, { error: 'not yours to delete' });
       db.community.splice(i, 1); save();
       return json(res, 200, { ok: true });
+    }
+
+    // ---- Classroom mode (opt-in via ENABLE_CLASSROOM; PII-free: class code + display name) ----
+    if (p.startsWith('/api/class')) {
+      if (!ENABLE_CLASSROOM) return json(res, 404, { error: 'not found' });
+      purgeIdleClasses();
+
+      if (p === '/api/class/new' && method === 'POST') {          // teacher creates a class
+        if (!csrfOk) return json(res, 403, { error: 'bad request' });
+        const user = sessionUser(parseCookies(req)[COOKIE]);
+        if (!user) return json(res, 401, { error: 'sign in to create a class' });
+        if (Object.values(db.classes).filter(c => c.ownerId === user.id).length >= CLASS.MAX_PER_TEACHER)
+          return json(res, 429, { error: `Class limit reached (${CLASS.MAX_PER_TEACHER}).` });
+        const body = await readBody(req);
+        const name = (String(body.name || '').replace(/[^\w \-!?.()]/g, '').trim() || 'My Class').slice(0, 40);
+        const code = genClassCode();
+        db.classes[code] = { code, ownerId: user.id, ownerNick: user.nickname, name, createdAt: Date.now(), lastActive: Date.now(), students: [], assigned: [], submissions: [] };
+        save();
+        return json(res, 200, { code, name });
+      }
+
+      if (p === '/api/class/join' && method === 'POST') {         // student joins with a code + display name
+        if (!csrfOk) return json(res, 403, { error: 'bad request' });
+        const body = await readBody(req);
+        const c = db.classes[String(body.code || '').toUpperCase().trim()];
+        if (!c) return json(res, 404, { error: 'No class with that code.' });
+        if (c.students.length >= CLASS.MAX_STUDENTS) return json(res, 429, { error: 'This class is full.' });
+        const name = studentName(body.name);
+        c.students.push({ name, joinedAt: Date.now() }); c.lastActive = Date.now(); save();
+        return json(res, 200, classView(c, false, name));
+      }
+
+      const m = p.match(/^\/api\/class\/([A-Z0-9-]{3,12})(?:\/(assign|submit|submission\/([a-f0-9]+)))?$/i);
+      if (m) {
+        const c = db.classes[m[1].toUpperCase()];
+        if (!c) return json(res, 404, { error: 'not found' });
+        const user = sessionUser(parseCookies(req)[COOKIE]);
+        const isOwner = !!(user && user.id === c.ownerId);
+        const sub = m[2];
+
+        if (!sub && method === 'GET') return json(res, 200, classView(c, isOwner));
+
+        if (sub === 'assign' && method === 'POST') {              // teacher assigns a game
+          if (!csrfOk) return json(res, 403, { error: 'bad request' });
+          if (!isOwner) return json(res, 403, { error: 'not your class' });
+          const body = await readBody(req, CLASS.CODE_BODY_MAX);
+          const gcode = String(body.code || '');
+          if (!gcode.trim()) return json(res, 400, { error: 'nothing to assign' });
+          if (gcode.length > 16000) return json(res, 400, { error: 'game too big' });
+          if (c.assigned.length >= CLASS.MAX_ASSIGNED) return json(res, 429, { error: 'too many assigned games' });
+          const title = (String(body.title || '').replace(/[^\w \-!?.()]/g, '').trim() || 'Untitled').slice(0, 40);
+          const id = crypto.randomBytes(5).toString('hex');
+          c.assigned.push({ id, title, code: gcode, at: Date.now() }); c.lastActive = Date.now(); save();
+          return json(res, 200, { id, title });
+        }
+
+        if (sub === 'submit' && method === 'POST') {              // student submits a game
+          if (!csrfOk) return json(res, 403, { error: 'bad request' });
+          const body = await readBody(req, CLASS.CODE_BODY_MAX);
+          const gcode = String(body.code || '');
+          if (!gcode.trim()) return json(res, 400, { error: 'nothing to submit' });
+          if (gcode.length > 16000) return json(res, 400, { error: 'game too big' });
+          const id = crypto.randomBytes(5).toString('hex');
+          const title = (String(body.title || '').replace(/[^\w \-!?.()]/g, '').trim() || 'Untitled').slice(0, 40);
+          c.submissions.push({ id, name: studentName(body.name), title, code: gcode, at: Date.now() });
+          if (c.submissions.length > CLASS.MAX_SUBMISSIONS) c.submissions = c.submissions.slice(-CLASS.MAX_SUBMISSIONS);
+          c.lastActive = Date.now(); save();
+          return json(res, 200, { id, title });
+        }
+
+        if (m[3] && method === 'DELETE') {                        // teacher removes a submission
+          if (!csrfOk) return json(res, 403, { error: 'bad request' });
+          if (!isOwner) return json(res, 403, { error: 'not your class' });
+          c.submissions = c.submissions.filter(s => s.id !== m[3]); c.lastActive = Date.now(); save();
+          return json(res, 200, { ok: true });
+        }
+
+        if (!sub && method === 'DELETE') {                        // teacher deletes the class
+          if (!csrfOk) return json(res, 403, { error: 'bad request' });
+          if (!isOwner) return json(res, 403, { error: 'not your class' });
+          delete db.classes[c.code]; save();
+          return json(res, 200, { ok: true });
+        }
+      }
+      return json(res, 404, { error: 'not found' });
     }
 
     // ---- tpos: trailer-portal sales inquiries (store + email notify) ----
