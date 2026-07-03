@@ -1,9 +1,10 @@
-# Fantasy Computer
+# fc — the plain-English fantasy console
 
-A self-contained fantasy console + beginner-friendly programming language, in a single HTML file.
+A self-contained fantasy console + beginner-friendly programming language, in a
+single HTML file. Make little games by writing **plain English**, and run them in
+any browser.
 
-> **Live demo:** https://kevinelong.github.io/fc/
-> **Repo:** https://github.com/kevinelong/fc
+> **Live:** https://codeonline.io — free, no install, works offline, **multiplayer built in.**
 
 ```
 trees are solid
@@ -15,7 +16,7 @@ trees is list of 12 sprites {image: "tree"}
 coins is list of 8 sprites {image: "coin"}
 
 when player picks up any coin
-  add 1 to score
+  increase score by 1
   if no coins go to win
 
 when player hits any enemy
@@ -28,43 +29,50 @@ That's a real, runnable program. No imports. No boilerplate. Reads like a design
 ---
 
 ## What this is
+A single `index.html` you open in a browser: a **128×128 CRT canvas** and an editor
+where the code re-runs as you type. The language is intentionally readable to someone
+who has never programmed — it borrows from COBOL, BASIC, Python, Scratch, HyperTalk,
+Inform 7, and AppleScript and pushes one step further toward "describe what you want
+in plain English." The thesis: if you can describe a program to a friend, you should
+be able to type that description and have it run.
 
-A single `index.html` you open in a browser. On the left (or top) is a **128×128 pixel canvas with CRT effects**. On the right (or bottom) is a **textarea where you type code**. Whenever you stop typing, the code re-runs.
+## What it has (working today)
+Sprites + an in-app pixel editor · sound (built-in SFX, `define sound`, songs) ·
+tile/map system + map editor · declarative collision (`coins are pickups`, `when
+player hits any enemy`) · screens/menus with a back-stack · on-screen gamepad +
+keyboard/mouse/touch · camera/scrolling · enemy behaviors (chase/wander/patrol) ·
+frame animation · particles · an optional match timer · **real-time multiplayer**
+(16 example games, five of them multiplayer) · cloud saves + a community gallery
+(optional sign-in) · a syntax-highlighting editor and a live variable inspector.
 
-The language inside is intentionally readable to someone who has never programmed. The grammar borrows the best ideas from COBOL, BASIC, Python, SQL, Scratch, Smalltalk, HyperTalk, Logo, Inform 7, and AppleScript — and pushes that trajectory one step further toward "describe what you want in plain English."
+## Run it
+It's a **single self-contained `index.html`** — no build step. Open it directly, or
+serve the folder (`python3 -m http.server` → `http://localhost:8000`). It installs
+as an offline PWA and ships as an Android APK.
 
-## Why this exists
+The engine is a **Rust→WASM core** (default) with a JavaScript fallback; the wasm is
+**inlined as base64 in `index.html`**, so a fresh clone runs with no build.
 
-We wanted to design a language that **supersedes COBOL/BASIC/Python from a novice's perspective** — keeping their accessibility goals while removing the pain points each one carried. The thesis: if you can describe a program to a friend, you should be able to type that description and have it run. The fantasy computer (PICO‑8 style 128×128 + 16 colors) is the substrate that makes the language feel like a real product, not a toy.
+## Layout
+- `index.html` — the whole app: language, engine, editor, UI (single file).
+- `examples/` — the demo games (`.fc` source + thumbnails).
+- `spec/` — language spec, golden corpus, the Rust→WASM port, and the test harnesses
+  (differential, fuzzer, interaction + two-instance multiplayer smoke, visual goldens).
+- `learn/`, `teachers/`, `projects/`, `docs/` — tutorial, classroom lessons, guided
+  projects, and the runnable command reference.
+- `apid/`, `huntd/` — optional backend services (cloud saves + sign-in; the
+  multiplayer relay). fc runs fully without them.
+- `tools/` — thumbnail/screenshot/tutorial/OG generators and the wasm-inline step.
 
-A secondary goal: this language should also work as **structured pseudocode that an LLM can compile to any target** — JS, Python, Godot, Unity, etc. The verbs are platform-agnostic; the runtime adapter is what changes.
+## Rebuild the wasm engine (only if you change the Rust core)
+```
+cd spec/port/spike && cargo build --release --target wasm32-unknown-unknown
+node inline-wasm.mjs            # re-inline the wasm into index.html
+```
+Then run the harnesses in `spec/port/spike/` (exec-diff, ast-diff, examples-diff,
+fuzz, smoke, mp-smoke, visual-golden). **Every language change must keep them green
+across all engines** (the JS reference in `index.html`, the two JS oracles, and the
+Rust/WASM core) — that discipline is how the port stays trustworthy.
 
-## Quick start
-
-1. Open `https://kevinelong.github.io/fc/` (or open `index.html` locally)
-2. Click the canvas to give it keyboard focus
-3. Use arrow keys, click buttons, edit the code in the editor
-
-Try editing the program. Changes apply automatically after ~500ms idle.
-
-## Where to read next
-
-- **[PHILOSOPHY.md](PHILOSOPHY.md)** — design principles, what languages we drew from, why we chose what we chose. Read this first if you're picking up the project mid-stream.
-- **[LANGUAGE.md](LANGUAGE.md)** — full language reference. Every verb, every pattern, with examples.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — how the implementation is organized: lexer → parser → runtime, sprite encoding, CRT layering.
-- **[ROADMAP.md](ROADMAP.md)** — what's done, what's next, open design questions.
-
-## Status
-
-The MVP is working: a real interpreter, ~50 built-in sprites, scrolling worlds, menus with back-stack navigation, collision detection via declarative tags, CRT scanlines + RGB subpixel + phosphor bleed.
-
-What's not there yet: animation, sound, real RGB subpixel rendering (currently a CSS overlay), saved games, more enemy AI verbs. See ROADMAP.md.
-
-## Files
-
-- `index.html` — the entire fantasy computer (UI, lexer, parser, runtime, sprites, font)
-- `README.md` — this file
-- `PHILOSOPHY.md` — language design principles
-- `LANGUAGE.md` — language reference
-- `ARCHITECTURE.md` — implementation details
-- `ROADMAP.md` — what's planned
+## License
+MIT — see [LICENSE](LICENSE). Made by [Kevin Long](https://www.linkedin.com/in/kevinelong/).
