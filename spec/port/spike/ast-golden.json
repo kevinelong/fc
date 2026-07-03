@@ -9413,6 +9413,131 @@
       "type": "else"
     }
   ],
+  "inline_english_cmp.fc": [
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 12
+      }
+    },
+    {
+      "target": "hit",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [],
+      "condition": {
+        "left": {
+          "name": "score",
+          "type": "ref"
+        },
+        "op": ">",
+        "right": {
+          "type": "literal",
+          "value": 10
+        },
+        "type": "cmp"
+      },
+      "thenStmt": {
+        "target": "hit",
+        "type": "assign",
+        "value": {
+          "type": "literal",
+          "value": 1
+        }
+      },
+      "type": "if"
+    },
+    {
+      "target": "ok",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "hp",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 3
+      }
+    },
+    {
+      "body": [],
+      "condition": {
+        "left": {
+          "name": "hp",
+          "type": "ref"
+        },
+        "op": ">=",
+        "right": {
+          "type": "literal",
+          "value": 2
+        },
+        "type": "cmp"
+      },
+      "thenStmt": {
+        "target": "ok",
+        "type": "assign",
+        "value": {
+          "type": "literal",
+          "value": 1
+        }
+      },
+      "type": "if"
+    },
+    {
+      "target": "lives",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "done",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [],
+      "condition": {
+        "left": {
+          "name": "lives",
+          "type": "ref"
+        },
+        "op": "<=",
+        "right": {
+          "type": "literal",
+          "value": 0
+        },
+        "type": "cmp"
+      },
+      "thenStmt": {
+        "type": "stop"
+      },
+      "type": "if"
+    },
+    {
+      "target": "done",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 1
+      }
+    }
+  ],
   "item_one_based.fc": [
     {
       "target": "list",

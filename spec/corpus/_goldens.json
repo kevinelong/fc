@@ -270,6 +270,18 @@
       "result": "then"
     }
   },
+  "inline_english_cmp.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "score": 12,
+      "hit": 1,
+      "ok": 1,
+      "hp": 3,
+      "lives": 0,
+      "done": 0
+    }
+  },
   "item_one_based.fc": {
     "say": [],
     "errors": [],

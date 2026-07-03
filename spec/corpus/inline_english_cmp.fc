@@ -1,0 +1,10 @@
+score is 12
+hit is 0
+if score is more than 10 hit is 1
+ok is 0
+hp is 3
+if hp is at least 2 ok is 1
+lives is 0
+done is 0
+if lives is at most 0 stop
+done is 1
