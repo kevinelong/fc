@@ -14,7 +14,7 @@ coins are pickups
 follow player with camera
 
 when player picks up any coin
-  add 1 to score
+  increase score by 1
 
 when time runs out
   mode is "over"
@@ -31,7 +31,7 @@ to draw
     draw sprite player at player.x, player.y
     write "score {score}" at 2, 2 in white on hud
     write "time {timer}" at 92, 2 in yellow on hud
-    if timer < 6
+    if timer is less than 6
       write "hurry!" at 48, 2 in red on hud
   if mode is "over"
     write "TIME UP!" at 44, 50 in red on hud

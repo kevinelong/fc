@@ -30,11 +30,11 @@ to update
   if mode is not "play" return
 
   -- move the ship
-  if key "left" remove 2 from player.x
-  if key "right" add 2 to player.x
-  if player.x < 2
+  if key "left" decrease player.x by 2
+  if key "right" increase player.x by 2
+  if player.x is less than 2
     player.x is 2
-  if player.x > 118
+  if player.x is more than 118
     player.x is 118
 
   -- march the whole formation, reversing + dropping at the edges
@@ -73,7 +73,7 @@ to fire
   play sound "zap"
 
 when enemy is defeated
-  add 10 to score
+  increase score by 10
   play sound "explosion"
 
 to draw

@@ -28,19 +28,19 @@ define sound "home" as square from 500 to 1200 over 0.25
 
 when "up" is pressed
   if mode is "play"
-    remove 16 from player.y
+    decrease player.y by 16
     play sound "hop"
 when "down" is pressed
-  if mode is "play" and player.y < 112
-    add 16 to player.y
+  if mode is "play" and player.y is less than 112
+    increase player.y by 16
     play sound "hop"
 when "left" is pressed
-  if mode is "play" and player.x > 8
-    remove 16 from player.x
+  if mode is "play" and player.x is more than 8
+    decrease player.x by 16
     play sound "hop"
 when "right" is pressed
-  if mode is "play" and player.x < 112
-    add 16 to player.x
+  if mode is "play" and player.x is less than 112
+    increase player.x by 16
     play sound "hop"
 
 to update
@@ -49,12 +49,12 @@ to update
   -- traffic rolls on, wrapping around the edges
   each car in cars
     car.x is car.x + car.dir * car.speed
-    if car.x > 132 car.x is -8
-    if car.x < -8 car.x is 132
+    if car.x is more than 132 car.x is -8
+    if car.x is less than -8 car.x is 132
 
   -- made it home? score, speed the traffic up a little, hop back to the start
-  if player.y <= 16
-    add 1 to score
+  if player.y is at most 16
+    increase score by 1
     play sound "home"
     each car in cars
       car.speed is car.speed + 0.12
@@ -62,7 +62,7 @@ to update
     player.y is 112
 
 when player hits any car
-  remove 1 from lives
+  decrease lives by 1
   play sound "splat"
   player.x is 60
   player.y is 112

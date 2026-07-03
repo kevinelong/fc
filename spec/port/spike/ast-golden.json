@@ -6933,8 +6933,16 @@
                 },
                 "op": "<",
                 "right": {
-                  "type": "literal",
-                  "value": -8
+                  "left": {
+                    "type": "literal",
+                    "value": 0
+                  },
+                  "op": "-",
+                  "right": {
+                    "type": "literal",
+                    "value": 8
+                  },
+                  "type": "math"
                 },
                 "type": "cmp"
               },
