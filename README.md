@@ -43,7 +43,8 @@ player hits any enemy`) · screens/menus with a back-stack · on-screen gamepad 
 keyboard/mouse/touch · camera/scrolling · enemy behaviors (chase/wander/patrol) ·
 frame animation · particles · an optional match timer · **real-time multiplayer**
 (16 example games, five of them multiplayer) · cloud saves + a community gallery
-(optional sign-in) · a syntax-highlighting editor and a live variable inspector.
+(optional sign-in) · a syntax-highlighting editor and a live variable inspector ·
+a **"see it in real code"** view that mirrors your program as Python or JavaScript.
 
 ## Run it
 It's a **single self-contained `index.html`** — no build step. Open it directly, or
@@ -73,6 +74,11 @@ Then run the harnesses in `spec/port/spike/` (exec-diff, ast-diff, examples-diff
 fuzz, smoke, mp-smoke, visual-golden). **Every language change must keep them green
 across all engines** (the JS reference in `index.html`, the two JS oracles, and the
 Rust/WASM core) — that discipline is how the port stays trustworthy.
+
+The **fc→Python/JS transpiler** (`transpile.mjs`, powering the "see it in real code"
+view) has the same discipline: `transpile-diff` pins its output over the corpus +
+examples, and `transpile-embed-check` asserts the copy inlined in `index.html` stays
+byte-identical to the module. Re-pin an intentional change with `node dump-transpile.mjs`.
 
 ## License
 MIT — see [LICENSE](LICENSE). Made by [Kevin Long](https://www.linkedin.com/in/kevinelong/).
