@@ -34,7 +34,7 @@ accessibility requirement + a real institutional checkbox.
 Body classes bump the editor font size and overlay contrast for low-vision
 learners. Same panel.
 
-## 4. Step-through debugger (separate pass) — planned
+## 4. Step-through debugger (🐞 step) ✅
 The WASM core steps only per **frame**; the JS core (`runtime.exec`) is a plain
 recursive interpreter where every statement carries `lineNum` — the only core that
 can step per statement. `exec()` is synchronous, so async single-stepping would
@@ -57,4 +57,5 @@ operability. Unlocks the institutional-accessibility story.
 
 ## Order
 Settings panel → CVD → reduced-motion → contrast/text (one bundle), then the
-debugger as its own pass.
+debugger as its own pass. **All of the above shipped 2026-07-05** (commits 8a899ed,
+e41c4ca). Remaining: the ARIA/keyboard pass (#5) and the two optional big items.
