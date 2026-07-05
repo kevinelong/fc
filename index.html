@@ -495,11 +495,107 @@ body.touch.playing #back-btn {
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <button type="button" class="code-lang" data-lang="python" style="font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em">&#128013; Python</button>
       <button type="button" class="code-lang" data-lang="js" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em">&#128441; JavaScript</button>
-      <button type="button" id="code-copy" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em;margin-left:auto">&#10697; copy</button>
+      <button type="button" id="code-run" title="run this JavaScript version in a new tab" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em;margin-left:auto">&#9654; run this</button>
+      <button type="button" id="code-download" title="download a standalone HTML file of this game" style="display:none;font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em">&#11015; download</button>
+      <button type="button" id="code-copy" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em;margin-left:0">&#10697; copy</button>
     </div>
     <pre id="code-out" style="background:#0b0b0b;border:1px solid #3a2f18;border-radius:6px;padding:14px 16px;overflow:auto;color:#d8e6d8;font:12.5px/1.55 'Share Tech Mono',monospace;white-space:pre;margin:0"></pre>
   </div>
 </div>
+<!-- fc-runtime shim for RUNNABLE JS export. Non-executing here (type text/plain);
+     the "run this"/"download" buttons inline this text into a standalone HTML so
+     the transpiled JS actually plays on a canvas. Implements the helper API the
+     JS transpiler emits; tag-collision / behaviors / multiplayer are safe no-ops. -->
+<script type="text/plain" id="fc-runtime-src">
+// fc-runtime — a tiny standalone runtime so an exported fc game runs in plain JS.
+// Not the real fc engine (approximate, editable). fc's world is 128x128.
+(function () {
+  var W = 128, SCALE = 3;
+  var cv = document.getElementById('fcx');
+  var ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  var COLORS = {
+    'black':'#000000','dark blue':'#1d2b53','dark purple':'#7e2553','dark green':'#008751',
+    'brown':'#ab5236','dark gray':'#5f574f','dark grey':'#5f574f','light gray':'#c2c3c7','light grey':'#c2c3c7',
+    'white':'#fff1e8','red':'#ff004d','orange':'#ffa300','yellow':'#ffec27','green':'#00e436',
+    'blue':'#29adff','indigo':'#83769c','pink':'#ff77a8','peach':'#ffccaa','gray':'#8e8e8e','grey':'#8e8e8e',
+    'gold':'#ffd700','cyan':'#00ffff','magenta':'#ff00ff','purple':'#9b59b6','lime':'#aaff00','sky':'#87ceeb','coral':'#ff6f61'
+  };
+  function color(c){ if(!c) return '#fff1e8'; c=String(c).toLowerCase().trim(); return COLORS[c] || (c[0]==='#'?c:'#fff1e8'); }
+
+  // ---- input ----
+  var keys = {};
+  function norm(k){ k=k.toLowerCase(); if(k==='arrowleft')return'left'; if(k==='arrowright')return'right';
+    if(k==='arrowup')return'up'; if(k==='arrowdown')return'down'; if(k===' '||k==='spacebar')return'space'; return k; }
+  window.addEventListener('keydown', function(e){ keys[norm(e.key)]=true; if(['left','right','up','down','space'].indexOf(norm(e.key))>=0) e.preventDefault(); });
+  window.addEventListener('keyup', function(e){ keys[norm(e.key)]=false; });
+  var mouse = { x:0, y:0, down:false, clicked:false };
+  cv.addEventListener('mousemove', function(e){ var r=cv.getBoundingClientRect(); mouse.x=(e.clientX-r.left)/SCALE; mouse.y=(e.clientY-r.top)/SCALE; });
+  cv.addEventListener('mousedown', function(){ mouse.down=true; mouse.clicked=true; });
+  window.addEventListener('mouseup', function(){ mouse.down=false; });
+
+  // ---- sound (tiny WebAudio blip; safe if unavailable) ----
+  var AC = null; function beep(f, d){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    var o=AC.createOscillator(), g=AC.createGain(); o.type='square'; o.frequency.value=f||440;
+    o.connect(g); g.connect(AC.destination); g.gain.value=0.04; o.start(); o.stop(AC.currentTime+(d||0.06)); }catch(_){}}
+
+  // ---- sprites (custom pixel art from `define_sprite`; else a placeholder square) ----
+  var SPR = {};
+  var PAL = [null,'#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8'];
+
+  // ---- draw helpers (exposed globally for the transpiled program) ----
+  window.clear_screen = function(c){ ctx.fillStyle=color(c); ctx.fillRect(0,0,W,W); };
+  window.draw_rect = function(x,y,w,h,c){ ctx.fillStyle=color(c); ctx.fillRect(x|0,y|0,w|0,h|0); };
+  window.draw_circle = function(x,y,r,c){ ctx.fillStyle=color(c); ctx.beginPath(); ctx.arc((x|0)+0.5,(y|0)+0.5,r,0,6.2832); ctx.fill(); };
+  window.draw_line = function(x1,y1,x2,y2,c){ ctx.strokeStyle=color(c); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+  window.write_text = function(t,x,y,c){ ctx.fillStyle=color(c); ctx.font='6px monospace'; ctx.textBaseline='top'; ctx.fillText(String(t),x|0,y|0); };
+  window.draw_sprite = function(name,x,y){ var hex=SPR[name]; if(hex){ for(var i=0;i<64;i++){ var ci=parseInt(hex[i],16); if(!ci)continue; ctx.fillStyle=PAL[ci]; ctx.fillRect((x|0)+(i%8),(y|0)+((i/8)|0),1,1);} } else { ctx.fillStyle='#ff77a8'; ctx.fillRect(x|0,y|0,8,8); } };
+  window.show_button = function(label,x,y){ ctx.fillStyle='#3a2f18'; ctx.fillRect(x|0,y|0,40,12); window.write_text(label,(x|0)+3,(y|0)+3,'white'); };
+  window.draw_meter = function(cur,max,x,y,w,h,c){ ctx.fillStyle='#333'; ctx.fillRect(x|0,y|0,w|0,h|0); ctx.fillStyle=color(c); ctx.fillRect(x|0,y|0,((w*Math.max(0,Math.min(1,cur/(max||1))))|0),h|0); };
+  window.define_sprite = function(name,hex){ if(hex && hex.length>=64) SPR[name]=hex.replace(/\s/g,''); };
+
+  // ---- values / input queries ----
+  window.key_pressed = function(k){ return !!keys[String(k).toLowerCase()]; };
+  window.any_key_pressed = function(list){ if(!list) return false; for(var i=0;i<list.length;i++){ if(keys[String(list[i]).toLowerCase()]) return true; } return false; };
+  window.mouse_clicked = function(){ return mouse.clicked; };
+  window.mouse_pressed = function(){ return mouse.down; };
+  window.is_solid_at = function(){ return false; };
+  window.new_sprite = function(pos, props){ var s = {}; if(props) for(var k in props) s[k]=props[k]; if(pos==='centered'){ if(s.x==null)s.x=60; if(s.y==null)s.y=60; } else { if(s.x==null)s.x=0; if(s.y==null)s.y=0; } return s; };
+  window.load_save = function(){ return null; };
+  window.peers = [];   // multiplayer isn't ported — no other players (game still runs solo)
+
+  // ---- sound ----
+  window.play_sound = function(){ beep(660,0.05); };
+  window.play_music = function(){};
+  window.stop_music = function(){};
+  window.define_sound = function(){};
+  window.define_song = function(){};
+
+  // ---- best-effort / safe no-ops (tag collision, behaviors, camera, net, screens) ----
+  var NOOPS = ['camera_follow','move_with_arrows','jump','burst','set_tag','set_behavior','draw_map','tile_def',
+    'go_to_screen','go_back','set_time_limit','damage','heal','restore','join_room','broadcast','save_value',
+    'player_hits','player_picks_up','player_defeats','timer_ended','button_tapped','mouse_moved','knock','follow'];
+  NOOPS.forEach(function(n){ if(!window[n]) window[n] = function(){ return false; }; });
+
+  // ---- the game loop ----
+  window.frame = 0;   // fc exposes a global frame counter (`every N frames` → frame % N)
+  var _loop = null;
+  function safe(fn){ try { fn(); } catch(e){ console.error(e); } }   // one bad fn can't blank the screen
+  window.run_game = function(){ var fns = Array.prototype.slice.call(arguments).filter(function(f){ return typeof f==='function'; });
+    function tick(){
+      for(var i=0;i<fns.length;i++) safe(fns[i]);
+      // fc auto-runs `to screen X` when the `mode` variable equals X (an overlay
+      // on top of draw). Works because the export makes top-level vars global.
+      var m = (typeof window.mode !== 'undefined') ? window.mode : null;
+      if (m != null) { var sf = window['screen_' + m]; if (typeof sf === 'function') safe(sf); }
+      mouse.clicked = false;   // clear one-shot click after the frame
+      window.frame++;
+      _loop = requestAnimationFrame(tick);
+    }
+    cancelAnimationFrame(_loop); window.frame = 0; _loop = requestAnimationFrame(tick);
+  };
+})();
+</script>
 <div id="settings-overlay" role="dialog" aria-label="Settings" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:46px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
   <button type="button" id="settings-close" aria-label="close settings" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:620px;margin:0 auto">
@@ -6423,7 +6519,10 @@ function fcTpExprP(node, ctx) {
   if (typeof node !== 'object') return [fcTpLit(node, ctx), 100];
   switch (node.type) {
     case 'literal': return [fcTpLit(node.value, ctx), 100];
-    case 'ref': return [fcTpRval(node.name, ctx), 100];
+    case 'ref':
+      // bare `sprite` is fc's "a new empty sprite" keyword, not a variable
+      if (node.name === 'sprite') return ['new_sprite()', 100];
+      return [fcTpRval(node.name, ctx), 100];
     case 'math': {
       const prec = (node.op === '*' || node.op === '/' || node.op === '%') ? 30 : 25;
       return [fcTpExpr(node.left, ctx, prec) + ' ' + node.op + ' ' + fcTpExpr(node.right, ctx, prec + 1), prec];
@@ -6535,8 +6634,32 @@ function fcTpArrRemove(target, value, ctx) {
   var btn = document.getElementById('tool-code');
   var closeBtn = document.getElementById('code-close');
   var copyBtn = document.getElementById('code-copy');
+  var runBtn = document.getElementById('code-run');
+  var dlBtn = document.getElementById('code-download');
   if (!overlay || !btn) return;
   var lang = 'python';
+
+  // Build a standalone, runnable HTML from the JS transpile + the fc-runtime shim.
+  function buildExportHtml(){
+    var ed = document.getElementById('editor'); var src = ed ? ed.value : '';
+    var js; try { js = fcTranspile(parse(src), 'js'); } catch (e) { return null; }
+    // Top-level state → globals so the shim's run_game can read `mode` for screen
+    // dispatch. Only column-0 (top-level) let/const; nested declarations untouched.
+    js = js.replace(/^(let|const) /gm, 'var ');
+    var shimEl = document.getElementById('fc-runtime-src'); if (!shimEl) return null;
+    var shim = shimEl.textContent;
+    var esc = function(s){ return String(s).replace(/<\/script>/gi, '<\\/script>'); };
+    return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>fc game</title>\n'
+      + '<style>html,body{margin:0;height:100%;background:#0b0b0b;display:flex;align-items:center;justify-content:center;'
+      + 'flex-direction:column;font-family:monospace;color:#8a7340}#fcx{image-rendering:pixelated;width:384px;height:384px;'
+      + 'background:#000;border:2px solid #333;border-radius:6px}.hint{margin-top:10px;font-size:12px;text-align:center}</style>\n'
+      + '</head>\n<body>\n<canvas id="fcx" width="128" height="128" tabindex="0"></canvas>\n'
+      + '<div class="hint">Made with fc &middot; click the screen, then use the arrow keys &middot; a plain-JavaScript port you can edit</div>\n'
+      + '<script>\n' + esc(shim) + '\n<\/script>\n<script>\n' + esc(js) + '\n<\/script>\n</body>\n</html>\n';
+  }
+  function withUrl(fn){ var html = buildExportHtml(); if (!html) { alert("Couldn't build a runnable version of this program yet."); return; }
+    var url = URL.createObjectURL(new Blob([html], { type:'text/html' })); fn(url); setTimeout(function(){ URL.revokeObjectURL(url); }, 30000); }
   function render(){
     // query the DOM (the `editor` const lives in a different <script> block)
     var ed = document.getElementById('editor');
@@ -6555,6 +6678,10 @@ function fcTpArrRemove(target, value, ctx) {
       btns[i].style.color = on ? '#9f9' : '#c8a96e';
       btns[i].style.borderColor = on ? '#2c6e2c' : '#5a4a28';
     }
+    // Run/Download only make sense for the JavaScript port (Python isn't runnable in a browser).
+    var showRun = (l === 'js') ? '' : 'none';
+    if (runBtn) runBtn.style.display = showRun;
+    if (dlBtn) dlBtn.style.display = showRun;
     render();
   }
   function openView(){ overlay.style.display = 'block'; setLang(lang); }
@@ -6570,6 +6697,8 @@ function fcTpArrRemove(target, value, ctx) {
     var done = function(){ var o = copyBtn.textContent; copyBtn.textContent = '\u2713 copied'; setTimeout(function(){ copyBtn.textContent = o; }, 1200); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done); else done();
   };
+  if (runBtn) runBtn.onclick = function(){ withUrl(function(url){ window.open(url, '_blank'); }); };
+  if (dlBtn) dlBtn.onclick = function(){ withUrl(function(url){ var a = document.createElement('a'); a.href = url; a.download = 'fc-game.html'; document.body.appendChild(a); a.click(); a.remove(); }); };
 })();
 
 // ---- Settings / Accessibility panel (⚙) ----

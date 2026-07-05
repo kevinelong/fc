@@ -324,7 +324,10 @@ function fcTpExprP(node, ctx) {
   if (typeof node !== 'object') return [fcTpLit(node, ctx), 100];
   switch (node.type) {
     case 'literal': return [fcTpLit(node.value, ctx), 100];
-    case 'ref': return [fcTpRval(node.name, ctx), 100];
+    case 'ref':
+      // bare `sprite` is fc's "a new empty sprite" keyword, not a variable
+      if (node.name === 'sprite') return ['new_sprite()', 100];
+      return [fcTpRval(node.name, ctx), 100];
     case 'math': {
       const prec = (node.op === '*' || node.op === '/' || node.op === '%') ? 30 : 25;
       return [fcTpExpr(node.left, ctx, prec) + ' ' + node.op + ' ' + fcTpExpr(node.right, ctx, prec + 1), prec];
