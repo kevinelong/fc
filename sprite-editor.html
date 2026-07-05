@@ -101,6 +101,16 @@
   // fc's exact SPRITE_PAL: index 0 = transparent, 1-f map to palette colors
   const PAL = [null,'#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8'];
   const NAMES=['transparent','black','dk blue','dk purple','dk green','brown','dk gray','lt gray','white','red','orange','yellow','green','blue','indigo','pink'];
+  // Colorblind-safe display: if the game's CVD setting is on, show the same
+  // re-tuned hues so what you draw matches what the game renders. Sprites still
+  // store palette INDICES, so the saved art is unchanged. (CVD_MAP mirrors the
+  // one in index.html — keep in sync.)
+  try {
+    if (JSON.parse(localStorage.getItem('fc:save:a11y:cvd')) === true) {
+      const CVD_MAP={'#7e2553':'#6a3d9a','#008751':'#117733','#ab5236':'#8a6d1f','#ff004d':'#dc3220','#00e436':'#33dd88','#83769c':'#785ef0'};
+      for (let i=0;i<PAL.length;i++){ const h=PAL[i]&&PAL[i].toLowerCase(); if(h&&CVD_MAP[h]) PAL[i]=CVD_MAP[h]; }
+    }
+  } catch(_){}
   const HEX='0123456789abcdef';
   const N=8;
   // preload the real fc hero_down sprite so the round-trip is visible

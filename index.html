@@ -94,6 +94,21 @@ canvas {
     );
   mix-blend-mode: multiply;
 }
+/* ---- Accessibility toggles (applied via body classes from the ⚙ settings panel) ---- */
+/* Reduced motion / "plain screen": drop the CRT phosphor blur + scanline/subpixel
+   overlays (flicker-y for photosensitive users) and any transitions/animations. */
+body.reduce-motion canvas { filter: none; }
+body.reduce-motion #subpixels, body.reduce-motion #scanlines { display: none; }
+body.reduce-motion * { animation: none !important; transition: none !important; }
+/* Larger editor text for low-vision learners. */
+body.big-text #editor, body.big-text #editor-hl { font-size: 17px !important; line-height: 1.5 !important; }
+/* Higher-contrast editor: opaque dark bg + brighter glyphs, calmer than the CRT amber. */
+body.hi-contrast #editor-hl-wrap { background: #000; }
+body.hi-contrast #editor { caret-color: #fff; }
+body.hi-contrast #editor-hl .h-cmt { color: #7fb37f !important; }
+body.hi-contrast #editor-hl .h-str { color: #ffd479 !important; }
+body.hi-contrast #editor-hl .h-num { color: #9fe1ff !important; }
+body.hi-contrast #editor-hl .h-verb, body.hi-contrast #editor-hl .h-kw { color: #ffffff !important; }
 #editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 #editor { flex: 1; background: #16213e; color: #a8d8ea; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 14px; line-height: 1.5; resize: none; outline: none; tab-size: 2; white-space: pre; overflow: auto; }
 /* syntax-highlight overlay: a colored layer behind a transparent-text textarea. Both share EXACT metrics so the caret lands on the colored glyphs. Progressive enhancement — class is added by JS; absent = a plain textarea. */
@@ -393,6 +408,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-map" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">▦ map</button>
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <button type="button" id="tool-code" title="see this program written in Python or JavaScript" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&lt;/&gt; real code</button>
+      <button type="button" id="tool-settings" title="accessibility &amp; display settings" aria-label="settings" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#9881;</button>
       <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
       <button type="button" id="tool-github" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1f2328;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⬆ GitHub</button>
       <button type="button" id="tool-publish" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🌐 publish</button>
@@ -479,6 +495,15 @@ body.touch.playing #back-btn {
     <pre id="code-out" style="background:#0b0b0b;border:1px solid #3a2f18;border-radius:6px;padding:14px 16px;overflow:auto;color:#d8e6d8;font:12.5px/1.55 'Share Tech Mono',monospace;white-space:pre;margin:0"></pre>
   </div>
 </div>
+<div id="settings-overlay" role="dialog" aria-label="Settings" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:46px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
+  <button type="button" id="settings-close" aria-label="close settings" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <div style="max-width:620px;margin:0 auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.16em">SETTINGS &amp; ACCESSIBILITY</div>
+    <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">These are saved to this device (and your account, if signed in).</div>
+    <div id="settings-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div style="color:#8a7340;font-size:11.5px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colorblind-safe mode re-tunes the palette so red/green/brown stay distinct. Reduced motion turns off the CRT glow &amp; scanlines.</div>
+  </div>
+</div>
 <div id="signin-overlay">
   <div id="signin-box">
     <button type="button" id="signin-close">&#10005;</button>
@@ -560,13 +585,64 @@ const COLORS = {
 };
 
 function resolveColor(name) {
-  if (!name) return '#fff1e8';
+  if (!name) return cvdMap('#fff1e8');
   const n = String(name).toLowerCase().trim();
-  if (COLORS[n]) return COLORS[n];
-  if (n.startsWith('#')) return n;
+  if (COLORS[n]) return cvdMap(COLORS[n]);
+  if (n.startsWith('#')) return cvdMap(n);
   if (n.startsWith('rgb')) return n;
   // try two-word colors
-  return COLORS[n] || '#fff1e8';
+  return cvdMap(COLORS[n] || '#fff1e8');
+}
+
+// ---- Colorblind-safe (CVD) palette: a PRESENTATION-layer remap ----
+// The base 16-color palette (SPRITE_PAL / COLORS) and every draw-COMMAND are left
+// byte-identical — so JS≡wasm parity goldens (examples-diff, ast-diff, visual)
+// are untouched. When CVD mode is on, cvdMap() rewrites each base hex to a
+// colorblind-distinguishable one at the PAINT choke-points only (resolveColor
+// return, drawSprite's SPRITE_PAL lookup, and the wasm paint() color). Sprites
+// store palette INDICES, so they recolor for free. Hues follow Okabe-Ito /
+// Paul-Tol: colors already safe (blacks, blues, grays, white, yellow, orange,
+// pink) pass through; the confusable ones (reds/greens/brown/purple/indigo) are
+// separated on the luminance + blue–yellow axes. Tunable.
+window.FC_A11Y = window.FC_A11Y || { cvd: false };
+// Accessibility settings, resolved from persisted prefs (same localStorage keys
+// STORE uses) + the OS reduced-motion preference. Applied EARLY here so the very
+// first paint already honors them (no flash); the ⚙ panel re-applies on change.
+function a11yGet(k) { try { var v = localStorage.getItem('fc:save:' + k); return v == null ? undefined : JSON.parse(v); } catch (_) { return undefined; } }
+function a11yState() {
+  var osMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var m = a11yGet('a11y:reduce-motion');
+  return {
+    cvd: a11yGet('a11y:cvd') === true,
+    motion: (m === undefined) ? !!osMotion : !!m,
+    big: a11yGet('a11y:big-text') === true,
+    contrast: a11yGet('a11y:hi-contrast') === true,
+  };
+}
+function a11yApply() {
+  var s = a11yState();
+  window.FC_A11Y.cvd = s.cvd;
+  if (document.body) {
+    document.body.classList.toggle('reduce-motion', s.motion);
+    document.body.classList.toggle('big-text', s.big);
+    document.body.classList.toggle('hi-contrast', s.contrast);
+  }
+  return s;
+}
+a11yApply();
+const CVD_MAP = {
+  '#7e2553': '#6a3d9a',  // dark purple -> bluer purple (off the red axis)
+  '#008751': '#117733',  // dark green  -> Tol bluish dark green
+  '#ab5236': '#8a6d1f',  // brown       -> dark ochre (away from red & green)
+  '#ff004d': '#dc3220',  // red         -> strong red-orange (distinct luminance)
+  '#00e436': '#33dd88',  // green       -> light bluish green
+  '#83769c': '#785ef0',  // indigo      -> IBM blue-violet
+  // black, dark blue, dark/light gray, white, orange, yellow, blue, pink already
+  // separate well under protan/deutan/tritan — passed through unchanged.
+};
+function cvdMap(hex) {
+  if (!window.FC_A11Y.cvd || !hex) return hex;
+  return CVD_MAP[String(hex).toLowerCase()] || hex;
 }
 
 // ============================================================
@@ -1186,7 +1262,7 @@ function drawSprite(name, x, y) {
     if (ci === 0) continue; // transparent
     const px = i % 8;
     const py = Math.floor(i / 8);
-    ctx.fillStyle = SPRITE_PAL[ci];
+    ctx.fillStyle = cvdMap(SPRITE_PAL[ci]);
     ctx.fillRect(Math.floor(x) + px, Math.floor(y) + py, 1, 1);
   }
 }
@@ -1406,6 +1482,7 @@ const STORE = {
     } catch (_) { /* offline */ }
   },
 };
+window.STORE = STORE;   // used by the settings/a11y wiring in a later <script> block
 STORE.pull();
 
 const NET = (function () {
@@ -5095,7 +5172,7 @@ run game with update`;
     for (let i = 0; i < 64 && i < hex.length; i++) {
       const ci = parseInt(hex[i], 16);
       if (!ci) continue;
-      cx.fillStyle = SPRITE_PAL[ci];
+      cx.fillStyle = cvdMap(SPRITE_PAL[ci]);
       cx.fillRect(i % 8, (i / 8) | 0, 1, 1);
     }
     return c;
@@ -5767,11 +5844,12 @@ window.WASMCORE = (function () {
       if (c.op === 'sound') { if (c.kind === 'music') AUDIO.music(c.name); else AUDIO.play(c.name); continue; }  // route to the JS audio engine
       if (c.op === 'defsfx') { AUDIO.defineSfx(c.name, c.recipe); continue; }  // register a custom `define sound`
       if (c.op === 'net') { if (c.kind === 'join') NET.join(c.a, c.b); else if (c.kind === 'broadcast') { try { NET.broadcast(JSON.parse(c.a)); } catch (_) {} } continue; }  // multiplayer
-      ctx.fillStyle = c.color; ctx.strokeStyle = c.color;
+      const cc = cvdMap(c.color);   // presentation-layer CVD remap (base draw-cmd unchanged)
+      ctx.fillStyle = cc; ctx.strokeStyle = cc;
       if (c.op === 'rect') ctx.fillRect(c.x, c.y, c.w, c.h);
       else if (c.op === 'circle') { ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); }
       else if (c.op === 'line') { ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); ctx.stroke(); }
-      else if (c.op === 'text') drawText(c.text, c.x, c.y, c.color);   // reuse the JS 3x5 font for exact parity
+      else if (c.op === 'text') drawText(c.text, c.x, c.y, cc);   // reuse the JS 3x5 font for exact parity
     }
   }
   function feedNet() {   // push incoming multiplayer state into the core before the frame
@@ -6415,6 +6493,57 @@ function fcTpArrRemove(target, value, ctx) {
     var done = function(){ var o = copyBtn.textContent; copyBtn.textContent = '\u2713 copied'; setTimeout(function(){ copyBtn.textContent = o; }, 1200); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done); else done();
   };
+})();
+
+// ---- Settings / Accessibility panel (⚙) ----
+(function fcSettings(){
+  var overlay = document.getElementById('settings-overlay');
+  var list = document.getElementById('settings-list');
+  var btn = document.getElementById('tool-settings');
+  var closeBtn = document.getElementById('settings-close');
+  if (!overlay || !btn || !list) return;
+  var TOGGLES = [
+    { key:'a11y:cvd',           field:'cvd',      label:'Colorblind-safe colors', desc:'Re-tune the palette so red / green / brown stay distinct.' },
+    { key:'a11y:reduce-motion', field:'motion',   label:'Reduced motion',         desc:'Turn off the CRT glow, scanlines & animations.' },
+    { key:'a11y:big-text',      field:'big',      label:'Larger editor text',     desc:'Bigger code font for easier reading.' },
+    { key:'a11y:hi-contrast',   field:'contrast', label:'High-contrast editor',   desc:'Brighter code on a solid black background.' },
+  ];
+  function rerenderGame(){ try { var ed = document.getElementById('editor'); if (typeof run === 'function') run(ed ? ed.value : ''); } catch (_) {} }
+  function build(){
+    var s = a11yState();
+    list.innerHTML = '';
+    TOGGLES.forEach(function(t){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;justify-content:space-between;background:#111;border:1px solid #3a2f18;border-radius:6px;padding:10px 12px';
+      var txt = document.createElement('div');
+      txt.innerHTML = '<div style="color:#e8d8b0;font-size:13px">' + t.label + '</div>' +
+                      '<div style="color:#8a7340;font-size:11.5px;margin-top:2px">' + t.desc + '</div>';
+      var b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role','switch'); b.setAttribute('aria-label', t.label);
+      function paint(v){
+        b.textContent = v ? 'ON' : 'OFF';
+        b.style.cssText = 'min-width:52px;font:12px monospace;border-radius:4px;padding:7px 12px;cursor:pointer;letter-spacing:.06em;' +
+          'border:1px solid ' + (v ? '#2c6e2c' : '#5a4a28') + ';background:' + (v ? '#10240f' : '#161616') + ';color:' + (v ? '#9f9' : '#c8a96e');
+        b.setAttribute('aria-checked', v ? 'true' : 'false');
+      }
+      paint(s[t.field]);
+      b.onclick = function(){
+        var next = !a11yState()[t.field];
+        if (window.STORE) window.STORE.set(t.key, next);
+        else { try { localStorage.setItem('fc:save:' + t.key, JSON.stringify(next)); } catch (_) {} }
+        var wasCvd = window.FC_A11Y.cvd;
+        a11yApply(); paint(next);
+        if (t.field === 'cvd' && window.FC_A11Y.cvd !== wasCvd) rerenderGame();
+      };
+      row.appendChild(txt); row.appendChild(b); list.appendChild(row);
+    });
+  }
+  function open(){ build(); overlay.style.display = 'block'; }
+  function close(){ overlay.style.display = 'none'; }
+  btn.onclick = open;
+  if (closeBtn) closeBtn.onclick = close;
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && overlay.style.display === 'block') close(); });
 })();
 </script>
 </body>
