@@ -83,5 +83,13 @@ view) has the same discipline: `transpile-diff` pins its output over the corpus 
 examples, and `transpile-embed-check` asserts the copy inlined in `index.html` stays
 byte-identical to the module. Re-pin an intentional change with `node dump-transpile.mjs`.
 
+**visual-golden** adds a *pixel*-level guard. `examples-diff` proves the engines
+*agree* on draw ops; `visual-golden` pins the actual rendered 128×128 pixels
+(SHA-256 of the RGBA bytes, seed 0, 30 idle frames) so it catches drift the op-level
+check can't — a color-resolution change, the bitmap font, layout. It renders headless
+in chromium (needs `/usr/bin/chromium` + `python3`). Check: `node visual-golden.mjs`;
+re-pin: `node visual-golden.mjs --update`; prove it bites: `node visual-golden.mjs
+--cvd` (forces the colorblind palette on → the color-affected examples diff).
+
 ## License
 MIT — see [LICENSE](LICENSE). Made by [Kevin Long](https://www.linkedin.com/in/kevinelong/).

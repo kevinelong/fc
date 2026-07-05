@@ -1,0 +1,163 @@
+<!doctype html><html><head><meta charset="utf-8"><title>pending</title></head>
+<body>
+<!--
+  visual-golden harness page (Option A: real-pixel rasterization).
+  Loaded headless by visual-golden.mjs via chromium --dump-dom. It reads the
+  per-frame draw ops for every example from ./_vg-ops.json (written by the node
+  driver, collected from the REAL drawing code in fc-core-record.mjs the same
+  deterministic way examples-diff runs: seed 0, 30 idle frames), then REPLAYS
+  those ops onto a genuine 128x128 <canvas> 2D context so the actual pixels are
+  painted (rect/circle/line primitives + the real 3x5 bitmap font for text +
+  resolved colors). It hashes the RGBA bytes (SHA-256) per example and writes
+  {name: hash} JSON into #result / document.title for the driver to scrape.
+
+  ?cvd=1 turns on fc's colorblind (CVD) palette remap in the paint path — used
+  only to PROVE the harness catches a real pixel change (see visual-golden.mjs).
+
+  NOTE: text ops are emitted semantically by fc-core-record (op:'text'); we
+  expand them here with FONT_DATA + the drawText loop copied verbatim from
+  spec/lang/fc-core.mjs so the real glyph pixels are exercised. rect/circle/line
+  are painted with the identical canvas primitives the app uses, so a CVD /
+  color-resolution / layout change shifts the hash. (Tradeoff: the font table is
+  a copy — a font-table edit in fc-core would need a re-sync here to be caught;
+  colors/shapes/sprites/layout are caught regardless.)
+-->
+<pre id="result">pending</pre>
+<canvas id="cv" width="128" height="128"></canvas>
+<!-- ops injected by visual-golden.mjs as a classic script (window.__VG_OPS) so
+     there is NO fetch()/virtual-time race under headless --dump-dom. -->
+<script src="./_vg-ops.js"></script>
+<script type="module">
+// ---- CVD palette remap (verbatim from index.html CVD_MAP / cvdMap) ----
+const CVD_MAP = {
+  '#7e2553': '#6a3d9a', '#008751': '#117733', '#ab5236': '#8a6d1f',
+  '#ff004d': '#dc3220', '#00e436': '#33dd88', '#83769c': '#785ef0',
+};
+const params = new URLSearchParams(location.search);
+const CVD = params.get('cvd') === '1';
+const cvd = hex => (CVD && hex) ? (CVD_MAP[String(hex).toLowerCase()] || hex) : hex;
+
+// ---- 3x5 bitmap font (FONT_DATA + drawText loop, copied from spec/lang/fc-core.mjs) ----
+const FONT_W = 3, FONT_SPACING = 1;
+const F = {
+  'A':[0b010,0b101,0b111,0b101,0b101],'B':[0b110,0b101,0b110,0b101,0b110],'C':[0b011,0b100,0b100,0b100,0b011],
+  'D':[0b110,0b101,0b101,0b101,0b110],'E':[0b111,0b100,0b110,0b100,0b111],'F':[0b111,0b100,0b110,0b100,0b100],
+  'G':[0b011,0b100,0b101,0b101,0b011],'H':[0b101,0b101,0b111,0b101,0b101],'I':[0b111,0b010,0b010,0b010,0b111],
+  'J':[0b001,0b001,0b001,0b101,0b010],'K':[0b101,0b101,0b110,0b101,0b101],'L':[0b100,0b100,0b100,0b100,0b111],
+  'M':[0b101,0b111,0b111,0b101,0b101],'N':[0b101,0b111,0b111,0b111,0b101],'O':[0b010,0b101,0b101,0b101,0b010],
+  'P':[0b110,0b101,0b110,0b100,0b100],'Q':[0b010,0b101,0b101,0b110,0b011],'R':[0b110,0b101,0b110,0b101,0b101],
+  'S':[0b011,0b100,0b010,0b001,0b110],'T':[0b111,0b010,0b010,0b010,0b010],'U':[0b101,0b101,0b101,0b101,0b010],
+  'V':[0b101,0b101,0b101,0b010,0b010],'W':[0b101,0b101,0b111,0b111,0b101],'X':[0b101,0b101,0b010,0b101,0b101],
+  'Y':[0b101,0b101,0b010,0b010,0b010],'Z':[0b111,0b001,0b010,0b100,0b111],
+  '0':[0b010,0b101,0b101,0b101,0b010],'1':[0b010,0b110,0b010,0b010,0b111],'2':[0b110,0b001,0b010,0b100,0b111],
+  '3':[0b110,0b001,0b010,0b001,0b110],'4':[0b101,0b101,0b111,0b001,0b001],'5':[0b111,0b100,0b110,0b001,0b110],
+  '6':[0b011,0b100,0b110,0b101,0b010],'7':[0b111,0b001,0b010,0b010,0b010],'8':[0b010,0b101,0b010,0b101,0b010],
+  '9':[0b010,0b101,0b011,0b001,0b110],
+  ' ':[0b000,0b000,0b000,0b000,0b000],'.':[0b000,0b000,0b000,0b000,0b010],',':[0b000,0b000,0b000,0b010,0b100],
+  '!':[0b010,0b010,0b010,0b000,0b010],'?':[0b110,0b001,0b010,0b000,0b010],'-':[0b000,0b000,0b111,0b000,0b000],
+  '+':[0b000,0b010,0b111,0b010,0b000],':':[0b000,0b010,0b000,0b010,0b000],';':[0b000,0b010,0b000,0b010,0b100],
+  '(':[0b001,0b010,0b010,0b010,0b001],')':[0b100,0b010,0b010,0b010,0b100],'/':[0b001,0b001,0b010,0b100,0b100],
+  '_':[0b000,0b000,0b000,0b000,0b111],'=':[0b000,0b111,0b000,0b111,0b000],'*':[0b000,0b101,0b010,0b101,0b000],
+  '#':[0b101,0b111,0b101,0b111,0b101],'\'':[0b010,0b010,0b000,0b000,0b000],'"':[0b101,0b101,0b000,0b000,0b000],
+  '<':[0b001,0b010,0b100,0b010,0b001],'>':[0b100,0b010,0b001,0b010,0b100],'[':[0b110,0b100,0b100,0b100,0b110],
+  ']':[0b011,0b001,0b001,0b001,0b011],'{':[0b011,0b010,0b100,0b010,0b011],'}':[0b110,0b010,0b001,0b010,0b110],
+  '%':[0b101,0b001,0b010,0b100,0b101],
+};
+function drawText(ctx, text, x, y, colorHex) {
+  ctx.fillStyle = colorHex;
+  let cx = x;
+  const s = String(text).toUpperCase();
+  for (let i = 0; i < s.length; i++) {
+    const rows = F[s[i]];
+    if (rows) for (let row = 0; row < 5; row++) for (let col = 0; col < 3; col++)
+      if (rows[row] & (1 << (2 - col))) ctx.fillRect(cx + col, y + row, 1, 1);
+    cx += FONT_W + FONT_SPACING;
+  }
+}
+
+// ---- replay one example's frames onto a real canvas, return SHA-256 hex ----
+function replay(ctx, frames) {
+  ctx.clearRect(0, 0, 128, 128);
+  for (const frame of frames) {
+    for (const c of frame) {
+      const color = cvd(c.color);
+      if (c.op === 'rect') { ctx.fillStyle = color; ctx.fillRect(c.x, c.y, c.w, c.h); }
+      else if (c.op === 'circle') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); }
+      else if (c.op === 'line') { ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); ctx.stroke(); }
+      else if (c.op === 'text') { drawText(ctx, c.text, c.x, c.y, color); }
+    }
+  }
+}
+// ---- SYNCHRONOUS SHA-256 (pure JS) ----
+// crypto.subtle is async and runs on a real worker thread, which races the
+// headless --virtual-time-budget clock (the page can be dumped as "pending"
+// before the digest resolves). A synchronous hash keeps the ENTIRE page
+// deterministic and complete before --dump-dom captures it. No I/O, no promises.
+function sha256hex(bytes) {
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const l = bytes.length;
+  const withLen = ((l + 8) >> 6) + 1;             // 512-bit blocks
+  const total = withLen * 64;
+  const m = new Uint8Array(total);
+  m.set(bytes); m[l] = 0x80;
+  const bits = l * 8;
+  // 64-bit big-endian length (bytes fit well under 2^32, so hi bits are 0)
+  m[total-4] = (bits >>> 24) & 0xff; m[total-3] = (bits >>> 16) & 0xff;
+  m[total-2] = (bits >>> 8) & 0xff; m[total-1] = bits & 0xff;
+  const w = new Uint32Array(64);
+  const rotr = (x,n) => (x >>> n) | (x << (32-n));
+  for (let b = 0; b < total; b += 64) {
+    for (let i = 0; i < 16; i++) w[i] = (m[b+i*4]<<24)|(m[b+i*4+1]<<16)|(m[b+i*4+2]<<8)|m[b+i*4+3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i-15],7)^rotr(w[i-15],18)^(w[i-15]>>>3);
+      const s1 = rotr(w[i-2],17)^rotr(w[i-2],19)^(w[i-2]>>>10);
+      w[i] = (w[i-16]+s0+w[i-7]+s1)|0;
+    }
+    let a=h0,bb=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e,6)^rotr(e,11)^rotr(e,25);
+      const ch = (e&f)^(~e&g);
+      const t1 = (hh+S1+ch+K[i]+w[i])|0;
+      const S0 = rotr(a,2)^rotr(a,13)^rotr(a,22);
+      const maj = (a&bb)^(a&c)^(bb&c);
+      const t2 = (S0+maj)|0;
+      hh=g; g=f; f=e; e=(d+t1)|0; d=c; c=bb; bb=a; a=(t1+t2)|0;
+    }
+    h0=(h0+a)|0; h1=(h1+bb)|0; h2=(h2+c)|0; h3=(h3+d)|0; h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+hh)|0;
+  }
+  const hex = x => (x>>>0).toString(16).padStart(8,'0');
+  return hex(h0)+hex(h1)+hex(h2)+hex(h3)+hex(h4)+hex(h5)+hex(h6)+hex(h7);
+}
+
+{
+  const out = {};
+  try {
+    const ops = window.__VG_OPS;
+    if (!ops) throw new Error('window.__VG_OPS missing (_vg-ops.js not loaded)');
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    for (const name of Object.keys(ops)) {
+      const rec = ops[name];
+      if (rec.error) { out[name] = 'ERROR:' + rec.error; continue; }
+      replay(ctx, rec.frames);
+      const img = ctx.getImageData(0, 0, 128, 128).data;
+      out[name] = sha256hex(img);
+    }
+    const json = JSON.stringify(out);
+    document.getElementById('result').textContent = json;
+    document.title = 'DONE ' + json;
+  } catch (e) {
+    document.getElementById('result').textContent = 'HARNESS_ERROR: ' + (e && e.message || e);
+    document.title = 'HARNESS_ERROR ' + (e && e.message || e);
+  }
+}
+</script>
+</body></html>
