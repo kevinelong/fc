@@ -94,6 +94,10 @@ canvas {
     );
   mix-blend-mode: multiply;
 }
+/* Visible keyboard focus (custom-styled buttons otherwise show none). Only on
+   keyboard nav thanks to :focus-visible, so mouse clicks stay ring-free. */
+:focus-visible { outline: 2px solid #ffd479; outline-offset: 2px; border-radius: 3px; }
+#screen:focus-visible { outline: 3px solid #ffd479; outline-offset: 3px; }
 /* ---- Accessibility toggles (applied via body classes from the ⚙ settings panel) ---- */
 /* Reduced motion / "plain screen": drop the CRT phosphor blur + scanline/subpixel
    overlays (flicker-y for photosensitive users) and any transitions/animations. */
@@ -394,7 +398,7 @@ body.touch.playing #back-btn {
   <div id="canvas-wrap">
     <div id="game-desc"></div>
     <div id="screen-frame">
-      <canvas id="screen" width="128" height="128"></canvas>
+      <canvas id="screen" width="128" height="128" tabindex="0" role="img" aria-label="game screen — click or focus it, then use the arrow keys or the on-screen pad to play"></canvas>
       <div id="subpixels"></div>
       <div id="scanlines"></div>
     </div>
@@ -432,7 +436,7 @@ body.touch.playing #back-btn {
   </div>
 </div>
 <div id="forge-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#000">
-  <button type="button" id="forge-close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <button type="button" id="forge-close" aria-label="close" style="position:absolute;top:6px;right:12px;z-index:2;font:24px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <iframe id="forge-frame" title="fc creation tool" style="width:100%;height:100%;border:0;display:block"></iframe>
 </div>
 <button type="button" id="run-btn">&#9654; RUN</button>
@@ -441,7 +445,7 @@ body.touch.playing #back-btn {
 <a id="credit" href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">▸ by Kevin Long</a>
 <div id="qr-badge"><img alt="QR to codeonline.io" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJEAAACRAQMAAAD5FshgAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEhSURBVEiJ1ZUxDsMgDEWNMjDmCBwlF6tEpF4MbsIRGBmiuN8OUdV2tYd6Sh6D8ffHJv4N+ktWiChW3ilyx2fwYBWZYqFHAsssvw6sU9KUzP0hN/BjuY3NlxVaOLIfE/0qP1usn5oasssHHT2qX96wYxpS4LfHDVmh3KAfysIN0ggejPlIg3AwQl+aD6tg2iORrt0+sGVS26BVH2dub/0s2bkeFM91T2jUMr1mzeRJiogk+vHU1JiJnyEdGhVweutny+TFo6I94WCn6XFjVqQ952Vq+HnzYBpqAXHd7JEx0/lyklgAQ8aHXXNS5r02anNhMu/hZ8IAoDuvC8P+xeM8Em1uDO2hK3lwYaof/ByLDAD2YHNvZd2N7WM3mrHf+Ef2Ah6YL53ELqZXAAAAAElFTkSuQmCC"><span>scan to play<br>on your phone</span></div>
 <div id="help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:48px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
-  <button type="button" id="help-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <button type="button" id="help-close" aria-label="close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:760px;margin:0 auto">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.18em">FANTASY COMPUTER &mdash; QUICK HELP</div>
     <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">Describe what you want, type it, it runs. Three steps, simplest first.</div>
@@ -484,7 +488,7 @@ body.touch.playing #back-btn {
   </div>
 </div>
 <div id="code-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:46px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
-  <button type="button" id="code-close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <button type="button" id="code-close" aria-label="close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
   <div style="max-width:820px;margin:0 auto">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.16em">YOUR PROGRAM IN REAL CODE</div>
     <div style="color:#8a7340;font-size:12px;margin:2px 0 14px">The same game, written in a language professionals use. Read-only &mdash; a mirror to show the shape. Your plain-English version is the one that runs.</div>
@@ -6725,6 +6729,58 @@ function fcTpArrRemove(target, value, ctx) {
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); go(idx + 1); }
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(idx - 1); }
     else if (e.key === 'Escape') closeDbg();
+  });
+})();
+
+// ---- Dialog accessibility: role/aria, Escape-to-close, focus trap + restore ----
+// Enhances every modal overlay WITHOUT touching its open/close code — a
+// MutationObserver watches its visibility (works for both inline-display and
+// .open-class overlays). On open: remember focus, move it into the dialog. On
+// close: restore focus to whatever opened it. Tab cycles within; Escape closes.
+(function fcDialogA11y(){
+  var DIALOGS = [
+    { id:'help-overlay',     close:'help-close',     label:'Help' },
+    { id:'code-overlay',     close:'code-close',     label:'Your program in real code' },
+    { id:'settings-overlay', close:'settings-close', label:'Settings' },
+    { id:'forge-overlay',    close:'forge-close',    label:'Editor' },
+    { id:'signin-overlay',   close:'signin-close',   label:'Sign in' },
+    { id:'verify-overlay',   close:'verify-close',   label:'Enter your code', focus:'verify-code' },
+  ];
+  var lastFocus = null;
+  function isOpen(el){ return getComputedStyle(el).display !== 'none'; }   // fixed els: can't use offsetParent
+  function focusables(el){
+    return Array.prototype.filter.call(
+      el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]'),
+      function(n){ return n.offsetParent !== null && n.getAttribute('tabindex') !== '-1'; });
+  }
+  DIALOGS.forEach(function(d){
+    var el = document.getElementById(d.id); if (!el) return;
+    el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true');
+    if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', d.label);
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex','-1');
+    new MutationObserver(function(){
+      var open = isOpen(el);
+      if (open && !el._a11yOpen) {
+        el._a11yOpen = true; lastFocus = document.activeElement;
+        var pref = document.getElementById(d.focus || d.close) || el;
+        setTimeout(function(){ try { pref.focus(); } catch (_) {} }, 30);
+      } else if (!open && el._a11yOpen) {
+        el._a11yOpen = false;
+        // defer so we win the race against the browser blurring the (now hidden)
+        // close button to <body>
+        var restore = lastFocus;
+        if (restore && restore.focus) setTimeout(function(){ try { restore.focus(); } catch (_) {} }, 0);
+      }
+    }).observe(el, { attributes:true, attributeFilter:['style','class'] });
+    el.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { var c = document.getElementById(d.close); if (c) { e.preventDefault(); c.click(); } return; }
+      if (e.key === 'Tab') {
+        var f = focusables(el); if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
   });
 })();
 </script>

@@ -45,9 +45,13 @@ highlight in the editor overlay and reuses the live inspector's variable renderi
 Non-invasive, and time-travel (step back) is *better* pedagogy than blocking
 single-step. Test: a golden asserting the trace's line/vars sequence.
 
-## 5. ARIA / keyboard pass — planned
-Labels/roles on toolbar buttons + overlays, Escape/focus handling, keyboard-only
-operability. Unlocks the institutional-accessibility story.
+## 5. ARIA / keyboard pass ✅
+Visible `:focus-visible` ring (custom buttons showed none); every modal overlay
+gets role="dialog" + aria-modal + label, Escape-to-close, focus moved in on open
+and restored to the trigger on close, and a Tab focus-trap — wired via a shared
+helper + a MutationObserver on each overlay's visibility, so no open/close code was
+touched. Close buttons + the canvas got accessible labels; the canvas is now
+keyboard-focusable (tabindex).
 
 ## Bigger, optional
 - **Runnable transpiler export** — ship a tiny fc-runtime shim so an exported
