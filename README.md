@@ -43,8 +43,10 @@ player hits any enemy`) · screens/menus with a back-stack · on-screen gamepad 
 keyboard/mouse/touch · camera/scrolling · enemy behaviors (chase/wander/patrol) ·
 frame animation · particles · an optional match timer · **real-time multiplayer**
 (16 example games, five of them multiplayer) · cloud saves + a community gallery
-(optional sign-in) · a syntax-highlighting editor and a live variable inspector ·
-a **"see it in real code"** view that mirrors your program as Python or JavaScript.
+(optional sign-in) · a syntax-highlighting editor, a live variable inspector, and a
+**step-through debugger** · a **"see it in real code"** view that mirrors your
+program as Python or JavaScript · **accessibility** settings (colorblind-safe
+palette, reduced motion, high-contrast + larger text).
 
 ## Run it
 It's a **single self-contained `index.html`** — no build step. Open it directly, or

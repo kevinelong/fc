@@ -409,6 +409,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <button type="button" id="tool-code" title="see this program written in Python or JavaScript" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&lt;/&gt; real code</button>
       <button type="button" id="tool-settings" title="accessibility &amp; display settings" aria-label="settings" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#9881;</button>
+      <button type="button" id="tool-debug" title="step through your program line by line" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#128027; step</button>
       <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
       <button type="button" id="tool-github" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1f2328;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">⬆ GitHub</button>
       <button type="button" id="tool-publish" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🌐 publish</button>
@@ -3062,6 +3063,8 @@ class Runtime {
     this.errors = [];
     this.stopped = false;
     this.sayBuffer = [];
+    this._trace = null;              // when an array, exec() records a step per statement (debugger)
+    this._traceLoopFuncs = null;     // captured `run game` funcs so the debugger can step one frame w/o RAF
     // don't reset keyState - it's maintained by event listeners
   }
 
@@ -3484,7 +3487,10 @@ class Runtime {
           if (this.vars.world && typeof this.vars.world.width === 'number') {
             this.world = this.vars.world;
           }
-          this.startGameLoop(stmt.funcs);
+          // In a debug trace we must NOT start the live RAF loop — capture the
+          // loop functions so the debugger can step exactly one frame instead.
+          if (this._trace) { this._traceLoopFuncs = stmt.funcs; }
+          else { this.startGameLoop(stmt.funcs); }
           break;
         }
 
@@ -3932,6 +3938,13 @@ class Runtime {
         ops++;
         const stmt = list[i];
 
+        // Debugger trace: record the line about to run + a snapshot of state
+        // (bounded). Skip funcdefs (a `to X` line does nothing visible on its own).
+        // Zero cost unless a debug run set this._trace.
+        if (this._trace && this._trace.length < 6000 && stmt && stmt.lineNum && stmt.type !== 'funcdef') {
+          this._trace.push({ line: stmt.lineNum, vars: this._snapshotVars() });
+        }
+
         if (stmt.type === 'if') {
           lastIfResult = this.isTruthy(this.evalCondition(stmt.condition));
           if (lastIfResult) {
@@ -3964,6 +3977,27 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // Compact, display-ready snapshot of variables for the step debugger. Values
+  // are formatted to short strings (not deep-cloned) — cheap and safe per step.
+  _fmtVal(v) {
+    if (v == null) return String(v);
+    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : (Math.round(v * 100) / 100).toString();
+    if (typeof v === 'string') return JSON.stringify(v);
+    if (typeof v === 'boolean') return v ? 'yes' : 'no';
+    if (Array.isArray(v)) return '[' + v.length + (v.length === 1 ? ' item]' : ' items]');
+    if (typeof v === 'object') { try { const s = JSON.stringify(v); return s.length > 64 ? s.slice(0, 63) + '…' : s; } catch (_) { return '{…}'; } }
+    return String(v);
+  }
+  _snapshotVars() {
+    const out = {};
+    for (const k in this.vars) {
+      const v = this.vars[k];
+      if (typeof v === 'function') continue;
+      out[k] = this._fmtVal(v);
+    }
+    return out;
   }
 
   // Cycle `animate X with ...` frames using the global tick.
@@ -4719,6 +4753,45 @@ function runJSCore(source) {
   if (runtime.errors.length > 0) {
     showErrors(runtime.errors.join('\n'));
   }
+}
+
+// ---- Step debugger: run once on the JS core with tracing, return the trace ----
+// The default engine is wasm (opaque, frame-level only); statement-level stepping
+// needs the JS interpreter. We run the program's top-level (its setup) and then
+// exactly ONE frame of the game loop (update, then draw…), recording a
+// {line, vars-snapshot} per statement. Non-invasive: the live game is paused and
+// the RAF loop is never started (see the `rungame` guard).
+function runDebugTrace(source) {
+  try { if (window.WASMCORE && window.WASMCORE.pause) window.WASMCORE.pause(); } catch (_) {}
+  runtime.stopped = true;                 // halt any JS-core RAF loop
+  runtime.reset();                        // reset() clears stopped + _trace
+  ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, 128, 128);
+  let program;
+  try { program = parse(source); }
+  catch (e) { return { trace: [], error: 'I got confused: ' + e.message }; }
+  runtime._trace = [];
+  runtime._traceLoopFuncs = null;
+  try { runtime.exec(program); } catch (_) { /* keep whatever trace we captured */ }
+  const loop = runtime._traceLoopFuncs;
+  let frameTraced = false;
+  if (loop && loop.length) {              // it's a game — step one frame
+    runtime.stopped = false;
+    for (const fname of loop) {
+      const f = runtime.funcs[fname];
+      if (f && f.body) { frameTraced = true; try { runtime.exec(f.body); } catch (_) {} }
+      if (runtime._trace.length >= 6000) break;
+    }
+  }
+  // Each step snapshots state BEFORE its line runs (standard debugger semantics),
+  // so append one final "end state" step so the last line's effect is visible too.
+  if (runtime._trace.length) {
+    runtime._trace.push({ line: runtime._trace[runtime._trace.length - 1].line, vars: runtime._snapshotVars(), final: true });
+  }
+  const trace = runtime._trace;
+  const truncated = trace.length >= 6000;
+  runtime._trace = null;
+  runtime.stopped = true;                 // stay stopped; the scrubber is static
+  return { trace, truncated, frameTraced, loopFuncs: loop || [] };
 }
 
 // Debounced run on input
@@ -6544,6 +6617,115 @@ function fcTpArrRemove(target, value, ctx) {
   if (closeBtn) closeBtn.onclick = close;
   overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && overlay.style.display === 'block') close(); });
+})();
+
+// ---- Step-through debugger (🐞 step): trace-and-scrub on the JS core ----
+(function fcDebugger(){
+  var btn = document.getElementById('tool-debug');
+  if (!btn || typeof runDebugTrace !== 'function') { if (btn) btn.style.display = 'none'; return; }
+  var trace = [], idx = 0, hl = null, panel = null, els = {};
+
+  function ed(){ return document.getElementById('editor'); }
+  function ensureHighlight(){
+    var e = ed(); if (!e) return null;
+    var wrap = document.getElementById('editor-hl-wrap') || e.parentNode;
+    if (!hl) {
+      hl = document.createElement('div'); hl.id = 'dbg-hl';
+      hl.style.cssText = 'position:absolute;left:0;right:0;pointer-events:none;z-index:0;display:none;'
+        + 'background:rgba(255,236,39,.15);border-top:1px solid rgba(255,236,39,.55);border-bottom:1px solid rgba(255,236,39,.55)';
+      if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+      wrap.appendChild(hl);
+    }
+    return hl;
+  }
+  function highlightLine(line){
+    var e = ed(); var bar = ensureHighlight(); if (!e || !bar || !line) return;
+    var cs = getComputedStyle(e);
+    var lh = parseFloat(cs.lineHeight); if (!lh || isNaN(lh)) lh = (parseFloat(cs.fontSize) || 13) * 1.5;
+    var padTop = parseFloat(cs.paddingTop) || 0;
+    var top = (line - 1) * lh;
+    if (top < e.scrollTop) e.scrollTop = Math.max(0, top - lh * 2);
+    else if (top > e.scrollTop + e.clientHeight - lh * 2) e.scrollTop = top - e.clientHeight + lh * 3;
+    bar.style.height = lh + 'px';
+    bar.style.transform = 'translateY(' + (padTop + top - e.scrollTop) + 'px)';
+    bar.style.display = 'block';
+  }
+  function clearHighlight(){ if (hl) hl.style.display = 'none'; }
+
+  function buildPanel(){
+    if (panel) return;
+    panel = document.createElement('div');
+    panel.id = 'dbg-panel';
+    panel.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:9998;max-width:min(680px,94vw);width:max-content;'
+      + 'background:#0c0c0c;border:1px solid #5a4a28;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.6);'
+      + 'font-family:\'Share Tech Mono\',monospace;color:#cbb083;padding:9px 11px;display:none';
+    function b(txt, title){ var x = document.createElement('button'); x.type='button'; x.textContent = txt; x.title = title||''; x.setAttribute('aria-label', title||txt);
+      x.style.cssText = 'font:13px monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:5px 10px;cursor:pointer'; return x; }
+    var bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+    els.first = b('⏮','first'); els.prev = b('◀','previous line'); els.next = b('▶','next line'); els.last = b('⏭','last');
+    els.count = document.createElement('span'); els.count.style.cssText = 'font-size:12px;color:#9f9;min-width:96px;text-align:center';
+    els.slider = document.createElement('input'); els.slider.type='range'; els.slider.min='0'; els.slider.value='0'; els.slider.style.cssText='flex:1;min-width:120px;accent-color:#c8a96e';
+    els.close = b('✕','close debugger'); els.close.style.marginLeft = '4px';
+    bar.appendChild(els.first); bar.appendChild(els.prev); bar.appendChild(els.next); bar.appendChild(els.last);
+    bar.appendChild(els.slider); bar.appendChild(els.count); bar.appendChild(els.close);
+    els.vars = document.createElement('div');
+    els.vars.style.cssText = 'margin-top:8px;font-size:12px;line-height:1.7;max-height:96px;overflow:auto;color:#e8d8b0;display:flex;flex-wrap:wrap;gap:4px 12px';
+    panel.appendChild(bar); panel.appendChild(els.vars);
+    document.body.appendChild(panel);
+    els.prev.onclick = function(){ go(idx - 1); };
+    els.next.onclick = function(){ go(idx + 1); };
+    els.first.onclick = function(){ go(0); };
+    els.last.onclick = function(){ go(trace.length - 1); };
+    els.slider.oninput = function(){ go(+els.slider.value); };
+    els.close.onclick = closeDbg;
+  }
+
+  function renderVars(){
+    var cur = trace[idx] ? trace[idx].vars : {};
+    var prev = idx > 0 && trace[idx - 1] ? trace[idx - 1].vars : {};
+    var keys = Object.keys(cur).sort();
+    if (!keys.length) { els.vars.innerHTML = '<span style="color:#8a7340">(no variables yet)</span>'; return; }
+    els.vars.innerHTML = keys.map(function(k){
+      var changed = prev[k] !== undefined && prev[k] !== cur[k];
+      var nu = prev[k] === undefined;
+      var col = changed ? '#ffec27' : (nu ? '#9f9' : '#e8d8b0');
+      return '<span><span style="color:#29adff">' + k + '</span>: <span style="color:' + col + '">'
+        + String(cur[k]).replace(/</g,'&lt;') + '</span></span>';
+    }).join('');
+  }
+  function go(i){
+    if (!trace.length) return;
+    idx = Math.max(0, Math.min(trace.length - 1, i));
+    els.slider.value = idx;
+    els.count.textContent = (trace[idx].final ? 'done · line ' : 'line ') + trace[idx].line + '  ·  ' + (idx + 1) + ' / ' + trace.length;
+    highlightLine(trace[idx].line);
+    renderVars();
+    els.prev.disabled = els.first.disabled = (idx === 0);
+    els.next.disabled = els.last.disabled = (idx === trace.length - 1);
+  }
+  function closeDbg(){
+    if (panel) panel.style.display = 'none';
+    clearHighlight();
+    try { if (typeof run === 'function') run(ed() ? ed().value : ''); } catch (_) {}   // resume normal play
+  }
+  function openDbg(){
+    var src = ed() ? ed().value : '';
+    var res = runDebugTrace(src);
+    buildPanel();
+    if (res.error) { trace = []; els.vars.innerHTML = '<span style="color:#ff6b6b">' + res.error.replace(/</g,'&lt;') + '</span>'; els.count.textContent = ''; els.slider.max = 0; panel.style.display = 'block'; clearHighlight(); return; }
+    trace = res.trace || [];
+    if (!trace.length) { els.vars.innerHTML = '<span style="color:#8a7340">Nothing to step through — add some lines (values, if, loops…) and try again.</span>'; els.count.textContent=''; els.slider.max=0; panel.style.display='block'; clearHighlight(); return; }
+    els.slider.max = trace.length - 1;
+    panel.style.display = 'block';
+    go(0);
+  }
+  btn.onclick = function(){ if (panel && panel.style.display === 'block') closeDbg(); else openDbg(); };
+  document.addEventListener('keydown', function(e){
+    if (!panel || panel.style.display !== 'block' || !trace.length) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); go(idx + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Escape') closeDbg();
+  });
 })();
 </script>
 </body>
