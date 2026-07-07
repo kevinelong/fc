@@ -1703,6 +1703,19 @@ function parse(source) {
       return { type: 'ref', name: t.value };
     }
 
+    // Strip a fully-wrapping paren group: ( EXPR ) -> EXPR. Only when the opening
+    // paren's match is the LAST token (so (a+b)*(c) isn't mis-stripped).
+    if (tokens[0].type === 'lparen') {
+      let depth = 0, matched = -1;
+      for (let i = 0; i < tokens.length; i++) {
+        const ty = tokens[i].type;
+        if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth++;
+        else if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth--;
+        if (depth === 0) { matched = i; break; }
+      }
+      if (matched === tokens.length - 1) return parseExpression(tokens.slice(1, matched));
+    }
+
     // Handle list literal [a, b, c]
     if (tokens[0].type === 'lbracket') {
       return parseListFromTokens(tokens);
@@ -1799,17 +1812,24 @@ function parse(source) {
       return { type: 'count', expr: parseExpression(tokens.slice(2)) };
     }
 
-    // Math: +, -, *, /, mod
+    // Math: +, -, *, /, mod  — split at the rightmost TOP-LEVEL operator (depth 0),
+    // so operators inside ( ) [ ] { } stay grouped. Scan right-to-left for left-assoc.
     // Low precedence: + -
-    for (let i = tokens.length - 1; i >= 1; i--) {
-      if (tokens[i].type === 'operator' && (tokens[i].value === '+' || tokens[i].value === '-')) {
+    for (let i = tokens.length - 1, depth = 0; i >= 1; i--) {
+      const ty = tokens[i].type;
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth++;
+      else if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth--;
+      if (depth === 0 && tokens[i].type === 'operator' && (tokens[i].value === '+' || tokens[i].value === '-')) {
         return { type: 'math', op: tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
       }
     }
     // High precedence: * / mod
-    for (let i = tokens.length - 1; i >= 1; i--) {
-      if ((tokens[i].type === 'operator' && (tokens[i].value === '*' || tokens[i].value === '/')) ||
-        (tokens[i].type === 'word' && tv(tokens[i]) === 'mod')) {
+    for (let i = tokens.length - 1, depth = 0; i >= 1; i--) {
+      const ty = tokens[i].type;
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth++;
+      else if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth--;
+      if (depth === 0 && ((tokens[i].type === 'operator' && (tokens[i].value === '*' || tokens[i].value === '/')) ||
+        (tokens[i].type === 'word' && tv(tokens[i]) === 'mod'))) {
         return { type: 'math', op: tokens[i].value === 'mod' ? '%' : tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
       }
     }

@@ -32,6 +32,7 @@ const RECIPES = {
   langton: [wait(5000)],       // enough steps to show the growing region
   chaos: [wait(5000)],         // the Sierpinski triangle fills in
   starfield: [wait(1200)],
+  sand: [wait(4000)],          // let the pile build up under the faucet
   // add more games here to (re)capture them with this tool
 };
 

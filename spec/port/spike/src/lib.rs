@@ -232,6 +232,16 @@ fn join_dot(ts: &[Tok]) -> String { let mut parts: Vec<&str>=Vec::new(); for t i
 
 fn parse_expr(ts: &[Tok]) -> Expr {
     if ts.is_empty() { return Expr::Lit(LitVal::Num(0.0)); }
+    // strip a fully-wrapping paren group: ( EXPR ) -> EXPR. only when the opening
+    // paren's match is the LAST token (so (a+b)*(c) isn't mis-stripped).
+    if ts[0].t==7 {
+        let mut depth=0i32; let mut matched=usize::MAX;
+        for (i,t) in ts.iter().enumerate() {
+            match t.t { 7|9|11 => depth+=1, 8|10|12 => depth-=1, _=>{} }
+            if depth==0 { matched=i; break; }
+        }
+        if matched==ts.len()-1 { return parse_expr(&ts[1..ts.len()-1]); }
+    }
     // whole-expression literals first (so internal math isn't mis-split by the flat scan)
     if ts[0].t==9 {
         let inner = if ts.len()>=2 && ts[ts.len()-1].t==10 { &ts[1..ts.len()-1] } else { &ts[1..] };
@@ -248,15 +258,20 @@ fn parse_expr(ts: &[Tok]) -> Expr {
         let props = if lb < ts.len() { parse_object(&ts[lb..]) } else { Expr::Object(Vec::new()) };
         return Expr::ListOfSprites(Box::new(count), Box::new(props));
     }
-    // math splits
-    let mut i = ts.len();
-    while i > 1 { i -= 1; if ts[i].t==4 { let o=ts[i].sval(); if o=="+"||o=="-" {
-        return Expr::Math(o.to_string(), Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } } }
-    let mut i = ts.len();
+    // math splits — at the rightmost TOP-LEVEL operator (depth 0), so operators
+    // inside ( ) [ ] { } stay grouped. scan right-to-left for left-associativity.
+    let mut depth=0i32; let mut i = ts.len();
     while i > 1 { i -= 1;
-        let op = if ts[i].t==4 && (ts[i].sval()=="*"||ts[i].sval()=="/") { Some(ts[i].sval().to_string()) }
-                 else if ts[i].is_word("mod") { Some("%".to_string()) } else { None };
-        if let Some(op)=op { return Expr::Math(op, Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } }
+        match ts[i].t { 8|10|12 => depth+=1, 7|9|11 => depth-=1, _=>{} }
+        if depth==0 && ts[i].t==4 { let o=ts[i].sval(); if o=="+"||o=="-" {
+            return Expr::Math(o.to_string(), Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } } }
+    let mut depth=0i32; let mut i = ts.len();
+    while i > 1 { i -= 1;
+        match ts[i].t { 8|10|12 => depth+=1, 7|9|11 => depth-=1, _=>{} }
+        if depth==0 {
+            let op = if ts[i].t==4 && (ts[i].sval()=="*"||ts[i].sval()=="/") { Some(ts[i].sval().to_string()) }
+                     else if ts[i].is_word("mod") { Some("%".to_string()) } else { None };
+            if let Some(op)=op { return Expr::Math(op, Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } } }
     if ts[0].t==4 && ts[0].sval()=="-" {
         return Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(parse_expr(&ts[1..]))); }
     // phrase atoms (reached only with no top-level math operator)

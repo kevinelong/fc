@@ -79,12 +79,7 @@ const pageHtml = (name, title, desc, b64) => `<!doctype html>
 
 async function run() {
   if (!fs.existsSync(OUT_CARD)) fs.mkdirSync(OUT_CARD, { recursive: true });
-  // sand runs only on the JS core: its in-place grid swap isn't replayed by the
-  // wasm core (the default), so a live share page would show a stuck faucet.
-  // Kept as an example file, but no live page until the wasm core persists
-  // item-of-list field mutation.
-  const SKIP = new Set(['sand']);
-  const files = fs.readdirSync(EX).filter(f => f.endsWith('.fc') && !SKIP.has(f.replace(/\.fc$/, ''))).sort();
+  const files = fs.readdirSync(EX).filter(f => f.endsWith('.fc')).sort();
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   try {
     for (const f of files) {

@@ -329,6 +329,18 @@
       "w": 128
     }
   },
+  "parens_grouping.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "a": 7,
+      "b": 14,
+      "c": 2,
+      "d": 2,
+      "e": 21,
+      "f": 13
+    }
+  },
   "parseif_and_resets.fc": {
     "say": [],
     "errors": [],
