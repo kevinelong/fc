@@ -258,6 +258,23 @@ fn parse_expr(ts: &[Tok]) -> Expr {
         let props = if lb < ts.len() { parse_object(&ts[lb..]) } else { Expr::Object(Vec::new()) };
         return Expr::ListOfSprites(Box::new(count), Box::new(props));
     }
+    // phrase atoms that bind LOOSER than math (mirror the JS parser, which checks
+    // these before the math split): `random 3 + 2` is random(3+2), `count of xs + 1`
+    // is count(xs+1), and `item a + 1 of grid` indexes with a+1. Checked BEFORE the
+    // math split so trailing math becomes their operand rather than a split point —
+    // in particular `item <expr> of <list>` must claim its `of`-delimited region.
+    if ts[0].is_word("random") { return Expr::Random(Box::new(parse_expr(&ts[1..]))); }
+    if ts[0].is_word("load") && ts.len()>=2 { return Expr::Load(Box::new(parse_expr(&ts[1..]))); }
+    if ts[0].is_word("solid") && ts.len()>=4 && ts[1].is_word("at") {
+        let rest=&ts[2..];
+        if let Some(ci)=rest.iter().position(|t| t.t==6) { if ci>0 {
+            return Expr::SolidAt(Box::new(parse_expr(&rest[..ci])), Box::new(parse_expr(&rest[ci+1..])));
+        }}
+    }
+    if ts[0].is_word("item") { if let Some(k)=find_word(ts,"of") {
+        return Expr::ItemOf(Box::new(parse_expr(&ts[1..k])), Box::new(parse_expr(&ts[k+1..]))); } }
+    if ts[0].is_word("the") && ts.len()>=3 && ts[1].is_word("number") && ts[2].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[3..]))); }
+    if ts[0].is_word("count") && ts.len()>=2 && ts[1].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[2..]))); }
     // math splits — at the rightmost TOP-LEVEL operator (depth 0), so operators
     // inside ( ) [ ] { } stay grouped. scan right-to-left for left-associativity.
     let mut depth=0i32; let mut i = ts.len();
@@ -274,19 +291,6 @@ fn parse_expr(ts: &[Tok]) -> Expr {
             if let Some(op)=op { return Expr::Math(op, Box::new(parse_expr(&ts[..i])), Box::new(parse_expr(&ts[i+1..]))); } } }
     if ts[0].t==4 && ts[0].sval()=="-" {
         return Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(parse_expr(&ts[1..]))); }
-    // phrase atoms (reached only with no top-level math operator)
-    if ts[0].is_word("random") { return Expr::Random(Box::new(parse_expr(&ts[1..]))); }
-    if ts[0].is_word("load") && ts.len()>=2 { return Expr::Load(Box::new(parse_expr(&ts[1..]))); }
-    if ts[0].is_word("solid") && ts.len()>=4 && ts[1].is_word("at") {
-        let rest=&ts[2..];
-        if let Some(ci)=rest.iter().position(|t| t.t==6) { if ci>0 {
-            return Expr::SolidAt(Box::new(parse_expr(&rest[..ci])), Box::new(parse_expr(&rest[ci+1..])));
-        }}
-    }
-    if ts[0].is_word("item") { if let Some(k)=find_word(ts,"of") {
-        return Expr::ItemOf(Box::new(parse_expr(&ts[1..k])), Box::new(parse_expr(&ts[k+1..]))); } }
-    if ts[0].is_word("the") && ts.len()>=3 && ts[1].is_word("number") && ts[2].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[3..]))); }
-    if ts[0].is_word("count") && ts.len()>=2 && ts[1].is_word("of") { return Expr::Count(Box::new(parse_expr(&ts[2..]))); }
     if ts.len()==1 {
         let t=&ts[0];
         return match t.t { 2=>Expr::Lit(LitVal::Num(if let TokVal::Num(n)=t.v {n} else {0.0})),

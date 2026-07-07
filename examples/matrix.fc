@@ -3,14 +3,14 @@
 
 columns is []
 repeat with i from 0 to 15
-  add {x: i * 8, y: random 128, speed: random 3 + 2} to columns
+  add {x: i * 8, y: random 128, speed: (random 3) + 2} to columns
 
 to update
   each c in columns
     increase c.y by c.speed
     if c.y > 160
       c.y is 0
-      c.speed is random 3 + 2
+      c.speed is (random 3) + 2
 
 to draw
   clear screen to black

@@ -1,0 +1,5 @@
+grid is [10, 20, 30, 40, 50]
+i is 2
+a is item i + 1 of grid
+b is item i * 2 of grid
+c is count of grid

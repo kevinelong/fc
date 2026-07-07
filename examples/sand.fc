@@ -10,7 +10,7 @@ to update
   fx is 18 + random 4
   fi is 40 + fx + 1
   spot is item fi of grid
-  if spot.full is 0 spot.full is random 3 + 1
+  if spot.full is 0 spot.full is (random 3) + 1
   -- move every grain down one, bottom rows first so nothing falls twice
   repeat with yy from 0 to 38
     y is 38 - yy

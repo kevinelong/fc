@@ -282,6 +282,23 @@
       "done": 0
     }
   },
+  "item_computed_index.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "grid": [
+        10,
+        20,
+        30,
+        40,
+        50
+      ],
+      "i": 2,
+      "a": 30,
+      "b": 40,
+      "c": 5
+    }
+  },
   "item_one_based.fc": {
     "say": [],
     "errors": [],

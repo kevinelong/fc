@@ -2,7 +2,7 @@
 
 stars is []
 repeat with i from 1 to 70
-  add {x: random 128, y: random 128, speed: random 3 + 1} to stars
+  add {x: random 128, y: random 128, speed: (random 3) + 1} to stars
 
 to update
   each s in stars
@@ -10,7 +10,7 @@ to update
     if s.x < 0
       s.x is 128
       s.y is random 128
-      s.speed is random 3 + 1
+      s.speed is (random 3) + 1
 
 to draw
   clear screen to black
