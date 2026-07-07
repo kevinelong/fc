@@ -898,7 +898,7 @@ function parse(source) {
       const name = raw[1] ? raw[1].value : 'unknown';
       const params = [];
       for (let i = 2; i < raw.length; i++) {
-        if (raw[i].type === 'word' && tv(raw[i]) !== 'at' && tv(raw[i]) !== 'with') {
+        if (raw[i].type === 'word' && tv(raw[i]) !== 'at' && tv(raw[i]) !== 'with' && tv(raw[i]) !== 'in') {
           params.push(raw[i].value);
         }
       }
@@ -1352,7 +1352,7 @@ function parse(source) {
     }
 
     // -- function call (anything else) --
-    return { type: 'call', name: first, args: raw.slice(1), lineNum };
+    return { type: 'call', name: first, args: raw.slice(1), argExprs: parseCallArgs(raw.slice(1)), lineNum };
   }
 
   function parseKnock(raw, lineNum) {
@@ -1690,6 +1690,25 @@ function parse(source) {
       return { type: 'listliteral', items };
     }
     return parseExpression(tokens);
+  }
+
+  // Parse a user-function call's argument tokens into a positional list of
+  // expressions. Args are separated by top-level commas OR the 'at'/'with'
+  // connector words (the same words stripped from the param list), e.g.
+  // `fill at 2 with 9` -> [2, 9], `drop at 3, 4` -> [3, 4]. Paren/bracket/brace
+  // aware; empty segments (a leading connector) are dropped.
+  function parseCallArgs(tokens) {
+    const segs = []; let cur = [], depth = 0;
+    for (const t of tokens) {
+      const ty = t.type;
+      if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') { depth++; cur.push(t); continue; }
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') { depth--; cur.push(t); continue; }
+      const sep = depth === 0 && (ty === 'comma' || (ty === 'word' && (tv(t) === 'at' || tv(t) === 'with' || tv(t) === 'in')));
+      if (sep) { if (cur.length) segs.push(cur); cur = []; }
+      else cur.push(t);
+    }
+    if (cur.length) segs.push(cur);
+    return segs.map(seg => parseExpression(seg));
   }
 
   function parseExpression(tokens) {
@@ -3366,6 +3385,13 @@ class Runtime {
   execCall(stmt) {
     const func = this.funcs[stmt.name];
     if (func) {
+      // bind call args -> params positionally (fc is all-global, so params
+      // are ordinary globals). Evaluate args in the caller's scope first.
+      const params = func.params || [];
+      const argExprs = stmt.argExprs || [];
+      for (let i = 0; i < params.length; i++) {
+        if (i < argExprs.length && argExprs[i] != null) this.setVar(params[i], this.evalExpr(argExprs[i]));
+      }
       const savedStop = this.stopped;
       this.stopped = false;
       this.exec(func.body);

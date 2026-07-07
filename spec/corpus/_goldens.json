@@ -240,6 +240,27 @@
       "x": 1
     }
   },
+  "func_params.fc": {
+    "say": [],
+    "errors": [],
+    "vars": {
+      "c": {
+        "v": 3
+      },
+      "cells": [
+        {
+          "v": 8
+        },
+        {
+          "v": 3
+        }
+      ],
+      "i": 2,
+      "n": 3,
+      "points": 5,
+      "total": 15
+    }
+  },
   "ifelse_in_loop_false.fc": {
     "say": [],
     "errors": [],

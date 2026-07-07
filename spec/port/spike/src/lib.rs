@@ -202,7 +202,7 @@ enum Stmt {
     WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
     WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
     TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
-    ClearScreen(String), Draw(DrawArgs), Write(WriteArgs),
+    ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
     MoveArrows(String, Option<Expr>), MoveBy(String, Expr, Expr, Option<String>),
@@ -367,10 +367,10 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     let first = ts[0].sval();
     if first=="to" && ts.len()>=2 {
         if ts.len()>=3 && ts[1].is_word("screen") {
-            let params: Vec<String> = ts[3..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with").map(|t| t.sval().to_string()).collect();
+            let params: Vec<String> = ts[3..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with" && t.sval()!="in").map(|t| t.sval().to_string()).collect();
             return Stmt::FuncDef(format!("screen_{}", ts[2].sval().to_lowercase()), params, Vec::new());
         }
-        let params: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with").map(|t| t.sval().to_string()).collect();
+        let params: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with" && t.sval()!="in").map(|t| t.sval().to_string()).collect();
         return Stmt::FuncDef(ts[1].sval().to_string(), params, Vec::new());
     }
     if first=="if" { return parse_if(&ts[1..], false); }
@@ -469,6 +469,7 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         }}
     }
     if first=="draw" { return parse_draw(ts); }
+    if first=="pset" { return parse_pset(ts); }
     if first=="write" { return parse_write(ts); }
     if first=="each" { return parse_each(ts); }
     if first=="run" && ts.len()>=2 && ts[1].is_word("game") {
@@ -741,6 +742,11 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
             out.push_str("},\"hud\":"); out.push_str(if a.hud {"true"} else {"false"});
             out.push_str(",\"shape\":"); json_str(&a.shape,out); out.push_str(",\"type\":\"draw\"}");
         }
+        Stmt::Pset(x,y,color)=>{
+            out.push_str("{\"color\":"); json_str(color,out);
+            out.push_str(",\"type\":\"pset\",\"x\":"); emit_expr(x,out);
+            out.push_str(",\"y\":"); emit_expr(y,out); out.push('}');
+        }
         Stmt::Write(w)=>{
             out.push('{'); let mut sep=false;
             if let Some(c)=&w.color { out.push_str("\"color\":"); json_str(c,out); sep=true; }
@@ -898,6 +904,22 @@ fn parse_if(ts: &[Tok], is_elseif: bool) -> Stmt {
     let cond = parse_cond(&ts[..cond_end]);
     let then = if cond_end < ts.len() { Some(Box::new(parse_line(&ts[cond_end..]))) } else { None };
     if is_elseif { Stmt::ElseIf(cond, then, Vec::new()) } else { Stmt::If(cond, then, Vec::new()) }
+}
+fn parse_pset(ts: &[Tok]) -> Stmt {
+    // `pset x, y in color` — plot a single pixel (mirrors the JS parsePset).
+    let in_idx = find_word(ts, "in").filter(|&k| k > 0);
+    let end = in_idx.unwrap_or(ts.len());
+    let seg = &ts[1..end];
+    let (x, y) = if let Some(ci) = seg.iter().position(|t| t.t == 6) {
+        (parse_expr(&seg[..ci]), parse_expr(&seg[ci+1..]))
+    } else {
+        (parse_expr(seg), Expr::Lit(LitVal::Num(0.0)))
+    };
+    let color = match in_idx {
+        Some(k) => ts[k+1..].iter().map(|t| t.sval()).collect::<Vec<_>>().join(" "),
+        None => "white".to_string(),
+    };
+    Stmt::Pset(x, y, color)
 }
 fn parse_draw(ts: &[Tok]) -> Stmt {
     let mut a = DrawArgs::default();
@@ -1129,7 +1151,7 @@ fn deep_clone(v: &Val) -> Val {
     }
 }
 
-struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, Vec<Stmt>>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
+struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, Vec<Stmt>)>, seed: u32, ops: u64, stopped: bool, returning: bool, cmds: Vec<Cmd>, camera: (f64,f64), tick: u64,
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
@@ -1407,7 +1429,7 @@ impl Rt {
             Val::Obj(ref o) => match (Self::obj_num(o, "x"), Self::obj_num(o, "y")) { (Some(x), Some(y)) => Some((x, y)), _ => None },
             _ => None,
         };
-        if let Some(f0) = fs.get(0) { if let Some(b) = self.funcs.get(f0).cloned() { self.exec_block(&b); self.returning = false; } }
+        if let Some(f0) = fs.get(0) { if let Some(b) = self.funcs.get(f0).cloned() { self.exec_block(&b.1); self.returning = false; } }
         // autowalk: any sprite with walking:true advances by dx,dy * speed
         let gspeed = match self.get_var("speed") { Val::Num(n)=>n, _=>1.0 };
         if let Val::Obj(p) = self.get_var("player") {
@@ -1640,11 +1662,11 @@ impl Rt {
         // draw fns, then particles on top of the game layer, then screen dispatch
         // by mode (mirrors JS render order).
         self.buttons.clear();   // repopulated by Button stmts in the draw fns below
-        for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b); self.returning = false; } }
+        for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b.1); self.returning = false; } }
         self.update_particles();
         if let Val::Str(mode) = self.get_var("mode") {
             let sname = alloc::format!("screen_{}", mode);
-            if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b); self.returning = false; }
+            if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b.1); self.returning = false; }
         }
     }
 
@@ -1678,8 +1700,34 @@ impl Rt {
                     _ => {}
                 }
             }
-            Stmt::FuncDef(name, _p, body) => { self.funcs.insert(name.clone(), body.clone()); }
-            Stmt::Call(name, _a) => { if let Some(body)=self.funcs.get(name).cloned() { self.exec_block(&body); } }
+            Stmt::FuncDef(name, params, body) => { self.funcs.insert(name.clone(), (params.clone(), body.clone())); }
+            Stmt::Call(name, a) => { if let Some((params, body))=self.funcs.get(name).cloned() {
+                // bind call args -> params positionally. args are separated by
+                // top-level commas OR the 'at'/'with' connectors (`fill at 2 with 9`
+                // -> [2, 9]). fc is all-global, so params become globals.
+                if !params.is_empty() {
+                    let mut segs: Vec<Vec<Tok>> = Vec::new();
+                    let mut cur: Vec<Tok> = Vec::new();
+                    let mut depth = 0i32;
+                    for t in a.iter() {
+                        match t.t {
+                            7|9|11 => { depth += 1; cur.push(t.clone()); }
+                            8|10|12 => { depth -= 1; cur.push(t.clone()); }
+                            6 if depth==0 => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
+                            3 if depth==0 && (t.sval()=="at"||t.sval()=="with"||t.sval()=="in") => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
+                            _ => cur.push(t.clone()),
+                        }
+                    }
+                    if !cur.is_empty() { segs.push(cur); }
+                    for (idx, p) in params.iter().enumerate() {
+                        if let Some(seg) = segs.get(idx) {
+                            let v = self.eval(&parse_expr(seg));
+                            self.set_var(p, v);
+                        }
+                    }
+                }
+                self.exec_block(&body);
+            } }
             Stmt::RepeatTimes(c, body) => { let n=as_num(&self.eval(c)) as i64; let mut i=0; while i<n && !self.stopped && self.ops<100000 { self.ops+=1; self.exec_block(body); i+=1; } }
             Stmt::RepeatRange(var, from, to, body) => {
                 let f=as_num(&self.eval(from)); let t=as_num(&self.eval(to)); let step=if f<=t {1.0} else {-1.0};
@@ -1713,6 +1761,12 @@ impl Rt {
             Stmt::Return(_) => { self.returning=true; }
             Stmt::Stop => { self.stopped=true; }
             Stmt::ClearScreen(color) => { let c = resolve_color(color); self.cmds.push(Cmd::Rect(0.0,0.0,128.0,128.0,c)); }
+            Stmt::Pset(x, y, color) => {
+                // plot a single pixel — a 1x1 rect, no camera offset (matches JS pset)
+                let px = js_floor(as_num(&self.eval(x)));
+                let py = js_floor(as_num(&self.eval(y)));
+                self.cmds.push(Cmd::Rect(px, py, 1.0, 1.0, resolve_color(color)));
+            }
             Stmt::Draw(a) => {
                 let (ox, oy) = if a.hud { (0.0,0.0) } else { self.camera };
                 let x = (if let Some(e)=&a.x { as_num(&self.eval(e)) } else { 0.0 }) - ox;

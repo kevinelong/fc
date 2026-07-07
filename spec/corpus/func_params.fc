@@ -1,0 +1,11 @@
+total is 0
+to gain with points
+  total is total + points
+gain with 10
+gain with 5
+cells is [{v: 0}, {v: 0}]
+to setcell at i with n
+  c is item i of cells
+  c.v is n
+setcell at 1 with 8
+setcell at 2 with 3
