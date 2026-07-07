@@ -26,6 +26,12 @@ const RECIPES = {
   'pong-online': [wait(120), press('ArrowDown', 2), wait(380)],   // ball mid-flight, paddle nudged
   joust: [wait(100), press('Space', 2, 140), press('ArrowRight', 3, 90), wait(200)],   // bird aloft, mid-drift
   'bubble-pop': [wait(650)],   // several bubbles risen
+  // generative "toy" demos — let the pattern develop before the shot
+  life: [wait(2500)],
+  matrix: [wait(1400)],
+  langton: [wait(5000)],       // enough steps to show the growing region
+  chaos: [wait(5000)],         // the Sierpinski triangle fills in
+  starfield: [wait(1200)],
   // add more games here to (re)capture them with this tool
 };
 

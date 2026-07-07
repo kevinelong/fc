@@ -1,0 +1,43 @@
+-- LANGTON'S ANT  ·  one ant, two rules:
+--   on a dark square: turn right, paint it white, step forward
+--   on a white square: turn left, paint it dark,  step forward
+-- Pure chaos for ~10,000 steps... then it suddenly builds an ordered "highway".
+
+grid is []
+repeat with i from 1 to 1764
+  add {on: no} to grid
+ax is 21
+ay is 21
+dir is 0
+
+to update
+  repeat 8 times
+    hi is ay * 42 + ax + 1
+    here is item hi of grid
+    if here.on
+      decrease dir by 1
+      here.on is no
+    else
+      increase dir by 1
+      here.on is yes
+    d4 is dir + 4
+    dir is d4 mod 4
+    if dir is 0 decrease ay by 1
+    if dir is 1 increase ax by 1
+    if dir is 2 increase ay by 1
+    if dir is 3 decrease ax by 1
+    aw is ax + 42
+    ax is aw mod 42
+    ah is ay + 42
+    ay is ah mod 42
+
+to draw
+  clear screen to black
+  repeat with y from 0 to 41
+    repeat with x from 0 to 41
+      ci is y * 42 + x + 1
+      c is item ci of grid
+      if c.on draw rect at x * 3, y * 3 size 3, 3 in white
+  draw rect at ax * 3, ay * 3 size 3, 3 in red
+
+run game with update and draw

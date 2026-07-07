@@ -1,0 +1,23 @@
+-- STARFIELD  ·  fly through space. faster stars are brighter (parallax).
+
+stars is []
+repeat with i from 1 to 70
+  add {x: random 128, y: random 128, speed: random 3 + 1} to stars
+
+to update
+  each s in stars
+    decrease s.x by s.speed
+    if s.x < 0
+      s.x is 128
+      s.y is random 128
+      s.speed is random 3 + 1
+
+to draw
+  clear screen to black
+  each s in stars
+    shade is dark gray
+    if s.speed is 2 shade is light gray
+    if s.speed is 3 shade is white
+    draw rect at s.x, s.y size 1, 1 in shade
+
+run game with update and draw

@@ -1,0 +1,27 @@
+-- MATRIX RAIN  ·  falling green code, like the movie.
+-- Each column drops a bright head with a fading tail of random digits.
+
+columns is []
+repeat with i from 0 to 15
+  add {x: i * 8, y: random 128, speed: random 3 + 2} to columns
+
+to update
+  each c in columns
+    increase c.y by c.speed
+    if c.y > 160
+      c.y is 0
+      c.speed is random 3 + 2
+
+to draw
+  clear screen to black
+  each c in columns
+    repeat with t from 0 to 11
+      ty is c.y - t * 8
+      if ty > -8 and ty < 128
+        shade is dark green
+        if t is 2 shade is green
+        if t is 1 shade is green
+        if t is 0 shade is white
+        write random 10 at c.x, ty in shade
+
+run game with update and draw

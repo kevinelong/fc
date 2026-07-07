@@ -1,0 +1,45 @@
+-- CONWAY'S GAME OF LIFE  ·  the classic cellular automaton.
+-- Every cell looks at its 8 neighbors:  3 neighbors -> a cell is born,
+-- 2 or 3 -> it survives, anything else -> it dies. Watch patterns emerge.
+
+grid is []
+repeat with i from 1 to 1024
+  born is no
+  if random 100 < 32 born is yes
+  add {on: born} to grid
+tick is 0
+
+to update
+  increase tick by 1
+  if tick mod 4 is not 0 return
+  next is []
+  repeat with y from 0 to 31
+    repeat with x from 0 to 31
+      n is 0
+      repeat with dy from -1 to 1
+        repeat with dx from -1 to 1
+          wx is x + dx + 32
+          nx is wx mod 32
+          wy is y + dy + 32
+          ny is wy mod 32
+          ni is ny * 32 + nx + 1
+          nb is item ni of grid
+          if nb.on increase n by 1
+      mi is y * 32 + x + 1
+      me is item mi of grid
+      if me.on decrease n by 1
+      alive is no
+      if me.on and n is 2 alive is yes
+      if n is 3 alive is yes
+      add {on: alive} to next
+  grid is next
+
+to draw
+  clear screen to black
+  repeat with y from 0 to 31
+    repeat with x from 0 to 31
+      ci is y * 32 + x + 1
+      c is item ci of grid
+      if c.on draw rect at x * 4, y * 4 size 3, 3 in green
+
+run game with update and draw

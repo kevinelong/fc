@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Langton'S Ant — play it, made in fc · codeonline.io</title>
+<meta name="description" content="one ant, two rules: A little game made in fc — play it free, no install, right in your browser.">
+<link rel="canonical" href="https://codeonline.io/g/langton/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="codeonline.io">
+<meta property="og:title" content="Langton'S Ant — made in fc">
+<meta property="og:description" content="one ant, two rules: Play it free, no install.">
+<meta property="og:url" content="https://codeonline.io/g/langton/">
+<meta property="og:image" content="https://codeonline.io/share/langton.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Langton'S Ant — made in fc">
+<meta name="twitter:description" content="one ant, two rules: Play it free, no install.">
+<meta name="twitter:image" content="https://codeonline.io/share/langton.png">
+<script>location.replace('/?code=' + "LS0gTEFOR1RPTidTIEFOVCAgwrcgIG9uZSBhbnQsIHR3byBydWxlczoKLS0gICBvbiBhIGRhcmsgc3F1YXJlOiB0dXJuIHJpZ2h0LCBwYWludCBpdCB3aGl0ZSwgc3RlcCBmb3J3YXJkCi0tICAgb24gYSB3aGl0ZSBzcXVhcmU6IHR1cm4gbGVmdCwgcGFpbnQgaXQgZGFyaywgIHN0ZXAgZm9yd2FyZAotLSBQdXJlIGNoYW9zIGZvciB%2BMTAsMDAwIHN0ZXBzLi4uIHRoZW4gaXQgc3VkZGVubHkgYnVpbGRzIGFuIG9yZGVyZWQgImhpZ2h3YXkiLgoKZ3JpZCBpcyBbXQpyZXBlYXQgd2l0aCBpIGZyb20gMSB0byAxNzY0CiAgYWRkIHtvbjogbm99IHRvIGdyaWQKYXggaXMgMjEKYXkgaXMgMjEKZGlyIGlzIDAKCnRvIHVwZGF0ZQogIHJlcGVhdCA4IHRpbWVzCiAgICBoaSBpcyBheSAqIDQyICsgYXggKyAxCiAgICBoZXJlIGlzIGl0ZW0gaGkgb2YgZ3JpZAogICAgaWYgaGVyZS5vbgogICAgICBkZWNyZWFzZSBkaXIgYnkgMQogICAgICBoZXJlLm9uIGlzIG5vCiAgICBlbHNlCiAgICAgIGluY3JlYXNlIGRpciBieSAxCiAgICAgIGhlcmUub24gaXMgeWVzCiAgICBkNCBpcyBkaXIgKyA0CiAgICBkaXIgaXMgZDQgbW9kIDQKICAgIGlmIGRpciBpcyAwIGRlY3JlYXNlIGF5IGJ5IDEKICAgIGlmIGRpciBpcyAxIGluY3JlYXNlIGF4IGJ5IDEKICAgIGlmIGRpciBpcyAyIGluY3JlYXNlIGF5IGJ5IDEKICAgIGlmIGRpciBpcyAzIGRlY3JlYXNlIGF4IGJ5IDEKICAgIGF3IGlzIGF4ICsgNDIKICAgIGF4IGlzIGF3IG1vZCA0MgogICAgYWggaXMgYXkgKyA0MgogICAgYXkgaXMgYWggbW9kIDQyCgp0byBkcmF3CiAgY2xlYXIgc2NyZWVuIHRvIGJsYWNrCiAgcmVwZWF0IHdpdGggeSBmcm9tIDAgdG8gNDEKICAgIHJlcGVhdCB3aXRoIHggZnJvbSAwIHRvIDQxCiAgICAgIGNpIGlzIHkgKiA0MiArIHggKyAxCiAgICAgIGMgaXMgaXRlbSBjaSBvZiBncmlkCiAgICAgIGlmIGMub24gZHJhdyByZWN0IGF0IHggKiAzLCB5ICogMyBzaXplIDMsIDMgaW4gd2hpdGUKICBkcmF3IHJlY3QgYXQgYXggKiAzLCBheSAqIDMgc2l6ZSAzLCAzIGluIHJlZAoKcnVuIGdhbWUgd2l0aCB1cGRhdGUgYW5kIGRyYXcK");</script>
+</head><body style="background:#14110a;color:#c8a96e;font-family:sans-serif;text-align:center;padding-top:40px">
+<p>Loading <b>Langton'S Ant</b>… <a href="/?code=LS0gTEFOR1RPTidTIEFOVCAgwrcgIG9uZSBhbnQsIHR3byBydWxlczoKLS0gICBvbiBhIGRhcmsgc3F1YXJlOiB0dXJuIHJpZ2h0LCBwYWludCBpdCB3aGl0ZSwgc3RlcCBmb3J3YXJkCi0tICAgb24gYSB3aGl0ZSBzcXVhcmU6IHR1cm4gbGVmdCwgcGFpbnQgaXQgZGFyaywgIHN0ZXAgZm9yd2FyZAotLSBQdXJlIGNoYW9zIGZvciB%2BMTAsMDAwIHN0ZXBzLi4uIHRoZW4gaXQgc3VkZGVubHkgYnVpbGRzIGFuIG9yZGVyZWQgImhpZ2h3YXkiLgoKZ3JpZCBpcyBbXQpyZXBlYXQgd2l0aCBpIGZyb20gMSB0byAxNzY0CiAgYWRkIHtvbjogbm99IHRvIGdyaWQKYXggaXMgMjEKYXkgaXMgMjEKZGlyIGlzIDAKCnRvIHVwZGF0ZQogIHJlcGVhdCA4IHRpbWVzCiAgICBoaSBpcyBheSAqIDQyICsgYXggKyAxCiAgICBoZXJlIGlzIGl0ZW0gaGkgb2YgZ3JpZAogICAgaWYgaGVyZS5vbgogICAgICBkZWNyZWFzZSBkaXIgYnkgMQogICAgICBoZXJlLm9uIGlzIG5vCiAgICBlbHNlCiAgICAgIGluY3JlYXNlIGRpciBieSAxCiAgICAgIGhlcmUub24gaXMgeWVzCiAgICBkNCBpcyBkaXIgKyA0CiAgICBkaXIgaXMgZDQgbW9kIDQKICAgIGlmIGRpciBpcyAwIGRlY3JlYXNlIGF5IGJ5IDEKICAgIGlmIGRpciBpcyAxIGluY3JlYXNlIGF4IGJ5IDEKICAgIGlmIGRpciBpcyAyIGluY3JlYXNlIGF5IGJ5IDEKICAgIGlmIGRpciBpcyAzIGRlY3JlYXNlIGF4IGJ5IDEKICAgIGF3IGlzIGF4ICsgNDIKICAgIGF4IGlzIGF3IG1vZCA0MgogICAgYWggaXMgYXkgKyA0MgogICAgYXkgaXMgYWggbW9kIDQyCgp0byBkcmF3CiAgY2xlYXIgc2NyZWVuIHRvIGJsYWNrCiAgcmVwZWF0IHdpdGggeSBmcm9tIDAgdG8gNDEKICAgIHJlcGVhdCB3aXRoIHggZnJvbSAwIHRvIDQxCiAgICAgIGNpIGlzIHkgKiA0MiArIHggKyAxCiAgICAgIGMgaXMgaXRlbSBjaSBvZiBncmlkCiAgICAgIGlmIGMub24gZHJhdyByZWN0IGF0IHggKiAzLCB5ICogMyBzaXplIDMsIDMgaW4gd2hpdGUKICBkcmF3IHJlY3QgYXQgYXggKiAzLCBheSAqIDMgc2l6ZSAzLCAzIGluIHJlZAoKcnVuIGdhbWUgd2l0aCB1cGRhdGUgYW5kIGRyYXcK" style="color:#ffec27">tap here if it doesn't open</a>.</p>
+</body></html>

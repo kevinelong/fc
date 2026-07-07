@@ -1,0 +1,37 @@
+-- CHAOS GAME  ·  pick a random corner, jump halfway toward it, dot.
+-- Order from pure chance: a Sierpinski triangle slowly appears.
+
+ax is 64
+ay is 6
+bx is 6
+by is 120
+cx is 122
+cy is 120
+px is 64
+py is 64
+dots is []
+
+to update
+  repeat 20 times
+    r is random 3
+    tx is ax
+    ty is ay
+    if r is 1
+      tx is bx
+      ty is by
+    if r is 2
+      tx is cx
+      ty is cy
+    sx is px + tx
+    px is sx / 2
+    sy is py + ty
+    py is sy / 2
+    n is count of dots
+    if n < 1800 add {x: px, y: py} to dots
+
+to draw
+  clear screen to black
+  each d in dots
+    draw rect at d.x, d.y size 1, 1 in green
+
+run game with update and draw

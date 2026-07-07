@@ -1,0 +1,54 @@
+-- FALLING SAND  ·  a trickle of sugar pours from the top and piles up.
+-- One rule per grain: fall straight down if you can, else slide diagonally.
+
+grid is []
+repeat with i from 1 to 1600
+  add {full: 0} to grid
+
+to update
+  -- faucet: drop a grain near the top-middle each frame
+  fx is 18 + random 4
+  fi is 40 + fx + 1
+  spot is item fi of grid
+  if spot.full is 0 spot.full is random 3 + 1
+  -- move every grain down one, bottom rows first so nothing falls twice
+  repeat with yy from 0 to 38
+    y is 38 - yy
+    repeat with x from 0 to 39
+      hi is y * 40 + x + 1
+      here is item hi of grid
+      if here.full > 0
+        bi is y * 40 + 40 + x + 1
+        below is item bi of grid
+        moved is no
+        if below.full is 0
+          below.full is here.full
+          here.full is 0
+          moved is yes
+        if not moved and x > 0
+          li is y * 40 + 40 + x
+          left is item li of grid
+          if left.full is 0
+            left.full is here.full
+            here.full is 0
+            moved is yes
+        if not moved and x < 39
+          ri is y * 40 + 40 + x + 2
+          right is item ri of grid
+          if right.full is 0
+            right.full is here.full
+            here.full is 0
+
+to draw
+  clear screen to black
+  repeat with y from 0 to 39
+    repeat with x from 0 to 39
+      ci is y * 40 + x + 1
+      c is item ci of grid
+      if c.full > 0
+        shade is yellow
+        if c.full is 2 shade is orange
+        if c.full is 3 shade is gold
+        draw rect at x * 3, y * 3 size 3, 3 in shade
+
+run game with update and draw
