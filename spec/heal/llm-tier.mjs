@@ -35,6 +35,7 @@ fc facts:
 - Functions: \`to name\` / \`to name at x, y in c\` (params after at/with/in); call \`name at 10, 20 in red\`.
 - Draw: \`clear screen to <color>\`, \`draw rect at x, y size w, h in <color>\`, \`draw circle at x, y size r in <color>\`, \`pset x, y in <color>\`, \`write "text" at x, y in <color>\`, \`draw sprite name at x, y\`.
 - A game loop: define \`to update\` and \`to draw\`, then \`run game with update and draw\`.
+- Keep numbers shown to the player whole. For "once per second" timing use a frame tick: \`tick is 0\` then in update \`increase tick by 1\` and act \`if tick mod 60 is 0\` (60 frames = 1s), rather than adding fractional amounts each frame.
 - Colors: ${COLORS.join(', ')}.
 - Known verbs: ${VERBS.join(', ')}.
 Prefer the smallest program that does what's asked. Keep it readable — fc should read like a design doc.`;
