@@ -419,6 +419,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-publish" style="display:none;font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🌐 publish</button>
       <button type="button" id="tool-share" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">🔗 share</button>
       <button type="button" id="tool-embed" title="copy an iframe to put this game on any website" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">▣ embed</button>
+      <a id="tool-permalink" title="open this demo's shareable page (right-click to copy the link)" style="display:none;text-decoration:none;font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">↗ page</a>
       <select id="example-pick" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 8px;cursor:pointer;margin-left:auto">
         <option value="">▾ examples</option>
         <option value="coin-quest">Coin Quest (home)</option>
@@ -5342,7 +5343,7 @@ run game with update`;
     if (!v) return;
     fetch('examples/' + v + '.fc')
       .then(r => r.text())
-      .then(src => { editor.value = src; run(src); setPlaying(true); })
+      .then(src => { editor.value = src; run(src); setPlaying(true); _currentDemo = { file: v, src: src }; updatePermalink(); })
       .catch(() => { errorsDiv.textContent = "Couldn't load example (try the live site, not a local file)."; });
   };
 
@@ -5430,18 +5431,33 @@ run game with update and draw`;
     document.body.classList.remove('playing');
     document.body.classList.add('home');
     clearGameDesc();
+    _currentDemo = null; try { updatePermalink(); } catch (_) {}
     window.scrollTo(0, 0);
   }
   function openGameView() { document.body.classList.remove('home'); }
   function loadAndRun(src, play) { editor.value = src; openGameView(); run(src); setPlaying(!!play); }
   let _currentDemo = null;   // {file, src} of the last opened built-in demo — lets Share emit the clean /g/<file> link while it's unmodified
+  // Show the "↗ page" permalink only while an unmodified built-in demo is open —
+  // that's exactly when a clean, preview-rich /g/<file>/ page exists for it.
+  function updatePermalink() {
+    const el = document.getElementById('tool-permalink');
+    if (!el) return;
+    if (_currentDemo && editor.value.trim() === _currentDemo.src.trim()) {
+      el.href = '/g/' + _currentDemo.file + '/';
+      el.style.display = '';
+    } else { el.style.display = 'none'; }
+  }
+  // editing a demo diverges it from its /g/ page → drop the permalink (registered
+  // here, inside this IIFE, where updatePermalink is in scope)
+  editor.addEventListener('input', updatePermalink);
   function openGame(g) {
     fetch('examples/' + g.file + '.fc').then(r => r.text())
-      .then(src => { loadAndRun(src, true); setGameDesc(g); _currentDemo = { file: g.file, src: src }; })
+      .then(src => { loadAndRun(src, true); setGameDesc(g); _currentDemo = { file: g.file, src: src }; updatePermalink(); })
       .catch(() => { openGameView(); errorsDiv.textContent = "Couldn't load (use the live site, not a local file)."; });
   }
   let _firstNewGameBlip = false;   // a soft, once-per-session confirmation on the "start creating" moment
   function newGame() {
+    _currentDemo = null; updatePermalink();
     clearGameDesc(); loadAndRun(NEW_GAME_STARTER, false); if (!isTouch) editor.focus();
     if (!_firstNewGameBlip) { _firstNewGameBlip = true; try { AUDIO.play('pickup'); } catch (_) {} }
   }

@@ -106,6 +106,15 @@ async function run() {
       console.log('  + g/' + name + '/  + share/' + name + '.png   (' + title + ')');
     }
   } finally { await browser.close(); }
+  // 3) sitemap.xml — the homepage, the docs, and every per-game landing page, so
+  // search engines can crawl the toy shelf (nothing else links into /g/<name>/).
+  const urls = [BASE + '/', BASE + '/docs/']
+    .concat(files.map(f => BASE + '/g/' + f.replace(/\.fc$/, '') + '/'));
+  const sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map(u => '  <url><loc>' + u + '</loc></url>').join('\n') + '\n</urlset>\n';
+  fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), sitemap);
+  console.log('  + sitemap.xml   (' + urls.length + ' urls)');
   console.log('done: ' + files.length + ' games');
 }
 run().catch(e => { console.error(e); process.exit(1); });
