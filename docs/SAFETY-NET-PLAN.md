@@ -33,8 +33,11 @@ validate-by-actually-running loop either way.
 
 - **Phase 0 — deterministic tier (DONE).** Offline, no LLM, zero cost. Fixes the
   common beginner mistakes and reports every change. Code: `spec/heal/`.
-- **Phase 1 — in-app UX.** Wire the healer into the run path in index.html: show
-  "did you mean / I tidied this" with one-tap **Apply** (never auto-silent).
+- **Phase 1 — in-app UX (DONE).** The healer is inlined in index.html (reusing
+  LINT_VERBS/COLORS/damerau; extra vocab drift-checked by eval.mjs). On run, if
+  there are confident fixes, a green "Safety net: I can fix N things … [✎ Fix &
+  run]" banner appears; one tap rewrites the editor to the healed code and re-runs.
+  Never auto-applied — the user's text is untouched until they tap.
 - **Phase 2 — LLM tier.** Server-side `POST /api/generate` (key in apid/.env,
   rate-limited/gated) for structural rewrites tier 0 can't do; validated by the
   parser + frame-stepper, self-repair ≤2×, diff shown.

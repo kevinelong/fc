@@ -24,13 +24,14 @@ export const COLORS = ['black','dark blue','dark purple','dark green','brown','d
 
 // Extra leading words the parser dispatches on (parse_line in src/lib.rs) that
 // LINT_VERBS omits — a line starting with any of these is legitimate.
-const DISPATCH = ['animate','burst','define','map','tile','time','run','with'];
+export const DISPATCH = ['animate','burst','define','map','tile','time','run','with'];
 // structural words that can lead a line (`its x is ...` inside a `with` block,
 // `forever`, `while`/`until` loops).
-const STRUCTURAL = ['its', 'forever', 'while', 'until'];
+export const STRUCTURAL = ['its', 'forever', 'while', 'until'];
 // sprite-behavior verbs; a line `<subject> wanders/chases/patrols ...` is valid,
 // so the leading word is a user sprite name, not a typo.
-const BEHAVIOR = new Set(['chase','chases','wander','wanders','patrol','patrols']);
+export const BEHAVIOR_WORDS = ['chase','chases','wander','wanders','patrol','patrols'];
+const BEHAVIOR = new Set(BEHAVIOR_WORDS);
 
 // everything that may legitimately lead a statement (so we don't "correct" it)
 const LEAD_OK = new Set([...VERBS, ...DISPATCH, ...STRUCTURAL]);

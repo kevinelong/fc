@@ -8,7 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { heal, lint, VERBS, COLORS } from './healer.mjs';
+import { heal, lint, VERBS, COLORS, DISPATCH, STRUCTURAL, BEHAVIOR_WORDS } from './healer.mjs';
 import { CASES } from './cases.mjs';
 import { parse, Runtime, __CMDS, __bindRT } from '../port/spike/fc-core-record.mjs';
 
@@ -22,12 +22,16 @@ function driftCheck() {
   const htmlVerbs = vm ? vm[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean) : [];
   const cm = html.match(/const COLORS = \{([\s\S]*?)\}/);
   const htmlColors = cm ? [...cm[1].matchAll(/'([^']+)'\s*:/g)].map(m => m[1]) : [];
+  // the inline Phase 1 healer keeps its own extra-vocab arrays — they must match
+  const inlineArr = (name) => { const m = html.match(new RegExp('const ' + name + ' = \\[([^\\]]*)\\]')); return m ? m[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean) : []; };
   const diff = (a, b) => a.filter(x => !b.includes(x));
   const problems = [];
-  if (diff(htmlVerbs, VERBS).length || diff(VERBS, htmlVerbs).length)
-    problems.push(`VERBS drift: only-in-index=${JSON.stringify(diff(htmlVerbs, VERBS))} only-in-healer=${JSON.stringify(diff(VERBS, htmlVerbs))}`);
-  if (diff(htmlColors, COLORS).length || diff(COLORS, htmlColors).length)
-    problems.push(`COLORS drift: only-in-index=${JSON.stringify(diff(htmlColors, COLORS))} only-in-healer=${JSON.stringify(diff(COLORS, htmlColors))}`);
+  const cmp = (label, a, b) => { if (diff(a, b).length || diff(b, a).length) problems.push(`${label} drift: only-A=${JSON.stringify(diff(a, b))} only-B=${JSON.stringify(diff(b, a))}`); };
+  cmp('VERBS(index LINT_VERBS vs healer)', htmlVerbs, VERBS);
+  cmp('COLORS(index vs healer)', htmlColors, COLORS);
+  cmp('DISPATCH(index FC_DISPATCH vs healer)', inlineArr('FC_DISPATCH'), DISPATCH);
+  cmp('STRUCTURAL(index FC_STRUCTURAL vs healer)', inlineArr('FC_STRUCTURAL'), STRUCTURAL);
+  cmp('BEHAVIOR(index FC_BEHAVIOR vs healer)', [...(html.match(/FC_BEHAVIOR = new Set\(\[([^\]]*)\]/)?.[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean) || [])], BEHAVIOR_WORDS);
   return problems;
 }
 

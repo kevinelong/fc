@@ -4857,20 +4857,130 @@ function lintHints(source) {
   return notes;
 }
 
+// ---- self-healing safety net (Phase 1) -------------------------------------
+// Mirrors spec/heal/healer.mjs (eval'd there). Reuses LINT_VERBS/COLORS/damerau
+// above so the core vocab is a single source of truth. Coerces loose/typo'd fc
+// into runnable fc; every change is shown (never silently applied).
+const FC_DISPATCH = ['animate', 'burst', 'define', 'map', 'tile', 'time', 'run', 'with'];
+const FC_STRUCTURAL = ['its', 'forever', 'while', 'until'];
+const FC_BEHAVIOR = new Set(['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols']);
+const FC_LEAD_OK = new Set([...LINT_VERBS, ...FC_DISPATCH, ...FC_STRUCTURAL]);
+const FC_SUGGEST = [...new Set([...LINT_VERBS, ...FC_DISPATCH])];
+const FC_CNAMES = Object.keys(COLORS);
+const FC_CSET = new Set(FC_CNAMES);
+function fcSubseq(a, b) { let i = 0; for (let j = 0; j < b.length && i < a.length; j++) if (a[i] === b[j]) i++; return i === a.length; }
+function fcNearest(word, cands) {
+  const budget = word.length <= 3 ? 1 : 2; let bd = 99, tied = [];
+  for (const c of cands) { const dd = damerau(word, c); if (dd < bd) { bd = dd; tied = [c]; } else if (dd === bd) tied.push(c); }
+  if (bd < 1 || bd > budget) return null;
+  if (tied.length === 1) return tied[0];
+  const s = tied.filter(c => fcSubseq(word, c) || fcSubseq(c, word));
+  return s.length === 1 ? s[0] : null;
+}
+function fcNearestColor(phrase) {
+  const p = phrase.toLowerCase().trim(); if (FC_CSET.has(p)) return null;
+  const d = fcNearest(p, FC_CNAMES); if (d) return d;
+  const sq = p.replace(/\s+/g, ''); for (const c of FC_CNAMES) if (c.replace(/\s+/g, '') === sq) return c;
+  const n2 = fcNearest(sq, FC_CNAMES.map(c => c.replace(/\s+/g, ''))); return n2 ? (FC_CNAMES.find(c => c.replace(/\s+/g, '') === n2) || null) : null;
+}
+function fcDeclared(src) {
+  const s = new Set();
+  for (const raw of src.split('\n')) {
+    const line = raw.trim(); let m;
+    if ((m = line.match(/^to\s+(?:screen\s+)?([a-zA-Z_]\w*)/i))) s.add(m[1].toLowerCase());
+    if ((m = line.match(/^repeat\s+with\s+([a-zA-Z_]\w*)/i))) s.add(m[1].toLowerCase());
+    if ((m = line.match(/^each\s+([a-zA-Z_]\w*)\s+in\b/i))) s.add(m[1].toLowerCase());
+    if ((m = line.match(/^with\s+([a-zA-Z_]\w*)/i))) s.add(m[1].toLowerCase());
+    for (const km of line.matchAll(/([a-zA-Z_]\w*)\s*:/g)) s.add(km[1].toLowerCase());
+    for (const vm of line.matchAll(/\b([a-zA-Z_]\w*)\s+is\b/gi)) s.add(vm[1].toLowerCase());
+  }
+  return s;
+}
+function fcTrailingColor(line) {
+  let s = line.replace(/\s+on\s+(hud|screen)\s*$/i, '');
+  let m = s.match(/\bin\s+([a-zA-Z][a-zA-Z ]*?)\s*$/);
+  if (m) return { keyword: 'in', phrase: m[1].trim() };
+  m = s.match(/^\s*clear\b.*\bto\s+([a-zA-Z][a-zA-Z ]*?)\s*$/i);
+  if (m) return { keyword: 'to', phrase: m[1].trim() };
+  return null;
+}
+const FC_ASSIGN = /^[a-zA-Z_]\w*(\.\w+)*\s+(is|are)\b/i;
+function fcLint(src) {
+  const known = fcDeclared(src), issues = [], lines = src.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t || t.startsWith('--') || t.startsWith('#')) continue;
+    const lead = t.match(/^([a-zA-Z]\w*)/); const lw = lead ? lead[1].toLowerCase() : '';
+    const second = (t.match(/^[a-zA-Z]\w*\s+([a-zA-Z]\w*)/) || [])[1];
+    if (lead && !FC_ASSIGN.test(t) && !(second && FC_BEHAVIOR.has(second.toLowerCase()))) {
+      if (!FC_LEAD_OK.has(lw) && !known.has(lw)) { const sug = fcNearest(lw, FC_SUGGEST); if (sug) issues.push({ line: i + 1, kind: 'verb', token: lead[1], suggestion: sug }); }
+    }
+    const tc = fcTrailingColor(t);
+    if (tc) {
+      const ctx = (tc.keyword === 'in' && ['draw', 'write', 'pset'].includes(lw)) || tc.keyword === 'to';
+      const p = tc.phrase.toLowerCase();
+      if (ctx && !FC_CSET.has(p) && !/^#/.test(p) && !known.has(p)) { const sug = fcNearestColor(p); if (sug) issues.push({ line: i + 1, kind: 'color', token: tc.phrase, suggestion: sug }); }
+    }
+  }
+  return issues;
+}
+function fcHeal(src) {
+  const changes = []; let lines = src.split('\n');
+  lines = lines.map((line, i) => {
+    let cur = line, out;
+    if ((out = cur.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/ /g, ' ')) !== cur) { changes.push({ line: i + 1, reason: 'straightened smart quotes' }); cur = out; }
+    let m = cur.match(/^(\s*)set\s+([a-zA-Z_]\w*(?:\.\w+)*)\s+to\s+(.+)$/i) || cur.match(/^(\s*)let\s+([a-zA-Z_]\w*(?:\.\w+)*)\s*=\s*(.+)$/i);
+    if (m) { cur = `${m[1]}${m[2]} is ${m[3]}`; changes.push({ line: i + 1, reason: 'used fc assignment (is)' }); }
+    else { m = cur.match(/^(\s*)([a-zA-Z_]\w*(?:\.\w+)*)\s*=\s*([^=].*)$/); if (m && !/[<>!=]=/.test(cur.slice(0, cur.indexOf('=')))) { cur = `${m[1]}${m[2]} is ${m[3]}`; changes.push({ line: i + 1, reason: 'used fc assignment (is)' }); } }
+    return cur;
+  });
+  for (let round = 0; round < 4; round++) {
+    let applied = 0;
+    for (const iss of fcLint(lines.join('\n'))) {
+      if (!iss.suggestion) continue;
+      const idx = iss.line - 1, line = lines[idx]; let out = line;
+      if (iss.kind === 'verb') { out = line.replace(new RegExp('^(\\s*)' + iss.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'), '$1' + iss.suggestion); if (out !== line) changes.push({ line: iss.line, reason: `"${iss.token}" → "${iss.suggestion}"` }); }
+      else if (iss.kind === 'color') { const at = line.toLowerCase().lastIndexOf(iss.token.toLowerCase()); if (at >= 0) { out = line.slice(0, at) + iss.suggestion + line.slice(at + iss.token.length); changes.push({ line: iss.line, reason: `color "${iss.token}" → "${iss.suggestion}"` }); } }
+      if (out !== line) { lines[idx] = out; applied++; }
+    }
+    if (!applied) break;
+  }
+  return { code: lines.join('\n'), changes };
+}
+
+// Safety-net banner: offer one-tap "Fix & run" for confident deterministic heals
+// (never auto-applied — the user's text is untouched until they tap).
+function fcShowFix(healed) {
+  const n = healed.changes.length;
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 6px;padding:6px 9px;background:#12240f;border:1px solid #2c6e2c;border-radius:5px;color:#9f9';
+  const txt = document.createElement('span');
+  const summary = healed.changes.map(c => c.reason).filter(Boolean).slice(0, 4).join(' · ');
+  txt.textContent = `Safety net: I can fix ${n} thing${n > 1 ? 's' : ''} so it runs as you meant — ${summary}`;
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.textContent = '✎ Fix & run';
+  btn.style.cssText = "font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap";
+  btn.onclick = () => { editor.value = healed.code; editor.dispatchEvent(new Event('input', { bubbles: true })); run(healed.code); };
+  bar.appendChild(txt); bar.appendChild(btn);
+  errorsDiv.insertBefore(bar, errorsDiv.firstChild);
+}
 function run(source) {
   // wasm is the default engine; WASMCORE.run() falls back to runJSCore() itself
   // if the wasm fails to load. ?core=js (or no WebAssembly) keeps the JS core.
   const hints = lintHints(source);
+  const healed = fcHeal(source);
   if (typeof WASMCORE !== "undefined" && WASMCORE.active) {
     WASMCORE.run(source);
     // if still active it was a clean wasm run -> clear stale errors; if it fell
     // back, runJSCore already showed its errors, so just append the lint hints.
     if (WASMCORE.active) errorsDiv.innerHTML = '';
-    if (hints.length) showErrors(hints.join('\n'), true);
+    if (healed.changes.length) fcShowFix(healed);
+    else if (hints.length) showErrors(hints.join('\n'), true);
     return;
   }
   runJSCore(source);
-  if (hints.length) showErrors(hints.join('\n'), true);
+  if (healed.changes.length) fcShowFix(healed);
+  else if (hints.length) showErrors(hints.join('\n'), true);
 }
 function runJSCore(source) {
   runtime.reset();
