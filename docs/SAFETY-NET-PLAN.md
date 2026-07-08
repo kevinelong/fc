@@ -38,9 +38,19 @@ validate-by-actually-running loop either way.
   there are confident fixes, a green "Safety net: I can fix N things … [✎ Fix &
   run]" banner appears; one tap rewrites the editor to the healed code and re-runs.
   Never auto-applied — the user's text is untouched until they tap.
-- **Phase 2 — LLM tier.** Server-side `POST /api/generate` (key in apid/.env,
-  rate-limited/gated) for structural rewrites tier 0 can't do; validated by the
-  parser + frame-stepper, self-repair ≤2×, diff shown.
+- **Phase 2 — LLM tier (scaffold + gate DONE; model call needs a key).** The
+  validation gate `spec/heal/validate.mjs` (parse + N-frame run + lint-clean) is
+  built and self-evaluated by eval.mjs: 71 real programs accepted, deliberately
+  broken snippets rejected, and every deterministic-heal output passes it. The
+  LLM prototype `spec/heal/llm-tier.mjs` builds a grounded prompt (fc spec + real
+  few-shots, all gate-valid) and runs the generate→gate→self-repair(≤2) loop;
+  every returned program provably parses and runs. Run it offline with your key
+  (`ANTHROPIC_API_KEY=… node spec/heal/llm-tier.mjs "…"`, or `--dry` to inspect
+  the prompt) to measure quality BEFORE shipping any endpoint.
+  Remaining for a live feature: a rate-limited/auth-gated `POST /api/generate`
+  proxy in apid/server.js (key server-side), and an eval prompt-set to track
+  parse/run rate. NOT wired into production yet — unvalidated model output must
+  not hit users.
 - **Phase 3 — runnable-scaffold floor + telemetry.** The always-runs fallback,
   plus logging which inputs the net keeps rewriting the same way → those become
   natively-accepted syntax (the net shrinks over time).

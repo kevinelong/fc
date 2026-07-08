@@ -9,6 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 import { heal, lint, VERBS, COLORS, DISPATCH, STRUCTURAL, BEHAVIOR_WORDS } from './healer.mjs';
+import { validate } from './validate.mjs';
 import { CASES } from './cases.mjs';
 import { parse, Runtime, __CMDS, __bindRT } from '../port/spike/fc-core-record.mjs';
 
@@ -86,11 +87,36 @@ function corpusSafety() {
   return { n, bad };
 }
 
+// ---- validation gate: real programs pass, broken snippets fail, and heal()
+// output always passes (the guarantee the LLM tier will lean on) --------------
+function gateCheck() {
+  const bad = [];
+  const dirs = [path.join(ROOT, 'examples'), path.join(ROOT, 'spec', 'corpus')];
+  let n = 0;
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.fc'))) {
+      n++;
+      const v = validate(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (!v.ok) bad.push(`  ${f}: ${v.error || JSON.stringify(v.lintIssues.slice(0, 2))}`);
+    }
+  }
+  // negatives: broken snippets must NOT pass the gate
+  const negatives = ['clera screen to black', 'clear screen to gren', 'draw rect at 1, 1 size 8, 8 in gren'];
+  for (const neg of negatives) if (validate(neg).ok) bad.push(`  gate FAILED to reject: ${JSON.stringify(neg)}`);
+  // and every heal() output must pass the gate
+  for (const c of CASES) { if (!validate(heal(c.src).code).ok) bad.push(`  heal output rejected by gate: ${c.name}`); }
+  return { n, bad };
+}
+
+const gate = gateCheck();
 const safety = corpusSafety();
 const drift = driftCheck();
 console.log(`\nHealer Phase 0: ${pass}/${pass + fail} cases pass  (${Math.round(100 * pass / (pass + fail))}%)`);
 if (fails.length) console.log('\nFailures:\n' + fails.join('\n'));
 console.log(`Corpus safety: ${safety.n - safety.bad.length}/${safety.n} known-good programs untouched`);
 if (safety.bad.length) console.log('\nFalse positives on real programs:\n' + safety.bad.join('\n'));
+console.log(`Validation gate: ${gate.n} programs accepted, ${gate.bad.length ? 'FAILURES below' : 'negatives rejected, all heals pass'}`);
+if (gate.bad.length) console.log('\nGate problems:\n' + gate.bad.join('\n'));
 if (drift.length) console.log('\nVOCAB DRIFT:\n  ' + drift.join('\n  '));
-process.exit(fail || safety.bad.length || drift.length ? 1 : 0);
+process.exit(fail || safety.bad.length || gate.bad.length || drift.length ? 1 : 0);
