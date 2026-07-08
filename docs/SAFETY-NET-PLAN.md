@@ -47,10 +47,15 @@ validate-by-actually-running loop either way.
   every returned program provably parses and runs. Run it offline with your key
   (`ANTHROPIC_API_KEY=… node spec/heal/llm-tier.mjs "…"`, or `--dry` to inspect
   the prompt) to measure quality BEFORE shipping any endpoint.
+  Validated end-to-end once (claude-haiku-4-5) via `spec/heal/llm-eval.mjs`:
+  8/8 varied prompts produced gate-passing fc on the FIRST attempt (bounce,
+  repair, 8×8 grid, countdown, starfield, paddle, matrix rain, trail). Code
+  inspected — semantically sound; one nit: countdown displays a raw float instead
+  of whole seconds (a prompt-refinement, not a gate failure).
   Remaining for a live feature: a rate-limited/auth-gated `POST /api/generate`
-  proxy in apid/server.js (key server-side), and an eval prompt-set to track
-  parse/run rate. NOT wired into production yet — unvalidated model output must
-  not hit users.
+  proxy in apid/server.js (key server-side, in apid/.env), plus a larger eval set
+  and a semantic-quality rubric. NOT wired into production yet — unvalidated model
+  output must not hit users.
 - **Phase 3 — runnable-scaffold floor + telemetry.** The always-runs fallback,
   plus logging which inputs the net keeps rewriting the same way → those become
   natively-accepted syntax (the net shrinks over time).
