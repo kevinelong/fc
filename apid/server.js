@@ -50,6 +50,21 @@ function genQuota(userId) {
   return { ok: true };
 }
 function genTick(userId) { genUsage.global++; genUsage.perUser[userId] = (genUsage.perUser[userId] || 0) + 1; }
+
+// Pool Room ballot receiver (github.com/kevinelong/pool-room-blender). A public,
+// cross-origin (github.io) write endpoint — bounded by simple in-memory limits so
+// it can't flood the file. Appends to data/poolroom-ballots.jsonl (gitignored).
+const BALLOTS_FILE = path.join(__dirname, 'data', 'poolroom-ballots.jsonl');
+const ballotLimit = { hour: -1, global: 0, day: '', perIp: {} };
+function ballotQuota(ip) {
+  const now = new Date(), h = now.getUTCHours(), today = now.toISOString().slice(0, 10);
+  if (ballotLimit.day !== today) { ballotLimit.day = today; ballotLimit.global = 0; }
+  if (ballotLimit.hour !== h) { ballotLimit.hour = h; ballotLimit.perIp = {}; }
+  if (ballotLimit.global >= 2000) return false;               // global daily cap
+  if ((ballotLimit.perIp[ip] || 0) >= 30) return false;       // per-IP hourly cap
+  ballotLimit.perIp[ip] = (ballotLimit.perIp[ip] || 0) + 1; ballotLimit.global++;
+  return true;
+}
 const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
@@ -528,6 +543,30 @@ const server = http.createServer(async (req, res) => {
       }
       db.states[user.id] = mine;
       save();
+      return json(res, 200, { ok: true });
+    }
+
+    if (p === '/api/poolroom/vote') {
+      // open CORS: the ballot form is hosted cross-origin on kevinelong.github.io
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+      if (method !== 'POST') return json(res, 405, { ok: false });
+      const ip = req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || '';
+      if (!ballotQuota(ip)) return json(res, 429, { ok: false, error: 'rate limited' });
+      const b = await readBody(req, 8192);
+      if (!b || !Array.isArray(b.fourTwo) || !Array.isArray(b.threeThree)) return json(res, 400, { ok: false });
+      const rec = {
+        name: String(b.name || '').slice(0, 80),
+        stakeholder: String(b.stakeholder || ''),
+        fourTwo: b.fourTwo.slice(0, 2).map(x => String(x).slice(0, 60)),
+        threeThree: b.threeThree.slice(0, 2).map(x => String(x).slice(0, 60)),
+        comment: String(b.comment || '').slice(0, 500),
+        client_ts: String(b.ts || ''), server_ts: new Date().toISOString(), ip,
+      };
+      try { fs.appendFileSync(BALLOTS_FILE, JSON.stringify(rec) + '\n'); }
+      catch (e) { console.error('ballot write', e && e.message); return json(res, 500, { ok: false }); }
       return json(res, 200, { ok: true });
     }
 
