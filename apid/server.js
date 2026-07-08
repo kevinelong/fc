@@ -32,6 +32,24 @@ const PORT = Number(ENV.PORT || process.env.PORT || 8092);
 // a display name only — no email, no student accounts, no PII. See docs/PLAN-classroom.md.
 const ENABLE_CLASSROOM = (ENV.ENABLE_CLASSROOM || process.env.ENABLE_CLASSROOM || 'false').toLowerCase() === 'true';
 const CLASS = { MAX_STUDENTS: 60, MAX_PER_TEACHER: 20, MAX_ASSIGNED: 40, MAX_SUBMISSIONS: 200, IDLE_PURGE_MS: 90 * 24 * 60 * 60 * 1000, CODE_BODY_MAX: 32 * 1024 };
+
+// AI "generate/heal" tier (safety net Phase 2). Ships DARK: /api/generate returns
+// 503 unless BOTH a key is present (apid/.env, server-side only) AND explicitly
+// enabled. Login-gated + per-user and global daily caps so it can't run up a bill.
+const ANTHROPIC_KEY = ENV.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+const ENABLE_GENERATE = (ENV.ENABLE_GENERATE || process.env.ENABLE_GENERATE || 'false').toLowerCase() === 'true';
+const GEN_DAILY_PER_USER = Number(ENV.GEN_DAILY_PER_USER || process.env.GEN_DAILY_PER_USER || 30);
+const GEN_DAILY_GLOBAL = Number(ENV.GEN_DAILY_GLOBAL || process.env.GEN_DAILY_GLOBAL || 500);
+const GEN_PROMPT_MAX = 1000;
+const genUsage = { day: '', global: 0, perUser: {} };   // in-memory daily counters (reset at UTC midnight)
+function genQuota(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (genUsage.day !== today) { genUsage.day = today; genUsage.global = 0; genUsage.perUser = {}; }
+  if (genUsage.global >= GEN_DAILY_GLOBAL) return { ok: false, why: 'daily capacity reached — try again tomorrow' };
+  if ((genUsage.perUser[userId] || 0) >= GEN_DAILY_PER_USER) return { ok: false, why: 'you have hit your daily generate limit' };
+  return { ok: true };
+}
+function genTick(userId) { genUsage.global++; genUsage.perUser[userId] = (genUsage.perUser[userId] || 0) + 1; }
 const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
@@ -511,6 +529,30 @@ const server = http.createServer(async (req, res) => {
       db.states[user.id] = mine;
       save();
       return json(res, 200, { ok: true });
+    }
+
+    if (p === '/api/generate' && method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      if (!ENABLE_GENERATE || !ANTHROPIC_KEY) return json(res, 503, { error: 'generate is not enabled' });
+      const user = sessionUser(parseCookies(req)[COOKIE]);
+      if (!user) return json(res, 401, { error: 'sign in to use generate' });
+      const q = genQuota(user.id);
+      if (!q.ok) return json(res, 429, { error: q.why });
+      const body = await readBody(req, 4096);
+      const input = String((body && body.prompt) || '').trim();
+      if (!input) return json(res, 400, { error: 'empty prompt' });
+      if (input.length > GEN_PROMPT_MAX) return json(res, 413, { error: 'prompt too long' });
+      genTick(user.id);   // count the attempt before the (billable) call
+      try {
+        // llmHeal generates -> validates on the fc oracle -> self-repairs; it only
+        // returns code that provably parses and runs. ESM module, loaded on demand.
+        const { llmHeal } = await import('../spec/heal/llm-tier.mjs');
+        const r = await llmHeal(input, { apiKey: ANTHROPIC_KEY });
+        return json(res, 200, { ok: r.ok, code: r.code, attempts: r.attempts });
+      } catch (e) {
+        console.error('generate error', e && e.message || e);
+        return json(res, 502, { error: 'generate failed' });
+      }
     }
 
     if (p === '/api/tpos/inquiry' && method === 'POST') {

@@ -52,10 +52,16 @@ validate-by-actually-running loop either way.
   repair, 8×8 grid, countdown, starfield, paddle, matrix rain, trail). Code
   inspected — semantically sound; one nit: countdown displays a raw float instead
   of whole seconds (a prompt-refinement, not a gate failure).
-  Remaining for a live feature: a rate-limited/auth-gated `POST /api/generate`
-  proxy in apid/server.js (key server-side, in apid/.env), plus a larger eval set
-  and a semantic-quality rubric. NOT wired into production yet — unvalidated model
-  output must not hit users.
+  The gated proxy `POST /api/generate` is now built in apid/server.js — **ships
+  dark**: returns 503 unless BOTH a key is in apid/.env AND `ENABLE_GENERATE=true`.
+  Login-gated, per-user + global daily caps (`GEN_DAILY_PER_USER`/`GEN_DAILY_GLOBAL`),
+  1000-char prompt cap, key server-side only; it calls llmHeal so only
+  gate-validated code is returned. Guard paths smoke-tested (403 no-CSRF / 401
+  no-session / 503 disabled).
+  Remaining to go live: (1) rotate the key and put it in apid/.env, set
+  `ENABLE_GENERATE=true`, restart apid; (2) client UI — a "Describe" box that
+  POSTs `{prompt}` and drops the returned code into the editor (Phase 1's diff/
+  banner style); (3) a larger eval set + semantic rubric (gate-pass ≠ intent).
 - **Phase 3 — runnable-scaffold floor + telemetry.** The always-runs fallback,
   plus logging which inputs the net keeps rewriting the same way → those become
   natively-accepted syntax (the net shrinks over time).
