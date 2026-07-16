@@ -65,6 +65,25 @@ function ballotQuota(ip) {
   ballotLimit.perIp[ip] = (ballotLimit.perIp[ip] || 0) + 1; ballotLimit.global++;
   return true;
 }
+
+// Pool Room per-client layouts: anonymous key/value store. The client mints a
+// random `cid` in localStorage (no login); we namespace one JSON file per cid.
+// cid is validated to hex BEFORE it touches the filesystem (it's used as a
+// filename — path-traversal guard). No IP or PII stored with layouts.
+const LAYOUTS_DIR = path.join(__dirname, 'data', 'poolroom-layouts');
+try { fs.mkdirSync(LAYOUTS_DIR, { recursive: true }); } catch (_) {}
+const CID_RE = /^[a-f0-9]{16,64}$/;
+const LAYOUT_MAX = 65536;   // 64 KB per client
+const layoutLimit = { hour: -1, global: 0, day: '', perIp: {} };
+function layoutWriteQuota(ip) {
+  const now = new Date(), h = now.getUTCHours(), today = now.toISOString().slice(0, 10);
+  if (layoutLimit.day !== today) { layoutLimit.day = today; layoutLimit.global = 0; }
+  if (layoutLimit.hour !== h) { layoutLimit.hour = h; layoutLimit.perIp = {}; }
+  if (layoutLimit.global >= 5000) return false;               // global daily write cap
+  if ((layoutLimit.perIp[ip] || 0) >= 120) return false;      // per-IP hourly write cap
+  layoutLimit.perIp[ip] = (layoutLimit.perIp[ip] || 0) + 1; layoutLimit.global++;
+  return true;
+}
 const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
@@ -580,6 +599,35 @@ const server = http.createServer(async (req, res) => {
           .map(({ ip, ...rest }) => rest);   // strip IP (PII) — results are public
       } catch (_) {}
       return json(res, 200, { ballots });
+    }
+
+    if (p === '/api/poolroom/layouts') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+      if (method === 'GET') {
+        const cid = String(u.searchParams.get('cid') || '');
+        if (!CID_RE.test(cid)) return json(res, 400, { error: 'bad cid' });
+        try {
+          const obj = JSON.parse(fs.readFileSync(path.join(LAYOUTS_DIR, cid + '.json'), 'utf8'));
+          return json(res, 200, { layouts: obj.layouts, updated: obj.updated || null });
+        } catch (_) { return json(res, 200, { layouts: null, updated: null }); }
+      }
+      if (method === 'POST') {
+        const ip = req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || '';
+        if (!layoutWriteQuota(ip)) return json(res, 429, { ok: false, error: 'rate limited' });
+        const body = await readBody(req, LAYOUT_MAX);
+        const cid = String((body && body.cid) || '');
+        if (!CID_RE.test(cid)) return json(res, 400, { ok: false, error: 'bad cid' });
+        if (!body || !('layouts' in body)) return json(res, 400, { ok: false, error: 'no layouts' });
+        const rec = JSON.stringify({ updated: new Date().toISOString(), layouts: body.layouts });
+        if (rec.length > LAYOUT_MAX) return json(res, 413, { ok: false, error: 'too big' });
+        try { fs.writeFileSync(path.join(LAYOUTS_DIR, cid + '.json'), rec); }
+        catch (e) { console.error('layout write', e && e.message); return json(res, 500, { ok: false }); }
+        return json(res, 200, { ok: true });
+      }
+      return json(res, 405, { ok: false });
     }
 
     if (p === '/api/generate' && method === 'POST') {
