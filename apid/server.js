@@ -570,6 +570,18 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/poolroom/results' && (method === 'GET' || method === 'OPTIONS')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (method === 'OPTIONS') { res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); res.writeHead(204); return res.end(); }
+      let ballots = [];
+      try {
+        ballots = fs.readFileSync(BALLOTS_FILE, 'utf8').split('\n').filter(Boolean)
+          .map(l => { try { return JSON.parse(l); } catch (_) { return null; } }).filter(Boolean)
+          .map(({ ip, ...rest }) => rest);   // strip IP (PII) — results are public
+      } catch (_) {}
+      return json(res, 200, { ballots });
+    }
+
     if (p === '/api/generate' && method === 'POST') {
       if (!csrfOk) return json(res, 403, { error: 'bad request' });
       if (!ENABLE_GENERATE || !ANTHROPIC_KEY) return json(res, 503, { error: 'generate is not enabled' });
