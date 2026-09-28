@@ -198,6 +198,10 @@ Every change below should be A/B tested using the H-track. Preserve old programs
 through aliases or a migration formatter rather than making speculative breaking
 changes.
 
+The proposed forms below are **design sketches, not currently supported syntax**
+unless identified as current fc. They make each hypothesis concrete enough to
+prototype and test.
+
 ### 1. Tolerant input, canonical display
 
 Accept a limited set of natural variants, then offer **Format as canonical fc**.
@@ -205,46 +209,120 @@ The editor should show one preferred phrasing and a visible diff. This gives use
 forgiveness without making the language an unpredictable collection of synonyms.
 It also reduces the output space an LLM must learn.
 
+For example, a beginner or model might enter any of these:
+
+```text
+add 1 to score
+score goes up by 1
+increase score by 1
+```
+
+If all three are accepted aliases, the formatter should display just the canonical
+form:
+
+```text
+increase score by 1
+```
+
+The same rule could normalize harmless variation such as `colour` to `color` or
+`at x 20 and y 30` to `at x 20, y 30`. The editor remains forgiving at entry time,
+while saved programs, documentation, examples, and model outputs converge on one
+form.
+
 ### 2. Remove the assignment/equality surprise
 
 `is` reads naturally but currently carries multiple roles, while `set X to Y`
 has historically behaved as a silent call/no-op in parts of the language history.
-Test a canonical distinction such as:
+In current-style fc, the same word can mean initialization, later mutation, or a
+comparison:
+
+```text
+score is 0
+
+to restart game
+  score is 0
+
+if score is 10
+  go to win
+```
+
+A reader must infer the role of each `is` from its position. Test a canonical
+distinction such as:
 
 ```text
 score starts at 0
+
+to restart game
+  change score to 0
+
 change score to 10
 if score is 10
+  go to win
 ```
 
 An alternative is to keep `is` for declaration/assignment but make the editor
 visually explain its role in context. The benchmark should choose; intuition alone
-is not enough.
+is not enough. A hover could say “creates score,” “changes score,” or “compares
+score” for the three current-style uses.
 
 ### 3. Add multi-word function names
 
-Support names that match the user's concept:
+Support and formally document names that match the user's concept. The repository
+already contains phrases such as `to restart game`; the design question is whether
+arbitrary multi-word declarations and calls are parsed consistently.
+
+A terse or encoded name makes the reader translate it:
+
+```text
+to title
+  clear screen to dark blue
+  write "STAR QUEST" at 34, 30 in white
+
+title
+```
+
+A descriptive name can state both action and object:
 
 ```text
 to draw title screen
-  ...
+  clear screen to dark blue
+  write "STAR QUEST" at 34, 30 in white
 
 draw title screen
 ```
 
-This is already an open design question. It improves closeness of mapping but
-requires a clear call grammar so arbitrary prose is not mistaken for a function.
+This improves closeness of mapping but requires a clear call grammar so arbitrary
+prose is not mistaken for a function. Parameter roles should remain readable too:
+
+```text
+to award points amount to player recipient
+  increase recipient.score by amount
+
+award points 10 to player hero
+```
+
+The exact parameter grammar is a hypothesis to test, not a recommendation to add
+unbounded natural-language parsing.
 
 ### 4. Prefer named roles over positional arguments
+
+Current fc drawing code can require the reader to remember what each number means:
+
+```text
+draw circle at b.x, b.y size 7 in pink
+draw rect at brick.x, brick.y size 14, 7 in orange
+```
 
 Test readable named forms for operations with several numbers:
 
 ```text
-draw circle at x 64, y 64, radius 10, color red
+draw circle at x b.x, y b.y, radius 7, color pink
+draw rectangle at x brick.x, y brick.y, width 14, height 7, color orange
 ```
 
 Keep concise positional forms as accepted input if desired, while the formatter
-can prefer named roles for beginners.
+can prefer named roles for beginners. This is especially valuable when two adjacent
+arguments have the same type and swapping them still produces a valid program.
 
 ### 5. Make units explicit
 
@@ -252,10 +330,24 @@ First-class `pixels`, `frames`, `seconds`, percentages, and angles reduce hidden
 assumptions and allow better diagnostics:
 
 ```text
-move player right 2 pixels
-wait 1 second
-turn enemy 30 degrees
+-- Meaning must be remembered from the operation
+move player by 2, 0
+every 24 frames
+time limit is 20 seconds
 ```
+
+fc already expresses time units well in the last two lines. Extend that strength
+to spatial and visual values:
+
+```text
+move player by x 2 pixels, y 0 pixels
+draw circle at x 64 pixels, y 64 pixels, radius 10 pixels
+turn enemy by 30 degrees
+set music volume to 60 percent
+```
+
+Units also enable targeted errors: “expected pixels for radius, but received
+seconds” is more useful than a generic type error.
 
 ### 6. Make lifecycle and scope visible
 
@@ -263,11 +355,62 @@ Hidden dispatch and magic globals save typing but hurt role-expressiveness. Test
 canonical blocks such as `every frame`, `draw each frame`, and `on screen title`.
 The editor can also expose implicit behavior in an expandable “what fc does” view.
 
+Current fc uses specially named functions plus a separate wiring statement:
+
+```text
+to update
+  move player with arrows
+
+to draw
+  clear screen to black
+  draw sprite player.image at player.x, player.y
+
+run game with update and draw
+```
+
+An event-shaped alternative puts the trigger next to the behavior:
+
+```text
+every frame
+  move player with arrows
+
+draw each frame
+  clear screen to black
+  draw sprite player.image at player.x, player.y
+```
+
+Likewise, compare `to screen title` with a more explicit `on screen title` block.
+The benchmark should test whether the added words improve comprehension enough to
+justify them.
+
 ### 7. Resolve noun/call ambiguities
 
 Define an unambiguous rule for `draw title`, sprite names, and user functions.
 Use diagnostics that name both interpretations and offer one-click fixes instead
 of silently choosing.
+
+For example, this phrase could mean “call my action named `draw title`” or “draw
+the object stored in `title`”:
+
+```text
+draw title
+```
+
+One design avoids the collision by reserving drawing verbs for built-in shapes and
+using a distinct verb for the custom action:
+
+```text
+to show title screen
+  write "STAR QUEST" at 34, 30 in white
+
+show title screen
+draw sprite title at title.x, title.y
+```
+
+Another candidate is an explicit fallback such as `call draw title`. Whichever
+rule tests better should be enforced consistently, with a diagnostic such as:
+“`draw title` could refer to an action or a sprite; use `show title screen` or
+`draw sprite title ...`.”
 
 ### 8. Treat pronouns and shorthand cautiously
 
@@ -276,11 +419,73 @@ they can introduce hidden binding and force readers to look backward. Keep the
 referent close, highlight it in the editor, and compare explicit vs shorthand
 forms in comprehension tasks.
 
+Current shorthand is pleasantly compact:
+
+```text
+with player
+  its x is 128
+  its y is 96
+  its hp is its max_hp
+```
+
+The explicit alternative is longer but locally unambiguous:
+
+```text
+player.x is 128
+player.y is 96
+player.hp is player.max_hp
+```
+
+The tradeoff becomes clearer when blocks nest:
+
+```text
+with player
+  with nearest enemy
+    if its hp is less than 1
+      increase its score by 1
+```
+
+Whose `score` changes—the player’s or the enemy’s? A safe rule could forbid nested
+pronoun scopes, require `player.score` at the ambiguous line, or display the bound
+name beside every `its`. Test those treatments rather than assuming fewer words
+means easier reading.
+
 ### 9. Strengthen pluralization and domain vocabulary
 
 Replace fragile English singularization with explicit aliases or a small tested
 inflection table. Prefer consistent domain verbs and nouns; one predictable phrase
 is better than many clever synonyms.
+
+Regular forms look effortless:
+
+```text
+enemies is list of 3 sprites {image: "slime"}
+each enemy in enemies
+  draw sprite enemy.image at enemy.x, enemy.y
+```
+
+Irregular forms expose the hidden language rule:
+
+```text
+mice is list of 3 sprites {image: "mouse"}
+each mouse in mice
+  move mouse with arrows
+```
+
+If the runtime or editor derives `mouse` from `mice`, that rule must be complete
+and predictable. An explicit alternative removes the guess:
+
+```text
+mice is list of 3 sprites called mouse {image: "mouse"}
+```
+
+Vocabulary should be canonical as well. If these all mean the same operation—
+`delete coin`, `destroy coin`, and `remove coin from coins`—accepting aliases may
+help entry, but the formatter and documentation should consistently display:
+
+```text
+remove coin from coins
+```
 
 ### 10. Improve the programming system, not just syntax
 
@@ -296,6 +501,31 @@ Readability includes the editor and runtime. Continue investing in:
 
 These features directly improve progressive evaluation and error recovery, two
 areas a syntax-only score misses.
+
+For example, while stopped on this code:
+
+```text
+each coin in coins
+  if player touches coin
+    remove coin from coins
+    increase score by 1
+```
+
+the editor could show:
+
+```text
+coin = sprite at (80, 48)
+player touches coin = yes
+coins: 8 -> 7
+score: 6 -> 7
+```
+
+Hovering `each coin in coins` could explain “runs once for every item in `coins`;
+`coin` means the current item.” Hovering an implicit `update` block could say “fc
+runs this once per frame.” A misspelling such as `draw cirlce` could produce “I
+don't know `cirlce`; did you mean `circle`?” and apply the repair in one click.
+The real-code view could place the generated Python or JavaScript beside the exact
+fc phrase that produced it instead of presenting an undifferentiated translation.
 
 ## Recommended first experiment
 
