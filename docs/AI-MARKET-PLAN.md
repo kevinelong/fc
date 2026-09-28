@@ -197,6 +197,10 @@ If fc does not beat the scaffolded JS baseline on reliability, cost, safety, or
 human editability, keep AI as an assistive feature for the education product
 rather than a separate market.
 
+The human side of that comparison—including a transparent score, study design,
+Python baseline, and syntax experiments—is specified in
+[`docs/READABILITY-BENCHMARK.md`](READABILITY-BENCHMARK.md).
+
 ## Go-to-market experiment
 
 ### Phase 0 — proof, 2–3 weeks
