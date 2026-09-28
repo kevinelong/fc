@@ -9,6 +9,7 @@ any browser.
 > **Planning:** [launch readiness and distribution](docs/LAUNCH-READINESS-PLAN.md)
 > · [AI market hypothesis](docs/AI-MARKET-PLAN.md)
 > · [human and machine readability benchmark](docs/READABILITY-BENCHMARK.md)
+> · [lexicon, data, and example-game plan](docs/LEXICON-AND-EXAMPLE-PLAN.md)
 
 ```
 trees are solid

@@ -201,6 +201,10 @@ The human side of that comparison—including a transparent score, study design,
 Python baseline, and syntax experiments—is specified in
 [`docs/READABILITY-BENCHMARK.md`](READABILITY-BENCHMARK.md).
 
+The bounded vocabulary, persistent-data model, focused games, and proposed Recipe
+Book application proof are specified in
+[docs/LEXICON-AND-EXAMPLE-PLAN.md](LEXICON-AND-EXAMPLE-PLAN.md).
+
 ## Go-to-market experiment
 
 ### Phase 0 — proof, 2–3 weeks

@@ -4,6 +4,10 @@
 successfully than equivalent Python, and whether LLMs can generate fc more
 reliably or cheaply than equivalent executable code.
 
+The staged vocabulary decisions, elementary-English candidates, persistent-data
+model, and example-game coverage are specified in
+[LEXICON-AND-EXAMPLE-PLAN.md](LEXICON-AND-EXAMPLE-PLAN.md).
+
 ## There is no universal programming-language readability score
 
 Several established approaches are useful, but none supplies an accepted ladder
