@@ -533,14 +533,18 @@ file: the corpus program is the contract; the harnesses are the proof.
   `timer` and the handler never runs, which is why every pre-existing golden is
   unchanged. Frozen by `spec/corpus/time_limit_static.fc` and
   `spec/port/spike/frame-tests/f_timer.fc` (which draws its own fired-counter).
-- **Behavior verbs** (`chases`/`wanders`/`patrols between A and B`, optional
-  `speed N`, `through walls`) are set-once declarations: they store a marker on the
+- **Behavior verbs** (`chases`, `flees from`, `wanders`, `patrols between A and B`,
+  `patrols along [{x,y}, …]`, optional `speed N`, `when within N` for flee,
+  `through walls`) are set-once declarations: they store a marker on the
   subject sprite (editable data, e.g. `ghost.behavior.speed`) and the engine moves
   the sprite every frame from then on. Motion is Euler per frame with libm `sqrt`
   (IEEE-identical across engines) and map-solid collision restores the blocked axis
-  unless `through walls` is set. Frozen by `behaviors_register.fc`,
-  `behavior_list_subject.fc`, and the idle draw-parity of every example that uses
-  them.
+  unless `through walls` is set. `flee` is the mirror of chase (unit vector away
+  from the target) and `when within N` makes it hold still until the target is
+  closer than N pixels; the waypoint form advances to the next point when it gets
+  within `speed` of the current one (and skips malformed points). Frozen by
+  `behaviors_register.fc`, `behavior_list_subject.fc`, `flee_patrol.fc`,
+  `frame-tests/f_flee.fc`, and the idle draw-parity of every example that uses them.
 - **Frame animation** (`animate NAME with "a" "b" every N frames`) advances on the
   GLOBAL tick, not per entity, so every animated sprite stays in step and the result
   is deterministic; the frame index lives on the sprite.

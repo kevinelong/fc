@@ -267,6 +267,69 @@
     "say": [],
     "vars": {}
   },
+  "flee_patrol.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "ghost": {
+        "behavior": {
+          "idx": 0,
+          "kind": "patrol_points",
+          "points": [
+            {
+              "x": 10,
+              "y": 10
+            },
+            {
+              "x": 90,
+              "y": 10
+            },
+            {
+              "x": 90,
+              "y": 90
+            }
+          ],
+          "speed": 0.5
+        },
+        "x": 40,
+        "y": 40
+      },
+      "guards": [
+        {
+          "behavior": {
+            "kind": "flee",
+            "speed": 2,
+            "target": "player",
+            "within": 30
+          },
+          "speed": 1,
+          "x": 10,
+          "y": 60
+        },
+        {
+          "behavior": {
+            "kind": "flee",
+            "speed": 2,
+            "target": "player",
+            "within": 30
+          },
+          "speed": 1,
+          "x": 40,
+          "y": 80
+        }
+      ],
+      "zombie": {
+        "behavior": {
+          "kind": "flee",
+          "speed": 1,
+          "target": "player"
+        },
+        "speed": 1,
+        "x": 20,
+        "y": 20
+      }
+    }
+  },
   "forward_ref_noop.fc": {
     "errors": [],
     "say": [],

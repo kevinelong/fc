@@ -263,6 +263,21 @@ emit smoke rising at 64, 100 in gray for 90 frames
 
 (Amount is particles per frame; `rising` / `falling` lean the spray up or down.)
 
+## Enemies that move on their own
+
+Set a behavior once and the sprite keeps doing it:
+
+```
+ghosts chase player speed 0.5
+bats wander
+guard patrols between 20 and 100
+zombie flees from player when within 30
+ship patrols along [{x: 10, y: 10}, {x: 90, y: 10}, {x: 90, y: 90}]
+```
+
+`chase`, `flee from`, `wander` and the two `patrol` forms are all you need for
+most arcade enemies; add `through walls` to ignore solid tiles.
+
 ## Colors
 
 PICO-8 inspired 16-color palette, plus CSS color names as fallback:

@@ -219,7 +219,8 @@ enum Stmt {
 }
 #[derive(Clone)]
 struct BehaviorArgs { kind: String, subject: String, target: String,
-    speed: Option<Expr>, x1: Option<Expr>, x2: Option<Expr>, through: bool }
+    speed: Option<Expr>, x1: Option<Expr>, x2: Option<Expr>, through: bool,
+    within: Option<Expr>, points: Option<Expr> }
 #[derive(Clone)]
 struct SfxRecipe { tone: bool, wave: String, f0: f64, f1: Option<f64>, dur: f64, notes: Vec<f64> }
 #[derive(Clone, Default)]
@@ -504,7 +505,7 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="map" && ts.len()==2 && ts[1].is_word("is") { return Stmt::MapDef(Vec::new()); }
     if first=="draw" && ts.len()==2 && ts[1].is_word("map") { return Stmt::DrawMap; }
     if ts.len()>=2 && ts[0].t==3 && ts[1].t==3 &&
-        matches!(ts[1].sval(), "chase"|"chases"|"wander"|"wanders"|"patrol"|"patrols") {
+        matches!(ts[1].sval(), "chase"|"chases"|"wander"|"wanders"|"patrol"|"patrols"|"flee"|"flees") {
         let twi = ts.iter().enumerate().position(|(i,t)| t.is_word("through") &&
             ts.get(i+1).map_or(false,|n| n.is_word("walls")));
         let through = twi.is_some();
@@ -513,19 +514,46 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         let verb_owned = toks[1].sval().trim_end_matches('s').to_string();
         let verb = verb_owned.as_str();
         let sp = find_word(&toks, "speed");
-        let speed = sp.map(|i| parse_expr(&toks[i+1..]));
+        // `end` bounds the clauses BEFORE speed (target / x1 / x2); the speed
+        // expression has its own bound so a trailing `when within N` isn't swallowed.
         let end = sp.unwrap_or(toks.len());
+        let speed = sp.map(|i| {
+            let after = &toks[i+1..];
+            let stop = after.iter().position(|t| t.t==3 && matches!(t.sval(), "when"|"within"|"through"|"and"|"with"));
+            parse_expr(match stop { Some(k) if k > 0 => &after[..k], _ => after })
+        });
         if verb=="chase" {
             let target = toks.get(2).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
-            return Stmt::Behavior(BehaviorArgs{kind:"chase".into(), subject, target, speed, x1:None, x2:None, through});
+            return Stmt::Behavior(BehaviorArgs{kind:"chase".into(), subject, target, speed, x1:None, x2:None, through, within:None, points:None});
+        }
+        if verb=="flee" {
+            // `flees FROM player` — the target follows `from`; bare `flees player` works too.
+            let fi = find_word(&toks, "from");
+            let target = match fi {
+                Some(k) => toks.get(k+1).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string()),
+                None => match toks.get(2).filter(|t| t.t==3 && !matches!(t.sval(), "speed"|"when"|"through"|"from")) {
+                    Some(t) => t.sval().to_string(),
+                    None => "player".to_string(),
+                },
+            };
+            let within = find_word(&toks, "within").map(|wi| {
+                let after = &toks[wi+1..];
+                let stop = after.iter().position(|t| t.t==3 && matches!(t.sval(), "speed"|"when"|"through"|"and"|"with"));
+                parse_expr(match stop { Some(k) if k > 0 => &after[..k], _ => after })
+            });
+            return Stmt::Behavior(BehaviorArgs{kind:"flee".into(), subject, target, speed, x1:None, x2:None, through, within, points:None});
         }
         if verb=="wander" {
-            return Stmt::Behavior(BehaviorArgs{kind:"wander".into(), subject, target:String::new(), speed, x1:None, x2:None, through});
+            return Stmt::Behavior(BehaviorArgs{kind:"wander".into(), subject, target:String::new(), speed, x1:None, x2:None, through, within:None, points:None});
         }
         if verb=="patrol" {
+            if let Some(li)=find_word(&toks,"along") { if li>0 {
+                return Stmt::Behavior(BehaviorArgs{kind:"patrol_points".into(), subject, target:String::new(), speed,
+                    x1:None, x2:None, through, within:None, points:Some(parse_expr(safe(&toks, li+1, end)))});
+            }}
             if let (Some(bi), Some(ai)) = (find_word(&toks,"between"), find_word(&toks,"and")) { if bi>0 && ai>bi {
                 return Stmt::Behavior(BehaviorArgs{kind:"patrol".into(), subject, target:String::new(), speed,
-                    x1:Some(parse_expr(&toks[bi+1..ai])), x2:Some(parse_expr(&toks[ai+1..end])), through});
+                    x1:Some(parse_expr(&toks[bi+1..ai])), x2:Some(parse_expr(&toks[ai+1..end])), through, within:None, points:None});
             }}
         }
     }
@@ -957,6 +985,13 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
             if b.kind=="patrol" {
                 out.push_str(",\"x1\":"); match &b.x1 { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
                 out.push_str(",\"x2\":"); match &b.x2 { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            }
+            if b.kind=="flee" {
+                out.push_str(",\"target\":"); json_str(&b.target,out);
+                out.push_str(",\"within\":"); match &b.within { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            }
+            if b.kind=="patrol_points" {
+                out.push_str(",\"points\":"); match &b.points { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
             }
             out.push('}');
         }
@@ -1752,6 +1787,34 @@ impl Rt {
                             vx = dx / len * spd; vy = dy / len * spd;
                         } else { continue; }
                     } else { continue; }
+                } else if kind == "flee" {
+                    let tname = match b.borrow().get("target") { Some(Val::Str(t)) => t.clone(), _ => continue };
+                    let within = Self::obj_num(&b, "within").unwrap_or(0.0);
+                    if let Val::Obj(t) = self.get_var(&tname) {
+                        if let (Some(tx), Some(ty)) = (Self::obj_num(&t, "x"), Self::obj_num(&t, "y")) {
+                            let (dx, dy) = (mx - tx, my - ty);
+                            let len = libm::sqrt(dx * dx + dy * dy);
+                            if len < 1.0 { continue; }
+                            if within > 0.0 && len > within { continue; }   // out of range: hold still
+                            vx = dx / len * spd; vy = dy / len * spd;
+                        } else { continue; }
+                    } else { continue; }
+                } else if kind == "patrol_points" {
+                    let pts: Vec<Val> = match b.borrow().get("points") { Some(Val::List(l)) => l.borrow().clone(), _ => Vec::new() };
+                    if pts.is_empty() { continue; }
+                    let mut idx = Self::obj_num(&b, "idx").unwrap_or(0.0) as i64;
+                    if idx < 0 { idx = 0; }
+                    let pt = &pts[(idx as usize) % pts.len()];
+                    let (px, py) = match pt { Val::Obj(po) => (Self::obj_num(po, "x"), Self::obj_num(po, "y")), _ => (None, None) };
+                    match (px, py) {
+                        (Some(px), Some(py)) => {
+                            let (dx, dy) = (px - mx, py - my);
+                            let len = libm::sqrt(dx * dx + dy * dy);
+                            if len < spd { b.borrow_mut().insert("idx".to_string(), Val::Num(((idx as usize + 1) % pts.len()) as f64)); }
+                            else { vx = dx / len * spd; vy = dy / len * spd; }
+                        }
+                        _ => { b.borrow_mut().insert("idx".to_string(), Val::Num(((idx as usize + 1) % pts.len()) as f64)); continue; }
+                    }
                 } else if kind == "patrol" {
                     let x1 = Self::obj_num(&b, "x1").unwrap_or(0.0); let x2 = Self::obj_num(&b, "x2").unwrap_or(0.0);
                     let (lo, hi) = (if x1 < x2 { x1 } else { x2 }, if x1 > x2 { x1 } else { x2 });
@@ -2326,6 +2389,15 @@ impl Rt {
                         m.insert("x1".to_string(), Val::Num(x1.unwrap_or(0.0)));
                         m.insert("x2".to_string(), Val::Num(x2.unwrap_or(0.0)));
                         m.insert("dir".to_string(), Val::Num(1.0));
+                    }
+                    if b.kind == "flee" {
+                        m.insert("target".to_string(), Val::Str(b.target.clone()));
+                        if let Some(w) = &b.within { let wv = as_num(&self.eval(w)); m.insert("within".to_string(), Val::Num(wv)); }
+                    }
+                    if b.kind == "patrol_points" {
+                        let pts = match &b.points { Some(e) => self.eval(e), None => Val::Undef };
+                        m.insert("points".to_string(), pts);
+                        m.insert("idx".to_string(), Val::Num(0.0));
                     }
                     if b.through { m.insert("through".to_string(), Val::Bool(true)); }
                     m.insert("speed".to_string(), Val::Num(spd));

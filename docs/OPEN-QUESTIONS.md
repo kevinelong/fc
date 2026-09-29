@@ -65,6 +65,23 @@ feedback list feeds docs/GROWTH-PLAN.md.
 
 ---
 
+## 🟡 Q10 — What should `shoot at player every N seconds` spawn?
+Owner: kevin. The last item of the roadmap's enemy-AI list. Three shapes, all
+cheap, and the choice decides how much the game can do with the shots:
+
+1. **`<enemy>.shots` list** — the engine appends `{x, y, dx, dy}` objects; the game
+   iterates them (`each s in ghost.shots`) and does its own overlap test. No new
+   collision plumbing, everything visible/editable fc data. *Recommend.*
+2. **Tagged sprites** — shots are sprites with a tag so the existing
+   `when X hits Y` machinery applies, at the cost of the engine owning their life
+   cycle (despawn, speed, damage).
+3. **Visual only** — a particle burst shaped like a projectile; zero gameplay, but
+   nobody has to manage collisions.
+
+**Answer:**
+
+---
+
 ## 🟡 Q9 — Two bigger directions that need your call
 Owner: kevin. Both are drafted in the repo but I have not started them, because
 each changes how the project is built rather than what it does:

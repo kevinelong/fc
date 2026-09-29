@@ -584,6 +584,8 @@ differentially tested against it.)
 | `increase` REF [`by` expr] \| `decrease` REF [`by` expr] | desugars to `add`/`remove` (default 1) | `english_ops.fc` |
 | SUBJECT (`chases`\|`chase`) TARGET [`speed` expr] [`through walls`] | set-once chase behavior | `behaviors_register.fc`, `behavior_list_subject.fc` |
 | SUBJECT (`wanders`\|`wander`) \| (`patrols`\|`patrol`) `between` A `and` B | set-once wander / patrol | `behaviors_register.fc` |
+| SUBJECT (`flees`\|`flee`) `from` TARGET [`speed` N] [`when` `within` N] | set-once flee, optionally only inside a radius | `flee_patrol.fc`, `frame-tests/f_flee.fc` |
+| SUBJECT (`patrols`\|`patrol`) `along` `[` `{x, y}` … `]` | waypoint patrol (moves to each point in turn) | `flee_patrol.fc`, `frame-tests/f_flee.fc` |
 | `animate` NAME `with` STRING … [`every` N `frames`] | frame cycling on the global tick | `animate_and_burst.fc` |
 | `burst` expr [WORD] `at` expr [`,` expr] [`in` COLOR] | particle burst (pool cap 400) | `animate_and_burst.fc` |
 | `tile` STRING `is` OBJECT | tile type definition | `map_dims_and_solid.fc` |

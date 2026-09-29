@@ -6926,6 +6926,164 @@
       "unit": "frames"
     }
   ],
+  "flee_patrol.fc": [
+    {
+      "target": "zombie",
+      "type": "assign",
+      "value": {
+        "props": {
+          "speed": {
+            "type": "literal",
+            "value": 1
+          },
+          "x": {
+            "type": "literal",
+            "value": 20
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "guards",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "props": {
+              "speed": {
+                "type": "literal",
+                "value": 1
+              },
+              "x": {
+                "type": "literal",
+                "value": 10
+              },
+              "y": {
+                "type": "literal",
+                "value": 60
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "speed": {
+                "type": "literal",
+                "value": 1
+              },
+              "x": {
+                "type": "literal",
+                "value": 40
+              },
+              "y": {
+                "type": "literal",
+                "value": 80
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "ghost",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 40
+          },
+          "y": {
+            "type": "literal",
+            "value": 40
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "kind": "flee",
+      "speed": null,
+      "subject": "zombie",
+      "target": "player",
+      "through": false,
+      "type": "behavior",
+      "within": null
+    },
+    {
+      "kind": "flee",
+      "speed": {
+        "type": "literal",
+        "value": 2
+      },
+      "subject": "guards",
+      "target": "player",
+      "through": false,
+      "type": "behavior",
+      "within": {
+        "type": "literal",
+        "value": 30
+      }
+    },
+    {
+      "kind": "patrol_points",
+      "points": {
+        "items": [
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 10
+              },
+              "y": {
+                "type": "literal",
+                "value": 10
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 90
+              },
+              "y": {
+                "type": "literal",
+                "value": 10
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "x": {
+                "type": "literal",
+                "value": 90
+              },
+              "y": {
+                "type": "literal",
+                "value": 90
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      },
+      "speed": null,
+      "subject": "ghost",
+      "through": false,
+      "type": "behavior"
+    }
+  ],
   "forward_ref_noop.fc": [
     {
       "target": "x",

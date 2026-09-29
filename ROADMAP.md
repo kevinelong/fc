@@ -124,8 +124,9 @@ and every claim below is checked. The genuinely-open items are collected at the 
 - **The `{frames: [...], fps: N}` sprite-property form of animation** — `animate X
   with "a" "b" every N frames` is the implemented form; a sprite that declares its
   own frame list is still planned. (`tween … ease in/out/bounce` shipped 2026-09-29.)
-- **Enemy AI extras** — `flee from player`, `shoot at player every N seconds`,
-  waypoint patrols.
+- **Enemy AI: `shoot at player every N seconds`** — `flee from player when within
+  N` and waypoint `patrols along [...]` shipped 2026-09-29; projectiles still need a
+  decision about their model (see OPEN-QUESTIONS Q10).
 - **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting
   columns, not per-pixel RGB stripes derived from the color values.
 - **Stale demo media** — `examples/thumbs/{matrix,starfield,sand}.png` and their

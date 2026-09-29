@@ -1091,7 +1091,7 @@ function parse(source) {
 
     // -- ghosts chase player [speed 0.5] · bats wander · guard patrols between 20 and 100 --
     if (raw.length >= 2 && raw[0].type === 'word' && raw[1].type === 'word' &&
-        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols'].includes(tv(raw[1]))) {
+        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols', 'flee', 'flees'].includes(tv(raw[1]))) {
       // optional trailing `through walls` lets a mover ignore solid map tiles
       const twi = raw.findIndex((t, i) => t.type === 'word' && tv(t) === 'through' &&
                                 raw[i + 1] && raw[i + 1].type === 'word' && tv(raw[i + 1]) === 'walls');
@@ -1100,16 +1100,43 @@ function parse(source) {
       const subject = toks[0].value;
       const verb = tv(toks[1]).replace(/s$/, '');
       const sp = toks.findIndex(t => t.type === 'word' && tv(t) === 'speed');
-      const speed = sp >= 0 ? parseExpression(toks.slice(sp + 1)) : null;
+      // `end` bounds the clauses BEFORE speed (target / x1 / x2); the speed
+      // expression has its own bound so a trailing `when within N` isn't swallowed.
       const end = sp >= 0 ? sp : toks.length;
+      let speed = null;
+      if (sp >= 0) {
+        const after = toks.slice(sp + 1);
+        const stop = after.findIndex(t => t.type === 'word' && ['when', 'within', 'through', 'and', 'with'].includes(tv(t)));
+        speed = parseExpression(stop > 0 ? after.slice(0, stop) : after);
+      }
       if (verb === 'chase') {
         const target = toks[2] && toks[2].type === 'word' ? toks[2].value : 'player';
         return { type: 'behavior', kind: 'chase', subject, target, speed, through, lineNum };
+      }
+      if (verb === 'flee') {
+        // `flees FROM player` — the target is the word after `from` (toks[2] would be
+        // the word "from" itself); bare `flees player` also works.
+        const fi = toks.findIndex(t => t.type === 'word' && tv(t) === 'from');
+        const cand = fi > 0 && toks[fi + 1] && toks[fi + 1].type === 'word' ? toks[fi + 1].value
+                   : (toks[2] && toks[2].type === 'word' && !['speed', 'when', 'through', 'from'].includes(tv(toks[2])) ? toks[2].value : 'player');
+        const target = cand;
+        const wi = toks.findIndex(t => t.type === 'word' && tv(t) === 'within');
+        let within = null;
+        if (wi > 0) {
+          const after = toks.slice(wi + 1);
+          const stop = after.findIndex(t => t.type === 'word' && ['speed', 'when', 'through', 'and', 'with'].includes(tv(t)));
+          within = parseExpression(stop > 0 ? after.slice(0, stop) : after);
+        }
+        return { type: 'behavior', kind: 'flee', subject, target, within, speed, through, lineNum };
       }
       if (verb === 'wander') {
         return { type: 'behavior', kind: 'wander', subject, speed, through, lineNum };
       }
       if (verb === 'patrol') {
+        const li = toks.findIndex(t => t.type === 'word' && tv(t) === 'along');
+        if (li > 0) {
+          return { type: 'behavior', kind: 'patrol_points', subject, points: parseExpression(toks.slice(li + 1, end)), speed, through, lineNum };
+        }
         const bi = toks.findIndex(t => t.type === 'word' && tv(t) === 'between');
         const ai = toks.findIndex(t => t.type === 'word' && tv(t) === 'and');
         if (bi > 0 && ai > bi) {
@@ -3144,6 +3171,8 @@ class Runtime {
             const b = { kind: stmt.kind };
             if (stmt.kind === 'chase') b.target = stmt.target;
             if (stmt.kind === 'patrol') { b.x1 = this.evalExpr(stmt.x1); b.x2 = this.evalExpr(stmt.x2); b.dir = 1; }
+            if (stmt.kind === 'flee') { b.target = stmt.target; if (stmt.within) b.within = this.evalExpr(stmt.within); }
+            if (stmt.kind === 'patrol_points') { b.points = this.evalExpr(stmt.points) || []; b.idx = 0; }
             if (stmt.through) b.through = true;
             b.speed = (speed != null) ? speed : (typeof m.speed === 'number' ? m.speed : 0.5);
             m.behavior = b;                       // visible & editable from fc code
@@ -3399,6 +3428,24 @@ class Runtime {
             b.vx = Math.cos(a); b.vy = Math.sin(a);
           }
           vx = b.vx * spd; vy = b.vy * spd;
+        } else if (b.kind === 'flee') {
+          const t = this.vars[b.target];
+          if (!t || typeof t.x !== 'number') continue;
+          const dx = m.x - t.x, dy = m.y - t.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) continue;
+          if (b.within > 0 && len > b.within) continue;      // out of range: hold still
+          vx = dx / len * spd; vy = dy / len * spd;
+        } else if (b.kind === 'patrol_points') {
+          const pts = Array.isArray(b.points) ? b.points : [];
+          if (!pts.length) continue;
+          if (typeof b.idx !== 'number') b.idx = 0;
+          const pt = pts[b.idx % pts.length];
+          if (!pt || typeof pt.x !== 'number') { b.idx = (b.idx + 1) % pts.length; continue; }
+          const dx = pt.x - m.x, dy = pt.y - m.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < spd) { b.idx = (b.idx + 1) % pts.length; }
+          else { vx = dx / len * spd; vy = dy / len * spd; }
         } else if (b.kind === 'patrol') {
           const lo = Math.min(b.x1, b.x2), hi = Math.max(b.x1, b.x2);
           if (!b.dir) b.dir = 1;

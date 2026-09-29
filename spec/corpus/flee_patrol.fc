@@ -1,0 +1,8 @@
+-- Behavior verbs: `flees from TARGET [speed N] [when within N]` and a waypoint
+-- `patrols along [{x, y}, …]` (the linear `patrols between A and B` is elsewhere).
+zombie is {x: 20, y: 20, speed: 1}
+guards is [{x: 10, y: 60, speed: 1}, {x: 40, y: 80, speed: 1}]
+ghost is {x: 40, y: 40}
+zombie flees from player
+guards flee from player speed 2 when within 30
+ghost patrols along [{x: 10, y: 10}, {x: 90, y: 10}, {x: 90, y: 90}]

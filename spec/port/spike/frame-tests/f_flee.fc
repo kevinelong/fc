@@ -1,0 +1,18 @@
+-- flee (with and without a `when within` radius) and a waypoint patrol, with the
+-- player walking right so the distances change every frame.
+player is {x: 20, y: 60}
+zombie is {x: 60, y: 60, speed: 1}
+cop is {x: 40, y: 30, speed: 1}
+walker is {x: 10, y: 100, speed: 2}
+zombie flees from player
+cop flees from player when within 26
+walker patrols along [{x: 10, y: 100}, {x: 100, y: 100}, {x: 100, y: 20}]
+to update
+  player.x is player.x + 2
+to draw
+  clear screen to black
+  draw rect at player.x, player.y size 6, 6 in white
+  draw rect at zombie.x, zombie.y size 6, 6 in red
+  draw rect at cop.x, cop.y size 6, 6 in green
+  draw rect at walker.x, walker.y size 6, 6 in yellow
+run game with update and draw
