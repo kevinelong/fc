@@ -5,6 +5,43 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (h) — the last two language features: shooters and talking
+
+Working the two items that were waiting on a model decision, both implemented with the
+option each question recommended (switching later is localized):
+
+- **`shoots at TARGET [every N [seconds|frames]] [speed S]`** (Q10 option 1). The
+  engine fills `SUBJECT.shots` with `{x, y, dx, dy}` objects on a frame cooldown,
+  aims at the target's centre at spawn time, flies them each frame and culls the ones
+  that leave the world; the game owns collisions (`each sh in turret.shots`). No RNG,
+  so the stream is deterministic. Guards: `spec/corpus/shoot_forms.fc`,
+  `frame-tests/f_shoot.fc` (spawn/aim/flight/culling, 11/11 at the time).
+- **Dialogue/NPC** (Q11 option 1 — non-pausing): `when player talks to "X"` (tag or
+  sprite name, edge-triggered on space/enter while overlapping), `show dialog`
+  + `show choice` set `dialog`/`choice` and are drawn by the ENGINE every frame while
+  the conversation is active; clearing `dialog` ends it. Guards:
+  `spec/corpus/dialogue_forms.fc`, `frame-tests/f_talk.fc` (+ `.keys`/`.mouse`), and a
+  real-app case in `tools/ui-check.mjs` (on-screen A → dialog box pixels).
+
+Three bugs fell out of the dialogue guards, all fixed in both engines: the wasm's
+`set_body` didn't know `WhenTalk`, so a handler's indented body vanished; the `at x, y`
+search was off by one token (every `show choice … at 4, 60` silently used the default
+box, which is why the click missed); and drawing the dialog once from the handler
+(rather than every frame from the engine) made it disappear a frame later.
+
+Also: the frame harness can now script clicks — `fc-core-record.mjs` exposes
+`__setMouse` and `frames-run.mjs` reads `<game>.mouse` (`frame:x:y`), the symmetric
+counterpart of `<game>.keys` — and the healer vocabulary learned `shoot`/`shoots`.
+
+Suite at the end of both: tokenize 2200/2200 · ast 85/85 · exec 63/63 · draw 12/12 ·
+examples 22/22 · dump-vars 22/22 · transpile 85/85 + embed-check · smoke 16/16 ·
+frames 12/12 · mp-smoke 5/5 · fuzz 3000/3000 · conformance 63/63 · heal 34/34 (84
+programs accepted) · ui-check 41/41.
+
+Roadmap status: of the "still planned" list only **true subpixel rendering** (now safe
+to attempt — the pixel goldens are regenerable) and **compiler targets beyond
+Python/JS** remain, plus the media/dependency items already cleared.
+
 ## 2026-09-29 (g) — demo media regenerated + two visual-harness bugs
 
 Cleared the "needs a dependency" items with a local playwright-core (installed in the
