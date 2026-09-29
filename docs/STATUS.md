@@ -5,6 +5,69 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (e) — dead verbs, roadmap/growth/spec audits
+
+- **`stop music` / `stop sound` was dead in every engine.** The JS parser's generic
+  `stop X` (sprite) form ran first and ate `music`/`sound` as a target name, so the
+  `stop_music` node — and its `AUDIO.stopMusic()` handler — were unreachable; the
+  wasm had no stop node at all. Music/sound is now checked first in all three JS
+  copies, and the wasm gained `Stmt::StopSound` (same `stop_music` AST node, a
+  `sound/kind:stopmusic` command the page routes to the audio engine). Verified in
+  a browser with `setInterval`/`clearInterval` spied before page scripts: a program
+  that plays music and stops it on the 1-second timer shows a created music
+  interval being CLEARED, on both engines.
+- **First-run blip (growth polish #4)** — the sound existed but was never called.
+  The first game start in a session now plays it (`sessionStorage`-gated, silent
+  when audio isn't unlocked). Verified by counting `createOscillator` calls from
+  before page load: exactly one on a fresh session's first run, none on a re-run.
+- **Audits.** ROADMAP.md's "Planned" list is now split into what shipped (with the
+  verb/file/harness evidence) and what is verifiably absent (dialogue/NPC,
+  inventory, `emit`/`flash`/`shake`, tween/easing, AI extras, dynamic colors, true
+  subpixel rendering, non-Python/JS targets). spec/ROADMAP.md carries an audited
+  status block (Wave 1 + Wave 2 complete; WASM phase 3b done and default; only the
+  iOS TestFlight $99 decision open). docs/GROWTH-PLAN.md's queue is complete except
+  dynamic OG cards for user games (Q2) and the Stripe/licensing calls (B2/B3).
+  spec/port/spike/README.md's stage table no longer says 3b-ii is "next".
+- **Specs.** GRAMMAR.md lost reach of a doubled index.html, so whole shipped
+  features were undocumented in it: a new §11 table (parse-function-cited, each row
+  frozen by a corpus program) plus SEMANTICS.md §18 cover the match timer, behavior
+  verbs, animation, particles, tilemaps, increase/decrease, `with`/`its`, list
+  membership, `say` gating, `stop music` — and both mark the dynamic-colors
+  limitation as a [QUIRK] (Q7). CONFORMANCE.md's stale paths/counts are marked
+  historical in favour of the harness table below.
+
+### Final suite (all green, wasm rebuilt + re-inlined)
+
+| Harness | Result |
+|---|---|
+| `tokenize-diff` | 2118/2118 lines |
+| `ast-diff` | 77/77 programs |
+| `exec-diff` | 55/55 corpus |
+| `draw-diff` | 10/10 cmds |
+| `examples-diff` | 22/22 games · 30 frames |
+| `dump-vars-diff` | 22/22 live-var snapshots |
+| `transpile-diff` / `transpile-embed-check` | 77/77 · inlined copy matches |
+| `smoke` / `frames-run` / `mp-smoke` | 16/16 · 5/5 · 5/5 |
+| `fuzz` | 3000/3000 |
+| `run-node` corpus conformance | 55/55 |
+| `spec/heal/eval.mjs` | 34/34 cases · 76/76 untouched · gate 77 · floor 4 starters |
+| `tools/ui-check.mjs` | 36/36 browser checks |
+
+### Where the plans stand now
+
+Every plan with buildable work is done: PLAN-visual-golden, PLAN-runnable-export,
+PLAN-community-gallery, PLAN-accessibility, PLAN-duration, PLAN-live-inspect,
+PLAN-duration, SAFETY-NET phases 0–3 (Phase 2's client UI included; the endpoint
+still ships dark), the safety-net floor and its local telemetry. What is left is
+not plan debt:
+
+| Open item | Kind |
+|---|---|
+| Q1 classroom sign-off · Q2 gallery moderation · Q3 generate key · Q8 telemetry scope · Q9 modularization | your decisions |
+| Q7 dynamic colors (`in <var>` paints white) | decision (implement vs reword 3 demos) |
+| Q4 manual device pass · Q5 feedback posting · iOS TestFlight ($99) | real hardware / accounts |
+| ROADMAP "Still planned" (dialogue, inventory, tween, emit/flash/shake, AI extras, true subpixel, more compiler targets) | new features, not started |
+
 ## 2026-09-29 (d) — safety net Phase 2 client + Phase 3 shipped
 
 **Phase 3 (the floor of "it always runs") — shipped.** `spec/heal/scaffold.mjs`
