@@ -121,7 +121,9 @@ and every claim below is checked. The genuinely-open items are collected at the 
 
 ### Still planned (verified absent on 2026-09-29)
 
-- **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
+- **Dialogue / NPC system** ✅ — `when player talks to "name"`, `show dialog`,
+  `show choice` shipped 2026-09-29 with the non-pausing model (Q11): the engine draws
+  and `dialog`/`choice` carry the state.
 - **Enemy AI extras** ✅ — `flees from TARGET [when within N]`, waypoint
   `patrols along [...]` and `shoots at TARGET [every N [seconds|frames]] [speed S]`
   all shipped 2026-09-29 (the shooter uses the `<enemy>.shots` list model, Q10).

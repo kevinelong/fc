@@ -65,23 +65,19 @@ feedback list feeds docs/GROWTH-PLAN.md.
 
 ---
 
-## 🟡 Q11 — Should the dialogue/NPC system pause the game?
-Owner: kevin. The roadmap's last language feature: `when player talks to "wizard"`,
-`show dialog "…"`, `show choice "a" "b"` — described there as "a built-in dialog UI
-that pauses the game, shows text, accepts input".
+## 🟢 Q11 — Dialogue pause semantics (RESOLVED 2026-09-29 — option 1 implemented)
+Implemented **non-pausing**: `show dialog` / `show choice` are presentation + state
+the engine draws every frame while `dialog` is set, and the game pauses itself with
+`if dialog is not "" return`. Nothing in the loop becomes conditional, so the match
+timer, behaviors and multiplayer sync keep their meaning; a game that wants a hard
+stop writes it in one line.
 
-Two shapes:
+If you prefer engine-paused dialogue later, the hook is small: the frame's update/
+draw phase already checks a single "conversation active" flag — switch it to skip
+update/behaviors/timer while that flag is set.
 
-1. **Non-pausing (fc-style, composable).** `show dialog` draws the box and sets
-   `dialog is "…"`; `show choice` reuses the existing button machinery and sets
-   `choice is "a"|"b"`; the game pauses itself with `if dialog is not "" return`.
-   Nothing new to reason about in the loop, the timer keeps ticking, and the author
-   decides what waits. *Recommend.*
-2. **Engine-paused.** `show dialog` freezes update/behaviors/timer until a choice is
-   picked. Simpler for a beginner, but it makes the frame clock conditional and
-   strands the match timer + sync in multiplayer.
-
-**Answer:**
+Guards: `spec/corpus/dialogue_forms.fc`, `frame-tests/f_talk.fc` (+ `.keys`/`.mouse`),
+and a `tools/ui-check.mjs` case that presses the on-screen A button in the real app.
 
 ---
 

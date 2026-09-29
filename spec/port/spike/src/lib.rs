@@ -206,6 +206,7 @@ enum Stmt {
     Emit { rate: Expr, x: Option<Expr>, y: Option<Expr>, rf: Option<String>, marker: String, color: String, frames: Expr, unit: String },
     Tween { target: String, from: Expr, to: Expr, frames: Expr, unit: String, ease: String },
     Inventory(String), InvAdd(String, Expr), InvRemove(String, Expr),
+    WhenTalk(String, Option<Box<Stmt>>, Vec<Stmt>), Dialog(String, Option<Expr>, Option<Expr>), Choice(Vec<String>, Option<Expr>, Option<Expr>),
     ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -648,6 +649,24 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         let ease = ease_i.map(|ei| word_join(&ts[ei+1..]).to_lowercase()).unwrap_or_default();
         return Stmt::Tween { target, from, to, frames, unit, ease };
     }
+    // -- show dialog "text" [at X, Y] · show choice "a" "b" [at X, Y] --
+    // Non-pausing dialogue: the engine draws and maintains `dialog` / `choice`.
+    if first=="show" && ts.len()>=3 && ts[2].t==1 && (ts[1].is_word("dialog") || ts[1].is_word("choice")) {
+        let kind = ts[1].sval().to_string();
+        let mut labels: Vec<String> = Vec::new();
+        let mut i = 2usize;
+        while i < ts.len() && ts[i].t==1 { labels.push(ts[i].sval().to_string()); i += 1; }
+        let mut x = None; let mut y = None;
+        if let Some(ai) = ts.iter().enumerate().position(|(k,t)| k >= i && t.is_word("at")) {
+            let seg = &ts[ai+1..];
+            match seg.iter().position(|t| t.t==6) {
+                Some(c) if c > 0 => { x = Some(parse_expr(&seg[..c])); y = Some(parse_expr(&seg[c+1..])); }
+                _ => { x = Some(parse_expr(seg)); }
+            }
+        }
+        if kind == "dialog" { return Stmt::Dialog(labels.first().cloned().unwrap_or_default(), x, y); }
+        return Stmt::Choice(labels, x, y);
+    }
     if first=="burst" {
         if let Some(ai)=find_word(ts,"at") { if ai>1 {
             let ii = ts.iter().enumerate().position(|(k,t)| k>ai && t.is_word("in"));
@@ -750,6 +769,14 @@ fn parse_when(ts: &[Tok]) -> Stmt {
     let first_str = || ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
     let inline_after = |w: &str| ts.iter().position(|t| t.is_word(w)).and_then(|k| if k+1 < ts.len() { Some(Box::new(parse_line(&ts[k+1..]))) } else { None });
     if has("time") && has("runs") && has("out") { return Stmt::WhenTimeout(inline_after("out"), Vec::new()); }
+    // when player talks to "wizard"  [inline action]   (also `talks to npc "x"`)
+    if has("talks") && has("to") {
+        let si = ts.iter().enumerate().position(|(i,t)| i >= 3 && t.t==1);
+        if let Some(si) = si {
+            let action = if si + 1 < ts.len() { Some(Box::new(parse_line(&ts[si+1..]))) } else { None };
+            return Stmt::WhenTalk(ts[si].sval().to_lowercase(), action, Vec::new());
+        }
+    }
     if has("picks") && has("up") { return Stmt::WhenPickup(last(), Vec::new()); }
     if has("hits") { return Stmt::WhenHit(last(), Vec::new()); }
     if has("defeated") { return Stmt::WhenDefeat(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default(), Vec::new()); }
@@ -767,7 +794,7 @@ fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
     match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
         |Stmt::Forever(b)|Stmt::With(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
-        |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
+        |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::WhenTalk(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok> }
 // Rewrite `its <field>` -> `<subj> . <field>` inside a `with` block (dot = token type 5).
@@ -923,6 +950,9 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenHit(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_hit\"}"); }
         Stmt::WhenDefeat(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_defeat\"}"); }
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
+        Stmt::WhenTalk(tag,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"tag\":"); json_str(tag,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_talk\"}"); }
+        Stmt::Dialog(text,x,y)=>{ out.push_str("{\"text\":"); json_str(text,out); out.push_str(",\"type\":\"dialog\",\"x\":"); match x { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push_str(",\"y\":"); match y { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push('}'); }
+        Stmt::Choice(labels,x,y)=>{ out.push_str("{\"labels\":["); for (i,l) in labels.iter().enumerate() { if i>0 {out.push(',');} json_str(l,out); } out.push_str("],\"type\":\"choice\",\"x\":"); match x { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push_str(",\"y\":"); match y { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push('}'); }
         Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
         Stmt::Flash(color,f,u)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"frames\":"); emit_expr(f,out); out.push_str(",\"type\":\"flash\",\"unit\":"); json_str(u,out); out.push('}'); }
         Stmt::Inventory(subject)=>{ out.push_str("{\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inventory\"}"); }
@@ -1469,7 +1499,7 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
-    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween> }
+    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween>, talk_handlers: Vec<(String, Option<Box<Stmt>>, Vec<Stmt>)>, choice_labels: Vec<(String, String)>, talk_prev: bool, ui_text: String, ui_box: (f64, f64), ui_labels: Vec<String>, ui_choice_box: (f64, f64) }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 // A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
@@ -1483,7 +1513,7 @@ impl Rt {
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new() } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0) } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1814,7 +1844,10 @@ impl Rt {
             let hit = self.buttons.iter()
                 .find(|(_, bx, by, bw, bh)| mx >= *bx && mx < *bx + *bw && my >= *by && my < *by + *bh)
                 .map(|(l, _, _, _, _)| l.clone());
-            if let Some(label) = hit {
+            if let Some(label) = hit.clone() {
+                if let Some((_, display)) = self.choice_labels.iter().find(|(l, _)| *l == label).cloned() {
+                    self.set_var("choice", Val::Str(display));
+                }
                 if let Some((then, body)) = self.button_handlers.get(&label).cloned() {
                     if let Some(t) = then { self.exec_block(&[t]); self.returning = false; }
                     if !body.is_empty() { self.exec_block(&body); self.returning = false; }
@@ -1825,6 +1858,32 @@ impl Rt {
                 if !body.is_empty() { self.exec_block(&body); self.returning = false; }
             }
             self.mouse.2 = false;   // consume the click
+        }
+        // `when player talks to "X"` — edge-triggered on the TALK key while the player
+        // overlaps a sprite carrying tag X (the game decides what talking means).
+        {
+            let talk_key = *self.key_state.get("space").unwrap_or(&false) || *self.key_state.get("enter").unwrap_or(&false);
+            if talk_key && !self.talk_prev {
+                let px = match self.get_var("player") { Val::Obj(o) => Self::obj_num(&o, "x"), _ => None };
+                let py = match self.get_var("player") { Val::Obj(o) => Self::obj_num(&o, "y"), _ => None };
+                if let (Some(px), Some(py)) = (px, py) {
+                    let handlers = self.talk_handlers.clone();
+                    for (tag, then, body) in handlers {
+                        // the string is a TAG or, failing that, the sprite's own name
+                        let mut subjects = self.tags.get(&tag).cloned().unwrap_or_default();
+                        if subjects.is_empty() { subjects.push(tag.clone()); }
+                        let near = subjects.iter().any(|n| match self.get_var(n) {
+                            Val::Obj(o) => matches!((Self::obj_num(&o, "x"), Self::obj_num(&o, "y")), (Some(ox), Some(oy)) if (ox - px).abs() < 8.0 && (oy - py).abs() < 8.0),
+                            _ => false,
+                        });
+                        if near {
+                            if let Some(t) = then { self.exec_block(&[*t]); self.returning = false; }
+                            if !body.is_empty() { self.exec_block(&body); self.returning = false; }
+                        }
+                    }
+                }
+            }
+            self.talk_prev = talk_key;
         }
         self.tick += 1;
         let prev: Option<(f64, f64)> = match self.get_var("player") {
@@ -2167,6 +2226,44 @@ impl Rt {
             if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b.1); self.returning = false; }
         }
 
+        // Built-in dialog UI: the engine draws it every frame while the conversation is
+        // active (a dialog shows, or choices are up); the game ends it by clearing
+        // `dialog`, which also retires the choices and the recorded pick.
+        {
+            let has_text = matches!(self.get_var("dialog"), Val::Str(ref t) if !t.is_empty());
+            let active = has_text || !self.ui_labels.is_empty();
+            if active {
+                if has_text {
+                    let txt = match self.get_var("dialog") { Val::Str(t) => t, _ => String::new() };
+                    let (bx, by) = self.ui_box;
+                    self.cmds.push(Cmd::Rect(bx, by, 124.0, 30.0, "#fff1e8".to_string()));
+                    self.cmds.push(Cmd::Rect(bx + 1.0, by + 1.0, 122.0, 28.0, "#000000".to_string()));
+                    for (i, line) in wrap_dialog_text(&txt, 29, 3).iter().enumerate() {
+                        self.cmds.push(Cmd::Text(line.clone(), bx + 4.0, by + 4.0 + (i as f64) * 7.0, "#fff1e8".to_string()));
+                    }
+                }
+                let labels = self.ui_labels.clone();
+                if !labels.is_empty() {
+                    let (cx, cy0) = self.ui_choice_box;
+                    let mut cy = cy0;
+                    for label in &labels {
+                        let w = (label.chars().count() as f64) * 4.0 + 8.0;
+                        let h = 11.0;
+                        self.buttons.push((label.to_lowercase(), cx, cy, w, h));
+                        self.choice_labels.push((label.to_lowercase(), label.clone()));
+                        self.cmds.push(Cmd::Rect(cx, cy, w, h, "#29adff".to_string()));
+                        self.cmds.push(Cmd::Rect(cx + 1.0, cy + 1.0, w - 2.0, h - 2.0, "#1d2b53".to_string()));
+                        self.cmds.push(Cmd::Text(label.clone(), cx + 4.0, cy + 3.0, "#fff1e8".to_string()));
+                        cy += 13.0;
+                    }
+                }
+            } else if !self.ui_labels.is_empty() || !self.ui_text.is_empty() {
+                self.ui_text.clear();
+                self.ui_labels.clear();
+                let c = match self.get_var("choice") { Val::Str(s) => s, _ => String::new() };
+                if !c.is_empty() { self.set_var("choice", Val::Str(String::new())); }
+            }
+        }
         // Timed presentation effects — the page renders these (and skips them under
         // reduced motion). Counted in frames, emitted at the END of the frame so the
         // overlay lands on top (same position as the JS core's frame()).
@@ -2574,6 +2671,24 @@ impl Rt {
                 }}
                 if !self.behavior_subjects.contains(&b.subject) { self.behavior_subjects.push(b.subject.clone()); }
             }
+            Stmt::WhenTalk(tag, then, body) => { self.talk_handlers.push((tag.clone(), then.clone(), body.clone())); }
+            Stmt::Dialog(text, x, y) => {
+                let txt = self.interpolate(text);
+                self.set_var("dialog", Val::Str(txt.clone()));
+                self.ui_text = txt;
+                self.ui_labels.clear();
+                self.ui_box = (js_floor(x.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(2.0)),
+                               js_floor(y.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(92.0)));
+            }
+            Stmt::Choice(labels, x, y) => {
+                let shown: Vec<String> = labels.iter().map(|l| self.interpolate(l)).collect();
+                self.ui_labels = shown.clone();
+                self.ui_choice_box = (js_floor(x.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(6.0)),
+                                      js_floor(y.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(100.0)));
+                let cur = match self.get_var("choice") { Val::Str(c) => c, _ => String::new() };
+                if !shown.contains(&cur) { self.set_var("choice", Val::Str(String::new())); }
+                if !matches!(self.get_var("dialog"), Val::Str(_)) { self.set_var("dialog", Val::Str(String::new())); }
+            }
             Stmt::Animate(subject, frames, every) => {
                 let subj = self.get_var(subject);
                 let items: Vec<Val> = match &subj {
@@ -2699,6 +2814,21 @@ fn color_hex(n: &str) -> Option<&'static str> {
 // exists, in which case its value names the color (dynamic colors: `shade is green`
 // … `draw rect … in shade`). Mirrors the JS Runtime.colorOf.
 // Easing curves for `tween` — identical to the JS easeOf.
+// Wrap a dialog line on spaces to at most `per` chars and `max` lines — mirrored
+// exactly by the JS wrapDialogText so both engines emit identical text commands.
+fn wrap_dialog_text(text: &str, per: usize, max: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for w in text.split(' ') {
+        let cand = if cur.is_empty() { w.to_string() } else { alloc::format!("{} {}", cur, w) };
+        if cand.chars().count() <= per { cur = cand; continue; }
+        if !cur.is_empty() { lines.push(cur.clone()); }
+        cur = if w.chars().count() > per { w.chars().take(per).collect() } else { w.to_string() };
+        if lines.len() >= max { break; }
+    }
+    if !cur.is_empty() && lines.len() < max { lines.push(cur); }
+    lines
+}
 fn ease_curve(kind: &str, t: f64) -> f64 {
     match kind {
         "in" => t * t,

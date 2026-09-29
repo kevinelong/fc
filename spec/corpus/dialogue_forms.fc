@@ -1,0 +1,13 @@
+-- Dialogue: `show dialog "text" [at X, Y]` sets the `dialog` var (the game gates on
+-- it), `show choice "a" "b" … [at X, Y]` draws buttons and keeps `choice` up to date,
+-- and `when player talks to "NAME-OR-TAG"` is the trigger. Nothing pauses the engine.
+wizard is {x: 40, y: 40}
+wizard are talkers
+show dialog "Hello, traveler!"
+show dialog "Second line" at 4, 60
+show choice "ask about quest" "leave"
+show choice "yes" "no" at 8, 20
+
+when player talks to "wizard"
+  said is said + 1
+when player talks to npc "talkers" show dialog "hi" at 1, 1

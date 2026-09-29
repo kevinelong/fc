@@ -585,6 +585,24 @@ file: the corpus program is the contract; the harnesses are the proof.
   inventory` tests membership. The subject object is created if it doesn't exist yet.
   Frozen by `inventory_forms.fc` (declare, double-add, membership, a numeric item,
   removal, a second subject) through exec-diff.
+- **Dialogue is presentation + state, never a pause.** `when player talks to "X"`
+  fires on the EDGE of a talk-key press (space/enter) while the player's box overlaps
+  a sprite carrying tag X — or, if no such tag exists, a sprite *named* X — so the
+  handler runs at most once per press. `show dialog "text" [at X, Y]` sets the
+  `dialog` variable and records the box (default 2,92; 124x30 with the text wrapped on
+  spaces to 29 chars x 3 lines, 4px per char, mirroring both engines exactly).
+  `show choice "a" "b" … [at X, Y]` records the labels and their box (default 6,100,
+  stacked 13px apart) and clears `choice` when the old pick is stale. The ENGINE
+  draws the box and the choices EVERY FRAME while the conversation is active (a
+  non-empty `dialog`, or choices that are up) — so a handler sets it up once — and the
+  game ends the conversation by clearing `dialog`, which also retires the choices and
+  blanks `choice`. Clicking a choice button sets `choice` to its label (strict string,
+  as written) via the same hit-test as `show button`; the game reads it with
+  `if choice is "a"`. Nothing in the loop pauses: the game gates itself
+  (`if dialog is not "" return`) if it wants to. Frozen by `frame-tests/f_talk.fc`
+  (talk edge via a scripted key, box + choices per frame, and a scripted click that
+  changes the drawn pick), `spec/corpus/dialogue_forms.fc` (parse/AST + the `dialog`
+  var) and `tools/ui-check.mjs` (the page's pad → pressKey → talk path).
 - **`shoots at TARGET [every N [seconds|frames]] [speed S]`** is a set-once
   behavior whose marker carries `target`, `every` (frames; default 60 = 1 second),
   `speed` (px/frame; default 2) and a `cool` counter, and it guarantees the subject

@@ -586,6 +586,9 @@ differentially tested against it.)
 | SUBJECT (`wanders`\|`wander`) \| (`patrols`\|`patrol`) `between` A `and` B | set-once wander / patrol | `behaviors_register.fc` |
 | SUBJECT (`flees`\|`flee`) `from` TARGET [`speed` N] [`when` `within` N] | set-once flee, optionally only inside a radius | `flee_patrol.fc`, `frame-tests/f_flee.fc` |
 | SUBJECT (`shoots`\|`shoot`) [`at` TARGET] [`every` N [`seconds`\|`frames`]] [`speed` S] | set-once shooter: spawns a shot into `SUBJECT.shots` on a cooldown | `shoot_forms.fc`, `frame-tests/f_shoot.fc` |
+| `when player talks to` STRING [`npc`] STRING | talk handler: fires once per talk-key press while the player overlaps a sprite that carries the tag (or is named) STRING | `dialogue_forms.fc`, `frame-tests/f_talk.fc` |
+| `show dialog` STRING [`at` X `,` Y] | sets `dialog` and shows a persistent message box | `dialogue_forms.fc`, `frame-tests/f_talk.fc` |
+| `show choice` STRING … [`at` X `,` Y] | draws choice buttons (reusing the button hit-test) and keeps `choice` in sync | `dialogue_forms.fc`, `frame-tests/f_talk.fc` |
 | SUBJECT (`patrols`\|`patrol`) `along` `[` `{x, y}` … `]` | waypoint patrol (moves to each point in turn) | `flee_patrol.fc`, `frame-tests/f_flee.fc` |
 | `animate` NAME `with` STRING … [`every` N `frames`] | frame cycling on the global tick | `animate_and_burst.fc` |
 | `burst` expr [WORD] `at` expr [`,` expr] [`in` COLOR] | particle burst (pool cap 400) | `animate_and_burst.fc` |

@@ -339,6 +339,37 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     const fxOff = await fxRun(true, '');
     check('reduced motion suppresses flash AND shake', fxOff.red === 0 && fxOff.shaken === 0, JSON.stringify(fxOff));
     await evaluate(cdp, `localStorage.setItem('fc:save:a11y:reduce-motion', 'false')`);
+
+    // ---- 12. talking works through the APP's input plumbing ------------------
+    // The engine-level test lives in frame-tests/f_talk.fc; this one proves the page
+    // routes the space key into the wasm core, shows the dialog box, and that the
+    // engine (not the game) draws it.
+    const talkSrc = 'player is {x: 40, y: 40}\nwizard is {x: 44, y: 40}\nwizard are talkers\nwhen player talks to "wizard"\n  show dialog "Hello, traveler!" at 2, 92\nto update\n  tick is 1\nto draw\n  clear screen to dark blue\n  draw sprite player at player.x, player.y\nrun game with update and draw\n';
+    await loadSource(talkSrc, '&gamepad');
+    const boxPixel = () => evaluate(cdp, `(function(){
+      var c = document.getElementById('screen'), d = c.getContext('2d').getImageData(10, 100, 1, 1).data;
+      return d[0] + ',' + d[1] + ',' + d[2];
+    })()`);
+    const before = await boxPixel();
+    // press the on-screen A button (data-gp-key="space") — the same pressKey path the
+    // keyboard uses, and the pad is what mobile players actually touch
+    await evaluate(cdp, `(function(){
+      var b = document.querySelector('#gamepad .gp-btn[data-gp-key="space"]');
+      if (!b) return 'no-button';
+      b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      return 'pressed';
+    })()`);
+    await sleep(250);
+    const during = await boxPixel();
+    await evaluate(cdp, `(function(){
+      var b = document.querySelector('#gamepad .gp-btn[data-gp-key="space"]');
+      b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+      return 1;
+    })()`);
+    await sleep(200);
+    const after = await boxPixel();
+    check('the talk key opens the dialog box (app input path)', during === '255,241,232', `before=${before} during=${during}`);
+    check('the box persists while the dialog is set', after === '255,241,232', JSON.stringify({ during, after }));
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

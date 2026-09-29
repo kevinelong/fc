@@ -253,6 +253,31 @@ animate hero with "hero_stand" "hero_walk" every 6 frames
 
 Both run on the game clock, so they pause and step with everything else.
 
+## Talking to characters
+
+Walk up to someone and press A (or space) to talk. The engine draws the box and the
+choices; your code decides what they mean:
+
+```
+wizard is {x: 60, y: 40}
+when player talks to "wizard"
+  show dialog "Hello, traveler!" at 2, 92
+  show choice "ask about quest" "leave" at 4, 60
+
+to draw
+  clear screen to black
+  draw sprite player at player.x, player.y
+  draw sprite wizard at wizard.x, wizard.y
+  if dialog is not "" return        -- pause the game while talking
+
+to update
+  if choice is "ask about quest" go to quest
+  if choice is "leave" dialog is ""  -- ends the conversation
+```
+
+`dialog` holds the current line (clear it to close the box) and `choice` holds the
+label the player picked. Nothing freezes on its own — you keep control.
+
 ## Inventories
 
 Anything can carry an inventory — keys, coins, fish you caught:

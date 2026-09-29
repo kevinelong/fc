@@ -1,0 +1,21 @@
+-- Talking: `when player talks to "wizard"` fires on the frame the TALK key goes down
+-- while the player overlaps the wizard (the keys file presses space on frame 2), and
+-- the handler shows a dialog plus two choices. The dialog box + choice buttons are
+-- engine-emitted commands, so per-frame parity covers them.
+player is {x: 40, y: 40}
+wizard is {x: 44, y: 40}
+wizard are talkers
+said is 0
+when player talks to "wizard"
+  said is said + 1
+  show dialog "Hello, traveler!" at 2, 92
+  show choice "ask about quest" "leave" at 4, 60
+to update
+  tick is 1
+to draw
+  clear screen to dark blue
+  draw sprite player at player.x, player.y
+  draw sprite wizard at wizard.x, wizard.y
+  if dialog is not "" write "said {said}" at 2, 2 in white on hud
+  if choice is not "" write "pick {choice}" at 2, 12 in yellow on hud
+run game with update and draw

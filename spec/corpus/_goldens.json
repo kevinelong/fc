@@ -175,6 +175,18 @@
       "tone": "green"
     }
   },
+  "dialogue_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "choice": "",
+      "dialog": "Second line",
+      "wizard": {
+        "x": 40,
+        "y": 40
+      }
+    }
+  },
   "divide_by_zero.fc": {
     "errors": [],
     "say": [],

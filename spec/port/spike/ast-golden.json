@@ -5410,6 +5410,112 @@
       "type": "rungame"
     }
   ],
+  "dialogue_forms.fc": [
+    {
+      "target": "wizard",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 40
+          },
+          "y": {
+            "type": "literal",
+            "value": 40
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "subject": "wizard",
+      "tag": "talkers",
+      "type": "tag"
+    },
+    {
+      "text": "Hello, traveler!",
+      "type": "dialog",
+      "x": null,
+      "y": null
+    },
+    {
+      "text": "Second line",
+      "type": "dialog",
+      "x": {
+        "type": "literal",
+        "value": 4
+      },
+      "y": {
+        "type": "literal",
+        "value": 60
+      }
+    },
+    {
+      "labels": [
+        "ask about quest",
+        "leave"
+      ],
+      "type": "choice",
+      "x": null,
+      "y": null
+    },
+    {
+      "labels": [
+        "yes",
+        "no"
+      ],
+      "type": "choice",
+      "x": {
+        "type": "literal",
+        "value": 8
+      },
+      "y": {
+        "type": "literal",
+        "value": 20
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "said",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "said",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "tag": "wizard",
+      "thenStmt": null,
+      "type": "when_talk"
+    },
+    {
+      "body": [],
+      "tag": "talkers",
+      "thenStmt": {
+        "text": "hi",
+        "type": "dialog",
+        "x": {
+          "type": "literal",
+          "value": 1
+        },
+        "y": {
+          "type": "literal",
+          "value": 1
+        }
+      },
+      "type": "when_talk"
+    }
+  ],
   "divide_by_zero.fc": [
     {
       "target": "q",

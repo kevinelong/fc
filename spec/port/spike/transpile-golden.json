@@ -31,6 +31,10 @@
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nshade = dark gray\ntone = green\ncopy = shade\ngreen = \"mine\"\nseen = green\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet shade = dark gray;\nlet tone = green;\nlet copy = shade;\nlet green = \"mine\";\nlet seen = green;\n"
   },
+  "dialogue_forms.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nwizard = {\"x\": 40, \"y\": 40}\nset_tag(\"wizard\", \"talkers\")  # wizard are talkers\n# dialog (text=Hello, traveler!)\n# dialog (text=Second line)\n# choice\n# choice\n# when_talk (tag=wizard)\nsaid = said + 1\n# when_talk (tag=talkers)\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet wizard = {x: 40, y: 40};\nset_tag(\"wizard\", \"talkers\");  // wizard are talkers\n// dialog (text=Hello, traveler!)\n// dialog (text=Second line)\n// choice\n// choice\n// when_talk (tag=wizard)\nlet said = said + 1;\n// when_talk (tag=talkers)\n"
+  },
   "divide_by_zero.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nq = 10 / 0\nm = 10 % 0\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet q = 10 / 0;\nlet m = 10 % 0;\n"

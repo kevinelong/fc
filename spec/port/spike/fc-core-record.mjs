@@ -35,7 +35,10 @@ const __step = () => { const f = __FRAME; __FRAME = null; if (f) f(); };
 const __KEYNAMES = ['up','down','left','right','space','a','b'];
 const __setKey = (code, on) => { __RT_KS()[__KEYNAMES[code]] = !!on; };
 let __RT_KS = () => keyState;   // overridden once a Runtime exists
-const __bindRT = (rt) => { __RT_KS = () => rt.keyState; };
+let __RT_KS2 = () => keyState;  // (unused placeholder kept for clarity)
+let __RT_MS = () => mouseState; // overridden once a Runtime exists (see __bindRT)
+const __setMouse = (x, y) => { const ms = __RT_MS(); ms.x = x; ms.y = y; ms.down = true; ms.clicked = true; };
+const __bindRT = (rt) => { __RT_KS = () => rt.keyState; __RT_MS = () => rt.mouseState; };
 // Feed incoming multiplayer peer state for the next frame() (the two-instance
 // harness mutates NET.peers in place — the proxy's set trap is a no-op, but its
 // get returns the live array, so frame()'s `self.vars.peers = NET.peers` sees it).
@@ -63,6 +66,23 @@ const COLORS = {
 
 // Easing curves for `tween` (pure functions of p in 0..1, shared by the sim and the
 // rust core; `bounce` is the classic 7.5625/2.75 bounce-out).
+// Wrap a dialog line on spaces to at most `per` characters and `max` lines
+// (shared by both engines so the emitted text commands match exactly).
+function wrapDialogText(text, per, max) {
+  const words = String(text == null ? '' : text).split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const cand = cur ? cur + ' ' + w : w;
+    if (cand.length <= per) { cur = cand; continue; }
+    if (cur) lines.push(cur);
+    cur = w.length > per ? w.slice(0, per) : w;
+    if (lines.length >= max) break;
+  }
+  if (cur && lines.length < max) lines.push(cur);
+  return lines;
+}
+
 function easeOf(kind, t) {
   if (kind === 'in') return t * t;
   if (kind === 'out') return t * (2 - t);
@@ -1238,6 +1258,26 @@ function parse(source) {
       }
     }
 
+    // -- show dialog "text" [at X, Y]  ·  show choice "a" "b" [at X, Y] --
+    // Non-pausing dialogue: the engine draws the box/choices and keeps `dialog` /
+    // `choice` up to date; the game decides what to pause (`if dialog is not "" return`).
+    if (first === 'show' && raw[1] && raw[2] && raw[2].type === 'string'
+        && (tv(raw[1]) === 'dialog' || tv(raw[1]) === 'choice')) {
+      const kind = tv(raw[1]);
+      const labels = [];
+      let i = 2;
+      while (i < raw.length && raw[i].type === 'string') { labels.push(raw[i].value); i++; }
+      let x = null, y = null;
+      const ai = raw.findIndex((t, k) => k >= i && t.type === 'word' && tv(t) === 'at');
+      if (ai > 0) {
+        const seg = raw.slice(ai + 1);
+        const c = seg.findIndex(t => t.type === 'comma');
+        if (c > 0) { x = parseExpression(seg.slice(0, c)); y = parseExpression(seg.slice(c + 1)); }
+      }
+      if (kind === 'dialog') return { type: 'dialog', text: labels[0] || '', x, y, lineNum };
+      return { type: 'choice', labels, x, y, lineNum };
+    }
+
     // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
     if (first === 'burst') {
       const ai = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
@@ -1560,6 +1600,15 @@ function parse(source) {
       const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
       return { type: 'when_timeout', thenStmt: action, body: [], lineNum };
     }
+    // when player talks to "wizard"  [inline action]   (also accepts `talks to npc "x"`)
+    if (rest.length >= 4 && tv(rest[0]) === 'player' && tv(rest[1]) === 'talks' && tv(rest[2]) === 'to') {
+      const si = rest.findIndex((t, i) => i >= 3 && t.type === 'string');
+      if (si > 0) {
+        const action = si + 1 < rest.length ? parseLine(rest.slice(si + 1), lineNum) : null;
+        return { type: 'when_talk', tag: String(rest[si].value).toLowerCase(), thenStmt: action, body: [], lineNum };
+      }
+    }
+
     // when "space" is pressed
     if (rest.length >= 3 && rest[0].type === 'string' && tv(rest[1]) === 'is' && tv(rest[2]) === 'pressed') {
       const action = rest.length > 3 ? parseLine(rest.slice(3), lineNum) : null;
@@ -3312,6 +3361,32 @@ class Runtime {
           break;
         }
 
+        case 'when_talk': {
+          if (!this.talkHandlers) this.talkHandlers = [];
+          this.talkHandlers.push(stmt);
+          break;
+        }
+
+        case 'dialog': {
+          const text = this.interpolate(stmt.text || '');
+          this.vars.dialog = text;                        // the game reads/clears this
+          this.ui = this.ui || { text: '', box: { x: 2, y: 92 }, labels: [], choiceBox: { x: 6, y: 100 } };
+          this.ui.text = text;
+          this.ui.box = { x: stmt.x ? this.evalExpr(stmt.x) : 2, y: stmt.y ? this.evalExpr(stmt.y) : 92 };
+          this.ui.labels = [];
+          break;
+        }
+
+        case 'choice': {
+          const labels = (stmt.labels || []).map(l => this.interpolate(l));
+          this.ui = this.ui || { text: '', box: { x: 2, y: 92 }, labels: [], choiceBox: { x: 6, y: 100 } };
+          this.ui.labels = labels;
+          this.ui.choiceBox = { x: stmt.x ? this.evalExpr(stmt.x) : 6, y: stmt.y ? this.evalExpr(stmt.y) : 100 };
+          if (!labels.includes(this.vars.choice)) this.vars.choice = '';   // drop a stale pick
+          if (typeof this.vars.dialog !== 'string') this.vars.dialog = '';
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3469,6 +3544,29 @@ class Runtime {
     const o = { inventory: [] };
     this.setVar(name, o);
     return o.inventory;
+  }
+
+  // `show dialog` — a message box (124x30) with the text wrapped to 29 chars/line
+  // (the font is 4px per char) and up to 3 lines, mirroring the wasm's cmd emission.
+  // `show choice` — one `show button`-shaped button per label, re-registered every
+  // frame so the click dispatch can hit them; a click sets `choice` (see the frame
+  // dispatch) and the game reads it.
+  drawChoices(labels, x, y) {
+    let cy = Math.floor(y);
+    for (const label of labels) {
+      this.drawButton({ label: String(label), x: { type: 'literal', value: Math.floor(x) }, y: { type: 'literal', value: cy }, choice: true, lineNum: 0 });
+      cy += 13;
+    }
+  }
+
+  drawDialog(text, x, y) {
+    const bx = Math.floor(x), by = Math.floor(y);
+    ctx.fillStyle = resolveColor('white');
+    ctx.fillRect(bx, by, 124, 30);
+    ctx.fillStyle = resolveColor('black');
+    ctx.fillRect(bx + 1, by + 1, 122, 28);
+    const lines = wrapDialogText(text, 29, 3);
+    for (let i = 0; i < lines.length; i++) drawText(lines[i], bx + 4, by + 4 + i * 7, resolveColor('white'));
   }
 
   updateEmitters() {
@@ -3690,7 +3788,8 @@ class Runtime {
     const w = label.length * 4 + 8;
     const h = 11;
     // record for click hit-testing
-    this.buttons.push({ label: label.toLowerCase(), x, y, w, h });
+    // `choice: true` (from `show choice`) makes a click record the pick in `choice`
+    this.buttons.push(stmt.choice ? { label: label.toLowerCase(), x, y, w, h, choice: true } : { label: label.toLowerCase(), x, y, w, h });
     // background
     ctx.fillStyle = '#29adff';
     ctx.fillRect(x, y, w, h);
@@ -3804,6 +3903,7 @@ class Runtime {
         for (const btn of self.buttons) {
           if (self.mouseState.x >= btn.x && self.mouseState.x < btn.x + btn.w &&
               self.mouseState.y >= btn.y && self.mouseState.y < btn.y + btn.h) {
+            if (btn.choice) self.vars.choice = btn.label;   // `show choice` reads this
             const h = self.buttonHandlers[btn.label];
             if (h) {
               if (h.thenStmt) self.exec([h.thenStmt]);
@@ -3828,6 +3928,29 @@ class Runtime {
         if (h.body && h.body.length) self.exec(h.body);
       }
       self.mouseState.clicked = false;
+
+      // `when player talks to "X"` — edge-triggered on the TALK key while the player
+      // overlaps a sprite carrying tag X (the game decides what talking means).
+      {
+        const talkKey = !!(self.keyState.space || self.keyState.enter);
+        if (talkKey && !self._talkPrev) {
+          const player = self.vars.player;
+          if (player && typeof player.x === 'number') {
+            for (const h of (self.talkHandlers || [])) {
+              // the string is a TAG (`wizard are talkers`) or, failing that, the
+              // sprite's own name — so `talks to "wizard"` works either way
+              let subjects = (self.tags && self.tags[h.tag]) || [];
+              if (!subjects.length) subjects = [h.tag];
+              const near = subjects.some(n => {
+                const o = self.vars[n];
+                return o && typeof o.x === 'number' && Math.abs(o.x - player.x) < 8 && Math.abs(o.y - player.y) < 8;
+              });
+              if (near) { if (h.thenStmt) self.exec([h.thenStmt]); if (h.body && h.body.length) self.exec(h.body); }
+            }
+          }
+        }
+        self._talkPrev = talkKey;
+      }
 
       // Tick counter for animation timing
       self.tick = (self.tick || 0) + 1;
@@ -3907,6 +4030,21 @@ class Runtime {
       // Timed presentation effects — the page renders these (`FX.flash` paints the
       // screen, `FX.shake` jitters it), and both skip them under reduced motion.
       // Counted in frames, so the timing is identical in both engines.
+      // Built-in dialog UI: the engine draws it every frame while the conversation is
+      // active (a dialog shows, or choices are up), so a handler can set it up once;
+      // the game ends it by clearing `dialog`.
+      {
+        const hasText = typeof self.vars.dialog === 'string' && self.vars.dialog !== '';
+        const active = !!(self.ui && (hasText || self.ui.labels.length));
+        if (active) {
+          if (hasText) self.drawDialog(self.vars.dialog, self.ui.box.x, self.ui.box.y);
+          if (self.ui.labels.length) self.drawChoices(self.ui.labels, self.ui.choiceBox.x, self.ui.choiceBox.y);
+        } else if (self.ui) {
+          self.ui = null;
+          if (self.vars.choice) self.vars.choice = '';
+        }
+      }
+
       if (self.flashFrames > 0) { FX.flash(self.flashColor || 'white'); self.flashFrames--; }
       if (self.shakeFrames > 0) { FX.shake(self.shakeMag || 0); self.shakeFrames--; }
     }
@@ -4188,4 +4326,4 @@ let debounceTimer = null;
 
 
 export { parse, Runtime, tokenizeLine, singularize, resolveColor };
-export { __CMDS, __step, __setKey, __bindRT, __setNet };
+export { __CMDS, __step, __setKey, __setMouse, __bindRT, __setNet };
