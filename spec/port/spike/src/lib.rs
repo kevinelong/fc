@@ -206,7 +206,7 @@ enum Stmt {
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
     MoveArrows(String, Option<Expr>), MoveBy(String, Expr, Expr, Option<String>),
-    PlaySound(String, String), Button(String, Expr, Expr), Return(Option<Expr>), Stop,
+    PlaySound(String, String), StopSound, Button(String, Expr, Expr), Return(Option<Expr>), Stop,
     Jump(String, f64), Broadcast(Expr), NetJoin(String, String), DefSfx(String, SfxRecipe),
     Meter(Expr, Expr, Expr, Expr, Expr, Expr, String),
     Damage(String, Expr), Heal(String, Expr), Knock(String, String, Expr),
@@ -579,6 +579,8 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="join" { return Stmt::NetJoin(string_after(ts,"game"), string_after(ts,"room")); }
     if first=="return" { if ts.len()>1 { return Stmt::Return(Some(parse_expr(&ts[1..]))); } return Stmt::Return(None); }
     if first=="stop" && ts.len()==1 { return Stmt::Stop; }
+    // `stop music` / `stop sound` -> stop_music (the JS parser maps both to one node)
+    if first=="stop" && ts.len()>=2 && (ts[1].is_word("music") || ts[1].is_word("sound")) { return Stmt::StopSound; }
     if first=="jump" {
         let target = ts.get(1).filter(|t| t.t==3 && !t.is_word("by")).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
         let force = ts.iter().skip(1).find_map(|t| if let TokVal::Num(n)=t.v { Some(n) } else { None }).unwrap_or(4.5);
@@ -837,6 +839,7 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::PlaySound(k,n)=>{ out.push_str("{\"kind\":"); json_str(k,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"type\":\"play_sound\"}"); }
         Stmt::Button(l,x,y)=>{ out.push_str("{\"label\":"); json_str(l,out); out.push_str(",\"type\":\"button\",\"x\":"); emit_expr(x,out); out.push_str(",\"y\":"); emit_expr(y,out); out.push('}'); }
         Stmt::Return(v)=>{ out.push_str("{\"type\":\"return\",\"value\":"); match v { Some(e)=>emit_expr(e,out), None=>out.push_str("null") } out.push('}'); }
+        Stmt::StopSound=>{ out.push_str("{\"type\":\"stop_music\"}"); }
         Stmt::Stop=>{ out.push_str("{\"type\":\"stop\"}"); }
         Stmt::Jump(t,f)=>{ out.push_str("{\"force\":"); json_num(*f,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"jump\"}"); }
         Stmt::Broadcast(v)=>{ out.push_str("{\"type\":\"broadcast\",\"value\":"); emit_expr(v,out); out.push('}'); }
@@ -2138,6 +2141,7 @@ impl Rt {
                 }
             }
             Stmt::PlaySound(kind, name) => { self.cmds.push(Cmd::Sound(kind.clone(), name.clone())); }
+            Stmt::StopSound => { self.cmds.push(Cmd::Sound("stopmusic".to_string(), String::new())); }
             Stmt::NetJoin(game, room) => { self.cmds.push(Cmd::Net("join".to_string(), game.clone(), room.clone())); }
             Stmt::Broadcast(e) => {
                 let v = self.eval(e);   // JS only broadcasts objects/arrays

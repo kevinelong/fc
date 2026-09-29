@@ -195,6 +195,10 @@
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nworld = {\"width\": 120, \"height\": 80}\nhero = new_sprite(\"centered\", {\"image\": \"hero\", \"hp\": 4, \"facing\": \"down\"})\nrocks = [new_sprite({\"image\": \"rock\"}) for _ in range(5)]\nn = len(rocks)\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet world = {width: 120, height: 80};\nlet hero = new_sprite(\"centered\", {image: \"hero\", hp: 4, facing: \"down\"});\nlet rocks = Array.from({length: 5}, () => new_sprite({image: \"rock\"}));\nlet n = rocks.length;\n"
   },
+  "stop_music.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nplay_music(\"theme\")\nstop_music()\nstop_music()\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nplay_music(\"theme\");\nstop_music();\nstop_music();\n"
+  },
   "time_limit_static.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nset_time_limit(30)  # seconds\nshown = timer\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nset_time_limit(30)  // seconds;\nlet shown = timer;\n"

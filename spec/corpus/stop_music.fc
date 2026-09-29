@@ -1,0 +1,5 @@
+-- `stop music` / `stop sound` parse to the same host effect (the JS parser maps
+-- both to one node); the host stops the looping track.
+play music "theme"
+stop music
+stop sound

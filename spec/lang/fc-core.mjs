@@ -1282,6 +1282,12 @@ function parse(source) {
       }
     }
 
+    // -- stop music / stop sound --  (checked BEFORE the `stop X` sprite form,
+    // which would otherwise swallow `music`/`sound` as a target name)
+    if (first === 'stop' && raw[1] && (tv(raw[1]) === 'music' || tv(raw[1]) === 'sound')) {
+      return { type: 'stop_music', lineNum };
+    }
+
     // -- stop walking X / stop X --
     if (first === 'stop' && raw.length >= 2) {
       // "stop walking X" — also accepts "stop X" as a synonym for sprites
@@ -1336,11 +1342,6 @@ function parse(source) {
         if (raw[i].type === 'word' && tv(raw[i]) !== 'sound' && tv(raw[i]) !== 'music') name = raw[i].value;
       }
       return { type: 'play_sound', kind, name, lineNum };
-    }
-
-    // -- stop music / stop sound --
-    if (first === 'stop' && raw[1] && (tv(raw[1]) === 'music' || tv(raw[1]) === 'sound')) {
-      return { type: 'stop_music', lineNum };
     }
 
     // -- function call (anything else) --

@@ -21763,6 +21763,19 @@
       "type": "rungame"
     }
   ],
+  "stop_music.fc": [
+    {
+      "kind": "music",
+      "name": "theme",
+      "type": "play_sound"
+    },
+    {
+      "type": "stop_music"
+    },
+    {
+      "type": "stop_music"
+    }
+  ],
   "time-attack.fc": [
     {
       "target": "world",

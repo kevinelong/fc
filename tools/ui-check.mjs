@@ -73,6 +73,14 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     cdp = client(await connect());
     await cdp.ready;
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+    // record timer creation/clearing before any page script runs (proves the music
+    // loop is really stopped by `stop music`)
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+      window.__io = { set: [], clear: [] };
+      const si = window.setInterval, ci = window.clearInterval;
+      window.setInterval = function () { const id = si.apply(this, arguments); window.__io.set.push(id); return id; };
+      window.clearInterval = function (id) { window.__io.clear.push(id); return ci.apply(this, arguments); };
+    })();` });
     const loaded = new Promise(res => cdp.on('Page.loadEventFired', res));
     const src = fs.readFileSync(path.join(ROOT, 'examples', `${GAME}.fc`), 'utf8');
     const loadSource = async (source, query) => {
@@ -259,6 +267,24 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await sleep(400);
     const dark = await evaluate(cdp, `(function(){ var s = document.querySelector('.fc-describe-status'); return s ? s.textContent : null; })()`);
     check('a dark endpoint explains itself', /not enabled/.test(String(dark)), JSON.stringify(dark));
+
+    // ---- 9. `stop music` really stops the track (both engines) --------------
+    // Regression: the generic `stop X` (sprite) parse shadowed `stop music` in the
+    // JS parser, so the documented verb did nothing anywhere — the wasm had no
+    // stop node at all.
+    const musicSrc = 'time limit is 1 seconds\nwhen time runs out\n  stop music\nplay music "theme"\nto update\n  tick is 1\nto draw\n  clear screen to black\nrun game with update and draw\n';
+    const musicCheck = async (query, label) => {
+      await loadSource(musicSrc, query);
+      await sleep(2200);
+      return evaluate(cdp, `(function(){
+        var set = window.__io ? window.__io.set : [], clear = window.__io ? window.__io.clear : [];
+        return { started: set.length, stopped: clear.filter(function (id) { return set.indexOf(id) !== -1; }).length };
+      })()`);
+    };
+    const mWasm = await musicCheck('', 'wasm');
+    check('stop music stops the music loop (default wasm engine)', mWasm.started > 0 && mWasm.stopped > 0, JSON.stringify(mWasm));
+    const mJs = await musicCheck('&core=js', 'js');
+    check('stop music stops the music loop (JS core)', mJs.started > 0 && mJs.stopped > 0, JSON.stringify(mJs));
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

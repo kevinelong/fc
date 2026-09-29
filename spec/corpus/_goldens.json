@@ -617,6 +617,11 @@
       }
     }
   },
+  "stop_music.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {}
+  },
   "time_limit_static.fc": {
     "errors": [],
     "say": [],
