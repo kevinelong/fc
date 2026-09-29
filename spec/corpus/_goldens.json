@@ -531,6 +531,17 @@
       "score": 7
     }
   },
+  "say_lines.fc": {
+    "errors": [],
+    "say": [
+      "hello",
+      "answer 42",
+      "42"
+    ],
+    "vars": {
+      "answer": 42
+    }
+  },
   "set_make_noop.fc": {
     "errors": [],
     "say": [],

@@ -202,7 +202,7 @@ enum Stmt {
     WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
     WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
     TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
-    ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs),
+    ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
     MoveArrows(String, Option<Expr>), MoveBy(String, Expr, Expr, Option<String>),
@@ -527,6 +527,13 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="draw" { return parse_draw(ts); }
     if first=="pset" { return parse_pset(ts); }
     if first=="write" { return parse_write(ts); }
+    // `say "text"` / `say <expr>` — a script-mode line (host paints the buffer when
+    // there is no game loop, exactly like the JS core's sayBuffer)
+    if first=="say" {
+        let text = if ts.len()>=2 && ts[1].t==1 { Expr::Lit(LitVal::Str(ts[1].sval().to_string())) }
+                   else { parse_expr(safe(ts,1,ts.len())) };
+        return Stmt::Say(text);
+    }
     if first=="each" { return parse_each(ts); }
     if first=="run" && ts.len()>=2 && ts[1].is_word("game") {
         let funcs: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="with" && t.sval()!="and").map(|t| t.sval().to_string()).collect();
@@ -779,6 +786,7 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::TimeLimit(v,u)=>{ out.push_str("{\"type\":\"time_limit\",\"unit\":"); json_str(u,out); out.push_str(",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::WhenButton(l,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"label\":"); json_str(l,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_button\"}"); }
         Stmt::WhenMouse(ev,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"event\":"); json_str(ev,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_mouse\"}"); }
+        Stmt::Say(e)=>{ out.push_str("{\"text\":"); emit_expr(e,out); out.push_str(",\"type\":\"say\"}"); }
         Stmt::ClearScreen(c)=>{ out.push_str("{\"color\":"); json_str(c,out); out.push_str(",\"type\":\"clearscreen\"}"); }
         Stmt::Draw(a)=>{
             out.push_str("{\"args\":{");
@@ -1240,7 +1248,8 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     store: BTreeMap<String, Val>, tile_defs: BTreeMap<String, Val>, map_rows: Vec<String>, follow: Option<String>,
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
-    buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool) }
+    buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
+    says: Vec<String>, has_game: bool }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
@@ -1248,7 +1257,7 @@ impl Rt {
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false) } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1881,6 +1890,7 @@ impl Rt {
                     _ => {}
                 }
             }
+            Stmt::Say(e) => { let raw = display(&self.eval(e)); let t = self.interpolate(&raw); self.says.push(t); }
             Stmt::Write(w) => {
                 let (ox, oy) = if w.hud { (0.0,0.0) } else { self.camera };
                 let tv = self.eval(&w.text); let txt = self.interpolate(&display(&tv));
@@ -2005,7 +2015,7 @@ impl Rt {
             Stmt::WhenPickup(item, body) => { self.pickup_handlers.insert(item.clone(), body.clone()); }
             Stmt::WhenHit(item, body) => { self.hit_handlers.insert(item.clone(), body.clone()); }
             Stmt::WhenDefeat(item, body) => { self.defeat_handlers.insert(item.clone(), body.clone()); }
-            Stmt::RunGame(fs) => { self.run_fs = fs.clone(); self.frame_step(&fs.clone()); }
+            Stmt::RunGame(fs) => { self.run_fs = fs.clone(); self.has_game = true; self.frame_step(&fs.clone()); }
             Stmt::Save(v, k) => {
                 let key = display(&self.eval(k));
                 let val = self.eval(v);
@@ -2165,7 +2175,9 @@ static mut RES: [u8; RES_CAP] = [0; RES_CAP];
     let mut rt = Rt::new(seed);
     rt.exec_block(&program);
     let mut s = String::new();
-    s.push_str("{\"errors\":[],\"say\":[],\"vars\":{");
+    s.push_str("{\"errors\":[],\"say\":[");
+    for (i,t) in rt.says.iter().enumerate() { if i>0 {s.push(',');} json_str(t,&mut s); }
+    s.push_str("],\"vars\":{");
     for (i,(k,v)) in rt.vars.iter().enumerate() { if i>0 {s.push(',');} json_str(k,&mut s); s.push(':'); emit_val(v,&mut s); }
     s.push_str("}}");
     let b = s.as_bytes(); let m = b.len().min(RES_CAP);
@@ -2290,6 +2302,21 @@ static mut LIVE_RT: Option<Rt> = None;
     let b = s.as_bytes(); let m = b.len().min(RES_CAP);
     unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
     m as u32
+}
+// The live runtime's `say` lines as a JSON array, plus whether the program runs a
+// game loop — the host paints the lines only in script mode, mirroring the JS
+// core's `runJSCore` (sayBuffer painted when `!runtime.gameLoop`).
+#[no_mangle] pub extern "C" fn dump_say() -> u32 {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_ref() } { Some(r) => r, None => return 0 };
+    let mut s = String::from("[");
+    for (i,t) in rt.says.iter().enumerate() { if i>0 { s.push(','); } json_str(t,&mut s); }
+    s.push(']');
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
+}
+#[no_mangle] pub extern "C" fn has_game() -> u32 {
+    match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_ref() } { Some(r) => if r.has_game {1} else {0}, None => 0 }
 }
 // Read-only snapshot of the LIVE runtime's variables (for the live inspect panel).
 // Same JSON shape as parse_exec_to_json's vars, but over the running game's state.

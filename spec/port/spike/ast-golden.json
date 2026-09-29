@@ -19412,6 +19412,37 @@
       }
     }
   ],
+  "say_lines.fc": [
+    {
+      "text": {
+        "type": "literal",
+        "value": "hello"
+      },
+      "type": "say"
+    },
+    {
+      "target": "answer",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 42
+      }
+    },
+    {
+      "text": {
+        "type": "literal",
+        "value": "answer {answer}"
+      },
+      "type": "say"
+    },
+    {
+      "text": {
+        "name": "answer",
+        "type": "ref"
+      },
+      "type": "say"
+    }
+  ],
   "set_make_noop.fc": [
     {
       "target": "x",

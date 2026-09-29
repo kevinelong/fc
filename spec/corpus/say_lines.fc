@@ -1,0 +1,6 @@
+-- `say` prints a line in script mode (the host paints the buffer when the program
+-- has no game loop — index.html paints both engines' say lines identically).
+say "hello"
+answer is 42
+say "answer {answer}"
+say answer

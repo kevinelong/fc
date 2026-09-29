@@ -75,8 +75,11 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     const loaded = new Promise(res => cdp.on('Page.loadEventFired', res));
     const src = fs.readFileSync(path.join(ROOT, 'examples', `${GAME}.fc`), 'utf8');
-    const url = 'file://' + path.join(ROOT, 'index.html') + '?code=' + encodeURIComponent(Buffer.from(src, 'utf8').toString('base64'));
-    await cdp.send('Page.navigate', { url });
+    const loadSource = async (source, query) => {
+      await cdp.send('Page.navigate', { url: 'file://' + path.join(ROOT, 'index.html') + '?code=' + encodeURIComponent(Buffer.from(source, 'utf8').toString('base64')) + (query || '') });
+      await sleep(900);
+    };
+    await loadSource(src);
     await loaded;
     await evaluate(cdp, 'new Promise(r => setTimeout(r, 400))');   // let the engines boot
 
@@ -154,6 +157,27 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     check('pausing reports "paused" and enables step', stepped.label === 'paused' && stepped.stepEnabled, JSON.stringify({ label: stepped.label, stepEnabled: stepped.stepEnabled }));
     check('stepping changes a variable in the panel', stepped.before !== stepped.after, `panel text identical after 3 steps (rows=${stepped.rows})`);
     check('panel stays paused with rows after stepping', stepped.rows > 0, JSON.stringify({ rows: stepped.rows, label: stepped.label }));
+
+    // ---- 5. `say` renders in script mode on BOTH engines ---------------------
+    // (regression: the wasm core had no `say` at all, so a beginner's first
+    // program — just `say "hello"` — drew nothing on the default engine)
+    const countPixels = () => evaluate(cdp, `(function(){
+      var c = document.getElementById('screen'), g = c.getContext('2d');
+      var d = g.getImageData(0, 0, 128, 128).data, n = 0;
+      for (var i = 0; i < d.length; i += 4) if (d[i] > 8 || d[i+1] > 8 || d[i+2] > 8) n++;
+      return n;
+    })()`);
+    const saySrc = 'say "hello there"\nscore is 42\n';
+    await loadSource(saySrc);
+    const wasmPixels = await countPixels();
+    await loadSource(saySrc, '&core=js');
+    const jsPixels = await countPixels();
+    check('say paints on the default (wasm) engine', wasmPixels > 0, `${wasmPixels} non-black pixels`);
+    check('say paints identically on the JS core', wasmPixels > 0 && wasmPixels === jsPixels, `wasm=${wasmPixels} js=${jsPixels}`);
+    // a game must NOT get say lines painted over it
+    await loadSource('say "no"\nto draw\n  clear screen to black\n  draw rect at 0, 0 size 40, 40 in blue\nrun game with update and draw\n');
+    const gamePixels = await countPixels();
+    check('a game ignores say lines (no overlay)', gamePixels === 40 * 40, `${gamePixels} non-black pixels`);
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

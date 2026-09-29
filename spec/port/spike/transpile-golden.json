@@ -171,6 +171,10 @@
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nscore = 7\nsave_value(score, \"t_roundtrip\")\nback = load_save(\"t_roundtrip\")\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet score = 7;\nsave_value(score, \"t_roundtrip\");\nlet back = load_save(\"t_roundtrip\");\n"
   },
+  "say_lines.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nprint(\"hello\")\nanswer = 42\nprint(f\"answer {answer}\")\nprint(answer)\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nconsole.log(\"hello\");\nlet answer = 42;\nconsole.log(`answer ${answer}`);\nconsole.log(answer);\n"
+  },
   "set_make_noop.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nx = 1\n# set x to 99  (unknown command — ignored)\n# make a thing  (unknown command — ignored)\nx *= 2\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet x = 1;\n// set x to 99  (unknown command — ignored)\n// make a thing  (unknown command — ignored)\nx *= 2;\n"

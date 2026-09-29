@@ -5,6 +5,29 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (c) — `say` works on the default engine
+
+**Bug (user-visible):** `say` was implemented only in the JS core. The wasm core —
+the app's default engine — had no `say` statement at all, so it parsed as an
+unknown call and did nothing: a beginner's first program (`say "hello"`) drew
+**nothing** on the default engine, while `?core=js` showed the text. Nothing caught
+it because no corpus/example file used `say`, and `parse_exec_to_json` hardcoded
+`"say":[]`.
+
+**Fix:** `Stmt::Say(Expr)` (parse/exec/interpolate), a real say buffer in the live
+runtime, `dump_say()` + `has_game()` exports, the exec JSON now reports the buffer,
+and `WASMCORE.run` paints the lines exactly like `runJSCore` does — script mode
+only, so a game never gets them overlaid. Verified: `say "hello there"` + `score is
+42` paints **91 non-black pixels, identical on both engines** (was 0 on wasm);
+a game with a `say` line still paints only its own 1600 pixels. New corpus guard
+`spec/corpus/say_lines.fc` pins the buffer through exec-diff (54/54) and the AST
+through ast-diff (76/76); the three browser assertions are in `tools/ui-check.mjs`
+(19/19).
+
+Suite after the change: tokenize 2112/2112 · ast 76/76 · exec 54/54 · draw 10/10 ·
+examples 22/22 · dump-vars 22/22 · transpile 76/76 · smoke 16/16 · frames 5/5 ·
+mp-smoke 5/5 · fuzz 3000/3000 · ui-check 19/19.
+
 ## 2026-09-29 (b) — plans closed out: accessibility, duration, live inspect
 
 Three plans had shipped code with unverified or stale claims; each is now verified
