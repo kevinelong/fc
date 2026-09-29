@@ -236,6 +236,38 @@ flash screen red for 8 frames
 shake camera for 0.3 seconds by 3 pixels
 ```
 
+## Animation
+
+Two ways to make a sprite change picture. Declare it on the sprite and it runs by
+itself:
+
+```
+hero is {x: 20, y: 60, frames: ["hero_stand", "hero_walk"], fps: 8}
+```
+
+…or drive it from a statement (handy when only some of the time):
+
+```
+animate hero with "hero_stand" "hero_walk" every 6 frames
+```
+
+Both run on the game clock, so they pause and step with everything else.
+
+## Inventories
+
+Anything can carry an inventory — keys, coins, fish you caught:
+
+```
+player has inventory
+add "key" to player inventory
+if player has "key" in inventory
+  go to door
+remove "key" from player inventory
+```
+
+It is a normal list underneath, so `count of player.inventory` works, and each item
+is stored once (adding the same key twice still leaves one key).
+
 ## Motion: tweens
 
 `tween` slides a property from one value to another over a fixed time — a door

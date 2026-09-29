@@ -3394,6 +3394,21 @@ class Runtime {
         m.image = a.frames[Math.floor((this.tick || 0) / (a.every || 10)) % a.frames.length];
       }
     }
+    // Declarative form: a sprite that declares its own `frames` list (and optional
+    // `fps`, default 8) cycles by itself — no `animate` statement needed. A sprite
+    // driven by the verb keeps the verb's cadence (checked first, above).
+    for (const name of Object.keys(this.vars)) {
+      const v = this.vars[name];
+      const items = Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []);
+      for (const m of items) {
+        if (!m || typeof m !== 'object' || m.animation) continue;
+        const frames = m.frames;
+        if (!Array.isArray(frames) || !frames.length) continue;
+        const fps = (typeof m.fps === 'number' && m.fps > 0) ? m.fps : 8;
+        const every = Math.max(1, Math.round(60 / fps));
+        m.image = frames[Math.floor((this.tick || 0) / every) % frames.length];
+      }
+    }
   }
 
   // Move, age and draw the particle pool (created by `burst`). Runs in the draw phase.

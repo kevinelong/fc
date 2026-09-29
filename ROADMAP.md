@@ -79,9 +79,11 @@ and every claim below is checked. The genuinely-open items are collected at the 
   looping `play music "X"`, `stop music` (the stop verb was dead until 2026-09-29),
   and the `music` toggle. `AUDIO` in index.html; the wasm emits `defsfx`/`play_sound`
   commands; 14 examples define their own sounds.
-- **Animation** ✅ — `animate X with "a" "b" every N frames` (set-once frame cycling
-  on the global tick, marker kept on the sprite). Corpus: `animate_and_burst.fc`.
-  Tween/easing keywords are NOT implemented (below).
+- **Animation** ✅ — both forms: declaring `{frames: ["a", "b"], fps: 8}` on a sprite
+  (it cycles itself) and the statement form `animate X with "a" "b" every N frames`
+  (set-once, marker kept on the sprite). Both run on the global tick. Corpus:
+  `animate_and_burst.fc`; frame test: `frame-tests/f_frames.fc`. Tween/easing shipped
+  separately (`tween … ease in|out|in out|bounce`).
 - **Enemy AI / behavior verbs** ✅ — `X chases player [speed N] [through walls]`,
   `X wanders`, `X patrols between A and B`, `blocked by` for solid tiles. The
   markers are editable fc data on the sprite. Behaviour words are part of the
@@ -120,10 +122,6 @@ and every claim below is checked. The genuinely-open items are collected at the 
 ### Still planned (verified absent on 2026-09-29)
 
 - **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
-- **Inventory verbs** — `add "key" to player inventory` (today: lists + `has`).
-- **The `{frames: [...], fps: N}` sprite-property form of animation** — `animate X
-  with "a" "b" every N frames` is the implemented form; a sprite that declares its
-  own frame list is still planned. (`tween … ease in/out/bounce` shipped 2026-09-29.)
 - **Enemy AI: `shoot at player every N seconds`** — `flee from player when within
   N` and waypoint `patrols along [...]` shipped 2026-09-29; projectiles still need a
   decision about their model (see OPEN-QUESTIONS Q10).

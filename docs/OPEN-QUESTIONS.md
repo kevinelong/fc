@@ -65,6 +65,26 @@ feedback list feeds docs/GROWTH-PLAN.md.
 
 ---
 
+## 🟡 Q11 — Should the dialogue/NPC system pause the game?
+Owner: kevin. The roadmap's last language feature: `when player talks to "wizard"`,
+`show dialog "…"`, `show choice "a" "b"` — described there as "a built-in dialog UI
+that pauses the game, shows text, accepts input".
+
+Two shapes:
+
+1. **Non-pausing (fc-style, composable).** `show dialog` draws the box and sets
+   `dialog is "…"`; `show choice` reuses the existing button machinery and sets
+   `choice is "a"|"b"`; the game pauses itself with `if dialog is not "" return`.
+   Nothing new to reason about in the loop, the timer keeps ticking, and the author
+   decides what waits. *Recommend.*
+2. **Engine-paused.** `show dialog` freezes update/behaviors/timer until a choice is
+   picked. Simpler for a beginner, but it makes the frame clock conditional and
+   strands the match timer + sync in multiplayer.
+
+**Answer:**
+
+---
+
 ## 🟡 Q10 — What should `shoot at player every N seconds` spawn?
 Owner: kevin. The last item of the roadmap's enemy-AI list. Three shapes, all
 cheap, and the choice decides how much the game can do with the shots:

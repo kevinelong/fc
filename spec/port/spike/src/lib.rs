@@ -1918,6 +1918,25 @@ impl Rt {
             }}
         }
         // animations: image = frames[floor(tick/every) % n]
+        // Declarative form first: any sprite declaring its own `frames` list (with an
+        // optional `fps`, default 8) cycles by itself; the verb marker (below) wins.
+        let dnames: Vec<String> = self.vars.iter().filter_map(|(k, v)| match v {
+            Val::Obj(o) => { let b = o.borrow();
+                if b.contains_key("animation") { None }
+                else if matches!(b.get("frames"), Some(Val::List(_))) { Some(k.clone()) } else { None } }
+            _ => None }).collect();
+        for name in dnames {
+            if let Val::Obj(o) = self.get_var(&name) {
+                let frames: Vec<String> = match o.borrow().get("frames") { Some(Val::List(l)) => l.borrow().iter().filter_map(|f| if let Val::Str(s) = f { Some(s.clone()) } else { None }).collect(), _ => continue };
+                if frames.is_empty() { continue; }
+                let fps = Self::obj_num(&o, "fps").unwrap_or(8.0);
+                let fps = if fps > 0.0 { fps } else { 8.0 };
+                let every = libm::round(60.0 / fps);
+                let every = if every < 1.0 { 1.0 } else { every };
+                let idx = ((self.tick as f64 / every) as u64 as usize) % frames.len();
+                o.borrow_mut().insert("image".to_string(), Val::Str(frames[idx].clone()));
+            }
+        }
         let anames: Vec<String> = self.vars.iter().filter_map(|(k, v)| match v {
             Val::Obj(o) if o.borrow().contains_key("animation") => Some(k.clone()), _ => None }).collect();
         for name in anames {

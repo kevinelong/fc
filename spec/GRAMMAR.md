@@ -602,6 +602,9 @@ differentially tested against it.)
 | `shake camera` [`for` N [`seconds`\|`frames`]] [`by` N [`pixels`]] | host-rendered screen jitter, frame-counted (default: 12 frames, 2px) | `flash_shake.fc`, `frame-tests/f_effects.fc` |
 | `emit` [N] WORD [`rising`\|`falling`] (`at` X `,` Y \| `from` REF) [`in` COLOR] [`for` N [`seconds`\|`frames`]] | sustained particle emitter (default: 2/frame for 30 frames, `orange`) | `emit_forms.fc`, `frame-tests/f_emit.fc` |
 | `tween` REF `from` expr `to` expr `over` N [`seconds`\|`frames`] [`ease` [`in`\|`out`\|`in out`\|`bounce`]] | frame-counted property interpolation on a dotted target | `tween_forms.fc`, `frame-tests/f_tween.fc` |
+| `SUBJECT has inventory` | ensures `SUBJECT.inventory` exists (an ordinary fc list) | `inventory_forms.fc` |
+| `add` ITEM `to` SUBJECT `inventory` \| `remove` ITEM `from` SUBJECT `inventory` | adds (one entry per distinct item) / removes | `inventory_forms.fc` |
+| SUBJECT `has` ITEM `in inventory` (condition) | membership test, strict equality | `inventory_forms.fc` |
 | `pset` … | direct pixel write (wasm port followed later) | `draw-tests/` (see README) |
 | `show meter` CURRENT `of` MAX [`at` X `,` Y] [`size` W `,` H] [`in` COLOR] | HUD meter; all three shapes parse (index-scan parser) | `meter_forms.fc`, `draw-tests/d_meter.fc` |
 

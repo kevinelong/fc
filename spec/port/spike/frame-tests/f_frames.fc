@@ -1,0 +1,11 @@
+-- Declarative animation: sprites that declare their own `frames` (+ optional `fps`)
+-- cycle by themselves, so the drawn pixels change frame by frame.
+hero is {x: 20, y: 20, frames: ["hero", "coin"], fps: 60}
+thing is {x: 60, y: 60, frames: ["coin", "heart", "hero"], fps: 15}
+to update
+  tick is 1
+to draw
+  clear screen to black
+  draw sprite hero at hero.x, hero.y
+  draw sprite thing at thing.x, thing.y
+run game with update and draw

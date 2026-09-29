@@ -577,6 +577,21 @@ file: the corpus program is the contract; the harnesses are the proof.
   the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
   name (that was the shipped behavior until 2026-09-29, when the verb was dead in
   every engine).
+- **Inventories** are ordinary fc lists hanging off a subject (`player.inventory`),
+  so they appear in the live inspector and can be counted (`count of
+  player.inventory`). `SUBJECT has inventory` creates the list if missing; `add ITEM
+  to SUBJECT inventory` appends unless that exact value is already there (STRICT
+  equality, like `is in`); `remove …` drops the first match; `SUBJECT has ITEM in
+  inventory` tests membership. The subject object is created if it doesn't exist yet.
+  Frozen by `inventory_forms.fc` (declare, double-add, membership, a numeric item,
+  removal, a second subject) through exec-diff.
+- **Declarative animation** — a sprite that declares its own `frames` list cycles
+  automatically: `image = frames[floor(tick / every) % n]` where
+  `every = max(1, round(60 / fps))` and `fps` defaults to 8. It runs on the GLOBAL
+  tick in the update phase, so it pauses and steps with the game; a sprite driven by
+  the `animate … every N frames` verb keeps the verb's cadence (that marker is
+  checked first). Frozen by `frame-tests/f_frames.fc` — the drawn pixels change frame
+  by frame, identically in both engines.
 - **`tween X.y from A to B over N [seconds|frames] [ease …]`** sets the dotted
   property to `A` immediately and then writes the eased value every frame until it
   reaches exactly `B` at frame N (the tween then retires; a second tween on the same
