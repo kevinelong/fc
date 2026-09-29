@@ -186,7 +186,7 @@ enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
     Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
-    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), Bare(Expr), Key(String) }
+    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), Bare(Expr), Key(String) }
 #[derive(Clone)]
 enum Stmt {
     Assign(String, Expr), Add(String, Expr), Remove(String, Expr),
@@ -373,7 +373,17 @@ fn parse_cond(ts: &[Tok]) -> Cond {
     for i in 0..ts.len() { if ts[i].t==4 { let o=ts[i].sval(); if matches!(o, ">"|"<"|">="|"<="|"!="|"==") {
         return Cond::Cmp(o.to_string(), parse_expr(&ts[..i]), parse_expr(&ts[i+1..])); } } }
     if let Some(k)=find_word(ts,"is") {
-        if k+1<ts.len() && ts[k+1].is_word("not") { return Cond::Neq(parse_expr(&ts[..k]), parse_expr(&ts[k+2..])); }
+        if k+1<ts.len() && ts[k+1].is_word("not") {
+            // `X is not in [..]` negates membership; plain `X is not Y` is inequality
+            if k+2<ts.len() && ts[k+2].is_word("in") {
+                return Cond::Not(Box::new(Cond::In(parse_expr(&ts[..k]), parse_expr(safe(ts,k+3,ts.len())))));
+            }
+            return Cond::Neq(parse_expr(&ts[..k]), parse_expr(&ts[k+2..]));
+        }
+        // `X is in [..]` — list membership
+        if k+1<ts.len() && ts[k+1].is_word("in") {
+            return Cond::In(parse_expr(&ts[..k]), parse_expr(safe(ts,k+2,ts.len())));
+        }
         return Cond::Eq(parse_expr(&ts[..k]), parse_expr(&ts[k+1..]));
     }
     if let Some(k)=find_word(ts,"has") { return Cond::Has(parse_expr(&ts[..k]), parse_expr(&ts[k+1..])); }
@@ -727,6 +737,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
         Cond::Neq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"neq\"}"); }
         Cond::Cmp(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"cmp\"}"); }
         Cond::Has(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"has\"}"); }
+        Cond::In(v,l)=>{ out.push_str("{\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"in\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Cond::Bare(e)=>emit_expr(e,out),
         Cond::Key(k)=>{ out.push_str("{\"key\":"); json_str(k,out); out.push_str(",\"type\":\"key_pressed\"}"); }
     }
@@ -1187,6 +1198,18 @@ fn display(v: &Val) -> String {
     match v { Val::Num(n)=>{ let mut s=String::new(); json_num(*n,&mut s); s } Val::Str(s)=>s.clone(),
         Val::Bool(b)=>if *b {"true".to_string()} else {"false".to_string()}, _=>String::new() }
 }
+// JS === / Array.includes semantics (no coercion): `"1" is in [1]` is false.
+fn strict_eq(a: &Val, b: &Val) -> bool {
+    match (a, b) {
+        (Val::Num(x), Val::Num(y)) => x==y,
+        (Val::Str(x), Val::Str(y)) => x==y,
+        (Val::Bool(x), Val::Bool(y)) => x==y,
+        (Val::Undef, Val::Undef) => true,
+        (Val::Obj(x), Val::Obj(y)) => Rc::ptr_eq(x, y),
+        (Val::List(x), Val::List(y)) => Rc::ptr_eq(x, y),
+        _ => false,
+    }
+}
 fn loose_eq(a: &Val, b: &Val) -> bool {
     match (a, b) {
         (Val::Num(x), Val::Num(y)) => x==y,
@@ -1365,6 +1388,9 @@ impl Rt {
             Cond::NotExpr(e) => { let v=self.eval(e); !truthy(&v) }
             Cond::Bare(e) => { let v=self.eval(e); truthy(&v) }
             Cond::Has(l, r) => { let a=display(&self.eval(l)); let b=display(&self.eval(r)); a.contains(&b) }
+            // `X is in [..]` — JS uses Array.includes (STRICT equality), and a
+            // non-list list operand is simply false.
+            Cond::In(v, l) => { let val=self.eval(v); match self.eval(l) { Val::List(items) => items.borrow().iter().any(|it| strict_eq(it, &val)), _ => false } }
             Cond::Key(k) => *self.key_state.get(&k.to_lowercase()).unwrap_or(&false),
         }
     }

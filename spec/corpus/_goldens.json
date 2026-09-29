@@ -357,6 +357,23 @@
       "second": "b"
     }
   },
+  "list_membership.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "color": "red",
+      "hit": true,
+      "loose": false,
+      "miss": false,
+      "notin": true,
+      "nums": [
+        1,
+        2,
+        3
+      ],
+      "strict2": true
+    }
+  },
   "load_missing_default.fc": {
     "errors": [],
     "say": [],

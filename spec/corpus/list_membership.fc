@@ -1,0 +1,20 @@
+-- `X is in [list]` — list membership (documented in LANGUAGE.md); `is not in`
+-- negates it. Membership uses JS strict equality, so a string never matches a
+-- number, and a non-list `list` operand is false.
+color is "red"
+nums is [1, 2, 3]
+hit is no
+miss is no
+notin is no
+loose is no
+strict2 is no
+if color is in [red, blue]
+  hit is yes
+if color is in ["green", "purple"]
+  miss is yes
+if color is not in [green, blue]
+  notin is yes
+if "1" is in nums
+  loose is yes
+if 2 is in nums
+  strict2 is yes

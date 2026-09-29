@@ -12411,6 +12411,232 @@
       "type": "rungame"
     }
   ],
+  "list_membership.fc": [
+    {
+      "target": "color",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "red"
+      }
+    },
+    {
+      "target": "nums",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "type": "literal",
+            "value": 1
+          },
+          {
+            "type": "literal",
+            "value": 2
+          },
+          {
+            "type": "literal",
+            "value": 3
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "hit",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "target": "miss",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "target": "notin",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "target": "loose",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "target": "strict2",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "hit",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "list": {
+          "items": [
+            {
+              "name": "red",
+              "type": "ref"
+            },
+            {
+              "name": "blue",
+              "type": "ref"
+            }
+          ],
+          "type": "listliteral"
+        },
+        "type": "in",
+        "value": {
+          "name": "color",
+          "type": "ref"
+        }
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "miss",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "list": {
+          "items": [
+            {
+              "type": "literal",
+              "value": "green"
+            },
+            {
+              "type": "literal",
+              "value": "purple"
+            }
+          ],
+          "type": "listliteral"
+        },
+        "type": "in",
+        "value": {
+          "name": "color",
+          "type": "ref"
+        }
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "notin",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "expr": {
+          "list": {
+            "items": [
+              {
+                "name": "green",
+                "type": "ref"
+              },
+              {
+                "name": "blue",
+                "type": "ref"
+              }
+            ],
+            "type": "listliteral"
+          },
+          "type": "in",
+          "value": {
+            "name": "color",
+            "type": "ref"
+          }
+        },
+        "type": "not"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "loose",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "list": {
+          "name": "nums",
+          "type": "ref"
+        },
+        "type": "in",
+        "value": {
+          "type": "literal",
+          "value": "1"
+        }
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "strict2",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "list": {
+          "name": "nums",
+          "type": "ref"
+        },
+        "type": "in",
+        "value": {
+          "type": "literal",
+          "value": 2
+        }
+      },
+      "thenStmt": null,
+      "type": "if"
+    }
+  ],
   "load_missing_default.fc": [
     {
       "target": "x",
