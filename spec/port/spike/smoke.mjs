@@ -17,7 +17,7 @@
 //
 // Input codes (set_key / __setKey): 0=up 1=down 2=left 3=right 4=space 5=a 6=b.
 // Run: node smoke.mjs   (needs target/.../fc_spike.wasm built via cargo build)
-import fs from 'fs'; import path from 'path';
+import fs from 'fs'; import path from 'path'; import os from 'os';
 import { parse, Runtime, __CMDS, __step, __setKey, __bindRT } from './fc-core-record.mjs';
 
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -97,5 +97,5 @@ for (const f of fs.readdirSync(DIR).filter(f => f.endsWith('.fc')).sort()) {
 out.push(`\n${pass}/${pass + fail} games pass interaction-aware smoke (parity · liveness · motion · no-trap · ${N}f · seed 0)`);
 const report = out.join('\n');
 console.log(report);
-fs.writeFileSync('/tmp/smoke-result.txt', report + '\n');
+fs.writeFileSync(path.join(os.tmpdir(), 'smoke-result.txt'), report + '\n');
 process.exit(fail ? 1 : 0);

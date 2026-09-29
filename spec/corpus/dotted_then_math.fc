@@ -1,0 +1,7 @@
+-- Property access: a.b.c resolves to the dotted path; tokens AFTER the path
+-- continue as an expression (a.b + 1), and a two-word bare name stays one word
+-- (dark gray -> the ref "dark gray", not "darkgray").
+box is {x: 4, y: 6}
+sum1 is box.x + 1
+sum2 is box.x * box.y
+shade is dark gray

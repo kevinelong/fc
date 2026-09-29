@@ -21,7 +21,7 @@
 //
 // Input codes: 0=up 1=down 2=left 3=right 4=space 5=a 6=b.
 // Run: node mp-smoke.mjs   (needs target/.../fc_spike.wasm built via cargo build)
-import fs from 'fs'; import path from 'path';
+import fs from 'fs'; import path from 'path'; import os from 'os';
 import { parse, Runtime, __CMDS, __step, __setKey, __bindRT, __setNet } from './fc-core-record.mjs';
 
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -234,5 +234,5 @@ for (const game of Object.keys(SCENARIOS).filter(g => fs.existsSync(path.join(DI
 out.push(`\n${pass}/${pass + fail} multiplayer games pass two-instance smoke (parity · mechanic · determinism · no-trap)`);
 const report = out.join('\n');
 console.log(report);
-fs.writeFileSync('/tmp/mp-smoke-result.txt', report + '\n');
+fs.writeFileSync(path.join(os.tmpdir(), 'mp-smoke-result.txt'), report + '\n');
 process.exit(fail ? 1 : 0);

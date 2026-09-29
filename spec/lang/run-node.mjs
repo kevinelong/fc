@@ -4,7 +4,8 @@
 import { parse, Runtime } from './fc-core.mjs';
 import fs from 'fs';
 import path from 'path';
-const CORPUS = new URL('../corpus/', import.meta.url).pathname;
+import { fileURLToPath } from 'url';
+const CORPUS = fileURLToPath(new URL('../corpus/', import.meta.url));
 export function fcRun(src, seed) {
   const rt = new Runtime(); rt.reset();
   const _r = Math.random;
@@ -17,8 +18,12 @@ export function fcRun(src, seed) {
 }
 const files = fs.readdirSync(CORPUS).filter(f=>f.endsWith('.fc')).sort();
 const seedOf = f => /random/.test(f) ? 12345 : undefined;
+// Canonical (recursively key-sorted) form: compare/record by CONTENT, so a key
+// insertion-order difference is never reported as a behavior diff.
+const canon = v => Array.isArray(v) ? v.map(canon)
+  : (v && typeof v === 'object') ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])])) : v;
 if (process.argv.includes('--update')) {
-  const g = {}; for (const f of files) g[f] = fcRun(fs.readFileSync(path.join(CORPUS,f),'utf8'), seedOf(f));
+  const g = {}; for (const f of files) g[f] = canon(fcRun(fs.readFileSync(path.join(CORPUS,f),'utf8'), seedOf(f)));
   fs.writeFileSync(path.join(CORPUS,'_goldens.json'), JSON.stringify(g, null, 2));
   console.log(`wrote ${files.length} goldens`);
 } else {
@@ -26,7 +31,7 @@ if (process.argv.includes('--update')) {
   let match=0, diff=0;
   for (const f of files) {
     const out = fcRun(fs.readFileSync(path.join(CORPUS,f),'utf8'), seedOf(f));
-    if (JSON.stringify(out)===JSON.stringify(golden[f])) match++; else { diff++; console.log('DIFF '+f+'\n  got: '+JSON.stringify(out.vars)); }
+    if (JSON.stringify(canon(out))===JSON.stringify(canon(golden[f]))) match++; else { diff++; console.log('DIFF '+f+'\n  got: '+JSON.stringify(out.vars)); }
   }
   console.log(`${match}/${files.length} match, ${diff} diff`);
   process.exit(diff?1:0);

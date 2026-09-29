@@ -1,7 +1,8 @@
-import fs from 'fs';
+import fs from 'fs'; import path from 'path'; import os from 'os';
 const w = (await WebAssembly.instantiate(fs.readFileSync('target/wasm32-unknown-unknown/release/fc_spike.wasm'),{})).instance.exports;
 const enc=new TextEncoder(), dec=new TextDecoder();
-const game = fs.readFileSync('/tmp/game.fc','utf8');
+// usage: node soak.mjs [path-to-game.fc]   (default: <tmpdir>/game.fc)
+const game = fs.readFileSync(process.argv[2] || path.join(os.tmpdir(), 'game.fc'), 'utf8');
 const b=enc.encode(game); new Uint8Array(w.memory.buffer,w.src_ptr(),b.length).set(b);
 const memPages = () => w.memory.buffer.byteLength / 65536;
 let n = w.parse_render(b.length, 0);

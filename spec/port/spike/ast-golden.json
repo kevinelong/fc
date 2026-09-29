@@ -1808,6 +1808,351 @@
       "type": "rungame"
     }
   ],
+  "chaos.fc": [
+    {
+      "target": "ax",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 64
+      }
+    },
+    {
+      "target": "ay",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 6
+      }
+    },
+    {
+      "target": "bx",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 6
+      }
+    },
+    {
+      "target": "by",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 120
+      }
+    },
+    {
+      "target": "cx",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 122
+      }
+    },
+    {
+      "target": "cy",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 120
+      }
+    },
+    {
+      "target": "px",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 64
+      }
+    },
+    {
+      "target": "py",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 64
+      }
+    },
+    {
+      "target": "dots",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "r",
+              "type": "assign",
+              "value": {
+                "max": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "type": "random"
+              }
+            },
+            {
+              "target": "tx",
+              "type": "assign",
+              "value": {
+                "name": "ax",
+                "type": "ref"
+              }
+            },
+            {
+              "target": "ty",
+              "type": "assign",
+              "value": {
+                "name": "ay",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "tx",
+                  "type": "assign",
+                  "value": {
+                    "name": "bx",
+                    "type": "ref"
+                  }
+                },
+                {
+                  "target": "ty",
+                  "type": "assign",
+                  "value": {
+                    "name": "by",
+                    "type": "ref"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "r",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "eq"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "tx",
+                  "type": "assign",
+                  "value": {
+                    "name": "cx",
+                    "type": "ref"
+                  }
+                },
+                {
+                  "target": "ty",
+                  "type": "assign",
+                  "value": {
+                    "name": "cy",
+                    "type": "ref"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "r",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "eq"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "target": "sx",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "px",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "name": "tx",
+                  "type": "ref"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "px",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "sx",
+                  "type": "ref"
+                },
+                "op": "/",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "sy",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "py",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "name": "ty",
+                  "type": "ref"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "py",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "sy",
+                  "type": "ref"
+                },
+                "op": "/",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "n",
+              "type": "assign",
+              "value": {
+                "expr": {
+                  "name": "dots",
+                  "type": "ref"
+                },
+                "type": "count"
+              }
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "n",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 1800
+                },
+                "type": "cmp"
+              },
+              "thenStmt": {
+                "target": "dots",
+                "type": "add",
+                "value": {
+                  "props": {
+                    "x": {
+                      "name": "px",
+                      "type": "ref"
+                    },
+                    "y": {
+                      "name": "py",
+                      "type": "ref"
+                    }
+                  },
+                  "type": "object_expr"
+                }
+              },
+              "type": "if"
+            }
+          ],
+          "count": {
+            "type": "literal",
+            "value": 20
+          },
+          "type": "repeat_times"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "color": "green",
+                "h": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "x": {
+                  "name": "d.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "d.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "dots",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "d",
+          "where": null
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "coin-quest.fc": [
     {
       "target": "world",
@@ -2834,6 +3179,7 @@
             "type": "eq"
           },
           "thenStmt": {
+            "argExprs": [],
             "args": [],
             "name": "shoot",
             "type": "call"
@@ -2861,6 +3207,7 @@
             "type": "eq"
           },
           "thenStmt": {
+            "argExprs": [],
             "args": [],
             "name": "shoot",
             "type": "call"
@@ -3026,6 +3373,12 @@
     {
       "body": [
         {
+          "argExprs": [
+            {
+              "name": "game",
+              "type": "ref"
+            }
+          ],
           "args": [
             {
               "type": "word",
@@ -3082,6 +3435,12 @@
     {
       "body": [
         {
+          "argExprs": [
+            {
+              "name": "game",
+              "type": "ref"
+            }
+          ],
           "args": [
             {
               "type": "word",
@@ -3103,6 +3462,12 @@
     {
       "body": [
         {
+          "argExprs": [
+            {
+              "name": "game",
+              "type": "ref"
+            }
+          ],
           "args": [
             {
               "type": "word",
@@ -3326,6 +3691,48 @@
         "update"
       ],
       "type": "rungame"
+    }
+  ],
+  "color_word_assign.fc": [
+    {
+      "target": "shade",
+      "type": "assign",
+      "value": {
+        "name": "dark gray",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "tone",
+      "type": "assign",
+      "value": {
+        "name": "green",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "copy",
+      "type": "assign",
+      "value": {
+        "name": "shade",
+        "type": "ref"
+      }
+    },
+    {
+      "target": "green",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "mine"
+      }
+    },
+    {
+      "target": "seen",
+      "type": "assign",
+      "value": {
+        "name": "green",
+        "type": "ref"
+      }
     }
   ],
   "cycles.fc": [
@@ -5037,6 +5444,65 @@
       }
     }
   ],
+  "dotted_then_math.fc": [
+    {
+      "target": "box",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 4
+          },
+          "y": {
+            "type": "literal",
+            "value": 6
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "sum1",
+      "type": "assign",
+      "value": {
+        "left": {
+          "name": "box.x",
+          "type": "ref"
+        },
+        "op": "+",
+        "right": {
+          "type": "literal",
+          "value": 1
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "sum2",
+      "type": "assign",
+      "value": {
+        "left": {
+          "name": "box.x",
+          "type": "ref"
+        },
+        "op": "*",
+        "right": {
+          "name": "box.y",
+          "type": "ref"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "shade",
+      "type": "assign",
+      "value": {
+        "name": "dark gray",
+        "type": "ref"
+      }
+    }
+  ],
   "elseif_in_loop.fc": [
     {
       "target": "result",
@@ -6323,6 +6789,7 @@
       }
     },
     {
+      "argExprs": [],
       "args": [],
       "name": "bump",
       "type": "call"
@@ -6343,6 +6810,7 @@
       "type": "funcdef"
     },
     {
+      "argExprs": [],
       "args": [],
       "name": "bump",
       "type": "call"
@@ -7319,6 +7787,205 @@
         "draw"
       ],
       "type": "rungame"
+    }
+  ],
+  "func_params.fc": [
+    {
+      "target": "total",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "total",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "total",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "name": "points",
+              "type": "ref"
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "name": "gain",
+      "params": [
+        "points"
+      ],
+      "type": "funcdef"
+    },
+    {
+      "argExprs": [
+        {
+          "type": "literal",
+          "value": 10
+        }
+      ],
+      "args": [
+        {
+          "type": "word",
+          "value": "with"
+        },
+        {
+          "type": "number",
+          "value": 10
+        }
+      ],
+      "name": "gain",
+      "type": "call"
+    },
+    {
+      "argExprs": [
+        {
+          "type": "literal",
+          "value": 5
+        }
+      ],
+      "args": [
+        {
+          "type": "word",
+          "value": "with"
+        },
+        {
+          "type": "number",
+          "value": 5
+        }
+      ],
+      "name": "gain",
+      "type": "call"
+    },
+    {
+      "target": "cells",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "props": {
+              "v": {
+                "type": "literal",
+                "value": 0
+              }
+            },
+            "type": "object_expr"
+          },
+          {
+            "props": {
+              "v": {
+                "type": "literal",
+                "value": 0
+              }
+            },
+            "type": "object_expr"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "c",
+          "type": "assign",
+          "value": {
+            "index": {
+              "name": "i",
+              "type": "ref"
+            },
+            "list": {
+              "name": "cells",
+              "type": "ref"
+            },
+            "type": "item_of"
+          }
+        },
+        {
+          "target": "c.v",
+          "type": "assign",
+          "value": {
+            "name": "n",
+            "type": "ref"
+          }
+        }
+      ],
+      "name": "setcell",
+      "params": [
+        "i",
+        "n"
+      ],
+      "type": "funcdef"
+    },
+    {
+      "argExprs": [
+        {
+          "type": "literal",
+          "value": 1
+        },
+        {
+          "type": "literal",
+          "value": 8
+        }
+      ],
+      "args": [
+        {
+          "type": "word",
+          "value": "at"
+        },
+        {
+          "type": "number",
+          "value": 1
+        },
+        {
+          "type": "word",
+          "value": "with"
+        },
+        {
+          "type": "number",
+          "value": 8
+        }
+      ],
+      "name": "setcell",
+      "type": "call"
+    },
+    {
+      "argExprs": [
+        {
+          "type": "literal",
+          "value": 2
+        },
+        {
+          "type": "literal",
+          "value": 3
+        }
+      ],
+      "args": [
+        {
+          "type": "word",
+          "value": "at"
+        },
+        {
+          "type": "number",
+          "value": 2
+        },
+        {
+          "type": "word",
+          "value": "with"
+        },
+        {
+          "type": "number",
+          "value": 3
+        }
+      ],
+      "name": "setcell",
+      "type": "call"
     }
   ],
   "hunt.fc": [
@@ -9546,6 +10213,102 @@
       }
     }
   ],
+  "item_computed_index.fc": [
+    {
+      "target": "grid",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "type": "literal",
+            "value": 10
+          },
+          {
+            "type": "literal",
+            "value": 20
+          },
+          {
+            "type": "literal",
+            "value": 30
+          },
+          {
+            "type": "literal",
+            "value": 40
+          },
+          {
+            "type": "literal",
+            "value": 50
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "i",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 2
+      }
+    },
+    {
+      "target": "a",
+      "type": "assign",
+      "value": {
+        "index": {
+          "left": {
+            "name": "i",
+            "type": "ref"
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 1
+          },
+          "type": "math"
+        },
+        "list": {
+          "name": "grid",
+          "type": "ref"
+        },
+        "type": "item_of"
+      }
+    },
+    {
+      "target": "b",
+      "type": "assign",
+      "value": {
+        "index": {
+          "left": {
+            "name": "i",
+            "type": "ref"
+          },
+          "op": "*",
+          "right": {
+            "type": "literal",
+            "value": 2
+          },
+          "type": "math"
+        },
+        "list": {
+          "name": "grid",
+          "type": "ref"
+        },
+        "type": "item_of"
+      }
+    },
+    {
+      "target": "c",
+      "type": "assign",
+      "value": {
+        "expr": {
+          "name": "grid",
+          "type": "ref"
+        },
+        "type": "count"
+      }
+    }
+  ],
   "item_one_based.fc": [
     {
       "target": "list",
@@ -10469,6 +11232,1185 @@
       "type": "rungame"
     }
   ],
+  "langton.fc": [
+    {
+      "target": "grid",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "grid",
+          "type": "add",
+          "value": {
+            "props": {
+              "on": {
+                "type": "literal",
+                "value": false
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "from": {
+        "type": "literal",
+        "value": 1
+      },
+      "to": {
+        "type": "literal",
+        "value": 1764
+      },
+      "type": "repeat_range",
+      "varName": "i"
+    },
+    {
+      "target": "ax",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 21
+      }
+    },
+    {
+      "target": "ay",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 21
+      }
+    },
+    {
+      "target": "dir",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "hi",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "left": {
+                    "left": {
+                      "name": "ay",
+                      "type": "ref"
+                    },
+                    "op": "*",
+                    "right": {
+                      "type": "literal",
+                      "value": 42
+                    },
+                    "type": "math"
+                  },
+                  "op": "+",
+                  "right": {
+                    "name": "ax",
+                    "type": "ref"
+                  },
+                  "type": "math"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "here",
+              "type": "assign",
+              "value": {
+                "index": {
+                  "name": "hi",
+                  "type": "ref"
+                },
+                "list": {
+                  "name": "grid",
+                  "type": "ref"
+                },
+                "type": "item_of"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "dir",
+                  "type": "remove",
+                  "value": {
+                    "type": "literal",
+                    "value": 1
+                  }
+                },
+                {
+                  "target": "here.on",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": false
+                  }
+                }
+              ],
+              "condition": {
+                "name": "here.on",
+                "type": "ref"
+              },
+              "thenStmt": null,
+              "type": "if"
+            },
+            {
+              "body": [
+                {
+                  "target": "dir",
+                  "type": "add",
+                  "value": {
+                    "type": "literal",
+                    "value": 1
+                  }
+                },
+                {
+                  "target": "here.on",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ],
+              "type": "else"
+            },
+            {
+              "target": "d4",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "dir",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "dir",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "d4",
+                  "type": "ref"
+                },
+                "op": "%",
+                "right": {
+                  "type": "literal",
+                  "value": 4
+                },
+                "type": "math"
+              }
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "dir",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "ay",
+                "type": "remove",
+                "value": {
+                  "type": "literal",
+                  "value": 1
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "dir",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "ax",
+                "type": "add",
+                "value": {
+                  "type": "literal",
+                  "value": 1
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "dir",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "ay",
+                "type": "add",
+                "value": {
+                  "type": "literal",
+                  "value": 1
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "dir",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "ax",
+                "type": "remove",
+                "value": {
+                  "type": "literal",
+                  "value": 1
+                }
+              },
+              "type": "if"
+            },
+            {
+              "target": "aw",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "ax",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 42
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "ax",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "aw",
+                  "type": "ref"
+                },
+                "op": "%",
+                "right": {
+                  "type": "literal",
+                  "value": 42
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "ah",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "ay",
+                  "type": "ref"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 42
+                },
+                "type": "math"
+              }
+            },
+            {
+              "target": "ay",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "name": "ah",
+                  "type": "ref"
+                },
+                "op": "%",
+                "right": {
+                  "type": "literal",
+                  "value": 42
+                },
+                "type": "math"
+              }
+            }
+          ],
+          "count": {
+            "type": "literal",
+            "value": 8
+          },
+          "type": "repeat_times"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "ci",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 42
+                        },
+                        "type": "math"
+                      },
+                      "op": "+",
+                      "right": {
+                        "name": "x",
+                        "type": "ref"
+                      },
+                      "type": "math"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "c",
+                  "type": "assign",
+                  "value": {
+                    "index": {
+                      "name": "ci",
+                      "type": "ref"
+                    },
+                    "list": {
+                      "name": "grid",
+                      "type": "ref"
+                    },
+                    "type": "item_of"
+                  }
+                },
+                {
+                  "body": [],
+                  "condition": {
+                    "name": "c.on",
+                    "type": "ref"
+                  },
+                  "thenStmt": {
+                    "args": {
+                      "color": "white",
+                      "h": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "w": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "x": {
+                        "left": {
+                          "name": "x",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "type": "math"
+                      },
+                      "y": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "type": "math"
+                      }
+                    },
+                    "hud": false,
+                    "shape": "rect",
+                    "type": "draw"
+                  },
+                  "type": "if"
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 41
+              },
+              "type": "repeat_range",
+              "varName": "x"
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 41
+          },
+          "type": "repeat_range",
+          "varName": "y"
+        },
+        {
+          "args": {
+            "color": "red",
+            "h": {
+              "type": "literal",
+              "value": 3
+            },
+            "w": {
+              "type": "literal",
+              "value": 3
+            },
+            "x": {
+              "left": {
+                "name": "ax",
+                "type": "ref"
+              },
+              "op": "*",
+              "right": {
+                "type": "literal",
+                "value": 3
+              },
+              "type": "math"
+            },
+            "y": {
+              "left": {
+                "name": "ay",
+                "type": "ref"
+              },
+              "op": "*",
+              "right": {
+                "type": "literal",
+                "value": 3
+              },
+              "type": "math"
+            }
+          },
+          "hud": false,
+          "shape": "rect",
+          "type": "draw"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "life.fc": [
+    {
+      "target": "grid",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "born",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": false
+          }
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "max": {
+                "type": "literal",
+                "value": 100
+              },
+              "type": "random"
+            },
+            "op": "<",
+            "right": {
+              "type": "literal",
+              "value": 32
+            },
+            "type": "cmp"
+          },
+          "thenStmt": {
+            "target": "born",
+            "type": "assign",
+            "value": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          "type": "if"
+        },
+        {
+          "target": "grid",
+          "type": "add",
+          "value": {
+            "props": {
+              "on": {
+                "name": "born",
+                "type": "ref"
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "from": {
+        "type": "literal",
+        "value": 1
+      },
+      "to": {
+        "type": "literal",
+        "value": 1024
+      },
+      "type": "repeat_range",
+      "varName": "i"
+    },
+    {
+      "target": "tick",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "tick",
+          "type": "add",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "left": {
+                "name": "tick",
+                "type": "ref"
+              },
+              "op": "%",
+              "right": {
+                "type": "literal",
+                "value": 4
+              },
+              "type": "math"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "neq"
+          },
+          "thenStmt": {
+            "type": "return",
+            "value": null
+          },
+          "type": "if"
+        },
+        {
+          "target": "next",
+          "type": "assign",
+          "value": {
+            "items": [],
+            "type": "listliteral"
+          }
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "n",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 0
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "body": [
+                        {
+                          "target": "wx",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "left": {
+                                "name": "x",
+                                "type": "ref"
+                              },
+                              "op": "+",
+                              "right": {
+                                "name": "dx",
+                                "type": "ref"
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 32
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "nx",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "name": "wx",
+                              "type": "ref"
+                            },
+                            "op": "%",
+                            "right": {
+                              "type": "literal",
+                              "value": 32
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "wy",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "left": {
+                                "name": "y",
+                                "type": "ref"
+                              },
+                              "op": "+",
+                              "right": {
+                                "name": "dy",
+                                "type": "ref"
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 32
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "ny",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "name": "wy",
+                              "type": "ref"
+                            },
+                            "op": "%",
+                            "right": {
+                              "type": "literal",
+                              "value": 32
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "ni",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "left": {
+                                "left": {
+                                  "name": "ny",
+                                  "type": "ref"
+                                },
+                                "op": "*",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 32
+                                },
+                                "type": "math"
+                              },
+                              "op": "+",
+                              "right": {
+                                "name": "nx",
+                                "type": "ref"
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 1
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "nb",
+                          "type": "assign",
+                          "value": {
+                            "index": {
+                              "name": "ni",
+                              "type": "ref"
+                            },
+                            "list": {
+                              "name": "grid",
+                              "type": "ref"
+                            },
+                            "type": "item_of"
+                          }
+                        },
+                        {
+                          "body": [],
+                          "condition": {
+                            "name": "nb.on",
+                            "type": "ref"
+                          },
+                          "thenStmt": {
+                            "target": "n",
+                            "type": "add",
+                            "value": {
+                              "type": "literal",
+                              "value": 1
+                            }
+                          },
+                          "type": "if"
+                        }
+                      ],
+                      "from": {
+                        "left": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "op": "-",
+                        "right": {
+                          "type": "literal",
+                          "value": 1
+                        },
+                        "type": "math"
+                      },
+                      "to": {
+                        "type": "literal",
+                        "value": 1
+                      },
+                      "type": "repeat_range",
+                      "varName": "dx"
+                    }
+                  ],
+                  "from": {
+                    "left": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "op": "-",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  },
+                  "to": {
+                    "type": "literal",
+                    "value": 1
+                  },
+                  "type": "repeat_range",
+                  "varName": "dy"
+                },
+                {
+                  "target": "mi",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 32
+                        },
+                        "type": "math"
+                      },
+                      "op": "+",
+                      "right": {
+                        "name": "x",
+                        "type": "ref"
+                      },
+                      "type": "math"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "me",
+                  "type": "assign",
+                  "value": {
+                    "index": {
+                      "name": "mi",
+                      "type": "ref"
+                    },
+                    "list": {
+                      "name": "grid",
+                      "type": "ref"
+                    },
+                    "type": "item_of"
+                  }
+                },
+                {
+                  "body": [],
+                  "condition": {
+                    "name": "me.on",
+                    "type": "ref"
+                  },
+                  "thenStmt": {
+                    "target": "n",
+                    "type": "remove",
+                    "value": {
+                      "type": "literal",
+                      "value": 1
+                    }
+                  },
+                  "type": "if"
+                },
+                {
+                  "target": "alive",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": false
+                  }
+                },
+                {
+                  "body": [],
+                  "condition": {
+                    "left": {
+                      "name": "me.on",
+                      "type": "ref"
+                    },
+                    "right": {
+                      "left": {
+                        "name": "n",
+                        "type": "ref"
+                      },
+                      "right": {
+                        "type": "literal",
+                        "value": 2
+                      },
+                      "type": "eq"
+                    },
+                    "type": "and"
+                  },
+                  "thenStmt": {
+                    "target": "alive",
+                    "type": "assign",
+                    "value": {
+                      "type": "literal",
+                      "value": true
+                    }
+                  },
+                  "type": "if"
+                },
+                {
+                  "body": [],
+                  "condition": {
+                    "left": {
+                      "name": "n",
+                      "type": "ref"
+                    },
+                    "right": {
+                      "type": "literal",
+                      "value": 3
+                    },
+                    "type": "eq"
+                  },
+                  "thenStmt": {
+                    "target": "alive",
+                    "type": "assign",
+                    "value": {
+                      "type": "literal",
+                      "value": true
+                    }
+                  },
+                  "type": "if"
+                },
+                {
+                  "target": "next",
+                  "type": "add",
+                  "value": {
+                    "props": {
+                      "on": {
+                        "name": "alive",
+                        "type": "ref"
+                      }
+                    },
+                    "type": "object_expr"
+                  }
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 31
+              },
+              "type": "repeat_range",
+              "varName": "x"
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 31
+          },
+          "type": "repeat_range",
+          "varName": "y"
+        },
+        {
+          "target": "grid",
+          "type": "assign",
+          "value": {
+            "name": "next",
+            "type": "ref"
+          }
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "ci",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 32
+                        },
+                        "type": "math"
+                      },
+                      "op": "+",
+                      "right": {
+                        "name": "x",
+                        "type": "ref"
+                      },
+                      "type": "math"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "c",
+                  "type": "assign",
+                  "value": {
+                    "index": {
+                      "name": "ci",
+                      "type": "ref"
+                    },
+                    "list": {
+                      "name": "grid",
+                      "type": "ref"
+                    },
+                    "type": "item_of"
+                  }
+                },
+                {
+                  "body": [],
+                  "condition": {
+                    "name": "c.on",
+                    "type": "ref"
+                  },
+                  "thenStmt": {
+                    "args": {
+                      "color": "green",
+                      "h": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "w": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "x": {
+                        "left": {
+                          "name": "x",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 4
+                        },
+                        "type": "math"
+                      },
+                      "y": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 4
+                        },
+                        "type": "math"
+                      }
+                    },
+                    "hud": false,
+                    "shape": "rect",
+                    "type": "draw"
+                  },
+                  "type": "if"
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 31
+              },
+              "type": "repeat_range",
+              "varName": "x"
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 31
+          },
+          "type": "repeat_range",
+          "varName": "y"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "load_missing_default.fc": [
     {
       "target": "x",
@@ -10632,6 +12574,351 @@
         "name": "world.width",
         "type": "ref"
       }
+    }
+  ],
+  "matrix.fc": [
+    {
+      "target": "columns",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "columns",
+          "type": "add",
+          "value": {
+            "props": {
+              "speed": {
+                "left": {
+                  "max": {
+                    "type": "literal",
+                    "value": 3
+                  },
+                  "type": "random"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "math"
+              },
+              "x": {
+                "left": {
+                  "name": "i",
+                  "type": "ref"
+                },
+                "op": "*",
+                "right": {
+                  "type": "literal",
+                  "value": 8
+                },
+                "type": "math"
+              },
+              "y": {
+                "max": {
+                  "type": "literal",
+                  "value": 128
+                },
+                "type": "random"
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "from": {
+        "type": "literal",
+        "value": 0
+      },
+      "to": {
+        "type": "literal",
+        "value": 15
+      },
+      "type": "repeat_range",
+      "varName": "i"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "c.y",
+              "type": "add",
+              "value": {
+                "name": "c.speed",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "c.y",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 0
+                  }
+                },
+                {
+                  "target": "c.speed",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "max": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "type": "random"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 2
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "c.y",
+                  "type": "ref"
+                },
+                "op": ">",
+                "right": {
+                  "type": "literal",
+                  "value": 160
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "columns",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "c",
+          "where": null
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "ty",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "name": "c.y",
+                      "type": "ref"
+                    },
+                    "op": "-",
+                    "right": {
+                      "left": {
+                        "name": "t",
+                        "type": "ref"
+                      },
+                      "op": "*",
+                      "right": {
+                        "type": "literal",
+                        "value": 8
+                      },
+                      "type": "math"
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "target": "shade",
+                      "type": "assign",
+                      "value": {
+                        "name": "dark green",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "body": [],
+                      "condition": {
+                        "left": {
+                          "name": "t",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 2
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": {
+                        "target": "shade",
+                        "type": "assign",
+                        "value": {
+                          "name": "green",
+                          "type": "ref"
+                        }
+                      },
+                      "type": "if"
+                    },
+                    {
+                      "body": [],
+                      "condition": {
+                        "left": {
+                          "name": "t",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 1
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": {
+                        "target": "shade",
+                        "type": "assign",
+                        "value": {
+                          "name": "green",
+                          "type": "ref"
+                        }
+                      },
+                      "type": "if"
+                    },
+                    {
+                      "body": [],
+                      "condition": {
+                        "left": {
+                          "name": "t",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": {
+                        "target": "shade",
+                        "type": "assign",
+                        "value": {
+                          "name": "white",
+                          "type": "ref"
+                        }
+                      },
+                      "type": "if"
+                    },
+                    {
+                      "target": "digit",
+                      "type": "assign",
+                      "value": {
+                        "max": {
+                          "type": "literal",
+                          "value": 10
+                        },
+                        "type": "random"
+                      }
+                    },
+                    {
+                      "color": "shade",
+                      "hud": false,
+                      "text": {
+                        "type": "literal",
+                        "value": "{digit}"
+                      },
+                      "type": "write",
+                      "x": {
+                        "name": "c.x",
+                        "type": "ref"
+                      },
+                      "y": {
+                        "name": "ty",
+                        "type": "ref"
+                      }
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "left": {
+                        "name": "ty",
+                        "type": "ref"
+                      },
+                      "op": ">",
+                      "right": {
+                        "type": "literal",
+                        "value": -8
+                      },
+                      "type": "cmp"
+                    },
+                    "right": {
+                      "left": {
+                        "name": "ty",
+                        "type": "ref"
+                      },
+                      "op": "<",
+                      "right": {
+                        "type": "literal",
+                        "value": 128
+                      },
+                      "type": "cmp"
+                    },
+                    "type": "and"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 11
+              },
+              "type": "repeat_range",
+              "varName": "t"
+            }
+          ],
+          "list": {
+            "name": "columns",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "c",
+          "where": null
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
     }
   ],
   "maze.fc": [
@@ -12726,6 +15013,339 @@
         "draw"
       ],
       "type": "rungame"
+    }
+  ],
+  "not_and_condition.fc": [
+    {
+      "target": "hp",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 3
+      }
+    },
+    {
+      "target": "shield",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "up"
+      }
+    },
+    {
+      "target": "a",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "b",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "c",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "a",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "expr": {
+          "left": {
+            "left": {
+              "name": "hp",
+              "type": "ref"
+            },
+            "op": ">",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "cmp"
+          },
+          "right": {
+            "left": {
+              "name": "shield",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "up"
+            },
+            "type": "eq"
+          },
+          "type": "and"
+        },
+        "type": "not"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "b",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "expr": {
+          "left": {
+            "left": {
+              "name": "hp",
+              "type": "ref"
+            },
+            "op": ">",
+            "right": {
+              "type": "literal",
+              "value": 5
+            },
+            "type": "cmp"
+          },
+          "right": {
+            "left": {
+              "name": "shield",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "up"
+            },
+            "type": "eq"
+          },
+          "type": "and"
+        },
+        "type": "not"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "c",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "expr": {
+          "left": {
+            "left": {
+              "name": "hp",
+              "type": "ref"
+            },
+            "op": ">",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "cmp"
+          },
+          "right": {
+            "left": {
+              "name": "shield",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": "down"
+            },
+            "type": "eq"
+          },
+          "type": "and"
+        },
+        "type": "not"
+      },
+      "thenStmt": null,
+      "type": "if"
+    }
+  ],
+  "parens_grouping.fc": [
+    {
+      "target": "a",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 3
+        },
+        "op": "+",
+        "right": {
+          "type": "literal",
+          "value": 4
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "b",
+      "type": "assign",
+      "value": {
+        "left": {
+          "type": "literal",
+          "value": 2
+        },
+        "op": "*",
+        "right": {
+          "left": {
+            "type": "literal",
+            "value": 3
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 4
+          },
+          "type": "math"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "c",
+      "type": "assign",
+      "value": {
+        "left": {
+          "left": {
+            "type": "literal",
+            "value": 3
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 4
+          },
+          "type": "math"
+        },
+        "op": "%",
+        "right": {
+          "type": "literal",
+          "value": 5
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "d",
+      "type": "assign",
+      "value": {
+        "left": {
+          "left": {
+            "type": "literal",
+            "value": 10
+          },
+          "op": "-",
+          "right": {
+            "type": "literal",
+            "value": 2
+          },
+          "type": "math"
+        },
+        "op": "/",
+        "right": {
+          "left": {
+            "type": "literal",
+            "value": 2
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 2
+          },
+          "type": "math"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "e",
+      "type": "assign",
+      "value": {
+        "left": {
+          "left": {
+            "type": "literal",
+            "value": 1
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 2
+          },
+          "type": "math"
+        },
+        "op": "*",
+        "right": {
+          "left": {
+            "type": "literal",
+            "value": 3
+          },
+          "op": "+",
+          "right": {
+            "type": "literal",
+            "value": 4
+          },
+          "type": "math"
+        },
+        "type": "math"
+      }
+    },
+    {
+      "target": "f",
+      "type": "assign",
+      "value": {
+        "left": {
+          "left": {
+            "type": "literal",
+            "value": 2
+          },
+          "op": "*",
+          "right": {
+            "left": {
+              "type": "literal",
+              "value": 3
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 4
+            },
+            "type": "math"
+          },
+          "type": "math"
+        },
+        "op": "-",
+        "right": {
+          "type": "literal",
+          "value": 1
+        },
+        "type": "math"
+      }
     }
   ],
   "parseif_and_resets.fc": [
@@ -15688,6 +18308,792 @@
       "varName": "n"
     }
   ],
+  "sand.fc": [
+    {
+      "target": "grid",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "grid",
+          "type": "add",
+          "value": {
+            "props": {
+              "full": {
+                "type": "literal",
+                "value": 0
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "from": {
+        "type": "literal",
+        "value": 1
+      },
+      "to": {
+        "type": "literal",
+        "value": 1600
+      },
+      "type": "repeat_range",
+      "varName": "i"
+    },
+    {
+      "body": [
+        {
+          "target": "fx",
+          "type": "assign",
+          "value": {
+            "left": {
+              "type": "literal",
+              "value": 18
+            },
+            "op": "+",
+            "right": {
+              "max": {
+                "type": "literal",
+                "value": 4
+              },
+              "type": "random"
+            },
+            "type": "math"
+          }
+        },
+        {
+          "target": "fi",
+          "type": "assign",
+          "value": {
+            "left": {
+              "left": {
+                "type": "literal",
+                "value": 40
+              },
+              "op": "+",
+              "right": {
+                "name": "fx",
+                "type": "ref"
+              },
+              "type": "math"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        },
+        {
+          "target": "spot",
+          "type": "assign",
+          "value": {
+            "index": {
+              "name": "fi",
+              "type": "ref"
+            },
+            "list": {
+              "name": "grid",
+              "type": "ref"
+            },
+            "type": "item_of"
+          }
+        },
+        {
+          "body": [],
+          "condition": {
+            "left": {
+              "name": "spot.full",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": 0
+            },
+            "type": "eq"
+          },
+          "thenStmt": {
+            "target": "spot.full",
+            "type": "assign",
+            "value": {
+              "left": {
+                "max": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "type": "random"
+              },
+              "op": "+",
+              "right": {
+                "type": "literal",
+                "value": 1
+              },
+              "type": "math"
+            }
+          },
+          "type": "if"
+        },
+        {
+          "body": [
+            {
+              "target": "y",
+              "type": "assign",
+              "value": {
+                "left": {
+                  "type": "literal",
+                  "value": 38
+                },
+                "op": "-",
+                "right": {
+                  "name": "yy",
+                  "type": "ref"
+                },
+                "type": "math"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "hi",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 40
+                        },
+                        "type": "math"
+                      },
+                      "op": "+",
+                      "right": {
+                        "name": "x",
+                        "type": "ref"
+                      },
+                      "type": "math"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "here",
+                  "type": "assign",
+                  "value": {
+                    "index": {
+                      "name": "hi",
+                      "type": "ref"
+                    },
+                    "list": {
+                      "name": "grid",
+                      "type": "ref"
+                    },
+                    "type": "item_of"
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "target": "bi",
+                      "type": "assign",
+                      "value": {
+                        "left": {
+                          "left": {
+                            "left": {
+                              "left": {
+                                "name": "y",
+                                "type": "ref"
+                              },
+                              "op": "*",
+                              "right": {
+                                "type": "literal",
+                                "value": 40
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 40
+                            },
+                            "type": "math"
+                          },
+                          "op": "+",
+                          "right": {
+                            "name": "x",
+                            "type": "ref"
+                          },
+                          "type": "math"
+                        },
+                        "op": "+",
+                        "right": {
+                          "type": "literal",
+                          "value": 1
+                        },
+                        "type": "math"
+                      }
+                    },
+                    {
+                      "target": "below",
+                      "type": "assign",
+                      "value": {
+                        "index": {
+                          "name": "bi",
+                          "type": "ref"
+                        },
+                        "list": {
+                          "name": "grid",
+                          "type": "ref"
+                        },
+                        "type": "item_of"
+                      }
+                    },
+                    {
+                      "target": "moved",
+                      "type": "assign",
+                      "value": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "below.full",
+                          "type": "assign",
+                          "value": {
+                            "name": "here.full",
+                            "type": "ref"
+                          }
+                        },
+                        {
+                          "target": "here.full",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": 0
+                          }
+                        },
+                        {
+                          "target": "moved",
+                          "type": "assign",
+                          "value": {
+                            "type": "literal",
+                            "value": true
+                          }
+                        }
+                      ],
+                      "condition": {
+                        "left": {
+                          "name": "below.full",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 0
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "li",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "left": {
+                                "left": {
+                                  "name": "y",
+                                  "type": "ref"
+                                },
+                                "op": "*",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 40
+                                },
+                                "type": "math"
+                              },
+                              "op": "+",
+                              "right": {
+                                "type": "literal",
+                                "value": 40
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "name": "x",
+                              "type": "ref"
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "left",
+                          "type": "assign",
+                          "value": {
+                            "index": {
+                              "name": "li",
+                              "type": "ref"
+                            },
+                            "list": {
+                              "name": "grid",
+                              "type": "ref"
+                            },
+                            "type": "item_of"
+                          }
+                        },
+                        {
+                          "body": [
+                            {
+                              "target": "left.full",
+                              "type": "assign",
+                              "value": {
+                                "name": "here.full",
+                                "type": "ref"
+                              }
+                            },
+                            {
+                              "target": "here.full",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": 0
+                              }
+                            },
+                            {
+                              "target": "moved",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": true
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "name": "left.full",
+                              "type": "ref"
+                            },
+                            "right": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "type": "eq"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "condition": {
+                        "expr": {
+                          "left": {
+                            "name": "moved",
+                            "type": "ref"
+                          },
+                          "right": {
+                            "left": {
+                              "name": "x",
+                              "type": "ref"
+                            },
+                            "op": ">",
+                            "right": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "type": "cmp"
+                          },
+                          "type": "and"
+                        },
+                        "type": "not"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    },
+                    {
+                      "body": [
+                        {
+                          "target": "ri",
+                          "type": "assign",
+                          "value": {
+                            "left": {
+                              "left": {
+                                "left": {
+                                  "left": {
+                                    "name": "y",
+                                    "type": "ref"
+                                  },
+                                  "op": "*",
+                                  "right": {
+                                    "type": "literal",
+                                    "value": 40
+                                  },
+                                  "type": "math"
+                                },
+                                "op": "+",
+                                "right": {
+                                  "type": "literal",
+                                  "value": 40
+                                },
+                                "type": "math"
+                              },
+                              "op": "+",
+                              "right": {
+                                "name": "x",
+                                "type": "ref"
+                              },
+                              "type": "math"
+                            },
+                            "op": "+",
+                            "right": {
+                              "type": "literal",
+                              "value": 2
+                            },
+                            "type": "math"
+                          }
+                        },
+                        {
+                          "target": "right",
+                          "type": "assign",
+                          "value": {
+                            "index": {
+                              "name": "ri",
+                              "type": "ref"
+                            },
+                            "list": {
+                              "name": "grid",
+                              "type": "ref"
+                            },
+                            "type": "item_of"
+                          }
+                        },
+                        {
+                          "body": [
+                            {
+                              "target": "right.full",
+                              "type": "assign",
+                              "value": {
+                                "name": "here.full",
+                                "type": "ref"
+                              }
+                            },
+                            {
+                              "target": "here.full",
+                              "type": "assign",
+                              "value": {
+                                "type": "literal",
+                                "value": 0
+                              }
+                            }
+                          ],
+                          "condition": {
+                            "left": {
+                              "name": "right.full",
+                              "type": "ref"
+                            },
+                            "right": {
+                              "type": "literal",
+                              "value": 0
+                            },
+                            "type": "eq"
+                          },
+                          "thenStmt": null,
+                          "type": "if"
+                        }
+                      ],
+                      "condition": {
+                        "expr": {
+                          "left": {
+                            "name": "moved",
+                            "type": "ref"
+                          },
+                          "right": {
+                            "left": {
+                              "name": "x",
+                              "type": "ref"
+                            },
+                            "op": "<",
+                            "right": {
+                              "type": "literal",
+                              "value": 39
+                            },
+                            "type": "cmp"
+                          },
+                          "type": "and"
+                        },
+                        "type": "not"
+                      },
+                      "thenStmt": null,
+                      "type": "if"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "here.full",
+                      "type": "ref"
+                    },
+                    "op": ">",
+                    "right": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 39
+              },
+              "type": "repeat_range",
+              "varName": "x"
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 38
+          },
+          "type": "repeat_range",
+          "varName": "yy"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "body": [
+                {
+                  "target": "ci",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "left": {
+                        "left": {
+                          "name": "y",
+                          "type": "ref"
+                        },
+                        "op": "*",
+                        "right": {
+                          "type": "literal",
+                          "value": 40
+                        },
+                        "type": "math"
+                      },
+                      "op": "+",
+                      "right": {
+                        "name": "x",
+                        "type": "ref"
+                      },
+                      "type": "math"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                },
+                {
+                  "target": "c",
+                  "type": "assign",
+                  "value": {
+                    "index": {
+                      "name": "ci",
+                      "type": "ref"
+                    },
+                    "list": {
+                      "name": "grid",
+                      "type": "ref"
+                    },
+                    "type": "item_of"
+                  }
+                },
+                {
+                  "body": [
+                    {
+                      "target": "shade",
+                      "type": "assign",
+                      "value": {
+                        "name": "yellow",
+                        "type": "ref"
+                      }
+                    },
+                    {
+                      "body": [],
+                      "condition": {
+                        "left": {
+                          "name": "c.full",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 2
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": {
+                        "target": "shade",
+                        "type": "assign",
+                        "value": {
+                          "name": "orange",
+                          "type": "ref"
+                        }
+                      },
+                      "type": "if"
+                    },
+                    {
+                      "body": [],
+                      "condition": {
+                        "left": {
+                          "name": "c.full",
+                          "type": "ref"
+                        },
+                        "right": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "type": "eq"
+                      },
+                      "thenStmt": {
+                        "target": "shade",
+                        "type": "assign",
+                        "value": {
+                          "name": "gold",
+                          "type": "ref"
+                        }
+                      },
+                      "type": "if"
+                    },
+                    {
+                      "args": {
+                        "color": "shade",
+                        "h": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "w": {
+                          "type": "literal",
+                          "value": 3
+                        },
+                        "x": {
+                          "left": {
+                            "name": "x",
+                            "type": "ref"
+                          },
+                          "op": "*",
+                          "right": {
+                            "type": "literal",
+                            "value": 3
+                          },
+                          "type": "math"
+                        },
+                        "y": {
+                          "left": {
+                            "name": "y",
+                            "type": "ref"
+                          },
+                          "op": "*",
+                          "right": {
+                            "type": "literal",
+                            "value": 3
+                          },
+                          "type": "math"
+                        }
+                      },
+                      "hud": false,
+                      "shape": "rect",
+                      "type": "draw"
+                    }
+                  ],
+                  "condition": {
+                    "left": {
+                      "name": "c.full",
+                      "type": "ref"
+                    },
+                    "op": ">",
+                    "right": {
+                      "type": "literal",
+                      "value": 0
+                    },
+                    "type": "cmp"
+                  },
+                  "thenStmt": null,
+                  "type": "if"
+                }
+              ],
+              "from": {
+                "type": "literal",
+                "value": 0
+              },
+              "to": {
+                "type": "literal",
+                "value": 39
+              },
+              "type": "repeat_range",
+              "varName": "x"
+            }
+          ],
+          "from": {
+            "type": "literal",
+            "value": 0
+          },
+          "to": {
+            "type": "literal",
+            "value": 39
+          },
+          "type": "repeat_range",
+          "varName": "y"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "save_load_list.fc": [
     {
       "target": "l",
@@ -15790,6 +19196,12 @@
       }
     },
     {
+      "argExprs": [
+        {
+          "name": "x to 99",
+          "type": "ref"
+        }
+      ],
       "args": [
         {
           "type": "word",
@@ -15808,6 +19220,12 @@
       "type": "call"
     },
     {
+      "argExprs": [
+        {
+          "name": "a thing",
+          "type": "ref"
+        }
+      ],
       "args": [
         {
           "type": "word",
@@ -15828,6 +19246,12 @@
   ],
   "singularize_ies.fc": [
     {
+      "argExprs": [
+        {
+          "name": "berries",
+          "type": "ref"
+        }
+      ],
       "args": [
         {
           "type": "word",
@@ -15868,6 +19292,12 @@
   ],
   "singularize_plain_s.fc": [
     {
+      "argExprs": [
+        {
+          "name": "coins",
+          "type": "ref"
+        }
+      ],
       "args": [
         {
           "type": "word",
@@ -17440,6 +20870,7 @@
             "type": "eq"
           },
           "thenStmt": {
+            "argExprs": [],
             "args": [],
             "name": "fire",
             "type": "call"
@@ -17820,6 +21251,259 @@
         },
         "type": "count"
       }
+    }
+  ],
+  "starfield.fc": [
+    {
+      "target": "stars",
+      "type": "assign",
+      "value": {
+        "items": [],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "stars",
+          "type": "add",
+          "value": {
+            "props": {
+              "speed": {
+                "left": {
+                  "max": {
+                    "type": "literal",
+                    "value": 3
+                  },
+                  "type": "random"
+                },
+                "op": "+",
+                "right": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "type": "math"
+              },
+              "x": {
+                "max": {
+                  "type": "literal",
+                  "value": 128
+                },
+                "type": "random"
+              },
+              "y": {
+                "max": {
+                  "type": "literal",
+                  "value": 128
+                },
+                "type": "random"
+              }
+            },
+            "type": "object_expr"
+          }
+        }
+      ],
+      "from": {
+        "type": "literal",
+        "value": 1
+      },
+      "to": {
+        "type": "literal",
+        "value": 70
+      },
+      "type": "repeat_range",
+      "varName": "i"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "target": "s.x",
+              "type": "remove",
+              "value": {
+                "name": "s.speed",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [
+                {
+                  "target": "s.x",
+                  "type": "assign",
+                  "value": {
+                    "type": "literal",
+                    "value": 128
+                  }
+                },
+                {
+                  "target": "s.y",
+                  "type": "assign",
+                  "value": {
+                    "max": {
+                      "type": "literal",
+                      "value": 128
+                    },
+                    "type": "random"
+                  }
+                },
+                {
+                  "target": "s.speed",
+                  "type": "assign",
+                  "value": {
+                    "left": {
+                      "max": {
+                        "type": "literal",
+                        "value": 3
+                      },
+                      "type": "random"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "literal",
+                      "value": 1
+                    },
+                    "type": "math"
+                  }
+                }
+              ],
+              "condition": {
+                "left": {
+                  "name": "s.x",
+                  "type": "ref"
+                },
+                "op": "<",
+                "right": {
+                  "type": "literal",
+                  "value": 0
+                },
+                "type": "cmp"
+              },
+              "thenStmt": null,
+              "type": "if"
+            }
+          ],
+          "list": {
+            "name": "stars",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "s",
+          "where": null
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "target": "shade",
+              "type": "assign",
+              "value": {
+                "name": "dark gray",
+                "type": "ref"
+              }
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "s.speed",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 2
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "shade",
+                "type": "assign",
+                "value": {
+                  "name": "light gray",
+                  "type": "ref"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "body": [],
+              "condition": {
+                "left": {
+                  "name": "s.speed",
+                  "type": "ref"
+                },
+                "right": {
+                  "type": "literal",
+                  "value": 3
+                },
+                "type": "eq"
+              },
+              "thenStmt": {
+                "target": "shade",
+                "type": "assign",
+                "value": {
+                  "name": "white",
+                  "type": "ref"
+                }
+              },
+              "type": "if"
+            },
+            {
+              "args": {
+                "color": "shade",
+                "h": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "w": {
+                  "type": "literal",
+                  "value": 1
+                },
+                "x": {
+                  "name": "s.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "s.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "rect",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "stars",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "s",
+          "where": null
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
     }
   ],
   "time-attack.fc": [

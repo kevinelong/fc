@@ -1,4 +1,4 @@
-import fs from 'fs'; import path from 'path';
+import fs from 'fs'; import path from 'path'; import os from 'os';
 import { parse, Runtime, __CMDS, __step, __setKey, __bindRT } from './fc-core-record.mjs';
 const enc = new TextEncoder(), dec = new TextDecoder();
 const DIR = path.resolve(import.meta.dirname, 'frame-tests');
@@ -26,4 +26,4 @@ for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith('.fc')).sort()){
   if(same) ok++; else bad++;
 }
 out.push(`Frames (${N} each): ${ok}/${ok+bad} programs match`);
-fs.writeFileSync('/tmp/frames-result.txt', out.join('\n')+'\n');
+fs.writeFileSync(path.join(os.tmpdir(), 'frames-result.txt'), out.join('\n')+'\n');

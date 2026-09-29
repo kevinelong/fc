@@ -1,7 +1,7 @@
 {
   "add_to_list_push.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "bag": [
         "x",
@@ -10,41 +10,41 @@
     }
   },
   "add_to_number.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "n": 5
     }
   },
   "add_to_string_concat.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "label": "score9"
     }
   },
   "animate_and_burst.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
+      "ok": 1,
       "player": {
-        "x": 10,
-        "y": 10,
-        "image": "hero",
         "animation": {
+          "every": 6,
           "frames": [
             "hero_down",
             "hero_up"
-          ],
-          "every": 6
-        }
-      },
-      "ok": 1
+          ]
+        },
+        "image": "hero",
+        "x": 10,
+        "y": 10
+      }
     }
   },
   "assign_dotted_autovivify.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "player": {
         "hp": 5,
@@ -54,163 +54,187 @@
     }
   },
   "behavior_list_subject.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "player": {
-        "x": 10,
-        "y": 10
-      },
-      "ghosts": [
-        {
-          "x": 90,
-          "y": 8,
-          "speed": 0.3,
-          "behavior": {
-            "kind": "chase",
-            "target": "player",
-            "speed": 0.3
-          }
-        },
-        {
-          "x": 90,
-          "y": 90,
-          "behavior": {
-            "kind": "chase",
-            "target": "player",
-            "speed": 0.5
-          }
-        }
-      ],
       "a": {
-        "x": 90,
-        "y": 8,
-        "speed": 0.3,
         "behavior": {
           "kind": "chase",
-          "target": "player",
-          "speed": 0.3
-        }
+          "speed": 0.3,
+          "target": "player"
+        },
+        "speed": 0.3,
+        "x": 90,
+        "y": 8
       },
       "b": {
-        "x": 90,
-        "y": 90,
         "behavior": {
           "kind": "chase",
-          "target": "player",
-          "speed": 0.5
-        }
+          "speed": 0.5,
+          "target": "player"
+        },
+        "x": 90,
+        "y": 90
       },
       "first_speed": 0.3,
       "g": {
-        "x": 90,
-        "y": 8,
-        "speed": 0.3,
         "behavior": {
           "kind": "chase",
-          "target": "player",
-          "speed": 0.3
+          "speed": 0.3,
+          "target": "player"
+        },
+        "speed": 0.3,
+        "x": 90,
+        "y": 8
+      },
+      "ghosts": [
+        {
+          "behavior": {
+            "kind": "chase",
+            "speed": 0.3,
+            "target": "player"
+          },
+          "speed": 0.3,
+          "x": 90,
+          "y": 8
+        },
+        {
+          "behavior": {
+            "kind": "chase",
+            "speed": 0.5,
+            "target": "player"
+          },
+          "x": 90,
+          "y": 90
         }
+      ],
+      "player": {
+        "x": 10,
+        "y": 10
       }
     }
   },
   "behaviors_register.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
+      "crab": {
+        "behavior": {
+          "kind": "wander",
+          "speed": 0.7
+        },
+        "x": 5,
+        "y": 5
+      },
+      "ghost": {
+        "behavior": {
+          "kind": "chase",
+          "speed": 0.4,
+          "target": "player"
+        },
+        "image": "ghost",
+        "speed": 0.4,
+        "x": 100,
+        "y": 8
+      },
+      "guard": {
+        "behavior": {
+          "dir": 1,
+          "kind": "patrol",
+          "speed": 2,
+          "x1": 20,
+          "x2": 100
+        },
+        "x": 50,
+        "y": 20
+      },
       "player": {
         "x": 10,
         "y": 10
       },
-      "ghost": {
-        "x": 100,
-        "y": 8,
-        "image": "ghost",
-        "speed": 0.4,
-        "behavior": {
-          "kind": "chase",
-          "target": "player",
-          "speed": 0.4
-        }
-      },
-      "guard": {
-        "x": 50,
-        "y": 20,
-        "behavior": {
-          "kind": "patrol",
-          "x1": 20,
-          "x2": 100,
-          "dir": 1,
-          "speed": 2
-        }
-      },
-      "crab": {
-        "x": 5,
-        "y": 5,
-        "behavior": {
-          "kind": "wander",
-          "speed": 0.7
-        }
-      },
       "wisp": {
-        "x": 30,
-        "y": 30,
         "behavior": {
           "kind": "chase",
+          "speed": 0.6,
           "target": "player",
-          "through": true,
-          "speed": 0.6
-        }
+          "through": true
+        },
+        "x": 30,
+        "y": 30
       }
     }
   },
-  "divide_by_zero.fc": {
-    "say": [],
+  "color_word_assign.fc": {
     "errors": [],
+    "say": [],
     "vars": {
-      "q": 0,
-      "m": 0
+      "copy": "dark gray",
+      "green": "mine",
+      "seen": "mine",
+      "shade": "dark gray",
+      "tone": "green"
+    }
+  },
+  "divide_by_zero.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "m": 0,
+      "q": 0
+    }
+  },
+  "dotted_then_math.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "box": {
+        "x": 4,
+        "y": 6
+      },
+      "shade": "dark gray",
+      "sum1": 5,
+      "sum2": 24
     }
   },
   "elseif_in_loop.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "result": "elifbody"
     }
   },
   "english_ops.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "score": 6,
-      "lives": 2,
-      "hi": 1,
-      "lo": 1,
+      "eq": 1,
       "ge": 1,
+      "hi": 1,
       "le": 1,
-      "eq": 1
+      "lives": 2,
+      "lo": 1,
+      "score": 6
     }
   },
   "eq_string_number.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": "5",
       "r": "equal"
     }
   },
   "eq_yes_boolean.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": true,
       "r": "equal"
     }
   },
   "eq_zero_emptystring.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": 0,
       "b": "",
@@ -218,31 +242,31 @@
     }
   },
   "every_in_conditional_loop.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": 3,
       "n": 10
     }
   },
   "every_two_blocks_line_keyed.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": 0,
       "b": 0
     }
   },
   "forward_ref_noop.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "x": 1
     }
   },
   "func_params.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "c": {
         "v": 3
@@ -262,51 +286,54 @@
     }
   },
   "ifelse_in_loop_false.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "result": "else"
     }
   },
   "ifelse_in_loop_true.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "result": "then"
     }
   },
   "ifelse_toplevel_false.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "x": 1,
-      "result": "else"
+      "result": "else",
+      "x": 1
     }
   },
   "ifelse_toplevel_true.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "x": 10,
-      "result": "then"
+      "result": "then",
+      "x": 10
     }
   },
   "inline_english_cmp.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "score": 12,
+      "done": 0,
       "hit": 1,
-      "ok": 1,
       "hp": 3,
       "lives": 0,
-      "done": 0
+      "ok": 1,
+      "score": 12
     }
   },
   "item_computed_index.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
+      "a": 30,
+      "b": 40,
+      "c": 5,
       "grid": [
         10,
         20,
@@ -314,62 +341,70 @@
         40,
         50
       ],
-      "i": 2,
-      "a": 30,
-      "b": 40,
-      "c": 5
+      "i": 2
     }
   },
   "item_one_based.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
+      "first": "a",
       "list": [
         "a",
         "b",
         "c"
       ],
-      "first": "a",
       "second": "b"
     }
   },
   "load_missing_default.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "x": 0
     }
   },
   "map_dims_and_solid.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "world": {
-        "width": 128,
-        "height": 128
-      },
-      "w": 128,
-      "h": 128,
-      "wall": true,
       "floor": false,
-      "outside": false
+      "h": 128,
+      "outside": false,
+      "w": 128,
+      "wall": true,
+      "world": {
+        "height": 128,
+        "width": 128
+      }
     }
   },
   "map_without_tiles.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "world": {
-        "width": 128,
-        "height": 128
-      },
       "anywhere": false,
-      "w": 128
+      "w": 128,
+      "world": {
+        "height": 128,
+        "width": 128
+      }
+    }
+  },
+  "not_and_condition.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "a": 0,
+      "b": 1,
+      "c": 1,
+      "hp": 3,
+      "shield": "up"
     }
   },
   "parens_grouping.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": 7,
       "b": 14,
@@ -380,8 +415,8 @@
     }
   },
   "parseif_and_resets.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "hp": 3,
       "shield": "up",
@@ -389,16 +424,16 @@
     }
   },
   "parseif_compare_then_is.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "score": 10,
-      "msg": "big"
+      "msg": "big",
+      "score": 10
     }
   },
   "parseif_dotted_inline.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "player": {
         "hp": 5
@@ -406,57 +441,57 @@
     }
   },
   "parseif_is_compare_cond.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "door": "open",
       "hit": "yes"
     }
   },
   "plus_op_nonnumeric.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "r": 0
     }
   },
   "plus_op_numeric.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "r": 7
     }
   },
   "random_inclusive_bounds.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "lo": 3,
       "hi": 1,
+      "lo": 3,
       "ok": "yes"
     }
   },
   "repeat_ascending.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "sum": 6,
       "last": 3,
-      "n": 3
+      "n": 3,
+      "sum": 6
     }
   },
   "repeat_descending.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "sum": 6,
       "last": 1,
-      "n": 1
+      "n": 1,
+      "sum": 6
     }
   },
   "save_load_list.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "l": [
         10,
@@ -472,130 +507,130 @@
     }
   },
   "save_load_roundtrip.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "score": 7,
-      "back": 7
+      "back": 7,
+      "score": 7
     }
   },
   "set_make_noop.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "x": 2
     }
   },
   "singularize_ies.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "score": 0
     }
   },
   "singularize_plain_s.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "score": 0
     }
   },
   "solid_at_no_map.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "x": false
     }
   },
   "sprite_sugar_random.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "world": {
-        "width": 120,
-        "height": 80
-      },
       "hero": {
-        "x": 56,
-        "y": 36,
-        "image": "hero",
-        "hp": 4,
-        "facing": "down",
         "dx": 0,
-        "dy": 1
+        "dy": 1,
+        "facing": "down",
+        "hp": 4,
+        "image": "hero",
+        "x": 56,
+        "y": 36
       },
+      "n": 5,
       "rocks": [
         {
+          "image": "rock",
           "x": 105,
-          "y": 23,
-          "image": "rock"
+          "y": 23
         },
         {
+          "image": "rock",
           "x": 54,
-          "y": 56,
-          "image": "rock"
+          "y": 56
         },
         {
+          "image": "rock",
           "x": 11,
-          "y": 53,
-          "image": "rock"
+          "y": 53
         },
         {
+          "image": "rock",
           "x": 107,
-          "y": 56,
-          "image": "rock"
+          "y": 56
         },
         {
+          "image": "rock",
           "x": 69,
-          "y": 19,
-          "image": "rock"
+          "y": 19
         }
       ],
-      "n": 5
+      "world": {
+        "height": 80,
+        "width": 120
+      }
     }
   },
   "time_limit_static.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "timer": 30,
-      "shown": 30
+      "shown": 30,
+      "timer": 30
     }
   },
   "truthy_empty_list.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
-      "things": [],
-      "r": "f"
+      "r": "f",
+      "things": []
     }
   },
   "truthy_yes_no.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "a": "t",
       "b": "t"
     }
   },
   "truthy_zero.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "r": "f"
     }
   },
   "with_its.fc": {
-    "say": [],
     "errors": [],
+    "say": [],
     "vars": {
       "coin": {
         "x": 15,
         "y": 22
       },
       "player": {
-        "x": 101,
-        "hp": 2
+        "hp": 2,
+        "x": 101
       }
     }
   }

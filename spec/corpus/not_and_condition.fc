@@ -1,0 +1,13 @@
+-- `not` negates the WHOLE condition, not just the first term:
+-- `if not a and b` means `if not (a and b)`.
+hp is 3
+shield is "up"
+a is 0
+b is 0
+c is 0
+if not hp > 1 and shield is "up"
+  a is 1
+if not hp > 5 and shield is "up"
+  b is 1
+if not hp > 1 and shield is "down"
+  c is 1

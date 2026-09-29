@@ -22,6 +22,7 @@ to draw
         if t is 2 shade is green
         if t is 1 shade is green
         if t is 0 shade is white
-        write random 10 at c.x, ty in shade
+        digit is random 10
+        write "{digit}" at c.x, ty in shade
 
 run game with update and draw

@@ -890,7 +890,7 @@ function parse(source) {
       const name = raw[1] ? raw[1].value : 'unknown';
       const params = [];
       for (let i = 2; i < raw.length; i++) {
-        if (raw[i].type === 'word' && tv(raw[i]) !== 'at' && tv(raw[i]) !== 'with') {
+        if (raw[i].type === 'word' && tv(raw[i]) !== 'at' && tv(raw[i]) !== 'with' && tv(raw[i]) !== 'in') {
           params.push(raw[i].value);
         }
       }
@@ -1344,7 +1344,7 @@ function parse(source) {
     }
 
     // -- function call (anything else) --
-    return { type: 'call', name: first, args: raw.slice(1), lineNum };
+    return { type: 'call', name: first, args: raw.slice(1), argExprs: parseCallArgs(raw.slice(1)), lineNum };
   }
 
   function parseKnock(raw, lineNum) {
@@ -1684,6 +1684,25 @@ function parse(source) {
     return parseExpression(tokens);
   }
 
+  // Parse a user-function call's argument tokens into a positional list of
+  // expressions. Args are separated by top-level commas OR the 'at'/'with'
+  // connector words (the same words stripped from the param list), e.g.
+  // `fill at 2 with 9` -> [2, 9], `drop at 3, 4` -> [3, 4]. Paren/bracket/brace
+  // aware; empty segments (a leading connector) are dropped.
+  function parseCallArgs(tokens) {
+    const segs = []; let cur = [], depth = 0;
+    for (const t of tokens) {
+      const ty = t.type;
+      if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') { depth++; cur.push(t); continue; }
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') { depth--; cur.push(t); continue; }
+      const sep = depth === 0 && (ty === 'comma' || (ty === 'word' && (tv(t) === 'at' || tv(t) === 'with' || tv(t) === 'in')));
+      if (sep) { if (cur.length) segs.push(cur); cur = []; }
+      else cur.push(t);
+    }
+    if (cur.length) segs.push(cur);
+    return segs.map(seg => parseExpression(seg));
+  }
+
   function parseExpression(tokens) {
     if (tokens.length === 0) return { type: 'literal', value: 0 };
     if (tokens.length === 1) {
@@ -1693,6 +1712,19 @@ function parse(source) {
       if (t.value === 'yes') return { type: 'literal', value: true };
       if (t.value === 'no') return { type: 'literal', value: false };
       return { type: 'ref', name: t.value };
+    }
+
+    // Strip a fully-wrapping paren group: ( EXPR ) -> EXPR. Only when the opening
+    // paren's match is the LAST token (so (a+b)*(c) isn't mis-stripped).
+    if (tokens[0].type === 'lparen') {
+      let depth = 0, matched = -1;
+      for (let i = 0; i < tokens.length; i++) {
+        const ty = tokens[i].type;
+        if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth++;
+        else if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth--;
+        if (depth === 0) { matched = i; break; }
+      }
+      if (matched === tokens.length - 1) return parseExpression(tokens.slice(1, matched));
     }
 
     // Handle list literal [a, b, c]
@@ -1791,17 +1823,24 @@ function parse(source) {
       return { type: 'count', expr: parseExpression(tokens.slice(2)) };
     }
 
-    // Math: +, -, *, /, mod
+    // Math: +, -, *, /, mod  — split at the rightmost TOP-LEVEL operator (depth 0),
+    // so operators inside ( ) [ ] { } stay grouped. Scan right-to-left for left-assoc.
     // Low precedence: + -
-    for (let i = tokens.length - 1; i >= 1; i--) {
-      if (tokens[i].type === 'operator' && (tokens[i].value === '+' || tokens[i].value === '-')) {
+    for (let i = tokens.length - 1, depth = 0; i >= 1; i--) {
+      const ty = tokens[i].type;
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth++;
+      else if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth--;
+      if (depth === 0 && tokens[i].type === 'operator' && (tokens[i].value === '+' || tokens[i].value === '-')) {
         return { type: 'math', op: tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
       }
     }
     // High precedence: * / mod
-    for (let i = tokens.length - 1; i >= 1; i--) {
-      if ((tokens[i].type === 'operator' && (tokens[i].value === '*' || tokens[i].value === '/')) ||
-        (tokens[i].type === 'word' && tv(tokens[i]) === 'mod')) {
+    for (let i = tokens.length - 1, depth = 0; i >= 1; i--) {
+      const ty = tokens[i].type;
+      if (ty === 'rparen' || ty === 'rbracket' || ty === 'rbrace') depth++;
+      else if (ty === 'lparen' || ty === 'lbracket' || ty === 'lbrace') depth--;
+      if (depth === 0 && ((tokens[i].type === 'operator' && (tokens[i].value === '*' || tokens[i].value === '/')) ||
+        (tokens[i].type === 'word' && tv(tokens[i]) === 'mod'))) {
         return { type: 'math', op: tokens[i].value === 'mod' ? '%' : tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
       }
     }
@@ -3338,6 +3377,13 @@ class Runtime {
   execCall(stmt) {
     const func = this.funcs[stmt.name];
     if (func) {
+      // bind call args -> params positionally (fc is all-global, so params
+      // are ordinary globals). Evaluate args in the caller's scope first.
+      const params = func.params || [];
+      const argExprs = stmt.argExprs || [];
+      for (let i = 0; i < params.length; i++) {
+        if (i < argExprs.length && argExprs[i] != null) this.setVar(params[i], this.evalExpr(argExprs[i]));
+      }
       const savedStop = this.stopped;
       this.stopped = false;
       this.exec(func.body);

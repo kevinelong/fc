@@ -191,7 +191,7 @@ enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), N
 enum Stmt {
     Assign(String, Expr), Add(String, Expr), Remove(String, Expr),
     Simple(&'static str, String), // double/halve/toggle/clear -> {target,type}
-    Call(String, Vec<Tok>),
+    Call(String, Vec<Tok>, Vec<Expr>),
     FuncDef(String, Vec<String>, Vec<Stmt>),
     If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Vec<Stmt>),
     RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
@@ -298,11 +298,29 @@ fn parse_expr(ts: &[Tok]) -> Expr {
             3=> if t.sval()=="yes" {Expr::Lit(LitVal::Bool(true))} else if t.sval()=="no" {Expr::Lit(LitVal::Bool(false))} else {Expr::Ref(t.sval().to_string())},
             _=>Expr::Ref(t.sval().to_string()) };
     }
-    // dotted ref a.b.c
-    if ts.iter().all(|t| t.t==3 || t.t==5) { return Expr::Ref(tokens_to_ref(ts)); }
-    // multi-word fallthrough -> ref joined with spaces
-    let mut parts: Vec<&str>=Vec::new(); for t in ts { parts.push(t.sval()); }
-    Expr::Ref(parts.join(" "))
+    // property access a.b.c — mirrors the JS parseExpression branch: only a DOT
+    // after the first token makes a dotted ref. Treating any all-word sequence as
+    // one and concatenating it turned the two-word color `dark gray` into the
+    // undefined ref `darkgray`.
+    if ts.len() >= 3 && ts[1].t == 5 {
+        let mut name = ts[0].sval().to_string();
+        let mut i = 1;
+        while i < ts.len() && ts[i].t == 5 {
+            if i + 1 >= ts.len() { break; }
+            name.push('.');
+            name.push_str(ts[i+1].sval());
+            i += 2;
+        }
+        if i >= ts.len() { return Expr::Ref(name); }
+        // tokens after the property path: re-parse as [ref, rest...] (JS does the same)
+        let mut nt: Vec<Tok> = Vec::new();
+        nt.push(Tok { t: 3, v: TokVal::Str(name) });
+        nt.extend_from_slice(&ts[i..]);
+        return parse_expr(&nt);
+    }
+    // multi-word fallthrough -> ref joined with spaces (numbers included, like the
+    // JS `tokens.map(t => t.value).join(' ')`)
+    Expr::Ref(tok_text_join(ts))
 }
 fn split_top_commas(ts: &[Tok]) -> Vec<&[Tok]> {
     let mut out = Vec::new(); let mut depth = 0i32; let mut start = 0;
@@ -345,7 +363,10 @@ fn collapse_cmp(ts: &[Tok]) -> Vec<Tok> {
 fn parse_cond(ts: &[Tok]) -> Cond {
     let owned = collapse_cmp(ts);
     let ts: &[Tok] = &owned;
-    if !ts.is_empty() && (ts[0].is_word("not") || ts[0].is_word("no")) { return Cond::NotExpr(parse_expr(&ts[1..])); }
+    // `not X` negates a whole CONDITION (so `not a and b` is `not (a and b)`, per the
+    // JS parseCondition); `no X` negates an EXPRESSION (e.g. `no enemies`).
+    if !ts.is_empty() && ts[0].is_word("not") { return Cond::Not(Box::new(parse_cond(&ts[1..]))); }
+    if !ts.is_empty() && ts[0].is_word("no") { return Cond::NotExpr(parse_expr(&ts[1..])); }
     if let Some(k)=find_word(ts,"or") { return Cond::Or(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if let Some(k)=find_word(ts,"and") { return Cond::And(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if !ts.is_empty() && ts[0].is_word("key") { return Cond::Key(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default()); }
@@ -360,10 +381,35 @@ fn parse_cond(ts: &[Tok]) -> Cond {
 }
 fn call_fallback(ts: &[Tok]) -> Stmt {
     let name = ts.get(0).map(|t| t.sval().to_string()).unwrap_or_default();
-    Stmt::Call(name, ts.get(1..).unwrap_or(&[]).to_vec())
+    let args: Vec<Tok> = ts.get(1..).unwrap_or(&[]).to_vec();
+    Stmt::Call(name, args.clone(), call_arg_exprs(&args))
+}
+// Split a user-function call's argument tokens at TOP-LEVEL commas and the
+// at/with/in connectors (`fill at 2 with 9` -> [[2],[9]]), mirroring the JS
+// parseCallArgs. Shared by the AST (argExprs) and the call binding.
+fn call_arg_segments(a: &[Tok]) -> Vec<Vec<Tok>> {
+    let mut segs: Vec<Vec<Tok>> = Vec::new();
+    let mut cur: Vec<Tok> = Vec::new();
+    let mut depth = 0i32;
+    for t in a.iter() {
+        match t.t {
+            7|9|11 => { depth += 1; cur.push(t.clone()); }
+            8|10|12 => { depth -= 1; cur.push(t.clone()); }
+            6 if depth==0 => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
+            3 if depth==0 && (t.sval()=="at"||t.sval()=="with"||t.sval()=="in") => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
+            _ => cur.push(t.clone()),
+        }
+    }
+    if !cur.is_empty() { segs.push(cur); }
+    segs
+}
+fn call_arg_exprs(a: &[Tok]) -> Vec<Expr> {
+    let mut out: Vec<Expr> = Vec::new();
+    for seg in call_arg_segments(a) { out.push(parse_expr(&seg)); }
+    out
 }
 fn parse_line(ts: &[Tok]) -> Stmt {
-    if ts.is_empty() { return Stmt::Call(String::new(), Vec::new()); }
+    if ts.is_empty() { return Stmt::Call(String::new(), Vec::new(), Vec::new()); }
     let first = ts[0].sval();
     if first=="to" && ts.len()>=2 {
         if ts.len()>=3 && ts[1].is_word("screen") {
@@ -675,7 +721,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
     match c {
         Cond::Or(a,b)=>{ out.push_str("{\"left\":"); emit_cond(a,out); out.push_str(",\"right\":"); emit_cond(b,out); out.push_str(",\"type\":\"or\"}"); }
         Cond::And(a,b)=>{ out.push_str("{\"left\":"); emit_cond(a,out); out.push_str(",\"right\":"); emit_cond(b,out); out.push_str(",\"type\":\"and\"}"); }
-        Cond::Not(a)=>{ out.push_str("{\"condition\":"); emit_cond(a,out); out.push_str(",\"type\":\"not\"}"); }
+        Cond::Not(a)=>{ out.push_str("{\"expr\":"); emit_cond(a,out); out.push_str(",\"type\":\"not\"}"); }
         Cond::NotExpr(e)=>{ out.push_str("{\"expr\":"); emit_expr(e,out); out.push_str(",\"type\":\"not\"}"); }
         Cond::Eq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"eq\"}"); }
         Cond::Neq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"neq\"}"); }
@@ -701,7 +747,7 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::Add(t,v)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"add\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::Remove(t,v)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"remove\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::Simple(ty,t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\""); out.push_str(ty); out.push_str("\"}"); }
-        Stmt::Call(n,args)=>{ out.push_str("{\"args\":["); for (i,a) in args.iter().enumerate() { if i>0 {out.push(',');} emit_tok(a,out); } out.push_str("],\"name\":"); json_str(n,out); out.push_str(",\"type\":\"call\"}"); }
+        Stmt::Call(n,args,arg_exprs)=>{ out.push_str("{\"args\":["); for (i,a) in args.iter().enumerate() { if i>0 {out.push(',');} emit_tok(a,out); } out.push_str("],\"argExprs\":["); for (i,e) in arg_exprs.iter().enumerate() { if i>0 {out.push(',');} emit_expr(e,out); } out.push_str("],\"name\":"); json_str(n,out); out.push_str(",\"type\":\"call\"}"); }
         Stmt::FuncDef(n,params,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"params\":["); for (i,p) in params.iter().enumerate() { if i>0 {out.push(',');} json_str(p,out); } out.push_str("],\"type\":\"funcdef\"}"); }
         Stmt::If(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"if\"}"); }
         Stmt::ElseIf(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"else_if\"}"); }
@@ -854,6 +900,16 @@ fn is_command_word(w: &str) -> bool {
     unsafe { UFUNCS.iter().any(|f| f == w) }
 }
 fn word_join(ts: &[Tok]) -> String { let mut p: Vec<&str> = Vec::new(); for t in ts { p.push(t.sval()); } p.join(" ") }
+// Join TOKEN VALUES with spaces, mirroring the JS `tokens.map(t => t.value).join(' ')`
+// used for unquoted `write` text and color words. Numbers use JS String(n) form.
+fn tok_text_join(ts: &[Tok]) -> String {
+    let mut out = String::new();
+    for (i, t) in ts.iter().enumerate() {
+        if i > 0 { out.push(' '); }
+        match &t.v { TokVal::Num(n) => json_num(*n, &mut out), TokVal::Str(s) => out.push_str(s) }
+    }
+    out
+}
 fn string_after(ts: &[Tok], w: &str) -> String {
     if let Some(k) = find_word(ts, w) { if let Some(t) = ts.get(k+1) { return t.sval().to_string(); } } String::new()
 }
@@ -970,8 +1026,14 @@ fn parse_write(ts: &[Tok]) -> Stmt {
     let body = &ts[1..end];
     let at = body.iter().position(|t| t.is_word("at"));
     let inw = body.iter().position(|t| t.is_word("in"));
-    let text_end = at.or(inw).unwrap_or(body.len());
-    let text = parse_expr(&body[..text_end]);
+    // Text is either a quoted string or the raw words up to `at` — bare tokens are
+    // NOT evaluated as an expression (mirrors the JS parseWrite; `write <expr>` is
+    // not fc: dynamic text is written as `write "{expr-var}" at …`).
+    let text = if body.first().map(|t| t.t == 1).unwrap_or(false) {
+        Expr::Lit(LitVal::Str(body[0].sval().to_string()))
+    } else {
+        match at { Some(k) if k > 0 => Expr::Lit(LitVal::Str(tok_text_join(&body[..k]))), _ => Expr::Lit(LitVal::Str(String::new())) }
+    };
     let (mut x, mut y, mut color) = (None, None, None);
     if let Some(ak) = at { let stop = inw.filter(|&i| i>ak).unwrap_or(body.len()); let p = split_top_commas(&body[ak+1..stop]); x = p.get(0).map(|s| parse_expr(s)); y = p.get(1).map(|s| parse_expr(s)); }
     if let Some(ik) = inw { color = Some(word_join(&body[ik+1..])); }
@@ -1234,7 +1296,7 @@ impl Rt {
             Expr::Lit(LitVal::Num(n)) => Val::Num(*n),
             Expr::Lit(LitVal::Str(s)) => Val::Str(s.clone()),
             Expr::Lit(LitVal::Bool(b)) => Val::Bool(*b),
-            Expr::Ref(n) => self.get_var(n),
+            Expr::Ref(n) => { let v = self.get_var(n); if !matches!(v, Val::Undef) { v } else if color_hex(&n.to_lowercase()).is_some() { Val::Str(n.clone()) } else { Val::Undef } }
             Expr::Math(op, l, r) => {
                 let a = as_num(&self.eval(l)); let b = as_num(&self.eval(r));
                 Val::Num(match op.as_str() { "+"=>a+b, "-"=>a-b, "*"=>a*b, "/"=>if b!=0.0 {a/b} else {0.0}, "%"=>if b!=0.0 {a%b} else {0.0}, _=>0.0 })
@@ -1701,27 +1763,14 @@ impl Rt {
                 }
             }
             Stmt::FuncDef(name, params, body) => { self.funcs.insert(name.clone(), (params.clone(), body.clone())); }
-            Stmt::Call(name, a) => { if let Some((params, body))=self.funcs.get(name).cloned() {
-                // bind call args -> params positionally. args are separated by
-                // top-level commas OR the 'at'/'with' connectors (`fill at 2 with 9`
-                // -> [2, 9]). fc is all-global, so params become globals.
+            Stmt::Call(name, _a, arg_exprs) => { if let Some((params, body))=self.funcs.get(name).cloned() {
+                // bind call args -> params positionally (argExprs are the call's
+                // top-level comma / at / with separated arguments). fc is all-global,
+                // so params become globals.
                 if !params.is_empty() {
-                    let mut segs: Vec<Vec<Tok>> = Vec::new();
-                    let mut cur: Vec<Tok> = Vec::new();
-                    let mut depth = 0i32;
-                    for t in a.iter() {
-                        match t.t {
-                            7|9|11 => { depth += 1; cur.push(t.clone()); }
-                            8|10|12 => { depth -= 1; cur.push(t.clone()); }
-                            6 if depth==0 => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
-                            3 if depth==0 && (t.sval()=="at"||t.sval()=="with"||t.sval()=="in") => { if !cur.is_empty() { segs.push(core::mem::take(&mut cur)); } }
-                            _ => cur.push(t.clone()),
-                        }
-                    }
-                    if !cur.is_empty() { segs.push(cur); }
                     for (idx, p) in params.iter().enumerate() {
-                        if let Some(seg) = segs.get(idx) {
-                            let v = self.eval(&parse_expr(seg));
+                        if let Some(e) = arg_exprs.get(idx) {
+                            let v = self.eval(e);
                             self.set_var(p, v);
                         }
                     }

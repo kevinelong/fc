@@ -40,7 +40,9 @@ export function buildGolden() {
   return golden;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Main-module check that works on Windows too (process.argv[1] is a native path,
+// import.meta.url is a file: URL — a naive string compare never matches there).
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const golden = buildGolden();
   const outPath = path.join(__dirname, 'transpile-golden.json');
   fs.writeFileSync(outPath, JSON.stringify(golden, null, 2) + '\n');

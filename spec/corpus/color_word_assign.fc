@@ -1,0 +1,7 @@
+-- A bare color word is the color's NAME (a string), including two-word names;
+-- a declared variable of the same name still wins.
+shade is dark gray
+tone is green
+copy is shade
+green is "mine"
+seen is green
