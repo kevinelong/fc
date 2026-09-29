@@ -573,6 +573,17 @@ file: the corpus program is the contract; the harnesses are the proof.
   the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
   name (that was the shipped behavior until 2026-09-29, when the verb was dead in
   every engine).
+- **Presentation effects** (`flash screen [COLOR] [for N [seconds|frames]]`,
+  `shake camera [for N [seconds|frames]] [by N [pixels]]`) are HOST-rendered, not
+  simulated: the runtime only counts frames (`flashFrames`/`shakeFrames`, seconds
+  ×60 like the match timer) and emits a `flash`/`shake` command at the END of each
+  active frame, so both engines agree on the timing and the overlay lands on top of
+  the frame's draws. The page paints the flash over the canvas and jitters
+  `#screen-frame`; under the OS/browser reduced-motion preference (or the ⚙ toggle)
+  it skips both entirely — a photosensitivity guard, which is also why the effects
+  live in the host while their timing lives in the sim. Defaults: white for 6
+  frames, 12 frames of 2px shake. Frozen by `frame-tests/f_effects.fc` (per-frame
+  command parity) and `spec/corpus/flash_shake.fc` (parse).
 - **Dynamic colors** (implemented 2026-09-29) resolve at paint time through
   `Runtime.colorOf` (JS) / `color_of` (rust): if a variable with the color word's
   name exists and holds a string, that string is resolved as the color; otherwise

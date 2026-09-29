@@ -596,6 +596,8 @@ differentially tested against it.)
 | `X is more/greater than` Y · `is less/fewer than` · `is under/below` · `is over/above` · `is at least` · `is at most` | comparison words (`collapse_cmp`), rewritten to `>` `<` `>=` `<=` before parsing | `english_ops.fc` |
 | `say` STRING \| `say` expr | appends an interpolated line to the say buffer (host paints it only without a game loop) | `say_lines.fc` |
 | `stop music` \| `stop sound` | one node (`stop_music`); the host stops the looping track. **[QUIRK]** checked BEFORE the sprite form `stop X`, which would otherwise swallow `music`/`sound` as a target name | `stop_music.fc` |
+| `flash screen` [COLOR] [`for` N [`seconds`\|`frames`]] | host-rendered full-screen flash, frame-counted (default: white, 6 frames) | `flash_shake.fc`, `frame-tests/f_effects.fc` |
+| `shake camera` [`for` N [`seconds`\|`frames`]] [`by` N [`pixels`]] | host-rendered screen jitter, frame-counted (default: 12 frames, 2px) | `flash_shake.fc`, `frame-tests/f_effects.fc` |
 | `pset` … | direct pixel write (wasm port followed later) | `draw-tests/` (see README) |
 | `show meter` CURRENT `of` MAX [`at` X `,` Y] [`size` W `,` H] [`in` COLOR] | HUD meter; all three shapes parse (index-scan parser) | `meter_forms.fc`, `draw-tests/d_meter.fc` |
 

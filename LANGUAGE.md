@@ -226,6 +226,16 @@ write "score {score}" at 2, 2 in white on hud      -- top-left of viewport, alwa
 draw sprite "heart" at 4, 4 on hud                  -- HUD heart icon
 ```
 
+## Screen effects
+
+Two one-line juice verbs, both presentation-only and both skipped under reduced
+motion:
+
+```
+flash screen red for 8 frames
+shake camera for 0.3 seconds by 3 pixels
+```
+
 ## Colors
 
 PICO-8 inspired 16-color palette, plus CSS color names as fallback:

@@ -1,0 +1,17 @@
+-- Presentation effects fire from the game loop, counted in frames: the timer
+-- triggers them at frame 5, so frames 5-6 must carry a flash (covering the frame)
+-- and a shake (jittering it) in BOTH engines, in the same order.
+mode is "play"
+time limit is 5 frames
+when time runs out
+  mode is "over"
+  flash screen red for 4 frames
+  shake camera for 6 frames by 3 pixels
+to update
+  tick is 1
+to draw
+  clear screen to black
+  draw rect at 40, 40 size 20, 20 in green
+  if mode is "over"
+    write "hit!" at 40, 20 in white on hud
+run game with update and draw

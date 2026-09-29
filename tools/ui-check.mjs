@@ -300,6 +300,45 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     const blip2 = await evaluate(cdp, `(function(){ return { osc: window.__osc }; })()`);
     check('the first game run plays one blip', blip1.playing === true && blip1.flag === '1' && blip1.osc >= 1, JSON.stringify(blip1));
     check('the blip is once per session (a re-run adds none)', blip2.osc === blip1.osc, JSON.stringify({ first: blip1.osc, second: blip2.osc }));
+
+    // ---- 11. `flash screen` / `shake camera`: rendered, and gated by a11y -----
+    const fxSrc = 'mode is "play"\ntime limit is 6 frames\nwhen time runs out\n  flash screen red for 90 frames\n  shake camera for 90 frames by 4 pixels\nto update\n  tick is 1\nto draw\n  clear screen to dark blue\nrun game with update and draw\n';
+    const fxSample = () => evaluate(cdp, `(function(){
+      var c = document.getElementById('screen'), g = c.getContext('2d');
+      var d = g.getImageData(64, 64, 1, 1).data;
+      var f = document.getElementById('screen-frame');
+      return { red: (d[0] > 200 && d[1] < 60 && d[2] < 100), transform: f.style.transform || '' };
+    })()`);
+    const fxRun = async (reduce, query) => {
+      await evaluate(cdp, "localStorage.setItem('fc:save:a11y:reduce-motion', '" + String(reduce) + "')");
+      await loadSource(fxSrc, query);
+      let red = 0, shaken = 0, firstRed = -1, px0 = null;
+      for (let i = 0; i < 25; i++) {
+        const s = await fxSample();
+        if (px0 === null) px0 = s.px;
+        if (s.red) { red++; if (firstRed < 0) firstRed = i; }
+        if (s.transform) shaken++;
+        await sleep(100);
+      }
+      const dbg = await evaluate(cdp, `(function(){
+        var r = (typeof runtime !== 'undefined' && runtime) ? runtime : null;
+        var c = document.getElementById('screen'), g = c.getContext('2d');
+        var d = g.getImageData(64, 64, 1, 1).data;
+        var ed = document.querySelector('textarea');
+        var badge = document.getElementById('wasm-badge');
+        return { cls: document.body.className, flashFrames: r ? r.flashFrames : 'n/a',
+                 px: d[0] + ',' + d[1] + ',' + d[2],
+                 src: ed ? ed.value.slice(0, 26).split(String.fromCharCode(10)).join('|') : 'no-editor',
+                 core: badge ? badge.textContent : 'no-badge' };
+      })()`);
+      return { red, shaken, firstRed, px0, dbg };
+    };
+    const fxOn = await fxRun(false, '');
+    check('flash paints the screen (motion allowed)', fxOn.red > 0, JSON.stringify(fxOn));
+    check('shake moves the frame (motion allowed)', fxOn.shaken > 0, JSON.stringify(fxOn));
+    const fxOff = await fxRun(true, '');
+    check('reduced motion suppresses flash AND shake', fxOff.red === 0 && fxOff.shaken === 0, JSON.stringify(fxOff));
+    await evaluate(cdp, `localStorage.setItem('fc:save:a11y:reduce-motion', 'false')`);
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

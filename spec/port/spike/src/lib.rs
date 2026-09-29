@@ -202,6 +202,7 @@ enum Stmt {
     WhenKey(String, Option<Box<Stmt>>, Vec<Stmt>), WhenButton(String, Option<Box<Stmt>>, Vec<Stmt>),
     WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
     TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
+    Flash(String, Expr, String), Shake(Expr, String, Expr),
     ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -448,6 +449,29 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         if end > start && ts[end-1].is_word("seconds") { end -= 1; }
         else if end > start && ts[end-1].is_word("frames") { unit = "frames"; end -= 1; }
         return Stmt::TimeLimit(parse_expr(&ts[start..end]), unit.to_string());
+    }
+
+    // -- flash screen [COLOR] [for N [seconds|frames]]  (host-rendered overlay) --
+    if first=="flash" && ts.get(1).map_or(false, |t| t.is_word("screen")) {
+        let for_i = find_word(ts, "for").unwrap_or(ts.len());
+        let color = word_join(&ts[2..for_i]);
+        let (frames, unit) = if for_i < ts.len() { duration_tail(&ts[for_i+1..]) } else { (Expr::Lit(LitVal::Num(6.0)), "frames".to_string()) };
+        let color = if color.is_empty() { "white".to_string() } else { color };
+        return Stmt::Flash(color, frames, unit);
+    }
+    // -- shake camera [for N [seconds|frames]] [by N [pixels]] --
+    if first=="shake" && ts.get(1).map_or(false, |t| t.is_word("camera")) {
+        let for_i = find_word(ts, "for").unwrap_or(ts.len());
+        let by_i = find_word(ts, "by").unwrap_or(ts.len());
+        let (frames, unit) = if for_i < ts.len() {
+            let stop = if by_i > for_i { by_i } else { ts.len() };
+            duration_tail(&ts[for_i+1..stop])
+        } else { (Expr::Lit(LitVal::Num(12.0)), "frames".to_string()) };
+        let magnitude = if by_i < ts.len() {
+            let rest: Vec<Tok> = ts[by_i+1..].iter().filter(|t| !t.is_word("pixels")).cloned().collect();
+            parse_expr(&rest)
+        } else { Expr::Lit(LitVal::Num(2.0)) };
+        return Stmt::Shake(frames, unit, magnitude);
     }
     if first=="when" { return parse_when(ts); }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
@@ -785,6 +809,8 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenDefeat(iv,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"itemVar\":"); json_str(iv,out); out.push_str(",\"thenStmt\":null,\"type\":\"when_defeat\"}"); }
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
         Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
+        Stmt::Flash(color,f,u)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"frames\":"); emit_expr(f,out); out.push_str(",\"type\":\"flash\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Shake(f,u,m)=>{ out.push_str("{\"frames\":"); emit_expr(f,out); out.push_str(",\"magnitude\":"); emit_expr(m,out); out.push_str(",\"type\":\"shake\",\"unit\":"); json_str(u,out); out.push('}'); }
         Stmt::TimeLimit(v,u)=>{ out.push_str("{\"type\":\"time_limit\",\"unit\":"); json_str(u,out); out.push_str(",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::WhenButton(l,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"label\":"); json_str(l,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_button\"}"); }
         Stmt::WhenMouse(ev,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"event\":"); json_str(ev,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_mouse\"}"); }
@@ -1109,6 +1135,17 @@ fn parse_meter(ts: &[Tok]) -> Stmt {
     let color = match in_i { Some(i2) => word_join(&ts[i2 + 1..]), None => "green".to_string() };
     Stmt::Meter(current, max, x, y, w, h, color)
 }
+// Parse `N`, `N frames`, `N seconds` (and the singular words) into (expr, unit) —
+// the same units every timed verb uses.
+fn duration_tail(ts: &[Tok]) -> (Expr, String) {
+    let mut body: &[Tok] = ts;
+    let mut unit = "frames";
+    if let Some(last) = body.last() {
+        if last.is_word("seconds") || last.is_word("second") { unit = "seconds"; body = &body[..body.len()-1]; }
+        else if last.is_word("frames") || last.is_word("frame") { body = &body[..body.len()-1]; }
+    }
+    (parse_expr(body), unit.to_string())
+}
 fn parse_button(ts: &[Tok]) -> Stmt {
     // show button "label" at X, Y
     let label = ts.iter().find(|t| t.t==1).map(|t| t.sval().to_string()).unwrap_or_default();
@@ -1282,7 +1319,7 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
-    says: Vec<String>, has_game: bool }
+    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64 }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 impl Rt {
@@ -1290,7 +1327,7 @@ impl Rt {
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0 } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1798,6 +1835,20 @@ impl Rt {
             let sname = alloc::format!("screen_{}", mode);
             if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b.1); self.returning = false; }
         }
+
+        // Timed presentation effects — the page renders these (and skips them under
+        // reduced motion). Counted in frames, emitted at the END of the frame so the
+        // overlay lands on top (same position as the JS core's frame()).
+        if self.flash_frames > 0 {
+            let c = self.flash_color.clone();
+            self.cmds.push(Cmd::Flash(c));
+            self.flash_frames -= 1;
+        }
+        if self.shake_frames > 0 {
+            let m = self.shake_mag;
+            self.cmds.push(Cmd::Shake(m));
+            self.shake_frames -= 1;
+        }
     }
 
     fn exec_one(&mut self, s: &Stmt) {
@@ -1942,6 +1993,20 @@ impl Rt {
                 let f = if frames < 0.0 { 0 } else { frames as i64 };
                 self.time_limit_frames = Some(f); self.time_left = f; self.timeout_fired = false;
                 self.set_var("timer", Val::Num(((f + 59) / 60) as f64));
+            }
+
+            Stmt::Flash(color, value, unit) => {
+                let n = as_num(&self.eval(value));
+                let frames = if unit=="seconds" { js_floor(n*60.0 + 0.5) } else { js_floor(n + 0.5) };
+                self.flash_frames = if frames < 0.0 { 0 } else { frames as i64 };
+                self.flash_color = color.clone();
+            }
+            Stmt::Shake(value, unit, magnitude) => {
+                let n = as_num(&self.eval(value));
+                let frames = if unit=="seconds" { js_floor(n*60.0 + 0.5) } else { js_floor(n + 0.5) };
+                self.shake_frames = if frames < 0.0 { 0 } else { frames as i64 };
+                let m = as_num(&self.eval(magnitude));
+                self.shake_mag = if m < 0.0 { 0.0 } else { m };
             }
             Stmt::Goto(target) => {
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }
@@ -2255,6 +2320,7 @@ fn resolve_color(name: &str) -> String {
 }
 #[derive(Clone)]
 enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f64,f64,f64,String), Text(String,f64,f64,String),
+    Flash(String), Shake(f64),
     // host-side effects routed through the command buffer (the bridge consumes
     // these and calls the existing JS AUDIO engine — single audio source).
     Sound(String,String), DefSfx(String,String), Net(String,String,String) }
@@ -2289,6 +2355,8 @@ fn emit_cmd(c: &Cmd, out: &mut String) {
         Cmd::Text(t,x,y,col)=>{ out.push_str("{\"color\":"); json_str(col,out); out.push_str(",\"op\":\"text\",\"text\":"); json_str(t,out); out.push_str(",\"x\":"); json_num(*x,out); out.push_str(",\"y\":"); json_num(*y,out); out.push('}'); }
         Cmd::Sound(kind,name)=>{ out.push_str("{\"kind\":"); json_str(kind,out); out.push_str(",\"name\":"); json_str(name,out); out.push_str(",\"op\":\"sound\"}"); }
         Cmd::DefSfx(name,recipe)=>{ out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"op\":\"defsfx\",\"recipe\":"); out.push_str(recipe); out.push('}'); }
+        Cmd::Flash(color)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"op\":\"flash\"}"); }
+        Cmd::Shake(m)=>{ out.push_str("{\"magnitude\":"); json_num(*m,out); out.push_str(",\"op\":\"shake\"}"); }
         Cmd::Net(kind,a,b)=>{ out.push_str("{\"a\":"); json_str(a,out); out.push_str(",\"b\":"); json_str(b,out); out.push_str(",\"kind\":"); json_str(kind,out); out.push_str(",\"op\":\"net\"}"); }
     }
 }

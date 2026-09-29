@@ -6,6 +6,9 @@ const mkProxy = (extra) => new Proxy(extra || {}, { get: (t, k) => (k in t ? t[k
 const ctx = mkProxy({});
 const canvas = { width: 128, height: 128, getContext: () => ctx };
 const AUDIO = mkProxy({});
+// `flash screen` / `shake camera` are HOST-rendered presentation effects. The oracle
+// records nothing (the .mjs record core pushes commands; the page paints them).
+const FX = { flash: noop, shake: noop };
 const NET = mkProxy({ peers: [], connected: () => false });
 // STORE stub: JSON round-trip parity with the browser's localStorage-backed STORE.
 const STORE = (() => { const m = new Map(); return {
@@ -1014,6 +1017,32 @@ function parse(source) {
       else if (body.length && tv(body[body.length - 1]) === 'frames') { unit = 'frames'; body = body.slice(0, -1); }
       return { type: 'time_limit', value: parseExpression(body), unit, lineNum };
     }
+
+    // -- flash screen [COLOR] [for N [seconds|frames]] --
+    // Host-rendered presentation effect (the page paints it, and skips it entirely
+    // when the user asked for reduced motion). Frame-counted so both engines agree.
+    if (first === 'flash' && raw[1] && tv(raw[1]) === 'screen') {
+      const forIdx = raw.findIndex(t => tv(t) === 'for');
+      const color = raw.slice(2, forIdx >= 0 ? forIdx : raw.length).map(t => t.value).join(' ').trim();
+      let frames = { type: 'literal', value: 6 }, unit = 'frames';
+      if (forIdx >= 0) { const d = parseDurationTail(raw.slice(forIdx + 1)); frames = d.value; unit = d.unit; }
+      return { type: 'flash', color: color || 'white', frames, unit, lineNum };
+    }
+
+    // -- shake camera [for N [seconds|frames]] [by N [pixels]] --
+    if (first === 'shake' && raw[1] && tv(raw[1]) === 'camera') {
+      const forIdx = raw.findIndex(t => tv(t) === 'for');
+      const byIdx = raw.findIndex(t => tv(t) === 'by');
+      let frames = { type: 'literal', value: 12 }, unit = 'frames';
+      let magnitude = { type: 'literal', value: 2 };
+      if (forIdx >= 0) {
+        const stop = byIdx > forIdx ? byIdx : raw.length;
+        const d = parseDurationTail(raw.slice(forIdx + 1, stop)); frames = d.value; unit = d.unit;
+      }
+      if (byIdx >= 0) magnitude = parseExpression(raw.slice(byIdx + 1).filter(t => tv(t) !== 'pixels'));
+      return { type: 'shake', frames, unit, magnitude, lineNum };
+    }
+
 
     // -- jump X [by N]  (upward velocity impulse; pairs with `gravity is N`) --
     if (first === 'jump') {
@@ -2081,6 +2110,19 @@ function parse(source) {
     return { type: 'meter', current, max, x, y, w, h, color, lineNum };
   }
 
+  // Parse the tail of a timed statement: `N`, `N frames`, `N seconds`, or `N
+  // frame`/`N second`. Returns {value: <expr>, unit}. Mirrors the `time limit`
+  // conversion so every timed verb speaks the same units.
+  function parseDurationTail(toks) {
+    let body = toks.slice();
+    let unit = 'frames';
+    if (body.length && tv(body[body.length - 1]) === 'seconds') { unit = 'seconds'; body = body.slice(0, -1); }
+    else if (body.length && tv(body[body.length - 1]) === 'second') { unit = 'seconds'; body = body.slice(0, -1); }
+    else if (body.length && tv(body[body.length - 1]) === 'frames') { body = body.slice(0, -1); }
+    else if (body.length && tv(body[body.length - 1]) === 'frame') { body = body.slice(0, -1); }
+    return { value: parseExpression(body), unit };
+  }
+
   function parseSay(raw, lineNum) {
     if (raw.length >= 2 && raw[1].type === 'string') {
       return { type: 'say', text: { type: 'literal', value: raw[1].value }, lineNum };
@@ -2729,6 +2771,21 @@ class Runtime {
           this.vars.timer = Math.ceil(this.timeLeftFrames / 60);
           break;
         }
+
+        case 'flash': {
+          const n = Number(this.evalExpr(stmt.frames)) || 0;
+          this.flashFrames = Math.max(0, Math.round(stmt.unit === 'seconds' ? n * 60 : n));
+          this.flashColor = stmt.color || 'white';
+          break;
+        }
+
+        case 'shake': {
+          const n = Number(this.evalExpr(stmt.frames)) || 0;
+          this.shakeFrames = Math.max(0, Math.round(stmt.unit === 'seconds' ? n * 60 : n));
+          this.shakeMag = Math.max(0, Number(this.evalExpr(stmt.magnitude)) || 0);
+          break;
+        }
+
 
         case 'when_key_in': {
           this.eventHandlers.key_in.push(stmt);
@@ -3546,6 +3603,12 @@ class Runtime {
       if (mode && self.funcs['screen_' + mode]) {
         self.callFunc('screen_' + mode);
       }
+
+      // Timed presentation effects — the page renders these (`FX.flash` paints the
+      // screen, `FX.shake` jitters it), and both skip them under reduced motion.
+      // Counted in frames, so the timing is identical in both engines.
+      if (self.flashFrames > 0) { FX.flash(self.flashColor || 'white'); self.flashFrames--; }
+      if (self.shakeFrames > 0) { FX.shake(self.shakeMag || 0); self.shakeFrames--; }
     }
     // Track when a frame last ran, regardless of which driver ran it.
     let lastFrame = performance.now();

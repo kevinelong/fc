@@ -1,0 +1,8 @@
+-- `flash screen` / `shake camera` parse and (with no game loop) never fire: the
+-- timing is frame-counted, so these are exercised by spec/port/spike/frame-tests.
+flash screen red
+flash screen for 3 frames
+flash screen orange for 0.5 seconds
+shake camera
+shake camera for 20 frames by 4 pixels
+shake camera by 3

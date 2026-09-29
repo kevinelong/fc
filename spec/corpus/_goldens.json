@@ -257,6 +257,11 @@
       "b": 0
     }
   },
+  "flash_shake.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {}
+  },
   "forward_ref_noop.fc": {
     "errors": [],
     "say": [],

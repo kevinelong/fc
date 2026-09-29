@@ -4,7 +4,7 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 const DIR = path.resolve(import.meta.dirname, 'frame-tests');
 const N = 6;
 const out = [];
-const norm = c => JSON.stringify({op:c.op,color:c.color,x:c.x,y:c.y,w:c.w,h:c.h,r:c.r,x1:c.x1,y1:c.y1,x2:c.x2,y2:c.y2,text:c.text});
+const norm = c => JSON.stringify({op:c.op,color:c.color,x:c.x,y:c.y,w:c.w,h:c.h,r:c.r,x1:c.x1,y1:c.y1,x2:c.x2,y2:c.y2,text:c.text,magnitude:c.magnitude,kind:c.kind,name:c.name});
 function loadKeys(f){ const p=path.join(DIR,f.replace(/\.fc$/,'.keys')); const m={}; if(!fs.existsSync(p))return m;
   for(const line of fs.readFileSync(p,'utf8').split('\n')){const t=line.trim(); if(!t)continue; const [fr,c,o]=t.split(':').map(Number); (m[fr]=m[fr]||[]).push([c,o]);} return m; }
 // Seed Math.random with the SAME mulberry32 the wasm core uses (seed 0 per

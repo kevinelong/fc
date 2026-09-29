@@ -67,6 +67,10 @@
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\na = 0\nb = 0\n\n# every 2 frames\nif frame % 2 == 0:\n    a += 1\n\n# every 3 frames\nif frame % 3 == 0:\n    b += 1\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet a = 0;\nlet b = 0;\n\n// every 2 frames\nif (frame % 2 === 0) {\n  a += 1;\n}\n\n// every 3 frames\nif (frame % 3 === 0) {\n  b += 1;\n}\n"
   },
+  "flash_shake.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nflash_screen(\"red\", 6)\nflash_screen(\"white\", 3)\nflash_screen(\"orange\", 0.5)\nshake_camera(12, 2)\nshake_camera(20, 4)\nshake_camera(12, 3)\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nflash_screen(\"red\", 6);\nflash_screen(\"white\", 3);\nflash_screen(\"orange\", 0.5);\nshake_camera(12, 2);\nshake_camera(20, 4);\nshake_camera(12, 3);\n"
+  },
   "forward_ref_noop.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nx = 0\nbump()\n\ndef bump():\n    x += 1\nbump()\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet x = 0;\nbump();\n\nfunction bump() {\n  x += 1;\n}\nbump();\n"

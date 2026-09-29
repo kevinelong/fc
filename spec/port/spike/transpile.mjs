@@ -235,6 +235,8 @@ function fcTpStmt(s, indent, ctx, out) {
     case 'broadcast': push('broadcast(' + fcTpExpr(s.value, ctx) + ')' + semi); return;
     case 'net_join': push('join_room(' + fcTpStr(s.game, ctx) + ', ' + fcTpStr(s.room, ctx) + ')' + semi); return;
     case 'time_limit': push('set_time_limit(' + fcTpExpr(s.value, ctx) + ')  ' + d.c + ' ' + (s.unit || '') + semi); return;
+    case 'flash': push('flash_screen(' + fcTpStr(s.color, ctx) + ', ' + fcTpExpr(s.frames, ctx) + ')' + semi); return;
+    case 'shake': push('shake_camera(' + fcTpExpr(s.frames, ctx) + ', ' + fcTpExpr(s.magnitude, ctx) + ')' + semi); return;
     case 'damage': push('damage(' + fcTpStr(s.target, ctx) + ', ' + fcTpExpr(s.amount, ctx) + ')' + semi); return;
     case 'heal': push('heal(' + fcTpStr(s.target, ctx) + ', ' + fcTpExpr(s.amount, ctx) + ')' + semi); return;
     case 'restore': push('restore(' + fcTpStr(s.target, ctx) + ')' + semi); return;

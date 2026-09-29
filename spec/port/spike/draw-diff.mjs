@@ -5,7 +5,7 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 const DIR = path.resolve(import.meta.dirname, 'draw-tests');
 function jsCmds(src){ __CMDS.length=0; const rt=new Runtime(); rt.exec(parse(src)); return __CMDS.map(c=>({...c})); }
 function wasmCmds(src){ const b=enc.encode(src); new Uint8Array(w.memory.buffer,w.src_ptr(),b.length).set(b); const n=w.parse_render(b.length,0); return JSON.parse(dec.decode(new Uint8Array(w.memory.buffer,w.res_ptr(),n))); }
-const norm = c => ({op:c.op,color:c.color,x:c.x,y:c.y,w:c.w,h:c.h,r:c.r,x1:c.x1,y1:c.y1,x2:c.x2,y2:c.y2,text:c.text});
+const norm = c => ({op:c.op,color:c.color,x:c.x,y:c.y,w:c.w,h:c.h,r:c.r,x1:c.x1,y1:c.y1,x2:c.x2,y2:c.y2,text:c.text,magnitude:c.magnitude});
 const eq = (a,b)=>JSON.stringify(a.map(norm))===JSON.stringify(b.map(norm));
 let ok=0,bad=0;
 for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith('.fc')).sort()){

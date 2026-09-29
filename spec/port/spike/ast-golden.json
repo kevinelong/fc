@@ -6779,6 +6779,71 @@
       "type": "rungame"
     }
   ],
+  "flash_shake.fc": [
+    {
+      "color": "red",
+      "frames": {
+        "type": "literal",
+        "value": 6
+      },
+      "type": "flash",
+      "unit": "frames"
+    },
+    {
+      "color": "white",
+      "frames": {
+        "type": "literal",
+        "value": 3
+      },
+      "type": "flash",
+      "unit": "frames"
+    },
+    {
+      "color": "orange",
+      "frames": {
+        "type": "literal",
+        "value": 0.5
+      },
+      "type": "flash",
+      "unit": "seconds"
+    },
+    {
+      "frames": {
+        "type": "literal",
+        "value": 12
+      },
+      "magnitude": {
+        "type": "literal",
+        "value": 2
+      },
+      "type": "shake",
+      "unit": "frames"
+    },
+    {
+      "frames": {
+        "type": "literal",
+        "value": 20
+      },
+      "magnitude": {
+        "type": "literal",
+        "value": 4
+      },
+      "type": "shake",
+      "unit": "frames"
+    },
+    {
+      "frames": {
+        "type": "literal",
+        "value": 12
+      },
+      "magnitude": {
+        "type": "literal",
+        "value": 3
+      },
+      "type": "shake",
+      "unit": "frames"
+    }
+  ],
   "forward_ref_noop.fc": [
     {
       "target": "x",
