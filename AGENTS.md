@@ -63,4 +63,3 @@ Check it before starting a new phase and after writing State: needs-answer.
 - Report a conflict or divergent branch instead of force-pushing or discarding
   another contributor's work.
 - Record the exact checks run and distinguish passing, failing, and not run.
-
