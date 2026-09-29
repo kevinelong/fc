@@ -63,6 +63,29 @@ feedback list feeds docs/GROWTH-PLAN.md.
 
 ---
 
+## 🟡 Q9 — Two bigger directions that need your call
+Owner: kevin. Both are drafted in the repo but I have not started them, because
+each changes how the project is built rather than what it does:
+
+1. **spec/MODULARIZATION.md** ("plan (not yet executed)") — split the 660 KB
+   single-file `index.html` into source modules with a lang↔platform seam, while
+   the shipped artifact stays one self-contained file (that file is what the PWA
+   caches and the APK bundles). It now needs a build/bundle step and a rewritten
+   inventory (the doc still cites a 4972-line file; the corpus/oracle extraction it
+   assumed is already done via `spec/lang/fc-core.mjs`). Recommend: only worth it
+   if you expect more contributors or plan to ship native targets; otherwise the
+   single file plus its harness suite is doing its job.
+2. **docs/PLAN-classroom.md** — still blocked on the four privacy decisions (Q1).
+
+The ROADMAP's own "Open design questions" (Q1–Q7 there: multi-word function names,
+`draw <noun>` vs a function call, implicit sprite images, built-in sounds per
+sprite, per-mode update functions, `go to` with no screen, implicit `clear screen`)
+stay in ROADMAP.md as the record of those tensions — not duplicated here.
+
+**Answer:**
+
+---
+
 ## 🟡 Q8 — Safety-net telemetry: keep it local, or aggregate it?
 Owner: kevin. Phase 3 logs what the net keeps fixing (offered heal reasons,
 accepted fixes, chosen starters) so the common cases can become natively-accepted

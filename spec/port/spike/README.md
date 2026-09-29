@@ -23,7 +23,7 @@ cargo build --release --target wasm32-unknown-unknown
 | &nbsp;&nbsp;2.3 game sub-parsers | ✅ | sprite/object/list-of/count · draw/write/meter/button/each/move/follow/goto/rungame/clearscreen/play/def_sfx/damage/heal/knock/broadcast/net_join · when_key·button·mouse · inline `if` (parseIf heuristic) · splitOnAnd via two-pass userFuncs | **all 9 games** |
 | 3. runtime (`exec` → vars) | ✅ | `node exec-diff.mjs` vs `corpus/_goldens.json` | **31/31 corpus, 0 diff** · 133 KB wasm |
 | &nbsp;&nbsp;3b-i. render command buffer | ✅ | `node draw-diff.mjs` | **5/5 cmds** (clear/rect/circle/write+interp) |
-| &nbsp;&nbsp;3b-ii. game loop (update/draw frames + collision + input) | ⬜ next | per-frame cmd buffer + sprite blit | — |
+| &nbsp;&nbsp;3b-ii. game loop (update/draw frames + collision + input) | ✅ | `node examples-diff.mjs` + `dump-vars-diff.mjs` + `smoke.mjs` + `mp-smoke.mjs` | **22/22 examples, 30 frames, bit-identical** · 16/16 smoke · 5/5 two-instance multiplayer |
 
 **3b-i** ports the render command buffer: `clearscreen`/`draw rect`/`draw circle`/`write`
 (with `{var}` interpolation) emit `Cmd`s; `COLORS`+`resolveColor` ported (palette→hex);
@@ -62,6 +62,29 @@ memory corruption (null-byte ref names). Caught by the diff harness.
 The real interpreter will grow this (the parser/runtime need an allocator for the
 value model + AST), but the trajectory supports WASM.md's "tens of KB inlined" target.
 
+## Status 2026-09-29
+
+Stages 0–3b are done and the wasm core is the **default engine** in index.html
+(`?core=js` opts out). The current green table — with the wasm rebuilt from this
+source and re-inlined into index.html — is:
+
+| Harness | Result |
+|---|---|
+| `tokenize-diff.mjs` | 2118/2118 lines |
+| `ast-diff.mjs` | 77/77 programs (corpus + examples) |
+| `exec-diff.mjs` | 55/55 corpus programs |
+| `draw-diff.mjs` | 10/10 render commands |
+| `examples-diff.mjs` | 22/22 examples · 30 frames · draw-ops bit-identical |
+| `dump-vars-diff.mjs` | 22/22 live-var snapshots (the inspect panel's read) |
+| `smoke.mjs` / `frames-run.mjs` / `mp-smoke.mjs` | 16/16 · 5/5 · 5/5 |
+| `fuzz.mjs` | 3000/3000 random programs |
+
+Rebuild loop after a core change: `cargo build --release --target
+wasm32-unknown-unknown` then `node inline-wasm.mjs` (re-inlines the bytes into
+index.html), then re-run the table above and `node ../../heal/eval.mjs`.
+
 ## Next
-Stage 2: port `parse()`. The parser is the highest-divergence layer (parseIf split,
-splitOnAnd) — diff serialized ASTs line-by-line against JS before touching the runtime.
+No stage is outstanding. The remaining work is language features on the roadmap
+(ROADMAP.md "Still planned") and keeping the JS oracle in lockstep: any language
+change must be ported to `spec/lang/fc-core.mjs`, `fc-core-record.mjs` and this
+crate, with corpus cases added FIRST.

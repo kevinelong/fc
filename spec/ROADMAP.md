@@ -1,3 +1,20 @@
+> **Status 2026-09-29 (audited).** Wave 1 is complete: this roadmap ✔, the docs
+> review ✔, the if/else-in-loop lock ✔, `save`/`load` ✔ (corpus
+> `save_load_roundtrip.fc`, `load_missing_default.fc`; cloud mirror via
+> `/api/state`), launcher thumbnails ✔ (`examples/thumbs/*`, wired into the
+> gallery), Frogger ✔ (`examples/frogger.fc` + thumbnail + share page). Wave 2 is
+> complete too: text tilemaps + the ▦ map editor ✔, enemy-AI verbs ✔, frame
+> animation ✔, particles ✔, cloud saves ✔, the ▣ embed snippet ✔, multiplayer as
+> the launcher headline ✔ — and **WASM phase 3b is done**, not staged: the frame
+> loop (update/draw, motion, collision, camera, input, sprite blit) matches the JS
+> core over the whole library (`examples-diff` 22/22, `dump-vars-diff` 22/22,
+> `smoke` 16/16, `mp-smoke` 5/5, `fuzz` 3000/3000) and the wasm is the DEFAULT
+> engine in the browser. The one open row is **iOS TestFlight**, blocked on the $99
+> Apple Developer decision (fc-app/IOS-BUILD.md).
+>
+> Working rules below still hold — and are now enforced by the harness suite rather
+> than by hand (see docs/STATUS.md for the current green table).
+
 # fc roadmap — 2026-06 review → expansion plan
 
 From the 2026-06-12 portal review (goals: plain-English north star · docs plan · distribution ·

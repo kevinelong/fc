@@ -69,126 +69,69 @@ What's done, what's planned, what we've discussed but not committed to. Read PHI
 
 ## Planned (in priority order)
 
-### Sound (high priority)
-**Why:** Right now `play sound "X"` is a parsed no-op stub. Sound is half the feel of a game.
+*Audited 2026-09-29 against the code and the harnesses: most of this list shipped,
+and every claim below is checked. The genuinely-open items are collected at the end.*
 
-**Approach:** Web Audio API generated tones — like PICO-8's 8-bit synth.
-- Built-in named sounds: `"beep"`, `"boop"`, `"jump"`, `"hit"`, `"pickup"`, `"win"`, `"lose"`, `"shoot"`
-- User-definable: `define sound "fanfare" as ...`
-- Music tracks: `play music "X"` (looping)
-- Volume control: respect `music` toggle in user code (`when music is no stop music`)
+### Shipped since this list was written
 
-### Animation
-**Why:** Static sprites. Real games breathe.
+- **Sound** ✅ — procedural Web Audio chiptune, no audio files: built-in named SFX,
+  `define sound "X" as tone/square/noise from A to B over N`, `play sound "X"`,
+  looping `play music "X"`, `stop music` (the stop verb was dead until 2026-09-29),
+  and the `music` toggle. `AUDIO` in index.html; the wasm emits `defsfx`/`play_sound`
+  commands; 14 examples define their own sounds.
+- **Animation** ✅ — `animate X with "a" "b" every N frames` (set-once frame cycling
+  on the global tick, marker kept on the sprite). Corpus: `animate_and_burst.fc`.
+  Tween/easing keywords are NOT implemented (below).
+- **Enemy AI / behavior verbs** ✅ — `X chases player [speed N] [through walls]`,
+  `X wanders`, `X patrols between A and B`, `blocked by` for solid tiles. The
+  markers are editable fc data on the sprite. Behaviour words are part of the
+  healer's vocabulary, so a typo'd behaviour still reads as English.
+- **Map / tilemap as a primitive** ✅ — `tile "#" is {…}`, `map is grid W by H of
+  tiles "X"`, indented ASCII rows, `map at x, y is "tile"`, `is solid at x, y`,
+  `draw map`; solids block movement. Corpus: `map_dims_and_solid.fc`,
+  `map_without_tiles.fc`; the ▦ map editor; maze + pitfall demos.
+- **Save / load** ✅ — `save <value> as "key"` / `load "key"` for numbers, strings,
+  lists and objects; per-game namespace; missing key → safe default, no crash
+  (corpus: `save_load_roundtrip.fc`, `load_missing_default.fc`). Cloud mirror via
+  apid `/api/state`. Checkpoint auto-save is NOT implemented.
+- **Better error messages** ⚠️ partial — the deterministic safety net reports
+  near-miss verbs and colors before running ("Did you mean …"), and the runtime
+  keeps going instead of dying. The runtime's own messages are still generic
+  ("I got confused: …") with no bounds detail or line highlight.
+- **Friendlier debugger** ✅ — 🐞 step gives a per-statement trace with a scrubber
+  (step back, not just forward), and the 🔍 live-inspect panel pauses, steps one
+  frame, and shows every variable with changed values highlighted.
+- **Multi-target compilation** ⚠️ partial — the **real code** panel transpiles every
+  program to Python and JavaScript, the JS output runs standalone (`▶ run this` /
+  `⬇ download .html`, PLAN-runnable-export), and the gated LLM tier writes fc from
+  English. Lua/LÖVE, Godot and Unity targets are NOT implemented.
+- **Particle / effect verbs** ⚠️ partial — `burst N sparks at X, Y [in color]`
+  shipped (auto-updated pool, camera-aware). `emit`, `flash`, `shake` are accepted
+  by the linter but are still no-ops.
+- **Mobile touch controls** ✅ — a touch device gets an on-screen D-pad plus A/B
+  wired into the same key state, plus `show button "X" at x, y` with
+  `when button "X" is clicked`. A `show joystick` verb is NOT implemented (the pad
+  is automatic).
+- **Local multiplayer** ✅ — `join game "room"`, `broadcast`, `peers` / `connected`
+  over the relay (apid `huntd` + Pool Room); 5 co-op/vs examples (online pong,
+  mp-dots, hunt, cycles, …).
 
-**Approach:**
-- Sprites can have a `frames` property: `{frames: ["hero1", "hero2"], fps: 8}`
-- `animate sprite X` cycles frames
-- Or: built-in animation lookups (e.g., `hero.walk` is a frame sequence)
-- Tween verbs: `tween X.y from 0 to 100 over 1 second` for UI
-- Easing keywords: `ease in`, `ease out`, `bounce`
+### Still planned (verified absent on 2026-09-29)
 
-### Enemy AI / behavior verbs
-Currently enemies are stationary blobs. We'd add:
-- `chase player` (move toward each frame)
-- `wander` (random direction, change every N seconds)
-- `flee from player when within N`
-- `patrol along [{x,y}, {x,y}, ...]`
-- `shoot at player every N seconds`
-- Per-enemy AI: `each enemy in enemies chase player at speed 0.5`
-
-### Map / tilemap as a primitive
-Currently the world is just `{width, height}` with sprites scattered. Real games have grids of tiles.
-
-```
-map is grid 16 by 12 of tiles "grass"
-map at 5, 3 is "stone"
-map at 8, 4 is "water"
-```
-
-Or visual:
-```
-map is """
-ggggggggggggwwww
-ggggssssggggwwww
-ggggssggggggssss
-"""
-```
-
-Where each character is a tile. Auto-collision based on tile type (water = blocked or slow, etc.).
-
-### True subpixel rendering
-Current subpixel is a CSS overlay tinting columns. Real subpixels would split each pixel's color into R/G/B stripes based on its actual color values.
-
-**Approach:** post-process pass in canvas. After `draw` completes, read 128×128 pixel data, render to a larger display canvas where each logical pixel becomes 3 (RGB) or 4 (RGBG) vertical stripes with the appropriate channel intensity.
-
-Cost: ~1ms/frame at 60fps. Acceptable.
-
-### Save/load games
-- `save game as "save1"` → localStorage
-- `load game from "save1"`
-- Auto-save at checkpoints
-
-### Better error messages
-Currently errors are mostly "I got confused: …". We'd want:
-- "I don't know how to add text to a number. Did you mean: add 5 to score?"
-- "There is no item 8 in enemies (it only has 3 items)."
-- "I don't know how to do 'fly'. Did you mean 'move'?"
-- Highlight the offending line
-
-### Friendlier debugger
-- `inspect X` to print a value to a corner
-- `pause game` / `step` for frame-by-frame
-- A built-in `console` that overlays text without touching the user's HUD
-
-### Multi-target compilation (the LLM-as-compiler thesis)
-The verbs are platform-agnostic. We could write a compiler from FC source to:
-- Standalone JS (canvas-based, no FC runtime)
-- Python + Pygame
-- Lua + LÖVE
-- Godot scenes
-- Unity C# + MonoBehaviour
-
-The verb-vocabulary tier system (`say` → terminal, `draw` → canvas, `place 3D` → engine) would auto-pick the appropriate target.
-
-### Dialogue / NPC system
-```
-when player talks to npc "wizard"
-  show dialog "Hello, traveler!"
-  show choice "ask about quest" "leave"
-  if choice is "ask about quest" go to quest
-```
-
-A built-in dialog UI that pauses the game, shows text, accepts input.
-
-### Inventory
-```
-player has inventory
-add "key" to player inventory
-if player has "key" in inventory open door
-```
-
-### Particle / effect verbs
-```
-emit sparks from player.position color orange for 0.5
-emit smoke rising from chimney
-emit trail behind player
-flash screen red
-shake camera for 0.3
-```
-
-Some of these are already parsed (no-op stubs). Need to actually render them.
-
-### Mobile touch controls
-- Built-in virtual joystick: `show joystick at hud bottom left`
-- Action buttons: `show action button at hud bottom right` → fires `when button "action" is clicked`
-- Auto-detect mobile and show
-
-### Local multiplayer
-- `player2 is sprite {...}` and key bindings to a second control set
-- Co-op or vs.
-
----
+- **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
+- **Inventory verbs** — `add "key" to player inventory` (today: lists + `has`).
+- **`emit` / `flash` / `shake`** effect verbs (only `burst` is real).
+- **Tween / easing** — `tween X.y from 0 to 100 over 1 second`, `ease in/out`, and
+  the `{frames: [...], fps: N}` sprite-property form of animation.
+- **Enemy AI extras** — `flee from player`, `shoot at player every N seconds`,
+  waypoint patrols.
+- **Dynamic colors** — `draw … in shade` resolves only *literal* color names, so a
+  color variable paints white (starfield's parallax brightness, matrix's fading
+  tail and Falling Sand's three grain tones all render flat). See
+  docs/OPEN-QUESTIONS.md Q7.
+- **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting
+  columns, not per-pixel RGB stripes derived from the color values.
+- **Compiler targets beyond Python/JavaScript** (Lua, Godot, Unity).
 
 ## Discussed but not implemented
 
