@@ -1,0 +1,21 @@
+-- Two shooters: one firing every 10 frames at a normal speed (so the shot is still
+-- alive at frame 6), one firing every frame at speed 40 (so its shots leave the world
+-- and get culled). The game draws whatever is in `shots`, so per-frame parity covers
+-- spawning, motion, aiming and culling.
+player is {x: 20, y: 60}
+turret is {x: 100, y: 60}
+fast is {x: 60, y: 100}
+turret shoots at player every 10 frames speed 2
+fast shoots at player every 1 frames speed 40
+to update
+  player.x is player.x + 1
+to draw
+  clear screen to black
+  draw rect at player.x, player.y size 6, 6 in white
+  draw rect at turret.x, turret.y size 6, 6 in red
+  each sh in turret.shots
+    draw rect at sh.x, sh.y size 2, 2 in yellow
+  draw rect at fast.x, fast.y size 6, 6 in cyan
+  each sh in fast.shots
+    draw rect at sh.x, sh.y size 2, 2 in orange
+run game with update and draw

@@ -122,9 +122,9 @@ and every claim below is checked. The genuinely-open items are collected at the 
 ### Still planned (verified absent on 2026-09-29)
 
 - **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
-- **Enemy AI: `shoot at player every N seconds`** — `flee from player when within
-  N` and waypoint `patrols along [...]` shipped 2026-09-29; projectiles still need a
-  decision about their model (see OPEN-QUESTIONS Q10).
+- **Enemy AI extras** ✅ — `flees from TARGET [when within N]`, waypoint
+  `patrols along [...]` and `shoots at TARGET [every N [seconds|frames]] [speed S]`
+  all shipped 2026-09-29 (the shooter uses the `<enemy>.shots` list model, Q10).
 - **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting
   columns, not per-pixel RGB stripes derived from the color values.
 - **Compiler targets beyond Python/JavaScript** (Lua, Godot, Unity).

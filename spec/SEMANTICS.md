@@ -585,6 +585,17 @@ file: the corpus program is the contract; the harnesses are the proof.
   inventory` tests membership. The subject object is created if it doesn't exist yet.
   Frozen by `inventory_forms.fc` (declare, double-add, membership, a numeric item,
   removal, a second subject) through exec-diff.
+- **`shoots at TARGET [every N [seconds|frames]] [speed S]`** is a set-once
+  behavior whose marker carries `target`, `every` (frames; default 60 = 1 second),
+  `speed` (px/frame; default 2) and a `cool` counter, and it guarantees the subject
+  has a `shots` LIST. Each frame it flies every existing shot (`x += dx`, `y += dy`),
+  culls the ones that leave the world by more than 8px (so the list cannot grow
+  without bound), and when the cooldown expires spawns one shot
+  `{x, y, dx, dy}` aimed at the target's centre *at spawn time* — a plain fc object,
+  so no RNG is involved and the stream is deterministic. The engine does not do
+  collisions: the game iterates `SUBJECT.shots` (`each s in turret.shots`) and
+  decides what a hit means. Frozen by `frame-tests/f_shoot.fc` (spawn on the first
+  frame, aim, flight, culling) and `shoot_forms.fc` (the marker/list shape).
 - **Declarative animation** — a sprite that declares its own `frames` list cycles
   automatically: `image = frames[floor(tick / every) % n]` where
   `every = max(1, round(60 / fps))` and `fps` defaults to 8. It runs on the GLOBAL

@@ -221,7 +221,7 @@ enum Stmt {
 #[derive(Clone)]
 struct BehaviorArgs { kind: String, subject: String, target: String,
     speed: Option<Expr>, x1: Option<Expr>, x2: Option<Expr>, through: bool,
-    within: Option<Expr>, points: Option<Expr> }
+    within: Option<Expr>, points: Option<Expr>, every: Option<Expr>, every_unit: String }
 #[derive(Clone)]
 struct SfxRecipe { tone: bool, wave: String, f0: f64, f1: Option<f64>, dur: f64, notes: Vec<f64> }
 #[derive(Clone, Default)]
@@ -524,7 +524,7 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="map" && ts.len()==2 && ts[1].is_word("is") { return Stmt::MapDef(Vec::new()); }
     if first=="draw" && ts.len()==2 && ts[1].is_word("map") { return Stmt::DrawMap; }
     if ts.len()>=2 && ts[0].t==3 && ts[1].t==3 &&
-        matches!(ts[1].sval(), "chase"|"chases"|"wander"|"wanders"|"patrol"|"patrols"|"flee"|"flees") {
+        matches!(ts[1].sval(), "chase"|"chases"|"wander"|"wanders"|"patrol"|"patrols"|"flee"|"flees"|"shoot"|"shoots") {
         let twi = ts.iter().enumerate().position(|(i,t)| t.is_word("through") &&
             ts.get(i+1).map_or(false,|n| n.is_word("walls")));
         let through = twi.is_some();
@@ -543,7 +543,7 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         });
         if verb=="chase" {
             let target = toks.get(2).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string());
-            return Stmt::Behavior(BehaviorArgs{kind:"chase".into(), subject, target, speed, x1:None, x2:None, through, within:None, points:None});
+            return Stmt::Behavior(BehaviorArgs{kind:"chase".into(), subject, target, speed, x1:None, x2:None, through, within:None, points:None, every:None, every_unit:String::new()});
         }
         if verb=="flee" {
             // `flees FROM player` — the target follows `from`; bare `flees player` works too.
@@ -560,19 +560,36 @@ fn parse_line(ts: &[Tok]) -> Stmt {
                 let stop = after.iter().position(|t| t.t==3 && matches!(t.sval(), "speed"|"when"|"through"|"and"|"with"));
                 parse_expr(match stop { Some(k) if k > 0 => &after[..k], _ => after })
             });
-            return Stmt::Behavior(BehaviorArgs{kind:"flee".into(), subject, target, speed, x1:None, x2:None, through, within, points:None});
+            return Stmt::Behavior(BehaviorArgs{kind:"flee".into(), subject, target, speed, x1:None, x2:None, through, within, points:None, every:None, every_unit:String::new()});
+        }
+        if verb=="shoot" {
+            // `X shoots at player every 1 second speed 2` — the engine spawns a shot
+            // toward the target into `X.shots` on a cooldown; the game does collisions.
+            let target = match find_word(&toks, "at") {
+                Some(ai) => toks.get(ai+1).filter(|t| t.t==3).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string()),
+                None => "player".to_string(),
+            };
+            let (every, every_unit) = match find_word(&toks, "every") {
+                Some(ei) => {
+                    let stop = [sp, find_word(&toks, "when")].iter().filter_map(|o| *o).filter(|i| *i > ei).min().unwrap_or(toks.len());
+                    let (v, u) = duration_tail(&toks[ei+1..stop]);
+                    (Some(v), u)
+                }
+                None => (Some(Expr::Lit(LitVal::Num(60.0))), "frames".to_string()),
+            };
+            return Stmt::Behavior(BehaviorArgs{kind:"shoot".into(), subject, target, speed, x1:None, x2:None, through, within:None, points:None, every, every_unit});
         }
         if verb=="wander" {
-            return Stmt::Behavior(BehaviorArgs{kind:"wander".into(), subject, target:String::new(), speed, x1:None, x2:None, through, within:None, points:None});
+            return Stmt::Behavior(BehaviorArgs{kind:"wander".into(), subject, target:String::new(), speed, x1:None, x2:None, through, within:None, points:None, every:None, every_unit:String::new()});
         }
         if verb=="patrol" {
             if let Some(li)=find_word(&toks,"along") { if li>0 {
                 return Stmt::Behavior(BehaviorArgs{kind:"patrol_points".into(), subject, target:String::new(), speed,
-                    x1:None, x2:None, through, within:None, points:Some(parse_expr(safe(&toks, li+1, end)))});
+                    x1:None, x2:None, through, within:None, points:Some(parse_expr(safe(&toks, li+1, end))), every:None, every_unit:String::new()});
             }}
             if let (Some(bi), Some(ai)) = (find_word(&toks,"between"), find_word(&toks,"and")) { if bi>0 && ai>bi {
                 return Stmt::Behavior(BehaviorArgs{kind:"patrol".into(), subject, target:String::new(), speed,
-                    x1:Some(parse_expr(&toks[bi+1..ai])), x2:Some(parse_expr(&toks[ai+1..end])), through, within:None, points:None});
+                    x1:Some(parse_expr(&toks[bi+1..ai])), x2:Some(parse_expr(&toks[ai+1..end])), through, within:None, points:None, every:None, every_unit:String::new()});
             }}
         }
     }
@@ -1012,6 +1029,11 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
             if b.kind=="flee" {
                 out.push_str(",\"target\":"); json_str(&b.target,out);
                 out.push_str(",\"within\":"); match &b.within { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            }
+            if b.kind=="shoot" {
+                out.push_str(",\"every\":"); match &b.every { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+                out.push_str(",\"target\":"); json_str(&b.target,out);
+                out.push_str(",\"unit\":"); json_str(&b.every_unit,out);
             }
             if b.kind=="patrol_points" {
                 out.push_str(",\"points\":"); match &b.points { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
@@ -1872,6 +1894,53 @@ impl Rt {
                         }
                         _ => { b.borrow_mut().insert("idx".to_string(), Val::Num(((idx as usize + 1) % pts.len()) as f64)); continue; }
                     }
+                } else if kind == "shoot" {
+                    let tname = match b.borrow().get("target") { Some(Val::Str(t)) => t.clone(), _ => continue };
+                    let every = Self::obj_num(&b, "every").unwrap_or(60.0);
+                    let shots = match o.borrow().get("shots") { Some(Val::List(l)) => l.clone(), _ => {
+                        let l: Rc<RefCell<Vec<Val>>> = Rc::new(RefCell::new(Vec::new()));
+                        o.borrow_mut().insert("shots".to_string(), Val::List(l.clone()));
+                        l
+                    }};
+                    {   // fly + cull off-world shots
+                        let (ww, wh) = self.world_dims();
+                        let mut v = shots.borrow_mut();
+                        let mut i = v.len();
+                        while i > 0 {
+                            i -= 1;
+                            let (mut sx, mut sy, dx, dy) = match &v[i] {
+                                Val::Obj(so) =>
+                                    (Self::obj_num(so, "x").unwrap_or(0.0), Self::obj_num(so, "y").unwrap_or(0.0),
+                                     Self::obj_num(so, "dx").unwrap_or(0.0), Self::obj_num(so, "dy").unwrap_or(0.0)),
+                                _ => (0.0, 0.0, 0.0, 0.0),
+                            };
+                            sx += dx; sy += dy;
+                            if sx < -8.0 || sy < -8.0 || sx > ww + 8.0 || sy > wh + 8.0 { v.remove(i); continue; }
+                            if let Val::Obj(so) = &v[i] {
+                                so.borrow_mut().insert("x".to_string(), Val::Num(sx));
+                                so.borrow_mut().insert("y".to_string(), Val::Num(sy));
+                            }
+                        }
+                    }
+                    let mut cool = Self::obj_num(&b, "cool").unwrap_or(0.0) - 1.0;
+                    if cool <= 0.0 {
+                        if let Val::Obj(t) = self.get_var(&tname) {
+                            if let (Some(tx), Some(ty)) = (Self::obj_num(&t, "x"), Self::obj_num(&t, "y")) {
+                                let (sx, sy) = (mx + 4.0, my + 4.0);
+                                let (dx0, dy0) = ((tx + 4.0) - sx, (ty + 4.0) - sy);
+                                let len = libm::sqrt(dx0 * dx0 + dy0 * dy0);
+                                let len = if len == 0.0 { 1.0 } else { len };
+                                let mut so = BTreeMap::new();
+                                so.insert("x".to_string(), Val::Num(sx));
+                                so.insert("y".to_string(), Val::Num(sy));
+                                so.insert("dx".to_string(), Val::Num(dx0 / len * spd));
+                                so.insert("dy".to_string(), Val::Num(dy0 / len * spd));
+                                shots.borrow_mut().push(Val::Obj(Rc::new(RefCell::new(so))));
+                            }
+                        }
+                        cool = if every < 1.0 { 1.0 } else { every };
+                    }
+                    b.borrow_mut().insert("cool".to_string(), Val::Num(cool));
                 } else if kind == "patrol" {
                     let x1 = Self::obj_num(&b, "x1").unwrap_or(0.0); let x2 = Self::obj_num(&b, "x2").unwrap_or(0.0);
                     let (lo, hi) = (if x1 < x2 { x1 } else { x2 }, if x1 > x2 { x1 } else { x2 });
@@ -2471,7 +2540,7 @@ impl Rt {
                     let x1 = match &b.x1 { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
                     let x2 = match &b.x2 { Some(e)=>Some(as_num(&self.eval(e))), None=>None };
                     let member_speed = match o.borrow().get("speed") { Some(Val::Num(n))=>Some(*n), _=>None };
-                    let spd = match speed_once { Some(sv)=>sv, None=>member_speed.unwrap_or(0.5) };
+                    let spd = match speed_once { Some(sv)=>sv, None=> member_speed.unwrap_or(if b.kind == "shoot" { 2.0 } else { 0.5 }) };
                     let mut m = BTreeMap::new();
                     m.insert("kind".to_string(), Val::Str(b.kind.clone()));
                     if b.kind == "chase" { m.insert("target".to_string(), Val::Str(b.target.clone())); }
@@ -2483,6 +2552,16 @@ impl Rt {
                     if b.kind == "flee" {
                         m.insert("target".to_string(), Val::Str(b.target.clone()));
                         if let Some(w) = &b.within { let wv = as_num(&self.eval(w)); m.insert("within".to_string(), Val::Num(wv)); }
+                    }
+                    if b.kind == "shoot" {
+                        m.insert("target".to_string(), Val::Str(b.target.clone()));
+                        let secs = match &b.every { Some(e) => as_num(&self.eval(e)), None => 60.0 };
+                        let frames = if b.every_unit == "seconds" { js_floor(secs * 60.0 + 0.5) } else { js_floor(secs + 0.5) };
+                        m.insert("every".to_string(), Val::Num(if frames < 1.0 { 1.0 } else { frames }));
+                        m.insert("cool".to_string(), Val::Num(0.0));
+                        if !matches!(o.borrow().get("shots"), Some(Val::List(_))) {
+                            o.borrow_mut().insert("shots".to_string(), Val::List(Rc::new(RefCell::new(Vec::new()))));
+                        }
                     }
                     if b.kind == "patrol_points" {
                         let pts = match &b.points { Some(e) => self.eval(e), None => Val::Undef };

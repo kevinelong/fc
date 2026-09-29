@@ -1,0 +1,9 @@
+-- `shoots at TARGET [every N [seconds|frames]] [speed S]` — the marker (with its
+-- cooldown) and the `shots` list are ordinary fc data, so exec-diff sees them.
+-- Defaults: target `player`, every 60 frames (1 second), speed 2.
+turret is {x: 100, y: 60}
+turret shoots at player
+gunner is {x: 40, y: 40}
+gunner shoots at player every 2 seconds speed 3
+sentry is {x: 10, y: 10}
+sentry shoots

@@ -85,20 +85,18 @@ Two shapes:
 
 ---
 
-## 🟡 Q10 — What should `shoot at player every N seconds` spawn?
-Owner: kevin. The last item of the roadmap's enemy-AI list. Three shapes, all
-cheap, and the choice decides how much the game can do with the shots:
+## 🟢 Q10 — `shoot at` projectile model (RESOLVED 2026-09-29 — option 1 implemented)
+`shoots at TARGET [every N [seconds|frames]] [speed S]` now fills a
+`SUBJECT.shots` list with plain `{x, y, dx, dy}` objects: the engine spawns them on
+a frame cooldown, aims at the target's centre at spawn time, flies them each frame
+and culls the ones that leave the world — and the game owns collisions (`each sh in
+turret.shots`, its own overlap test). No RNG, so the stream is deterministic.
 
-1. **`<enemy>.shots` list** — the engine appends `{x, y, dx, dy}` objects; the game
-   iterates them (`each s in ghost.shots`) and does its own overlap test. No new
-   collision plumbing, everything visible/editable fc data. *Recommend.*
-2. **Tagged sprites** — shots are sprites with a tag so the existing
-   `when X hits Y` machinery applies, at the cost of the engine owning their life
-   cycle (despawn, speed, damage).
-3. **Visual only** — a particle burst shaped like a projectile; zero gameplay, but
-   nobody has to manage collisions.
+Option 2 (tagged sprites so `when X hits Y` applies) and option 3 (visual-only
+particles) remain cheap to add on top if you want engine-owned collisions — the
+`shots` list is the substrate either way.
 
-**Answer:**
+Guards: `spec/corpus/shoot_forms.fc`, `frame-tests/f_shoot.fc`.
 
 ---
 

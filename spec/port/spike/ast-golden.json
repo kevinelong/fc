@@ -20021,6 +20021,101 @@
       "type": "double"
     }
   ],
+  "shoot_forms.fc": [
+    {
+      "target": "turret",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 100
+          },
+          "y": {
+            "type": "literal",
+            "value": 60
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "every": {
+        "type": "literal",
+        "value": 60
+      },
+      "kind": "shoot",
+      "speed": null,
+      "subject": "turret",
+      "target": "player",
+      "through": false,
+      "type": "behavior",
+      "unit": "frames"
+    },
+    {
+      "target": "gunner",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 40
+          },
+          "y": {
+            "type": "literal",
+            "value": 40
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "every": {
+        "type": "literal",
+        "value": 2
+      },
+      "kind": "shoot",
+      "speed": {
+        "type": "literal",
+        "value": 3
+      },
+      "subject": "gunner",
+      "target": "player",
+      "through": false,
+      "type": "behavior",
+      "unit": "seconds"
+    },
+    {
+      "target": "sentry",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 10
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "every": {
+        "type": "literal",
+        "value": 60
+      },
+      "kind": "shoot",
+      "speed": null,
+      "subject": "sentry",
+      "target": "player",
+      "through": false,
+      "type": "behavior",
+      "unit": "frames"
+    }
+  ],
   "singularize_ies.fc": [
     {
       "argExprs": [

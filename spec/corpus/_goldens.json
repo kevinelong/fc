@@ -648,6 +648,48 @@
       "x": 2
     }
   },
+  "shoot_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "gunner": {
+        "behavior": {
+          "cool": 0,
+          "every": 120,
+          "kind": "shoot",
+          "speed": 3,
+          "target": "player"
+        },
+        "shots": [],
+        "x": 40,
+        "y": 40
+      },
+      "sentry": {
+        "behavior": {
+          "cool": 0,
+          "every": 60,
+          "kind": "shoot",
+          "speed": 2,
+          "target": "player"
+        },
+        "shots": [],
+        "x": 10,
+        "y": 10
+      },
+      "turret": {
+        "behavior": {
+          "cool": 0,
+          "every": 60,
+          "kind": "shoot",
+          "speed": 2,
+          "target": "player"
+        },
+        "shots": [],
+        "x": 100,
+        "y": 60
+      }
+    }
+  },
   "singularize_ies.fc": {
     "errors": [],
     "say": [],

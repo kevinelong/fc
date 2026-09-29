@@ -1091,7 +1091,7 @@ function parse(source) {
 
     // -- ghosts chase player [speed 0.5] · bats wander · guard patrols between 20 and 100 --
     if (raw.length >= 2 && raw[0].type === 'word' && raw[1].type === 'word' &&
-        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols', 'flee', 'flees'].includes(tv(raw[1]))) {
+        ['chase', 'chases', 'wander', 'wanders', 'patrol', 'patrols', 'flee', 'flees', 'shoot', 'shoots'].includes(tv(raw[1]))) {
       // optional trailing `through walls` lets a mover ignore solid map tiles
       const twi = raw.findIndex((t, i) => t.type === 'word' && tv(t) === 'through' &&
                                 raw[i + 1] && raw[i + 1].type === 'word' && tv(raw[i + 1]) === 'walls');
@@ -1128,6 +1128,20 @@ function parse(source) {
           within = parseExpression(stop > 0 ? after.slice(0, stop) : after);
         }
         return { type: 'behavior', kind: 'flee', subject, target, within, speed, through, lineNum };
+      }
+      if (verb === 'shoot') {
+        // `X shoots at player every 1 second speed 2` — the engine spawns a shot
+        // toward the target into `X.shots` on a cooldown; the game does collisions.
+        const ai = toks.findIndex(t => t.type === 'word' && tv(t) === 'at');
+        const target = ai > 0 && toks[ai + 1] && toks[ai + 1].type === 'word' ? toks[ai + 1].value : 'player';
+        const ei = toks.findIndex(t => t.type === 'word' && tv(t) === 'every');
+        let every = { type: 'literal', value: 60 }, unit = 'frames';
+        if (ei > 0) {
+          const stop = [sp, toks.findIndex(t => t.type === 'word' && tv(t) === 'when')].filter(i => i > ei).sort((a, b) => a - b)[0];
+          const d = parseDurationTail(toks.slice(ei + 1, stop === undefined ? toks.length : stop));
+          every = d.value; unit = d.unit;
+        }
+        return { type: 'behavior', kind: 'shoot', subject, target, every, unit, speed, through, lineNum };
       }
       if (verb === 'wander') {
         return { type: 'behavior', kind: 'wander', subject, speed, through, lineNum };
@@ -3202,8 +3216,15 @@ class Runtime {
             if (stmt.kind === 'patrol') { b.x1 = this.evalExpr(stmt.x1); b.x2 = this.evalExpr(stmt.x2); b.dir = 1; }
             if (stmt.kind === 'flee') { b.target = stmt.target; if (stmt.within) b.within = this.evalExpr(stmt.within); }
             if (stmt.kind === 'patrol_points') { b.points = this.evalExpr(stmt.points) || []; b.idx = 0; }
+            if (stmt.kind === 'shoot') {
+              b.target = stmt.target;
+              const secs = Number(this.evalExpr(stmt.every)) || 0;
+              b.every = Math.max(1, Math.round(stmt.unit === 'seconds' ? secs * 60 : secs));
+              b.cool = 0;
+              if (!Array.isArray(m.shots)) m.shots = [];
+            }
             if (stmt.through) b.through = true;
-            b.speed = (speed != null) ? speed : (typeof m.speed === 'number' ? m.speed : 0.5);
+            b.speed = (speed != null) ? speed : (typeof m.speed === 'number' ? m.speed : (stmt.kind === 'shoot' ? 2 : 0.5));
             m.behavior = b;                       // visible & editable from fc code
           }
           if (!this.behaviorSubjects.includes(stmt.subject)) this.behaviorSubjects.push(stmt.subject);
@@ -3520,6 +3541,26 @@ class Runtime {
           const len = Math.sqrt(dx * dx + dy * dy);
           if (len < spd) { b.idx = (b.idx + 1) % pts.length; }
           else { vx = dx / len * spd; vy = dy / len * spd; }
+        } else if (b.kind === 'shoot') {
+          const t = this.vars[b.target];
+          const shots = Array.isArray(m.shots) ? m.shots : (m.shots = []);
+          // shots fly straight and are culled once they leave the world, so the list
+          // cannot grow without bound
+          for (let i = shots.length - 1; i >= 0; i--) {
+            const sh = shots[i];
+            sh.x += sh.dx; sh.y += sh.dy;
+            if (sh.x < -8 || sh.y < -8 || sh.x > this.world.width + 8 || sh.y > this.world.height + 8) shots.splice(i, 1);
+          }
+          b.cool = (b.cool || 0) - 1;
+          if (b.cool <= 0) {
+            if (t && typeof t.x === 'number') {
+              const sx = m.x + 4, sy = m.y + 4;
+              const dx0 = (t.x + 4) - sx, dy0 = (t.y + 4) - sy;
+              const len = Math.sqrt(dx0 * dx0 + dy0 * dy0) || 1;
+              shots.push({ x: sx, y: sy, dx: dx0 / len * spd, dy: dy0 / len * spd });
+            }
+            b.cool = b.every || 60;
+          }
         } else if (b.kind === 'patrol') {
           const lo = Math.min(b.x1, b.x2), hi = Math.max(b.x1, b.x2);
           if (!b.dir) b.dir = 1;

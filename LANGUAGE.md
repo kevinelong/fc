@@ -307,8 +307,16 @@ zombie flees from player when within 30
 ship patrols along [{x: 10, y: 10}, {x: 90, y: 10}, {x: 90, y: 90}]
 ```
 
-`chase`, `flee from`, `wander` and the two `patrol` forms are all you need for
-most arcade enemies; add `through walls` to ignore solid tiles.
+And a shooter fills its own `shots` list, which you draw and test however you like:
+
+```
+turret shoots at player every 1 second speed 3
+each sh in turret.shots
+  draw rect at sh.x, sh.y size 2, 2 in yellow
+```
+
+`chase`, `flee from`, `wander`, `shoots at` and the two `patrol` forms are all you
+need for most arcade enemies; add `through walls` to ignore solid tiles.
 
 ## Colors
 
