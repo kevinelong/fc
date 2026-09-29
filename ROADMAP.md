@@ -127,8 +127,15 @@ and every claim below is checked. The genuinely-open items are collected at the 
 - **Enemy AI extras** ✅ — `flees from TARGET [when within N]`, waypoint
   `patrols along [...]` and `shoots at TARGET [every N [seconds|frames]] [speed S]`
   all shipped 2026-09-29 (the shooter uses the `<enemy>.shots` list model, Q10).
-- **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting
-  columns, not per-pixel RGB stripes derived from the color values.
+- **True subpixel rendering** ✅ — shipped 2026-09-29 as an opt-in display setting
+  (⚙ → "True subpixel (RGB stripes)"): the page reads the 128×128 frame and emits
+  three vertical R/G/B sub-stripes per logical pixel whose intensities follow that
+  pixel's own channels, then lets the browser scale it up. Measured 0.17–0.29 ms per
+  frame (the sketch above estimated ~1 ms). The source canvas is untouched, so every
+  pixel golden still pins the same image, and taps pass straight through. It ships
+  OFF: flipping the default changes the shipped look, so that stays a taste call —
+  the measured comparison says the stripes are cleaner and more saturated, while the
+  fixed fringe washes the picture toward its dominant colour.
 - **Compiler targets beyond Python/JavaScript** (Lua, Godot, Unity).
 
 ## Discussed but not implemented

@@ -52,6 +52,16 @@ canvas {
      with brightness/saturation so hot pixels look like they glow. */
   filter: blur(0.7px) brightness(1.18) contrast(1.12) saturate(1.25);
 }
+/* True subpixel mode (opt-in): a 3x-wide display canvas of real R/G/B stripes layered
+   over the source, so it keeps the pointer target and the CRT overlays above it.
+   No blur here — the stripes ARE the sub-pixel structure; the browser scales it up. */
+#display {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+  filter: brightness(1.18) contrast(1.12) saturate(1.25);
+}
+body.true-subpixel #subpixels { display: none; }
 #subpixels {
   position: absolute;
   inset: 0;
@@ -399,6 +409,7 @@ body.touch.playing #back-btn {
     <div id="game-desc"></div>
     <div id="screen-frame">
       <canvas id="screen" width="128" height="128" tabindex="0" role="img" aria-label="game screen — click or focus it, then use the arrow keys or the on-screen pad to play"></canvas>
+      <canvas id="display" width="384" height="384" aria-hidden="true" style="display:none"></canvas>
       <div id="subpixels"></div>
       <div id="scanlines"></div>
     </div>
@@ -674,6 +685,8 @@ function resizeCanvas() {
   const displayPx = 128 * scale;
   canvas.style.width = displayPx + 'px';
   canvas.style.height = displayPx + 'px';
+  const disp = document.getElementById('display');
+  if (disp) { disp.style.width = displayPx + 'px'; disp.style.height = displayPx + 'px'; }
   const frame = document.getElementById('screen-frame');
   if (frame) { frame.style.width = displayPx + 'px'; frame.style.height = displayPx + 'px'; }
   const sl = document.getElementById('scanlines');
@@ -765,6 +778,7 @@ function a11yState() {
     motion: (m === undefined) ? !!osMotion : !!m,
     big: a11yGet('a11y:big-text') === true,
     contrast: a11yGet('a11y:hi-contrast') === true,
+    subpixel: a11yGet('a11y:subpixel') === true,
   };
 }
 function a11yApply() {
@@ -775,6 +789,7 @@ function a11yApply() {
     document.body.classList.toggle('big-text', s.big);
     document.body.classList.toggle('hi-contrast', s.contrast);
   }
+  if (window.FC_SUBPIXEL) { try { window.FC_SUBPIXEL.apply(); } catch (_) {} }
   return s;
 }
 a11yApply();
@@ -6923,6 +6938,74 @@ function fcFlash(color) {
   ctx.fillRect(0, 0, 128, 128);
 }
 const FX = { flash: fcFlash, shake: fcShake };
+// ---- True subpixel rendering (opt-in) --------------------------------------
+// The classic mode blends a FIXED rgb fringe over the picture (a CSS gradient), so
+// the colour of a pixel does not affect its stripes. This mode reads the real
+// 128x128 frame and emits three vertical sub-stripes per logical pixel whose
+// intensities follow that pixel's channels, then lets the browser scale it up.
+// It is presentation only: #screen (what the engines draw into, and what the pixel
+// goldens capture) is untouched, and clicks still land on it.
+const FC_SUB = {
+  S: 3,            // sub-stripes per logical pixel (R, G, B)
+  leak: 0.28,      // how much the two non-dominant channels bleed into a stripe
+  gain: 1.9,       // compensates the dimming the leak causes, so the average holds
+};
+let fcSubCtx = null, fcSubOut = null, fcSubRaf = null;
+function fcSubpixelSetup() {
+  const disp = document.getElementById('display'), scr = document.getElementById('screen');
+  if (!disp || !scr) return false;
+  if (!fcSubCtx) {
+    disp.width = 128 * FC_SUB.S; disp.height = 128 * FC_SUB.S;
+    fcSubCtx = disp.getContext('2d');
+    fcSubCtx.imageSmoothingEnabled = false;
+    fcSubOut = fcSubCtx.createImageData(disp.width, disp.height);
+  }
+  return true;
+}
+function fcSubpixelFrame() {
+  if (!fcSubCtx) return;
+  const scr = document.getElementById('screen');
+  if (!scr) return;
+  const src = scr.getContext('2d').getImageData(0, 0, 128, 128).data;
+  const out = fcSubOut.data, k = FC_SUB.leak, g = FC_SUB.gain, W = 128 * FC_SUB.S;
+  for (let y = 0; y < 128; y++) {
+    const row = y * 128 * 4, orow = y * W * 4;
+    for (let x = 0; x < 128; x++) {
+      const i = row + x * 4, o = orow + x * FC_SUB.S * 4;
+      const r = src[i], gg = src[i + 1], b = src[i + 2];
+      const kr = r * k * g, kg = gg * k * g, kb = b * k * g;
+      out[o] = r * g;       out[o + 1] = kg;      out[o + 2] = kb;      out[o + 3] = 255;  // R stripe
+      out[o + 4] = kr;      out[o + 5] = gg * g;  out[o + 6] = kb;      out[o + 7] = 255;  // G stripe
+      out[o + 8] = kr;      out[o + 9] = kg;      out[o + 10] = b * g;  out[o + 11] = 255; // B stripe
+    }
+  }
+  fcSubCtx.putImageData(fcSubOut, 0, 0);
+}
+// One loop drives the copy for BOTH engines (and while paused/stepping), so no
+// engine needs a hook; the display lags the source by at most one frame.
+function fcSubpixelLoop() {
+  if (!document.body.classList.contains('true-subpixel')) { fcSubRaf = null; return; }
+  fcSubpixelFrame();
+  fcSubRaf = requestAnimationFrame(fcSubpixelLoop);
+}
+function fcSubpixelApply() {
+  const disp = document.getElementById('display'), sp = document.getElementById('subpixels');
+  if (!disp) return;
+  const want = !!a11yState().subpixel && !document.body.classList.contains('reduce-motion');
+  if (want && !fcSubpixelSetup()) return;
+  document.body.classList.toggle('true-subpixel', want);
+  if (sp) sp.style.display = want ? 'none' : '';
+  if (want) {
+    disp.style.display = 'block';
+    fcSubpixelFrame();
+    if (!fcSubRaf) fcSubRaf = requestAnimationFrame(fcSubpixelLoop);
+  } else {
+    disp.style.display = 'none';
+    if (fcSubRaf) { cancelAnimationFrame(fcSubRaf); fcSubRaf = null; }
+  }
+}
+window.FC_SUBPIXEL = { apply: fcSubpixelApply, frame: fcSubpixelFrame, cfg: FC_SUB };
+
 window.WASMCORE = (function () {
   const KEYCODE = { up: 0, down: 1, left: 2, right: 3, space: 4, a: 5, b: 6 };
   const WASM_URL = 'spec/port/spike/target/wasm32-unknown-unknown/release/fc_spike.wasm';
@@ -7653,6 +7736,7 @@ function fcTpArrRemove(target, value, ctx) {
     { key:'a11y:reduce-motion', field:'motion',   label:'Reduced motion',         desc:'Turn off the CRT glow, scanlines & animations.' },
     { key:'a11y:big-text',      field:'big',      label:'Larger editor text',     desc:'Bigger code font for easier reading.' },
     { key:'a11y:hi-contrast',   field:'contrast', label:'High-contrast editor',   desc:'Brighter code on a solid black background.' },
+    { key:'a11y:subpixel',      field:'subpixel', label:'True subpixel (RGB stripes)', desc:'Draw real red/green/blue sub-pixels from the picture instead of a fixed colour fringe.' },
   ];
   function rerenderGame(){ try { var ed = document.getElementById('editor'); if (typeof run === 'function') run(ed ? ed.value : ''); } catch (_) {} }
   function netStatsPaint(){

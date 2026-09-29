@@ -370,6 +370,68 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     const after = await boxPixel();
     check('the talk key opens the dialog box (app input path)', during === '255,241,232', `before=${before} during=${during}`);
     check('the box persists while the dialog is set', after === '255,241,232', JSON.stringify({ during, after }));
+
+    // ---- 13. true subpixel mode (opt-in) -------------------------------------
+    // Off by default (the goldens capture #screen, which must stay untouched);
+    // switched on it renders real R/G/B stripes from the picture's own colours.
+    await loadSource('to draw\n  clear screen to white\n  draw rect at 0, 0 size 128, 128 in white\nrun game with update and draw\n');
+    const subState = () => evaluate(cdp, `(function(){
+      var d = document.getElementById('display'), scr = document.getElementById('screen');
+      var on = !!d && getComputedStyle(d).display !== 'none';
+      var stripes = null, srcPx = null, cost = null;
+      var sd = scr.getContext('2d').getImageData(10, 10, 1, 1).data;
+      srcPx = sd[0] + ',' + sd[1] + ',' + sd[2];
+      if (on) {
+        var g = d.getContext('2d');
+        var px = [];
+        for (var i = 0; i < 3; i++) { var p = g.getImageData(30 + i, 30, 1, 1).data; px.push(p[0] + '/' + p[1] + '/' + p[2]); }
+        stripes = px;
+        var t0 = performance.now();
+        for (var k = 0; k < 60; k++) window.FC_SUBPIXEL.frame();
+        cost = (performance.now() - t0) / 60;
+      }
+      return { on: on, stripes: stripes, srcPx: srcPx, costMs: cost, body: document.body.className };
+    })()`);
+    const subOff = await subState();
+    check('subpixel is off by default', subOff.on === false, JSON.stringify(subOff));
+    // flip it from the settings panel, the way a user does
+    const panelToggle = await evaluate(cdp, `(function(){
+      document.getElementById('tool-settings').click();
+      var sw = Array.prototype.find.call(document.querySelectorAll('#settings-list button[role="switch"]'),
+        function(b){ return /subpixel/i.test(b.getAttribute('aria-label') || ''); });
+      if (!sw) return 'missing-row';
+      sw.click();
+      return sw.getAttribute('aria-checked');
+    })()`);
+    check('the settings panel has a subpixel switch that turns it on', panelToggle === 'true', JSON.stringify(panelToggle));
+    await sleep(300);
+    const subOn = await subState();
+    check('enabling shows the stripe display canvas', subOn.on === true, JSON.stringify(subOn));
+    check('sub-stripes are per-channel (R,G,B dominant)',
+      !!subOn.stripes && subOn.stripes[0].split('/')[0] > 200 && subOn.stripes[0].split('/')[1] < 160
+      && subOn.stripes[1].split('/')[1] > 200 && subOn.stripes[1].split('/')[0] < 160
+      && subOn.stripes[2].split('/')[2] > 200 && subOn.stripes[2].split('/')[0] < 160,
+      JSON.stringify(subOn.stripes));
+    check('the source canvas the goldens capture is unchanged', subOn.srcPx === '255,241,232', JSON.stringify({ srcPx: subOn.srcPx }));
+    // taps must still reach the SOURCE canvas (the display is pointer-events: none)
+    await loadSource('hits is 0\nwhen mouse is clicked\n  hits is hits + 1\nto update\n  tick is 1\nto draw\n  clear screen to black\n  write "hits {hits}" at 2, 2 in white on hud\nrun game with update and draw\n');
+    await evaluate(cdp, `(function(){ window.STORE.set('a11y:subpixel', true); a11yApply(); return 1; })()`);
+    await sleep(300);
+    const tapRect = await evaluate(cdp, `(function(){ var r = document.getElementById('screen').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tapRect.x, y: tapRect.y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tapRect.x, y: tapRect.y, button: 'left', clickCount: 1 });
+    await sleep(300);
+    const tapped = await evaluate(cdp, `(function(){
+      var c = document.getElementById('screen'), g = c.getContext('2d');
+      var d = g.getImageData(2, 2, 40, 8).data, lit = 0;
+      for (var i = 0; i < d.length; i += 4) if (d[i] > 200) lit++;
+      return { lit: lit, on: getComputedStyle(document.getElementById('display')).display !== 'none' };
+    })()`);
+    check('taps pass through the display canvas to the engine', tapped.on === true && tapped.lit > 0, JSON.stringify(tapped));
+    console.log(`      · subpixel post-process: ${subOn.costMs.toFixed(2)} ms/frame (128x128 -> 384x384)`);
+    await evaluate(cdp, `(function(){ window.STORE ? window.STORE.set('a11y:subpixel', false) : localStorage.removeItem('fc:save:a11y:subpixel'); return 1; })()`);
+    await evaluate(cdp, `a11yApply()`);
+    await evaluate(cdp, `(function(){ var c = document.getElementById('settings-close'); if (c) c.click(); return 1; })()`);
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

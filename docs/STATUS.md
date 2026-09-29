@@ -5,6 +5,43 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (i) — true subpixel rendering (opt-in), measured verdict
+
+The roadmap's last unbuilt feature. **Opt-in** via ⚙ → "True subpixel (RGB stripes)"
+(default off, so the classic look and every pinned pixel golden are unchanged).
+
+**What it does:** reads the 128×128 frame and writes a 384×384 display canvas where
+each logical pixel becomes three vertical R/G/B sub-stripes whose intensities follow
+that pixel's own channels (leak 0.28, gain 1.9 — the three-stripe average matches the
+original luminance), then the browser scales it up (`image-rendering: pixelated`).
+The scanline mask still layers on top; the display is `pointer-events: none` so taps
+land on the source canvas; a single rAF loop drives the copy, so BOTH engines are
+covered with no engine hook, and it keeps working while the live inspector is paused
+or stepping. Reduced motion suppresses it, consistent with how the CRT overlays are
+already hidden then.
+
+**Verdict — measured, not asserted:**
+
+- **Cost 0.17–0.29 ms/frame** for the post-process (the plan sketched ~1 ms) — 1–2%
+  of a 16.7 ms budget, leaving room to render at the exact display scale if wanted.
+- **Quality: better.** Side by side on `time-attack`: the classic fringe is a *fixed*
+  gradient blended with `mix-blend-mode: screen`, so it brightens everything
+  regardless of content — the play area reads washed blue and sprites lose
+  saturation. Real stripes follow the picture: clean blue background, saturated
+  cyan/pink/green hero and yellow coins, crisp white HUD text with a subtle, correct
+  colour fringe.
+- **Worth it?** Yes as an opt-in, and the numbers say defaulting it on is affordable.
+  That last step changes the shipped look, so it is left as your call (noted in
+  ROADMAP). Known nit if it does become the default: the display is 384px wide and
+  the browser upscales it, so an odd CSS scale (5, 7) lands stripes on non-integer
+  pixels and loses a little crispness — rendering at the exact scale would fix that
+  at slightly higher cost.
+
+**Guards** (`tools/ui-check.mjs`, 47/47): off by default; the ⚙ switch turns it on;
+stripes are per-channel (R/G/B dominant on a white pixel); the source canvas is
+byte-identical (goldens stay valid); taps pass through the display to the engine; and
+the cost is printed on every run.
+
 ## 2026-09-29 (h) — the last two language features: shooters and talking
 
 Working the two items that were waiting on a model decision, both implemented with the
