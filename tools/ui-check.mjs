@@ -178,6 +178,45 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await loadSource('say "no"\nto draw\n  clear screen to black\n  draw rect at 0, 0 size 40, 40 in blue\nrun game with update and draw\n');
     const gamePixels = await countPixels();
     check('a game ignores say lines (no overlay)', gamePixels === 40 * 40, `${gamePixels} non-black pixels`);
+
+    // ---- 6. the Phase 3 floor: something that runs, never a dead end --------
+    // (a program that parses to nothing must OFFER a runnable starter, not just
+    // sit there — the floor of the "type English, it always runs" promise)
+    await loadSource('make a dragon eat coins\nplease be funky\n');
+    await evaluate(cdp, `(function(){ var b = document.getElementById('tool-run'); if (b) b.click(); })()`);
+    await sleep(900);
+    const floor = await evaluate(cdp, `(function(){
+      var bar = document.querySelector('.fc-floor');
+      if (!bar) return { found: false, errorText: (document.getElementById('errors') || {}).textContent };
+      var btns = bar.querySelectorAll('button');
+      return { found: true, options: btns.length - 1, text: bar.textContent.slice(0, 90) };
+    })()`);
+    check('a dead-end program offers the runnable floor', floor.found === true, JSON.stringify(floor));
+    check('the floor offers two directions (A/B)', floor.options === 2, JSON.stringify(floor));
+    const picked = await evaluate(cdp, `new Promise(function(res){
+      var bar = document.querySelector('.fc-floor');
+      var a = bar.querySelectorAll('button')[0];
+      a.click();
+      setTimeout(function(){
+        var ed = document.querySelector('textarea');
+        res({ editorStart: (ed ? ed.value : '').slice(0, 24) });
+      }, 600);
+    })`);
+    check('picking a starter loads it into the editor', picked.editorStart.startsWith('-- What you wrote'), JSON.stringify(picked));
+    const afterStarter = await countPixels();
+    check('the picked starter actually draws', afterStarter > 0, `${afterStarter} non-black pixels`);
+
+    // ---- 7. safety-net telemetry is recorded locally and shown in Settings ---
+    await loadSource('clera screen to gren\nscore is 0\n');
+    await evaluate(cdp, `(function(){ var b = document.getElementById('tool-run'); if (b) b.click(); })()`);
+    await sleep(700);
+    const stats = await evaluate(cdp, `(function(){ return typeof window.FC_NET_STATS === 'function' ? window.FC_NET_STATS() : null; })()`);
+    check('net stats exist and record the run', !!stats && stats.runs > 0, JSON.stringify(stats));
+    check('net stats record the offered heal', !!stats && Object.keys(stats.offered || {}).length > 0, JSON.stringify(stats && stats.offered));
+    await evaluate(cdp, `(function(){ var b = document.getElementById('tool-settings'); if (b) b.click(); })()`);
+    await sleep(250);
+    const shown = await evaluate(cdp, `(function(){ var s = document.getElementById('net-stats-body'); return s ? s.textContent : null; })()`);
+    check('Settings shows the safety-net log summary', !!shown && /runs \d/.test(shown), JSON.stringify(shown));
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

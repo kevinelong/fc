@@ -603,6 +603,7 @@ body.touch.playing #back-btn {
     <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.16em">SETTINGS &amp; ACCESSIBILITY</div>
     <div style="color:#8a7340;font-size:12px;margin:2px 0 16px">These are saved to this device (and your account, if signed in).</div>
     <div id="settings-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="net-stats" style="margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px"><div style="color:#c8a96e;font-size:13px;letter-spacing:.06em">SAFETY-NET LOG (this device only)</div><div id="net-stats-body" style="color:#8a7340;font-size:11.5px;margin:4px 0 8px">—</div><button type="button" id="net-stats-copy" style="font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:5px 10px;cursor:pointer">📋 copy net stats</button></div>
     <div style="color:#8a7340;font-size:11.5px;margin-top:18px;border-top:1px solid #3a2f18;padding-top:10px">Colorblind-safe mode re-tunes the palette so red/green/brown stay distinct. Reduced motion turns off the CRT glow &amp; scanlines.</div>
   </div>
 </div>
@@ -4953,18 +4954,119 @@ function fcHeal(src) {
 function fcShowFix(healed) {
   const n = healed.changes.length;
   const bar = document.createElement('div');
+  bar.className = 'fc-fix';
   bar.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 6px;padding:6px 9px;background:#12240f;border:1px solid #2c6e2c;border-radius:5px;color:#9f9';
   const txt = document.createElement('span');
   const summary = healed.changes.map(c => c.reason).filter(Boolean).slice(0, 4).join(' · ');
+  healed.changes.forEach(c => fcNetRecord('offered', c.reason || 'change'));
   txt.textContent = `Safety net: I can fix ${n} thing${n > 1 ? 's' : ''} so it runs as you meant — ${summary}`;
   const btn = document.createElement('button');
   btn.type = 'button'; btn.textContent = '✎ Fix & run';
   btn.style.cssText = "font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap";
-  btn.onclick = () => { editor.value = healed.code; editor.dispatchEvent(new Event('input', { bubbles: true })); run(healed.code); };
+  btn.onclick = () => { fcNetRecord('accepted', 'fix & run'); editor.value = healed.code; editor.dispatchEvent(new Event('input', { bubbles: true })); run(healed.code, true); };
   bar.appendChild(txt); bar.appendChild(btn);
   errorsDiv.insertBefore(bar, errorsDiv.firstChild);
 }
-function run(source) {
+// ---- safety net Phase 3: the runnable-scaffold floor ------------------------
+// The floor of the "type English, it always runs" cascade: when an explicit run
+// leaves nothing on screen, offer a small program that certainly runs, with the
+// user's own words kept as comments. Never auto-applied. Mirrors
+// spec/heal/scaffold.mjs (drift-checked by spec/heal/eval.mjs); every starter is
+// gate-valid fc (parses, runs, lint-clean).
+const FC_STARTERS = [{"name":"collect","blurb":"a game you steer with the arrows, grabbing things for score","keys":["collect","coin","grab","catch","score","player","move","walk","adventure","quest","run","jump","eat","dragon","snake"],"code":"player is {x: 60, y: 100}\ncoin is {x: 40, y: 30}\nscore is 0\n\nto update\n  move player with arrows speed 2\n  if player.x > coin.x - 8 and player.x < coin.x + 8 and player.y > coin.y - 8 and player.y < coin.y + 8\n    coin.x is random 110\n    coin.y is random 110\n    increase score\n\nto draw\n  clear screen to black\n  draw rect at coin.x, coin.y size 8, 8 in gold\n  draw rect at player.x, player.y size 8, 8 in green\n  write \"score {score}\" at 2, 2 in white on hud\n\nrun game with update and draw\n"},{"name":"bounce","blurb":"a ball that bounces around the screen forever","keys":["bounce","ball","paddle","pong","wall","brick","breakout","tennis","pong"],"code":"ball is {x: 20, y: 20, dx: 2, dy: 2}\n\nto update\n  ball.x is ball.x + ball.dx\n  ball.y is ball.y + ball.dy\n  if ball.x > 120 ball.dx is 0 - ball.dx\n  if ball.x < 0 ball.dx is 0 - ball.dx\n  if ball.y > 120 ball.dy is 0 - ball.dy\n  if ball.y < 0 ball.dy is 0 - ball.dy\n\nto draw\n  clear screen to black\n  draw circle at ball.x, ball.y size 6 in yellow\n\nrun game with update and draw\n"},{"name":"shoot","blurb":"a ship you steer that fires when you press space","keys":["shoot","fire","space","enemy","invader","laser","bullet","ship","blast","alien","fight","defend"],"code":"ship is {x: 60, y: 110}\nshot is {x: -10, y: -10}\nfiring is no\n\nto update\n  move ship with arrows speed 3\n  if key \"space\" is pressed\n    firing is yes\n    shot.x is ship.x\n    shot.y is ship.y\n  if firing is yes\n    shot.y is shot.y - 4\n    if shot.y < -8 firing is no\n\nto draw\n  clear screen to black\n  if firing is yes draw rect at shot.x, shot.y size 3, 6 in white\n  draw rect at ship.x, ship.y size 10, 6 in cyan\n\nrun game with update and draw\n"},{"name":"stars","blurb":"stars drifting past, like flying through space","keys":["star","space","fly","fall","rain","drift","particle","random","sky","night","galaxy"],"code":"stars is []\nrepeat with i from 1 to 40\n  add {x: random 128, y: random 128, speed: (random 3) + 1} to stars\n\nto update\n  each s in stars\n    decrease s.x by s.speed\n    if s.x < 0\n      s.x is 128\n      s.y is random 128\n\nto draw\n  clear screen to black\n  each s in stars\n    draw rect at s.x, s.y size 1, 1 in white\n\nrun game with update and draw\n"}];
+function fcStarterHits(words, k) { return words.some(function (w) { return w === k || (k.length >= 3 && w.indexOf(k) === 0) || (w.length >= 3 && k.indexOf(w) === 0); }); }
+function fcPickStarter(src) {
+  const words = String(src || '').toLowerCase().match(/[a-z]+/g) || [];
+  const scored = FC_STARTERS.map(function (s) { return { s: s, hits: s.keys.reduce(function (n, k) { return n + (fcStarterHits(words, k) ? 1 : 0); }, 0) }; });
+  scored.sort(function (a, b) { return b.hits - a.hits || a.s.name.localeCompare(b.s.name); });
+  return { primary: scored[0].s, options: [scored[0].s, scored[1].s] };
+}
+function fcScaffoldHeader(src) {
+  const asked = String(src || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).slice(0, 6);
+  return ['-- What you wrote (kept here so nothing is lost):'].concat(asked.map(function (l) { return '--   ' + l; }))
+    .concat(['--', '-- That did not run yet, so here is the closest thing that DOES run.',
+             '-- Change any line and press run — this is a normal fc program.', '']).join('\n');
+}
+function fcScaffoldFor(src, starter) { return fcScaffoldHeader(src) + starter.code; }
+function fcCanvasDrawn() {
+  try {
+    const d = ctx.getImageData(0, 0, 128, 128).data;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 8 || d[i + 1] > 8 || d[i + 2] > 8) return true;
+    return false;
+  } catch (_) { return true; }   // if we cannot read the canvas, never claim a dead end
+}
+function fcClearFloor() { const b = errorsDiv.querySelector('.fc-floor'); if (b) b.remove(); }
+function fcShowFloor(src) {
+  if (errorsDiv.querySelector('.fc-floor')) return;
+  const picked = fcPickStarter(src);
+  const bar = document.createElement('div');
+  bar.className = 'fc-floor';
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 6px;padding:6px 9px;background:#241d0f;border:1px solid #6e5a2c;border-radius:5px;color:#e8c98b';
+  const txt = document.createElement('span');
+  txt.textContent = 'Safety net: that did not run yet — nothing appeared on screen. Your words are kept as comments; try one of these:';
+  bar.appendChild(txt);
+  picked.options.forEach(function (s, i) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.title = s.blurb;
+    b.textContent = (i === 0 ? 'A) ' : 'B) ') + s.name + ' — ' + s.blurb;
+    b.style.cssText = "font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap";
+    b.onclick = function () { fcNetRecord('starters', s.name); const code = fcScaffoldFor(src, s); editor.value = code; editor.dispatchEvent(new Event('input', { bubbles: true })); run(code, true); };
+    bar.appendChild(b);
+  });
+  const x = document.createElement('button');
+  x.type = 'button'; x.textContent = '✕'; x.title = 'dismiss';
+  x.style.cssText = "font:12px 'Share Tech Mono',monospace;background:none;color:#c8a96e;border:none;cursor:pointer;padding:4px";
+  x.onclick = function () { bar.remove(); };
+  bar.appendChild(x);
+  errorsDiv.insertBefore(bar, errorsDiv.firstChild);
+}
+let fcFloorTimer = null;
+// Only an explicit run (the ▶ button / a loaded game) can raise the floor: the
+// debounced run fires while the user is still typing and would nag them.
+function fcScheduleFloor(src) {
+  clearTimeout(fcFloorTimer);
+  fcClearFloor();
+  if (!String(src || '').trim()) return;
+  fcFloorTimer = setTimeout(function () {
+    if (errorsDiv.querySelector('.fc-fix')) return;        // the fix banner already offers a path
+    if (/\brun\s+game\b/i.test(src)) return;               // a game is running — not a dead end
+    if (fcCanvasDrawn()) return;                           // something is on screen
+    fcShowFloor(src);
+  }, 500);
+}
+// ---- safety-net telemetry (Phase 3): LOCAL ONLY ----------------------------
+// Counts what the net keeps fixing/offering, so the common cases can become
+// natively-accepted syntax (that is how the net shrinks). Nothing leaves the
+// device: it lives in localStorage, `window.FC_NET_STATS()` reads it, and Settings
+// has a copy button so you can paste it into feedback if you want to.
+function fcNetBlank() { return { v: 1, runs: 0, offered: {}, accepted: {}, starters: {} }; }
+function fcNetStats() {
+  try {
+    const raw = localStorage.getItem('fc:net-stats');
+    const s = raw ? JSON.parse(raw) : null;
+    return (s && typeof s === 'object') ? Object.assign(fcNetBlank(), s) : fcNetBlank();
+  } catch (_) { return fcNetBlank(); }
+}
+function fcNetRecord(bucket, key) {
+  try {
+    const s = fcNetStats();
+    if (bucket === 'runs') s.runs = (s.runs || 0) + 1;
+    else { const b = s[bucket] || (s[bucket] = {}); b[key] = (b[key] || 0) + 1; }
+    localStorage.setItem('fc:net-stats', JSON.stringify(s));
+  } catch (_) {}
+}
+function fcNetSummary() {
+  const s = fcNetStats();
+  const top = function (o, n) { return Object.keys(o || {}).sort(function (a, b) { return o[b] - o[a]; }).slice(0, n).map(function (k) { return k + ' \u00d7' + o[k]; }); };
+  const offered = top(s.offered, 4), accepted = top(s.accepted, 2), starters = top(s.starters, 3);
+  return 'runs ' + (s.runs || 0) +
+    (offered.length ? ' \u00b7 fixes offered: ' + offered.join(', ') : '') +
+    (accepted.length ? ' \u00b7 accepted: ' + accepted.join(', ') : '') +
+    (starters.length ? ' \u00b7 starters: ' + starters.join(', ') : '');
+}
+window.FC_NET_STATS = fcNetStats;
+function run(source, explicit) {
+  if (explicit) { fcScheduleFloor(source); fcNetRecord('runs'); }
   // wasm is the default engine; WASMCORE.run() falls back to runJSCore() itself
   // if the wasm fails to load. ?core=js (or no WebAssembly) keeps the JS core.
   const hints = lintHints(source);
@@ -5461,7 +5563,7 @@ run game with update`;
   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
   function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
   const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
-  if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+  if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value, true); setPlaying(true); };
   if (editBtn) editBtn.onclick = () => { setPlaying(false); };   // don't auto-focus (avoids popping the mobile keyboard)
   const backBtn = document.getElementById('back-btn');
   if (backBtn) backBtn.onclick = () => showHome();   // leave the game, back to the list
@@ -5615,7 +5717,7 @@ run game with update and draw`;
     document.getElementById('lr-new').onclick = newGame;
     { const hc = document.getElementById('lr-hero-card'); if (hc) hc.onclick = newGame; }
     const homeBtn = document.getElementById('tool-home'); if (homeBtn) homeBtn.onclick = showHome;
-    const runTool = document.getElementById('tool-run'); if (runTool) runTool.onclick = () => { editor.blur(); run(editor.value); setPlaying(true); };
+    const runTool = document.getElementById('tool-run'); if (runTool) runTool.onclick = () => { editor.blur(); run(editor.value, true); setPlaying(true); };
     // share: a link that opens the current code in anyone's browser
     let _toastTimer;
     function shareToast(msg) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2800); }
@@ -5882,7 +5984,7 @@ run game with update`,
     editor.value = before + ins + after;
     const caret = (before + ins).length;
     editor.selectionStart = editor.selectionEnd = caret;
-    closeForge(); editor.focus(); run(editor.value);
+    closeForge(); editor.focus(); run(editor.value, true);
   });
   // --- initial route: launcher by default; ?code / ?embed deep-link straight in ---
   (function init() {
@@ -5897,7 +5999,7 @@ run game with update`,
     if (embed || code) {                       // deep link → straight into the game, run it
       document.body.classList.remove('home');
       if (isTouch) setPlaying(true);
-      setTimeout(() => run(editor.value), 100);
+      setTimeout(() => run(editor.value, true), 100);
     } else {                                   // normal visit → show the launcher, don't auto-run
       showHome();
     }
@@ -6906,9 +7008,14 @@ function fcTpArrRemove(target, value, ctx) {
     { key:'a11y:hi-contrast',   field:'contrast', label:'High-contrast editor',   desc:'Brighter code on a solid black background.' },
   ];
   function rerenderGame(){ try { var ed = document.getElementById('editor'); if (typeof run === 'function') run(ed ? ed.value : ''); } catch (_) {} }
+  function netStatsPaint(){
+    var body = document.getElementById('net-stats-body');
+    if (body) body.textContent = fcNetSummary();
+  }
   function build(){
     var s = a11yState();
     list.innerHTML = '';
+    netStatsPaint();
     TOGGLES.forEach(function(t){
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:12px;justify-content:space-between;background:#111;border:1px solid #3a2f18;border-radius:6px;padding:10px 12px';
@@ -6939,6 +7046,13 @@ function fcTpArrRemove(target, value, ctx) {
   function close(){ overlay.style.display = 'none'; }
   btn.onclick = open;
   if (closeBtn) closeBtn.onclick = close;
+  var copyBtn = document.getElementById('net-stats-copy');
+  if (copyBtn) copyBtn.onclick = function(){
+    var txt = JSON.stringify(fcNetStats(), null, 1);
+    var done = function(ok){ copyBtn.textContent = ok ? '✓ copied' : '✗ copy failed'; setTimeout(function(){ copyBtn.textContent = '📋 copy net stats'; }, 1400); };
+    try { navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(false); }); }
+    catch (_) { done(false); }
+  };
   overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && overlay.style.display === 'block') close(); });
 })();

@@ -11,6 +11,7 @@ import path from 'path';
 import { heal, lint, VERBS, COLORS, DISPATCH, STRUCTURAL, BEHAVIOR_WORDS } from './healer.mjs';
 import { validate } from './validate.mjs';
 import { CASES } from './cases.mjs';
+import { STARTERS, scaffold, scaffoldFor } from './scaffold.mjs';
 import { parse, Runtime, __CMDS, __bindRT } from '../port/spike/fc-core-record.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -109,6 +110,43 @@ function gateCheck() {
   return { n, bad };
 }
 
+
+// ---- Phase 3 floor: every starter must be gate-valid, and the inlined copy in
+// index.html must match this module (data drift would ship a broken floor) -----
+function floorCheck() {
+  const bad = [];
+  for (const s of STARTERS) {
+    const v = validate(s.code, 30);
+    if (!v.ok) bad.push(`  starter ${s.name}: ${v.error || JSON.stringify(v.lintIssues.slice(0, 2))}`);
+    if (!s.keys.length || !s.blurb) bad.push(`  starter ${s.name}: missing keys/blurb`);
+  }
+  // the scaffold we would actually load must always pass the gate
+  const inputs = ['', 'make a dragon eat coins', 'a game where you shoot aliens', 'stars and space',
+                  'bounce a ball off the walls', 'please be funky', 'x = 5', 'sdlkfjsldkfj'];
+  for (const src of inputs) {
+    const sc = scaffold(src);
+    for (const code of [sc.code, ...sc.options.map(o => o.code)]) {
+      const v = validate(code, 30);
+      if (!v.ok) bad.push(`  scaffold(${JSON.stringify(src)}): ${v.error || JSON.stringify(v.lintIssues.slice(0, 2))}`);
+    }
+    if (!/did not run yet/.test(sc.code)) bad.push(`  scaffold(${JSON.stringify(src)}): header missing`);
+  }
+  // drift: index.html's inlined FC_STARTERS must equal this module's STARTERS
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const m = html.match(/const FC_STARTERS = (\[[\s\S]*?\]);/);
+  if (!m) bad.push('  index.html: FC_STARTERS block not found');
+  else {
+    let inline = null;
+    try { inline = JSON.parse(m[1]); } catch (e) { bad.push('  index.html: FC_STARTERS is not valid JSON: ' + e.message); }
+    if (inline) {
+      const norm = a => JSON.stringify(a.map(s => ({ name: s.name, blurb: s.blurb, keys: s.keys, code: s.code })));
+      if (norm(inline) !== norm(STARTERS)) bad.push('  FC_STARTERS drift: index.html != spec/heal/scaffold.mjs');
+    }
+  }
+  return bad;
+}
+
+const floor = floorCheck();
 const gate = gateCheck();
 const safety = corpusSafety();
 const drift = driftCheck();
@@ -119,4 +157,6 @@ if (safety.bad.length) console.log('\nFalse positives on real programs:\n' + saf
 console.log(`Validation gate: ${gate.n} programs accepted, ${gate.bad.length ? 'FAILURES below' : 'negatives rejected, all heals pass'}`);
 if (gate.bad.length) console.log('\nGate problems:\n' + gate.bad.join('\n'));
 if (drift.length) console.log('\nVOCAB DRIFT:\n  ' + drift.join('\n  '));
-process.exit(fail || safety.bad.length || gate.bad.length || drift.length ? 1 : 0);
+console.log(`Phase 3 floor: ${STARTERS.length} starters + ${floor.length ? 'FAILURES below' : 'scaffolds gate-valid, inlined copy matches'}`);
+if (floor.length) console.log('\nFloor problems:\n' + floor.join('\n'));
+process.exit(fail || safety.bad.length || gate.bad.length || drift.length || floor.length ? 1 : 0);
