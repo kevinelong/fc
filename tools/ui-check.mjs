@@ -80,6 +80,9 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
       const si = window.setInterval, ci = window.clearInterval;
       window.setInterval = function () { const id = si.apply(this, arguments); window.__io.set.push(id); return id; };
       window.clearInterval = function (id) { window.__io.clear.push(id); return ci.apply(this, arguments); };
+      window.__osc = 0;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { const co = AC.prototype.createOscillator; AC.prototype.createOscillator = function () { window.__osc++; return co.apply(this, arguments); }; }
     })();` });
     const loaded = new Promise(res => cdp.on('Page.loadEventFired', res));
     const src = fs.readFileSync(path.join(ROOT, 'examples', `${GAME}.fc`), 'utf8');
@@ -285,6 +288,18 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     check('stop music stops the music loop (default wasm engine)', mWasm.started > 0 && mWasm.stopped > 0, JSON.stringify(mWasm));
     const mJs = await musicCheck('&core=js', 'js');
     check('stop music stops the music loop (JS core)', mJs.started > 0 && mJs.stopped > 0, JSON.stringify(mJs));
+
+    // ---- 10. first-run blip: one tiny sound, once per session --------------
+    await evaluate(cdp, `(function(){ try { sessionStorage.removeItem('fc:first-run-blip'); } catch (_) {} return 1; })()`);
+    await loadSource('to update\n  tick is 1\nto draw\n  clear screen to black\n  draw rect at 10, 10 size 20, 20 in blue\nrun game with update and draw\n');
+    await evaluate(cdp, `(function(){ document.getElementById('tool-run').click(); })()`);
+    await sleep(700);
+    const blip1 = await evaluate(cdp, `(function(){ return { osc: window.__osc, flag: sessionStorage.getItem('fc:first-run-blip'), playing: document.body.classList.contains('playing') }; })()`);
+    await evaluate(cdp, `(function(){ document.getElementById('tool-run').click(); })()`);
+    await sleep(500);
+    const blip2 = await evaluate(cdp, `(function(){ return { osc: window.__osc }; })()`);
+    check('the first game run plays one blip', blip1.playing === true && blip1.flag === '1' && blip1.osc >= 1, JSON.stringify(blip1));
+    check('the blip is once per session (a re-run adds none)', blip2.osc === blip1.osc, JSON.stringify({ first: blip1.osc, second: blip2.osc }));
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

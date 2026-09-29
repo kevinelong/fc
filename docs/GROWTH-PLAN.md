@@ -21,7 +21,7 @@ an external account (Stripe / Apple / legal).
 
 ## Part A — Appeal (grow the free base)
 
-### A1. Gallery as the social heart  ·  ✅ (surfaced) / 🔜 (flywheel needs seed content)
+### A1. Gallery as the social heart  ·  ✅ (surfaced + "Remix these" shelf shipped)
 **Why.** Scratch's entire engine is *play what others made → remix → publish*. fc
 already has the gallery (`/api/games/community` + the `#lr-community` shelf +
 one-tap remix), but it sits empty and unlabeled, so the loop is invisible.
@@ -33,7 +33,7 @@ visitor always sees something to open and tweak.
 **Effort.** (a) tiny; (b)/(c) small. **Metric.** publishes/week, remix clicks,
 gallery → editor conversion.
 
-### A2. Win the first 10 seconds  ·  🔜
+### A2. Win the first 10 seconds  ·  ✅ (hero line + autoplaying muted clip + starter games)
 **Why.** Time-to-first-win is the #1 thing that decides whether a beginner stays.
 Today the home is a grid of demos; the "type English → it moves" magic is one
 click in.
@@ -59,7 +59,7 @@ adoption blocker. Needs apid work + a privacy review.
 **Effort.** page = small; classroom mode = medium + a privacy decision.
 **Metric.** teacher-page visits, lesson downloads, class codes created.
 
-### A4. Lead with "multiplayer you wrote"  ·  🔜
+### A4. Lead with "multiplayer you wrote"  ·  ✅ (launcher subtitle + 5 multiplayer demos)
 **Why.** It's the sharpest, least-copyable hook, and we just shipped five
 multiplayer demos (Tag, Hunt, Light Cycles, Online Pong, Joust).
 **What to build.** Feature a multiplayer demo first on the home; a "grab a friend,
@@ -139,6 +139,23 @@ and the same teacher investment (A3) is the on-ramp to the only durable revenue
 (B3). Free-for-learners is both the ethic and the flywheel.
 
 ---
+
+> **Audit 2026-09-29.** The whole "buildable-now" queue is shipped: **A** the Remix
+> shelf lives on the home (`#lr-remix`, tiles opening straight into the editor),
+> **B** the demo wall grew with the generative toys (life, matrix, langton, chaos,
+> sand, starfield) plus particle bursts in maze/coin-quest, **C** the home leads
+> with ⭐ Featured today, **D** teacher Lessons 1–3 are on /teachers/, **E** the
+> printable cheat-sheet ships (teachers/cheatsheet.html), **F** /projects/ is live.
+> In the polish queue: **#1** per-game share cards ship for built-in demos,
+> **#2** the landing has an autoplaying muted clip, **#4** the once-per-session
+> first-run blip shipped 2026-09-29 (`AUDIO.play('blip')` on the first game start,
+> sessionStorage-gated; verified in the browser by tools/ui-check.mjs), **#5** the
+> landing carries `canonical` + `author` and the teachers/projects pages carry OG
+> tags, **#6** ⭐ Featured today rotates deterministically by date.
+>
+> Still open: **#1's next step** — dynamic OG cards for *user* `?code=`/gallery
+> games (gated on the gallery moderation decision, OPEN-QUESTIONS Q2) — and Part B
+> **B2/B3** (Stripe account / licensing: business decisions, not code).
 
 ## Appeal build queue — "meanwhile" (no accounts/gates needed)
 Already shipped this arc: gallery empty-state, For Teachers page + Lesson 1, moving

@@ -5650,7 +5650,21 @@ run game with update`;
 
   // --- mobile CODE/PLAY screen toggle (no-op styling-wise on desktop) ---
   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
-  function setPlaying(on) { document.body.classList.toggle('playing', !!on); }
+  // Growth polish #4 — first-run delight: one tiny blip per SESSION when a game
+  // first starts playing, so the first win has a sound. Quiet (SFX.blip is 50ms at
+  // low volume), once, and silent whenever audio isn't unlocked yet.
+  function fcFirstRunBlip() {
+    try {
+      if (sessionStorage.getItem('fc:first-run-blip')) return;
+      sessionStorage.setItem('fc:first-run-blip', '1');
+      AUDIO.play('blip');
+    } catch (_) {}
+  }
+  function setPlaying(on) {
+    const was = document.body.classList.contains('playing');
+    document.body.classList.toggle('playing', !!on);
+    if (on && !was) fcFirstRunBlip();
+  }
   const runBtn = document.getElementById('run-btn'), editBtn = document.getElementById('edit-btn');
   if (runBtn) runBtn.onclick = () => { editor.blur(); run(editor.value, true); setPlaying(true); };
   if (editBtn) editBtn.onclick = () => { setPlaying(false); };   // don't auto-focus (avoids popping the mobile keyboard)
