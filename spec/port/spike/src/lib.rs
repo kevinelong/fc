@@ -186,7 +186,7 @@ enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
     Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
-    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), Bare(Expr), Key(String) }
+    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), InvHas(String,Expr), Bare(Expr), Key(String) }
 #[derive(Clone)]
 enum Stmt {
     Assign(String, Expr), Add(String, Expr), Remove(String, Expr),
@@ -205,6 +205,7 @@ enum Stmt {
     Flash(String, Expr, String), Shake(Expr, String, Expr),
     Emit { rate: Expr, x: Option<Expr>, y: Option<Expr>, rf: Option<String>, marker: String, color: String, frames: Expr, unit: String },
     Tween { target: String, from: Expr, to: Expr, frames: Expr, unit: String, ease: String },
+    Inventory(String), InvAdd(String, Expr), InvRemove(String, Expr),
     ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -390,6 +391,12 @@ fn parse_cond(ts: &[Tok]) -> Cond {
         }
         return Cond::Eq(parse_expr(&ts[..k]), parse_expr(&ts[k+1..]));
     }
+    // `player has "key" in inventory`
+    if ts.len() >= 5 && ts[ts.len()-1].is_word("inventory") && ts[ts.len()-2].is_word("in") {
+        if let Some(k) = find_word(ts, "has") { if k > 0 {
+            return Cond::InvHas(tokens_to_ref(&ts[..k]), parse_expr(&ts[k+1..ts.len()-2]));
+        }}
+    }
     if let Some(k)=find_word(ts,"has") { return Cond::Has(parse_expr(&ts[..k]), parse_expr(&ts[k+1..])); }
     Cond::Bare(parse_expr(ts))
 }
@@ -477,6 +484,18 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         return Stmt::Shake(frames, unit, magnitude);
     }
     if first=="when" { return parse_when(ts); }
+    // -- player has inventory · add "key" to player inventory · remove … --
+    if ts.len()==3 && ts[0].t==3 && ts[1].is_word("has") && ts[2].is_word("inventory") {
+        return Stmt::Inventory(ts[0].sval().to_string());
+    }
+    if (first=="add" || first=="remove") && ts.len()>=4 && ts[ts.len()-1].is_word("inventory") {
+        let kw = if first=="add" { find_word(ts, "to") } else { find_word(ts, "from") };
+        if let Some(k) = kw { if k > 0 && k + 1 < ts.len() - 1 {
+            let item = parse_expr(&ts[1..k]);
+            let subject = tokens_to_ref(&ts[k+1..ts.len()-1]);
+            return if first=="add" { Stmt::InvAdd(subject, item) } else { Stmt::InvRemove(subject, item) };
+        }}
+    }
     if first=="add" { if let Some(k)=find_word(ts,"to") { return Stmt::Add(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
     if first=="remove" { if let Some(k)=find_word(ts,"from") { return Stmt::Remove(tokens_to_ref(&ts[k+1..]), parse_expr(&ts[1..k])); } return call_fallback(ts); }
     // increase X [by N] / decrease X [by N] — plain-English aliases; desugar to add/remove
@@ -848,6 +867,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
         Cond::Neq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"neq\"}"); }
         Cond::Cmp(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"cmp\"}"); }
         Cond::Has(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"has\"}"); }
+        Cond::InvHas(subject,item)=>{ out.push_str("{\"item\":"); emit_expr(item,out); out.push_str(",\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inv_has\"}"); }
         Cond::In(v,l)=>{ out.push_str("{\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"in\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Cond::Bare(e)=>emit_expr(e,out),
         Cond::Key(k)=>{ out.push_str("{\"key\":"); json_str(k,out); out.push_str(",\"type\":\"key_pressed\"}"); }
@@ -888,6 +908,9 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
         Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
         Stmt::Flash(color,f,u)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"frames\":"); emit_expr(f,out); out.push_str(",\"type\":\"flash\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Inventory(subject)=>{ out.push_str("{\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inventory\"}"); }
+        Stmt::InvAdd(subject,item)=>{ out.push_str("{\"item\":"); emit_expr(item,out); out.push_str(",\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inv_add\"}"); }
+        Stmt::InvRemove(subject,item)=>{ out.push_str("{\"item\":"); emit_expr(item,out); out.push_str(",\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inv_remove\"}"); }
         Stmt::Tween{target,from,to,frames,unit,ease}=>{
             out.push_str("{\"ease\":"); json_str(ease,out);
             out.push_str(",\"from\":"); emit_expr(from,out);
@@ -1524,6 +1547,30 @@ impl Rt {
             self.cmds.push(Cmd::Rect(libm::floor(px - ox), libm::floor(py - oy), s, s, color));
         }
     }
+    // Inventories are ordinary fc lists on the subject (`player.inventory`); this
+    // returns the LIVE list handle so callers can mutate it in place.
+    fn inventory_handle(&mut self, name: &str) -> Rc<RefCell<Vec<Val>>> {
+        let obj = match self.get_var(name) {
+            Val::Obj(o) => o,
+            _ => {
+                let mut m = BTreeMap::new();
+                let l: Rc<RefCell<Vec<Val>>> = Rc::new(RefCell::new(Vec::new()));
+                m.insert("inventory".to_string(), Val::List(l.clone()));
+                let o = Rc::new(RefCell::new(m));
+                self.vars.insert(name.to_string(), Val::Obj(o.clone()));
+                return l;
+            }
+        };
+        let existing = match obj.borrow().get("inventory") { Some(Val::List(l)) => Some(l.clone()), _ => None };
+        match existing {
+            Some(l) => l,
+            None => {
+                let l: Rc<RefCell<Vec<Val>>> = Rc::new(RefCell::new(Vec::new()));
+                obj.borrow_mut().insert("inventory".to_string(), Val::List(l.clone()));
+                l
+            }
+        }
+    }
     fn get_var(&self, path: &str) -> Val {
         let parts: Vec<&str> = path.split('.').collect();
         let mut cur = match self.vars.get(parts[0]) { Some(v)=>v.clone(), None=>return Val::Undef };
@@ -1625,6 +1672,16 @@ impl Rt {
             Cond::Has(l, r) => { let a=display(&self.eval(l)); let b=display(&self.eval(r)); a.contains(&b) }
             // `X is in [..]` — JS uses Array.includes (STRICT equality), and a
             // non-list list operand is simply false.
+            Cond::InvHas(subject, item) => {
+                let v = self.eval(item);
+                match self.get_var(subject) {
+                    Val::Obj(o) => match o.borrow().get("inventory") {
+                        Some(Val::List(l)) => l.borrow().iter().any(|x| strict_eq(x, &v)),
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            }
             Cond::In(v, l) => { let val=self.eval(v); match self.eval(l) { Val::List(items) => items.borrow().iter().any(|it| strict_eq(it, &val)), _ => false } }
             Cond::Key(k) => *self.key_state.get(&k.to_lowercase()).unwrap_or(&false),
         }
@@ -2221,6 +2278,20 @@ impl Rt {
                 self.tweens.push(Tween { target: target.clone(), from: a, to: b, frames: frames_v, tick: 0, ease: e });
                 if self.tweens.len() > 16 { self.tweens.remove(0); }
                 self.set_var(target, Val::Num(a));
+            }
+
+            Stmt::Inventory(subject) => { self.inventory_handle(subject); }
+            Stmt::InvAdd(subject, item) => {
+                let v = self.eval(item);
+                let inv = self.inventory_handle(subject);
+                let exists = inv.borrow().iter().any(|x| strict_eq(x, &v));
+                if !exists { inv.borrow_mut().push(v); }
+            }
+            Stmt::InvRemove(subject, item) => {
+                let v = self.eval(item);
+                let inv = self.inventory_handle(subject);
+                let at = inv.borrow().iter().position(|x| strict_eq(x, &v));
+                if let Some(a) = at { inv.borrow_mut().remove(a); }
             }
             Stmt::Goto(target) => {
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }

@@ -133,6 +133,11 @@ function trailingColor(line) {
 // suggest a fix for. Anything ambiguous (a name we don't recognize, a variable
 // used as a color, a behavior line) is left alone — it still runs, and a later
 // LLM tier can look deeper. False "corrections" of valid code are the cardinal sin.
+// `SUBJECT has inventory` / `SUBJECT has ITEM in inventory` open with a subject name,
+// which must not be mistaken for a typo'd verb.
+const INVENTORY_LINE = /^[a-zA-Z_]\w*\s+has\s+inventory\s*$/i;
+const INVENTORY_COND = /\shas\s+.+\sin\s+inventory\s*$/i;
+
 export function lint(src) {
   const known = declaredSymbols(src);
   const issues = [];
@@ -146,7 +151,8 @@ export function lint(src) {
 
     // 1) unknown leading verb — skip known verbs, declared names, assignments,
     // and `<subject> wanders/chases/...` behavior lines. Only flag with a fix.
-    if (lead && !ASSIGN.test(t) && !(second && BEHAVIOR.has(second.toLowerCase()))) {
+    if (lead && !ASSIGN.test(t) && !(second && BEHAVIOR.has(second.toLowerCase()))
+        && !INVENTORY_LINE.test(t) && !INVENTORY_COND.test(t)) {
       if (!LEAD_OK.has(leadWord) && !known.has(leadWord)) {
         const sug = nearest(leadWord, SUGGEST_VERBS);
         if (sug) issues.push({ line: i + 1, kind: 'verb', token: lead[1], suggestion: sug });

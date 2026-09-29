@@ -10518,6 +10518,127 @@
       }
     }
   ],
+  "inventory_forms.fc": [
+    {
+      "subject": "player",
+      "type": "inventory"
+    },
+    {
+      "target": "has_key",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "item": {
+        "type": "literal",
+        "value": "key"
+      },
+      "subject": "player",
+      "type": "inv_add"
+    },
+    {
+      "item": {
+        "type": "literal",
+        "value": "key"
+      },
+      "subject": "player",
+      "type": "inv_add"
+    },
+    {
+      "body": [
+        {
+          "target": "has_key",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "item": {
+          "type": "literal",
+          "value": "key"
+        },
+        "subject": "player",
+        "type": "inv_has"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "item": {
+        "type": "literal",
+        "value": 3
+      },
+      "subject": "player",
+      "type": "inv_add"
+    },
+    {
+      "target": "count",
+      "type": "assign",
+      "value": {
+        "expr": {
+          "name": "player.inventory",
+          "type": "ref"
+        },
+        "type": "count"
+      }
+    },
+    {
+      "item": {
+        "type": "literal",
+        "value": "key"
+      },
+      "subject": "player",
+      "type": "inv_remove"
+    },
+    {
+      "target": "gone",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": false
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "gone",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ],
+      "condition": {
+        "item": {
+          "type": "literal",
+          "value": "key"
+        },
+        "subject": "player",
+        "type": "inv_has"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "subject": "bag",
+      "type": "inventory"
+    },
+    {
+      "item": {
+        "type": "literal",
+        "value": "torch"
+      },
+      "subject": "bag",
+      "type": "inv_add"
+    }
+  ],
   "item_computed_index.fc": [
     {
       "target": "grid",

@@ -1,0 +1,17 @@
+-- Inventory verbs: `SUBJECT has inventory` declares one, `add ITEM to SUBJECT
+-- inventory` / `remove ITEM from SUBJECT inventory` change it, and
+-- `SUBJECT has ITEM in inventory` tests it (strict equality, one entry per item).
+player has inventory
+has_key is no
+add "key" to player inventory
+add "key" to player inventory
+if player has "key" in inventory
+  has_key is yes
+add 3 to player inventory
+count is count of player.inventory
+remove "key" from player inventory
+gone is no
+if player has "key" in inventory
+  gone is yes
+bag has inventory
+add "torch" to bag inventory

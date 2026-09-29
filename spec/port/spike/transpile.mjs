@@ -235,6 +235,9 @@ function fcTpStmt(s, indent, ctx, out) {
     case 'broadcast': push('broadcast(' + fcTpExpr(s.value, ctx) + ')' + semi); return;
     case 'net_join': push('join_room(' + fcTpStr(s.game, ctx) + ', ' + fcTpStr(s.room, ctx) + ')' + semi); return;
     case 'time_limit': push('set_time_limit(' + fcTpExpr(s.value, ctx) + ')  ' + d.c + ' ' + (s.unit || '') + semi); return;
+    case 'inventory': push('has_inventory(' + fcTpStr(s.subject, ctx) + ')' + semi); return;
+    case 'inv_add': push('add_item(' + fcTpStr(s.subject, ctx) + ', ' + fcTpExpr(s.item, ctx) + ')' + semi); return;
+    case 'inv_remove': push('remove_item(' + fcTpStr(s.subject, ctx) + ', ' + fcTpExpr(s.item, ctx) + ')' + semi); return;
     case 'flash': push('flash_screen(' + fcTpStr(s.color, ctx) + ', ' + fcTpExpr(s.frames, ctx) + ')' + semi); return;
     case 'shake': push('shake_camera(' + fcTpExpr(s.frames, ctx) + ', ' + fcTpExpr(s.magnitude, ctx) + ')' + semi); return;
     case 'damage': push('damage(' + fcTpStr(s.target, ctx) + ', ' + fcTpExpr(s.amount, ctx) + ')' + semi); return;
@@ -351,6 +354,7 @@ function fcTpExprP(node, ctx) {
       const v = fcTpExpr(node.value, ctx, 21), l = fcTpExpr(node.list, ctx, 21);
       return d.lang === 'python' ? [v + ' in ' + l, 20] : [l + '.includes(' + v + ')', 100];
     }
+    case 'inv_has': return ['has_item(' + fcTpStr(node.subject, ctx) + ', ' + fcTpExpr(node.item, ctx) + ')', 100];
     case 'has': {
       const a = fcTpExpr(node.left, ctx, 21), b = fcTpExpr(node.right, ctx, 21);
       return d.lang === 'python' ? [b + ' in ' + a, 20] : [a + '.includes(' + b + ')', 100];

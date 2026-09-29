@@ -400,6 +400,25 @@
       "score": 12
     }
   },
+  "inventory_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "bag": {
+        "inventory": [
+          "torch"
+        ]
+      },
+      "count": 2,
+      "gone": false,
+      "has_key": true,
+      "player": {
+        "inventory": [
+          3
+        ]
+      }
+    }
+  },
   "item_computed_index.fc": {
     "errors": [],
     "say": [],

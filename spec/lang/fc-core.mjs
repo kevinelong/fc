@@ -1202,6 +1202,19 @@ function parse(source) {
       return { type: 'tween', target, from, to, frames, unit, ease, lineNum };
     }
 
+    // -- player has inventory  ·  add "key" to player inventory  ·  remove "key" from player inventory --
+    if (raw.length === 3 && raw[0].type === 'word' && tv(raw[1]) === 'has' && tv(raw[2]) === 'inventory') {
+      return { type: 'inventory', subject: raw[0].value, lineNum };
+    }
+    if ((first === 'add' || first === 'remove') && raw.length >= 4 && tv(raw[raw.length - 1]) === 'inventory') {
+      const kwIdx = raw.findIndex((t, i) => i > 0 && t.type === 'word' && tv(t) === (first === 'add' ? 'to' : 'from'));
+      if (kwIdx > 0 && kwIdx + 1 < raw.length - 1) {
+        return { type: first === 'add' ? 'inv_add' : 'inv_remove',
+                 item: parseExpression(raw.slice(1, kwIdx)),
+                 subject: tokensToRef(raw.slice(kwIdx + 1, raw.length - 1)), lineNum };
+      }
+    }
+
     // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
     if (first === 'burst') {
       const ai = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
@@ -1760,6 +1773,15 @@ function parse(source) {
     for (let i = 0; i < tokens.length; i++) {
       if (tokens[i].type === 'operator' && ['>', '<', '>=', '<=', '!='].includes(tokens[i].value)) {
         return { type: 'cmp', op: tokens[i].value, left: parseExpression(tokens.slice(0, i)), right: parseExpression(tokens.slice(i + 1)) };
+      }
+    }
+
+    // `player has "key" in inventory` — inventory membership (strict equality)
+    if (tokens.length >= 5 && tv(tokens[tokens.length - 1]) === 'inventory'
+        && tv(tokens[tokens.length - 2]) === 'in') {
+      const hi = tokens.findIndex(t => t.type === 'word' && tv(t) === 'has');
+      if (hi > 0) {
+        return { type: 'inv_has', subject: tokensToRef(tokens.slice(0, hi)), item: parseExpression(tokens.slice(hi + 1, tokens.length - 2)) };
       }
     }
 
@@ -2588,6 +2610,13 @@ class Runtime {
         if (Array.isArray(list)) return list.includes(v);
         return false;
       }
+      case 'inv_has': {
+        const o = this.getVar(node.subject);
+        const inv = (o && typeof o === 'object' && Array.isArray(o.inventory)) ? o.inventory : [];
+        const item = this.evalExpr(node.item);
+        return inv.some(x => x === item);
+      }
+
       case 'has': {
         const l = this.evalExpr(node.left);
         const r = this.evalExpr(node.right);
@@ -3236,6 +3265,23 @@ class Runtime {
           break;
         }
 
+        case 'inventory': { this.inventoryOf(stmt.subject); break; }
+
+        case 'inv_add': {
+          const inv = this.inventoryOf(stmt.subject);
+          const item = this.evalExpr(stmt.item);
+          if (!inv.some(x => x === item)) inv.push(item);   // one entry per distinct item
+          break;
+        }
+
+        case 'inv_remove': {
+          const inv = this.inventoryOf(stmt.subject);
+          const item = this.evalExpr(stmt.item);
+          const at = inv.findIndex(x => x === item);
+          if (at >= 0) inv.splice(at, 1);
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3365,6 +3411,19 @@ class Runtime {
       t.tick++;
       if (p >= 1) this.tweens.splice(i, 1);
     }
+  }
+
+  // Inventories are ordinary fc lists hanging off a subject (`player.inventory`), so
+  // they show up in the inspector and can be read with `count of player.inventory`.
+  inventoryOf(name) {
+    const v = this.getVar(name);
+    if (v && typeof v === 'object') {
+      if (!Array.isArray(v.inventory)) v.inventory = [];
+      return v.inventory;
+    }
+    const o = { inventory: [] };
+    this.setVar(name, o);
+    return o.inventory;
   }
 
   updateEmitters() {
