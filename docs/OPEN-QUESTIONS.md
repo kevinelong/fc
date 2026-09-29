@@ -42,7 +42,9 @@ Owner: kevin. `POST /api/generate` is built and ships **dark**. To light it up:
    the editor (Phase 1 banner/diff style) — I can build this without the key
    (it stays dark until the flag flips), say the word.
 
-**Answer:**
+**Answer:** Keep the endpoint dark. The Describe client is already built, so there
+is no remaining client task. Do not add or rotate secrets, enable the flag, or
+change deployment configuration until kevin explicitly performs the go-live.
 
 ---
 
@@ -82,7 +84,9 @@ The ROADMAP's own "Open design questions" (Q1–Q7 there: multi-word function na
 sprite, per-mode update functions, `go to` with no screen, implicit `clear screen`)
 stay in ROADMAP.md as the record of those tensions — not duplicated here.
 
-**Answer:**
+**Answer:** Defer modularization; the harnessed single-file architecture is
+acceptable for the current product. Do not begin the classroom implementation
+until Q1 is answered.
 
 ---
 
@@ -95,7 +99,8 @@ privacy stance (the audience is kids; `/privacy/` exists). Recommend: stay local
 until the log proves useful, then add an opt-in "send my log" action that posts
 the JSON the copy button already produces.
 
-**Answer:**
+**Answer:** Keep telemetry local. Do not add a collection endpoint. A later opt-in
+send action must preview the exact data and receive a separate privacy decision.
 
 ---
 
@@ -118,7 +123,13 @@ plus goldens) — a real language change; (b) reword the three demos + taglines 
 what they actually do. My recommendation: (a) — the demos were written expecting
 it, and it is a small, presentation-only lookup.
 
-**Answer:**
+**Answer:** Implement option (a) as an isolated parity patch. Preserve literal
+colors and the existing unknown-color fallback; resolve an identifier through the
+current scope only to a recognized color string. Update the JavaScript reference
+copies, Rust/WASM, export/transpile behavior, documentation, conformance cases, and
+focused visual tests together. Inspect the expected starfield, matrix, and sand
+changes before accepting new goldens. Do not expand this into arbitrary CSS colors,
+gradients, or a new color type. See REMOTE-AGENT-GUIDANCE.md for the full constraints.
 
 ---
 
