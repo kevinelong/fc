@@ -105,10 +105,10 @@ and every claim below is checked. The genuinely-open items are collected at the 
   program to Python and JavaScript, the JS output runs standalone (`▶ run this` /
   `⬇ download .html`, PLAN-runnable-export), and the gated LLM tier writes fc from
   English. Lua/LÖVE, Godot and Unity targets are NOT implemented.
-- **Particle / effect verbs** ⚠️ partial — `burst N sparks at X, Y [in color]`
-  shipped (auto-updated pool, camera-aware), and `flash screen` / `shake camera`
-  shipped 2026-09-29 (frame-counted, host-rendered, skipped under reduced motion).
-  `emit` is still a no-op.
+- **Particle / effect verbs** ✅ — `burst N sparks at X, Y [in color]`,
+  `emit [N] sparks [rising|falling] at X, Y | from SPRITE [in color] [for N
+  [seconds|frames]]` (both 2026-09-29 for emit), and `flash screen` /
+  `shake camera` (frame-counted, host-rendered, skipped under reduced motion).
 - **Mobile touch controls** ✅ — a touch device gets an on-screen D-pad plus A/B
   wired into the same key state, plus `show button "X" at x, y` with
   `when button "X" is clicked`. A `show joystick` verb is NOT implemented (the pad
@@ -121,7 +121,6 @@ and every claim below is checked. The genuinely-open items are collected at the 
 
 - **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
 - **Inventory verbs** — `add "key" to player inventory` (today: lists + `has`).
-- **`emit`** (a continuous particle emitter — `burst` and the flash/shake verbs are real).
 - **Tween / easing** — `tween X.y from 0 to 100 over 1 second`, `ease in/out`, and
   the `{frames: [...], fps: N}` sprite-property form of animation.
 - **Enemy AI extras** — `flee from player`, `shoot at player every N seconds`,

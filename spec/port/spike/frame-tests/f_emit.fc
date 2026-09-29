@@ -1,0 +1,17 @@
+-- `emit` is a SUSTAINED emitter: every frame spawns `rate` particles (same random
+-- draw order as `burst`) at its point or at the referenced sprite — so the whole
+-- particle stream must be bit-identical in both engines.
+emit smoke rising at 64, 100 in gray for 90 frames
+ship is {x: 20, y: 60, dx: 2}
+emitted is no
+to update
+  ship.x is ship.x + ship.dx
+  if ship.x > 100 ship.dx is 0 - ship.dx
+  if ship.x < 10 ship.dx is 0 - ship.dx
+  if emitted is no
+    emit 3 sparks from ship in yellow for 40 frames
+    emitted is yes
+to draw
+  clear screen to black
+  draw rect at ship.x, ship.y size 6, 6 in cyan
+run game with update and draw

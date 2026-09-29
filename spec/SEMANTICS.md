@@ -573,6 +573,16 @@ file: the corpus program is the contract; the harnesses are the proof.
   the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
   name (that was the shipped behavior until 2026-09-29, when the verb was dead in
   every engine).
+- **`emit` (sustained particles)** spawns `rate` particles per frame (default 2, cap
+  16) at its point — or at the referenced sprite's centre, re-resolved EVERY frame,
+  which is what makes `emit sparks from player` a trail that follows. Each spawn uses
+  the same random draw order as `burst` (`angle`, then `speed`, then `life`), shares
+  the same 400-particle pool, and honours an optional `rising`/`falling` marker that
+  biases the vertical velocity up/down by 0.3 plus the vertical component. The
+  duration is frame-counted (seconds ×60, default 30 frames), so the whole stream is
+  bit-identical across engines — frozen by `frame-tests/f_emit.fc`. The transpiled
+  "real code" view prints it as a labeled comment (the standalone port does not
+  implement particles).
 - **Presentation effects** (`flash screen [COLOR] [for N [seconds|frames]]`,
   `shake camera [for N [seconds|frames]] [by N [pixels]]`) are HOST-rendered, not
   simulated: the runtime only counts frames (`flashFrames`/`shakeFrames`, seconds

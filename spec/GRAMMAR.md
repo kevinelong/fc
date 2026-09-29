@@ -598,6 +598,7 @@ differentially tested against it.)
 | `stop music` \| `stop sound` | one node (`stop_music`); the host stops the looping track. **[QUIRK]** checked BEFORE the sprite form `stop X`, which would otherwise swallow `music`/`sound` as a target name | `stop_music.fc` |
 | `flash screen` [COLOR] [`for` N [`seconds`\|`frames`]] | host-rendered full-screen flash, frame-counted (default: white, 6 frames) | `flash_shake.fc`, `frame-tests/f_effects.fc` |
 | `shake camera` [`for` N [`seconds`\|`frames`]] [`by` N [`pixels`]] | host-rendered screen jitter, frame-counted (default: 12 frames, 2px) | `flash_shake.fc`, `frame-tests/f_effects.fc` |
+| `emit` [N] WORD [`rising`\|`falling`] (`at` X `,` Y \| `from` REF) [`in` COLOR] [`for` N [`seconds`\|`frames`]] | sustained particle emitter (default: 2/frame for 30 frames, `orange`) | `emit_forms.fc`, `frame-tests/f_emit.fc` |
 | `pset` … | direct pixel write (wasm port followed later) | `draw-tests/` (see README) |
 | `show meter` CURRENT `of` MAX [`at` X `,` Y] [`size` W `,` H] [`in` COLOR] | HUD meter; all three shapes parse (index-scan parser) | `meter_forms.fc`, `draw-tests/d_meter.fc` |
 

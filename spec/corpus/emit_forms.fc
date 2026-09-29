@@ -1,0 +1,6 @@
+-- `emit` argument forms: point vs sprite-ref, direction markers, optional rate and
+-- color, and the duration in frames or seconds.
+emit sparks at 40, 20
+emit 3 stars at 10, 10 in yellow for 20 frames
+emit smoke rising from player
+emit 2 drops falling from player in blue for 0.5 seconds

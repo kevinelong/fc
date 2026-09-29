@@ -5574,6 +5574,88 @@
       "type": "repeat_times"
     }
   ],
+  "emit_forms.fc": [
+    {
+      "color": "orange",
+      "frames": {
+        "type": "literal",
+        "value": 30
+      },
+      "marker": "",
+      "rate": {
+        "type": "literal",
+        "value": 2
+      },
+      "ref": null,
+      "type": "emit",
+      "unit": "frames",
+      "x": {
+        "type": "literal",
+        "value": 40
+      },
+      "y": {
+        "type": "literal",
+        "value": 20
+      }
+    },
+    {
+      "color": "yellow",
+      "frames": {
+        "type": "literal",
+        "value": 20
+      },
+      "marker": "",
+      "rate": {
+        "type": "literal",
+        "value": 3
+      },
+      "ref": null,
+      "type": "emit",
+      "unit": "frames",
+      "x": {
+        "type": "literal",
+        "value": 10
+      },
+      "y": {
+        "type": "literal",
+        "value": 10
+      }
+    },
+    {
+      "color": "orange",
+      "frames": {
+        "type": "literal",
+        "value": 30
+      },
+      "marker": "rising",
+      "rate": {
+        "type": "literal",
+        "value": 2
+      },
+      "ref": "player",
+      "type": "emit",
+      "unit": "frames",
+      "x": null,
+      "y": null
+    },
+    {
+      "color": "blue",
+      "frames": {
+        "type": "literal",
+        "value": 0.5
+      },
+      "marker": "falling",
+      "rate": {
+        "type": "literal",
+        "value": 2
+      },
+      "ref": "player",
+      "type": "emit",
+      "unit": "seconds",
+      "x": null,
+      "y": null
+    }
+  ],
   "english_ops.fc": [
     {
       "target": "score",

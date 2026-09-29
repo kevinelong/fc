@@ -1115,6 +1115,34 @@ function parse(source) {
       if (frames.length) return { type: 'animate', subject: raw[1].value, frames, every, lineNum };
     }
 
+    // -- emit sparks [rising|falling] (at X, Y | from REF) [in COLOR] [for N [seconds|frames]] --
+    // A SUSTAINED emitter: it spawns particles every frame (same model/random draws
+    // as `burst`) for the given duration, following REF when one is named.
+    if (first === 'emit') {
+      const kw = (w) => raw.findIndex((t, i) => i > 1 && t.type === 'word' && tv(t) === w);
+      const atIdx = kw('at'), fromIdx = kw('from'), inIdx = kw('in'), forIdx = kw('for');
+      const markerIdx = raw.findIndex((t, i) => i > 1 && t.type === 'word' && (tv(t) === 'rising' || tv(t) === 'falling'));
+      const starts = [atIdx, fromIdx, inIdx, forIdx].filter(i => i > 0);
+      const nounEnd = Math.min(...(starts.length ? starts : [raw.length]), markerIdx > 0 ? markerIdx : raw.length);
+      const rateTok = raw.slice(1, nounEnd).find(t => t.type === 'number');
+      const rate = rateTok ? { type: 'literal', value: rateTok.value } : { type: 'literal', value: 2 };
+      let x = null, y = null, ref = null;
+      if (fromIdx > 0) ref = tv(raw[fromIdx + 1] || { value: 'player' });
+      else if (atIdx > 0) {
+        const stop = starts.filter(i => i > atIdx).concat([raw.length]).reduce((a, b) => Math.min(a, b));
+        const seg = raw.slice(atIdx + 1, stop);
+        const ci = seg.findIndex(t => t.type === 'comma');
+        if (ci > 0) { x = parseExpression(seg.slice(0, ci)); y = parseExpression(seg.slice(ci + 1)); }
+        else { x = parseExpression(seg); y = { type: 'literal', value: 0 }; }
+      }
+      const colorEnd = forIdx > inIdx && inIdx > 0 ? forIdx : raw.length;
+      const color = inIdx > 0 ? raw.slice(inIdx + 1, colorEnd).map(t => t.value).join(' ').trim() : '';
+      let frames = { type: 'literal', value: 30 }, unit = 'frames';
+      if (forIdx > 0) { const d = parseDurationTail(raw.slice(forIdx + 1)); frames = d.value; unit = d.unit; }
+      return { type: 'emit', rate, x, y, ref, marker: markerIdx > 0 ? tv(raw[markerIdx]) : '',
+               color: color || 'orange', frames, unit, lineNum };
+    }
+
     // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
     if (first === 'burst') {
       const ai = raw.findIndex(t => t.type === 'word' && tv(t) === 'at');
@@ -2242,7 +2270,7 @@ class Runtime {
     this.map = null;
     this.behaviorSubjects = [];
     this.animSubjects = [];
-    this.particles = [];
+    this.particles = []; this.emitters = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2280,7 +2308,7 @@ class Runtime {
     this.map = null;
     this.behaviorSubjects = [];
     this.animSubjects = [];
-    this.particles = [];
+    this.particles = []; this.emitters = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -3119,6 +3147,21 @@ class Runtime {
           break;
         }
 
+        case 'emit': {
+          const secs = Number(this.evalExpr(stmt.frames)) || 0;
+          const frames = Math.max(0, Math.round(stmt.unit === 'seconds' ? secs * 60 : secs));
+          if (frames > 0) {
+            const color = this.colorOf(stmt.color);
+            let ref = null, x = 0, y = 0;
+            if (stmt.ref) ref = stmt.ref;
+            else { x = this.evalExpr(stmt.x); y = this.evalExpr(stmt.y); }
+            const rate = Math.max(1, Math.min(16, this.evalExpr(stmt.rate) | 0));
+            this.emitters.push({ ref, x, y, color, marker: stmt.marker || '', rate, frames });
+            if (this.emitters.length > 16) this.emitters.splice(0, this.emitters.length - 16);
+          }
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3234,6 +3277,32 @@ class Runtime {
   }
 
   // Move, age and draw the particle pool (created by `burst`). Runs in the draw phase.
+  // Sustained emitters (`emit … for N frames`): spawn `rate` particles per frame at
+  // the emitter's current position (following REF), with the same random draw ORDER
+  // as `burst` so both engines stay in lockstep.
+  updateEmitters() {
+    if (!this.emitters || !this.emitters.length) return;
+    for (let i = this.emitters.length - 1; i >= 0; i--) {
+      const e = this.emitters[i];
+      let x = e.x, y = e.y;
+      if (e.ref) {
+        const o = this.getVar(e.ref);
+        if (!o || typeof o.x !== 'number') { this.emitters.splice(i, 1); continue; }
+        x = o.x + 4; y = o.y + 4;
+      }
+      const bias = e.marker === 'rising' ? -1 : (e.marker === 'falling' ? 1 : 0);
+      for (let k = 0; k < e.rate; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 0.4 + Math.random() * 1.4;
+        const vy = bias ? (bias * Math.abs(Math.sin(a) * sp)) + (bias * 0.3) : Math.sin(a) * sp;
+        this.particles.push({ x, y, vx: Math.cos(a) * sp, vy,
+                              life: 16 + (Math.random() * 18 | 0), color: e.color });
+      }
+      if (--e.frames <= 0) this.emitters.splice(i, 1);
+    }
+    if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+  }
+
   updateParticles() {
     if (!this.particles.length) return;
     const ox = this.camera.x, oy = this.camera.y;
@@ -3596,6 +3665,7 @@ class Runtime {
       }
 
       // Particles draw on top of the game layer
+      self.updateEmitters();
       self.updateParticles();
 
       // Auto-dispatch to a screen function matching current mode

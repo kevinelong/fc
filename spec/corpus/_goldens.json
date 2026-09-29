@@ -203,6 +203,11 @@
       "result": "elifbody"
     }
   },
+  "emit_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {}
+  },
   "english_ops.fc": {
     "errors": [],
     "say": [],

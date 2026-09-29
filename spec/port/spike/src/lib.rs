@@ -203,6 +203,7 @@ enum Stmt {
     WhenMouse(String, Option<Box<Stmt>>, Vec<Stmt>),
     TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
     Flash(String, Expr, String), Shake(Expr, String, Expr),
+    Emit { rate: Expr, x: Option<Expr>, y: Option<Expr>, rf: Option<String>, marker: String, color: String, frames: Expr, unit: String },
     ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -534,6 +535,38 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         if i<ts.len() && ts[i].is_word("every") { if let Some(t)=ts.get(i+1) { if let TokVal::Num(n)=t.v { every=n; } } }
         if !frames.is_empty() { return Stmt::Animate(ts[1].sval().to_string(), frames, every); }
     }
+    // -- emit sparks [rising|falling] (at X, Y | from REF) [in COLOR] [for N [seconds|frames]] --
+    // A SUSTAINED emitter: spawns particles every frame (same model/random draw order
+    // as `burst`) for the duration, following REF when one is named.
+    if first=="emit" {
+        let kw = |w: &str| ts.iter().enumerate().position(|(i,t)| i > 1 && t.is_word(w));
+        let at_i = kw("at"); let from_i = kw("from"); let in_i = kw("in"); let for_i = kw("for");
+        let marker_i = ts.iter().enumerate().position(|(i,t)| i > 1 && (t.is_word("rising") || t.is_word("falling")));
+        let mut starts: Vec<usize> = Vec::new();
+        for o in [at_i, from_i, in_i, for_i].iter() { if let Some(v) = *o { starts.push(v); } }
+        starts.sort();
+        let noun_end = starts.first().copied().unwrap_or(ts.len()).min(marker_i.unwrap_or(ts.len()));
+        let rate = ts[1..noun_end].iter().find(|t| t.t==2)
+            .map(|t| Expr::Lit(LitVal::Num(if let TokVal::Num(n) = t.v { n } else { 0.0 })))
+            .unwrap_or(Expr::Lit(LitVal::Num(2.0)));
+        let mut x = None; let mut y = None; let mut rf = None;
+        if let Some(fi) = from_i { rf = Some(ts.get(fi+1).map(|t| t.sval().to_string()).unwrap_or_else(|| "player".to_string())); }
+        else if let Some(ai) = at_i {
+            let stop = starts.iter().filter(|i| **i > ai).copied().min().unwrap_or(ts.len());
+            let seg = safe(ts, ai+1, stop);
+            match seg.iter().position(|t| t.t==6) {
+                Some(ci) if ci > 0 => { x = Some(parse_expr(&seg[..ci])); y = Some(parse_expr(&seg[ci+1..])); }
+                _ => { x = Some(parse_expr(seg)); y = Some(Expr::Lit(LitVal::Num(0.0))); }
+            }
+        }
+        let color_end = if let (Some(ii), Some(fi)) = (in_i, for_i) { if fi > ii { fi } else { ts.len() } }
+                        else if in_i.is_some() { ts.len() } else { ts.len() };
+        let color = in_i.map(|ii| word_join(&ts[ii+1..color_end])).unwrap_or_default();
+        let (frames, unit) = if let Some(fi) = for_i { duration_tail(&ts[fi+1..]) } else { (Expr::Lit(LitVal::Num(30.0)), "frames".to_string()) };
+        let color = if color.is_empty() { "orange".to_string() } else { color };
+        let marker = marker_i.map(|mi| ts[mi].sval().to_string()).unwrap_or_default();
+        return Stmt::Emit { rate, x, y, rf, marker, color, frames, unit };
+    }
     if first=="burst" {
         if let Some(ai)=find_word(ts,"at") { if ai>1 {
             let ii = ts.iter().enumerate().position(|(k,t)| k>ai && t.is_word("in"));
@@ -810,6 +843,17 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
         Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
         Stmt::Flash(color,f,u)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"frames\":"); emit_expr(f,out); out.push_str(",\"type\":\"flash\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Emit{rate,x,y,rf,marker,color,frames,unit}=>{
+            out.push_str("{\"color\":"); json_str(color,out);
+            out.push_str(",\"frames\":"); emit_expr(frames,out);
+            out.push_str(",\"marker\":"); json_str(marker,out);
+            out.push_str(",\"rate\":"); emit_expr(rate,out);
+            out.push_str(",\"ref\":"); match rf { Some(r)=>json_str(r,out), None=>out.push_str("null") }
+            out.push_str(",\"type\":\"emit\",\"unit\":"); json_str(unit,out);
+            out.push_str(",\"x\":"); match x { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            out.push_str(",\"y\":"); match y { Some(e)=>emit_expr(e,out), None=>out.push_str("null") }
+            out.push('}');
+        }
         Stmt::Shake(f,u,m)=>{ out.push_str("{\"frames\":"); emit_expr(f,out); out.push_str(",\"magnitude\":"); emit_expr(m,out); out.push_str(",\"type\":\"shake\",\"unit\":"); json_str(u,out); out.push('}'); }
         Stmt::TimeLimit(v,u)=>{ out.push_str("{\"type\":\"time_limit\",\"unit\":"); json_str(u,out); out.push_str(",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::WhenButton(l,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"label\":"); json_str(l,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_button\"}"); }
@@ -1319,15 +1363,19 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
-    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64 }
+    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter> }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
+// A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
+// frame at its point (or at the referenced sprite), following the same random draw
+// order as `burst`.
+struct Emitter { rf: Option<String>, x: f64, y: f64, color: String, marker: String, rate: i64, frames: i64 }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0 } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new() } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1354,6 +1402,38 @@ impl Rt {
     }
     // Move/age the particle pool and emit one rect per live particle. JS iterates
     // from the end down, splicing dead ones — so command order is reverse-index.
+    fn update_emitters(&mut self) {
+        if self.emitters.is_empty() { return; }
+        let mut i = self.emitters.len();
+        while i > 0 {
+            i -= 1;
+            let (px, py, col, marker, rate) = {
+                let e = &self.emitters[i];
+                let (mut sx, mut sy) = (e.x, e.y);
+                if let Some(r) = &e.rf {
+                    match self.get_var(r) {
+                        Val::Obj(o) => match (Self::obj_num(&o, "x"), Self::obj_num(&o, "y")) {
+                            (Some(ox), Some(oy)) => { sx = ox + 4.0; sy = oy + 4.0; }
+                            _ => { self.emitters.remove(i); continue; }
+                        },
+                        _ => { self.emitters.remove(i); continue; }
+                    }
+                }
+                (sx, sy, e.color.clone(), e.marker.clone(), e.rate)
+            };
+            let bias = if marker == "rising" { -1.0 } else if marker == "falling" { 1.0 } else { 0.0 };
+            for _ in 0..rate {
+                let a = self.rng() * core::f64::consts::PI * 2.0;
+                let sp = 0.4 + self.rng() * 1.4;
+                let vy = if bias != 0.0 { (bias * libm::fabs(libm::sin(a) * sp)) + (bias * 0.3) } else { libm::sin(a) * sp };
+                let life = 16 + (self.rng() * 18.0) as i32;
+                self.particles.push(Particle { x: px, y: py, vx: libm::cos(a) * sp, vy, life, color: col.clone() });
+            }
+            self.emitters[i].frames -= 1;
+            if self.emitters[i].frames <= 0 { self.emitters.remove(i); }
+        }
+        while self.particles.len() > 400 { self.particles.remove(0); }
+    }
     fn update_particles(&mut self) {
         if self.particles.is_empty() { return; }
         let (ox, oy) = self.camera;
@@ -1830,6 +1910,7 @@ impl Rt {
         // by mode (mirrors JS render order).
         self.buttons.clear();   // repopulated by Button stmts in the draw fns below
         for f in fs.iter().skip(1) { if let Some(b) = self.funcs.get(f).cloned() { self.exec_block(&b.1); self.returning = false; } }
+        self.update_emitters();
         self.update_particles();
         if let Val::Str(mode) = self.get_var("mode") {
             let sname = alloc::format!("screen_{}", mode);
@@ -2007,6 +2088,22 @@ impl Rt {
                 self.shake_frames = if frames < 0.0 { 0 } else { frames as i64 };
                 let m = as_num(&self.eval(magnitude));
                 self.shake_mag = if m < 0.0 { 0.0 } else { m };
+            }
+            Stmt::Emit{rate,x,y,rf,marker,color,frames,unit} => {
+                let n = as_num(&self.eval(frames));
+                let f = if unit=="seconds" { js_floor(n*60.0 + 0.5) } else { js_floor(n + 0.5) };
+                let frames_left = if f < 0.0 { 0 } else { f as i64 };
+                if frames_left > 0 {
+                    let col = color_of(&self.vars, color);
+                    let (px, py) = if let Some(r) = rf { (0.0, 0.0) } else {
+                        (x.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(0.0),
+                         y.as_ref().map(|e| as_num(&self.eval(e))).unwrap_or(0.0))
+                    };
+                    let r = as_num(&self.eval(rate)) as i64;
+                    let rate_v = r.max(1).min(16);
+                    self.emitters.push(Emitter { rf: rf.clone(), x: px, y: py, color: col, marker: marker.clone(), rate: rate_v, frames: frames_left });
+                    while self.emitters.len() > 16 { self.emitters.remove(0); }
+                }
             }
             Stmt::Goto(target) => {
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }

@@ -236,6 +236,19 @@ flash screen red for 8 frames
 shake camera for 0.3 seconds by 3 pixels
 ```
 
+## Particles
+
+`burst` is a one-off pop; `emit` keeps spraying for a while — a trail, smoke, a
+fountain. It follows a sprite when you say `from`:
+
+```
+burst 12 sparks at player
+emit 2 sparks from player in yellow for 0.5 seconds
+emit smoke rising at 64, 100 in gray for 90 frames
+```
+
+(Amount is particles per frame; `rising` / `falling` lean the spray up or down.)
+
 ## Colors
 
 PICO-8 inspired 16-color palette, plus CSS color names as fallback:
