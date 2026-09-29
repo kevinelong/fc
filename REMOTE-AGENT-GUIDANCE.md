@@ -3,6 +3,15 @@
 Updated: 2026-09-29
 Status: decisions below are active; owner decisions remain open
 
+## Immediate pause boundary
+
+Do not continue, broaden, or commit the current flash/shake/effects work. Preserve
+the in-progress files exactly as they are and report them as paused work; do not
+discard or reset them. Those ROADMAP items are new features and were not approved
+by the Q7 decision. The only authorized code follow-up is the Q7 numeric-variable
+parity regression described below. After that focused fix and its test pass, stop
+and wait for owner review of the accumulated branch.
+
 ## Current direction
 
 - The completed eleven-commit batch is ready for review. Do not begin another
@@ -40,6 +49,22 @@ Implement option (a) as one isolated language change:
 Report the precise lookup/scoping rule if the existing AST loses the distinction
 between a literal color word and an identifier; that is the only expected reason
 to pause this patch for another decision.
+
+### Q7 live review note
+
+The in-progress shape is acceptable: if a variable with the color token's name
+exists, it shadows the palette word; otherwise the token remains a literal color.
+Only string variable values participate. Keep JavaScript and Rust aligned by not
+coercing numeric values to strings. An unrecognized string and every non-string
+value retain the existing white fallback. The focused test should pin palette-word
+shadowing, an ordinary dynamic color, a multi-word color value, and both unknown
+and non-string fallbacks.
+
+Post-commit review found one missing parity case in 09d8f77: with `red is 4` and
+`draw rect at 0, 0 size 2, 2 in red`, JavaScript coerces 4 and paints white, while
+Rust ignores the non-string variable and falls back to literal red. Align both to
+the rule above and add this exact collision case to d_dyncolor.fc before treating
+Q7 as complete.
 
 ### Q8 — telemetry stays local
 
