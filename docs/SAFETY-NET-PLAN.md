@@ -61,10 +61,27 @@ validate-by-actually-running loop either way.
   Remaining to go live: (1) rotate the key and put it in apid/.env, set
   `ENABLE_GENERATE=true`, restart apid; (2) client UI — a "Describe" box that
   POSTs `{prompt}` and drops the returned code into the editor (Phase 1's diff/
-  banner style); (3) a larger eval set + semantic rubric (gate-pass ≠ intent).
-- **Phase 3 — runnable-scaffold floor + telemetry.** The always-runs fallback,
-  plus logging which inputs the net keeps rewriting the same way → those become
-  natively-accepted syntax (the net shrinks over time).
+  banner style) — **DONE 2026-09-29**: a `✎ describe` toolbar button opens a prompt
+  row in the error strip, POSTs to `/api/generate` with the `X-CO` CSRF header and
+  same-origin credentials, and OFFERS the result in a green banner ("here is …
+  as a game (2 tries) — it already runs") with `✎ use it & run` / dismiss; nothing
+  is applied on its own. Every failure mode has a plain-English line (sign in /
+  too long / daily limit / not enabled on this server yet / offline). Verified in
+  a real browser with the endpoint stubbed (`tools/ui-check.mjs`, 32/32);
+  (3) a larger eval set + semantic rubric (gate-pass ≠ intent) — still open.
+- **Phase 3 — runnable-scaffold floor + telemetry (DONE 2026-09-29).** The
+  always-runs fallback: `spec/heal/scaffold.mjs` holds four small, gate-valid
+  starters (collect / bounce / shoot / stars) with keyword scoring; when an
+  explicit run leaves the canvas entirely black and the source has no `run game`,
+  index.html inlines the same data (drift-checked) and offers an amber banner
+  with two directions ("A) collect — …" / "B) bounce — …") that load the chosen
+  starter with the user's own lines kept as `--` comments. Never auto-applied,
+  dismissible, and it stands down when the deterministic fix banner has something
+  to offer. Telemetry: LOCAL ONLY — counts runs / offered heal reasons / accepted
+  fixes / chosen starters in localStorage, exposed as `window.FC_NET_STATS()`, with
+  a summary + copy button in Settings (no server, so no new data flow; server-side
+  aggregation is Q8). The "those become natively-accepted syntax" loop is ongoing
+  use of that log, not a code deliverable.
 
 ## Phase 0 status
 

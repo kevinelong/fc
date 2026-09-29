@@ -217,6 +217,48 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await sleep(250);
     const shown = await evaluate(cdp, `(function(){ var s = document.getElementById('net-stats-body'); return s ? s.textContent : null; })()`);
     check('Settings shows the safety-net log summary', !!shown && /runs \d/.test(shown), JSON.stringify(shown));
+
+    // ---- 8. describe → generate → offered (never applied on its own) ---------
+    // The endpoint ships dark (503 without a key); this stubs it to prove the
+    // client path, the CSRF header, the offered banner, and the offer→apply tap.
+    const canned = 'to draw\n  clear screen to black\n  draw rect at 10, 10 size 20, 20 in red\nrun game with update and draw\n';
+    await evaluate(cdp, `(function(){
+      window.__genCalls = [];
+      window.fetch = function (url, opts) {
+        if (String(url).indexOf('/api/generate') === 0) {
+          window.__genCalls.push({ body: opts && opts.body, headers: opts && opts.headers });
+          var payload = window.__genPayload || { ok: true, code: ${JSON.stringify(canned)}, attempts: 2 };
+          return Promise.resolve({ status: window.__genStatus || 200, json: function () { return Promise.resolve(payload); } });
+        }
+        return Promise.reject(new Error('blocked in test'));
+      };
+    })()`);
+    await evaluate(cdp, `(function(){ document.getElementById('tool-describe').click();
+      var i = document.querySelector('.fc-describe input'); i.value = 'a red square';
+      document.querySelector('.fc-describe button').click(); })()`);
+    await sleep(400);
+    const gen = await evaluate(cdp, `(function(){
+      var b = document.querySelector('.fc-generated');
+      return { found: !!b, text: b ? b.textContent.slice(0, 70) : null, calls: (window.__genCalls || []).length, body: (window.__genCalls || [])[0] && window.__genCalls[0].body, csrf: (window.__genCalls || [])[0] && window.__genCalls[0].headers && window.__genCalls[0].headers['X-CO'] };
+    })()`);
+    check('describe POSTs to /api/generate', gen.calls === 1, JSON.stringify(gen));
+    check('the request carries the prompt + CSRF header', /a red square/.test(String(gen.body)) && gen.csrf === '1', JSON.stringify({ body: gen.body, csrf: gen.csrf }));
+    check('the generated code is OFFERED, not applied', gen.found === true, JSON.stringify(gen));
+    const applied = await evaluate(cdp, `new Promise(function(res){
+      var b = document.querySelector('.fc-generated button');
+      b.click();
+      setTimeout(function(){ res({ editor: document.querySelector('textarea').value.slice(0, 30) }); }, 500);
+    })`);
+    check('tapping "use it & run" loads the code into the editor', applied.editor.startsWith('to draw'), JSON.stringify(applied));
+    check('the generated game draws', (await countPixels()) === 400, `${await countPixels()} non-black pixels`);
+    // dark endpoint: the client must say so in plain English
+    await evaluate(cdp, `(function(){ window.__genStatus = 503; window.__genPayload = { error: 'generate is not enabled' };
+      document.getElementById('tool-describe').click();
+      var i = document.querySelector('.fc-describe input'); i.value = 'anything';
+      document.querySelector('.fc-describe button').click(); })()`);
+    await sleep(400);
+    const dark = await evaluate(cdp, `(function(){ var s = document.querySelector('.fc-describe-status'); return s ? s.textContent : null; })()`);
+    check('a dark endpoint explains itself', /not enabled/.test(String(dark)), JSON.stringify(dark));
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

@@ -412,6 +412,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-map" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">▦ map</button>
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <button type="button" id="tool-code" title="see this program written in Python or JavaScript" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&lt;/&gt; real code</button>
+      <button type="button" id="tool-describe" title="describe a game in plain English and let the safety net write it (sign-in required)" style="font:12px 'Share Tech Mono',monospace;background:#101c24;color:#9fd3e0;border:1px solid #24505a;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">✎ describe</button>
       <button type="button" id="tool-settings" title="accessibility &amp; display settings" aria-label="settings" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#9881;</button>
       <button type="button" id="tool-debug" title="step through your program line by line" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#128027; step</button>
       <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
@@ -5065,6 +5066,93 @@ function fcNetSummary() {
     (starters.length ? ' \u00b7 starters: ' + starters.join(', ') : '');
 }
 window.FC_NET_STATS = fcNetStats;
+// ---- safety net Phase 2 (client): "describe it" ---------------------------
+// The far-from-fc input path: POST the description to the gated /api/generate
+// proxy (apid), which runs the LLM tier behind the SAME validation gate and only
+// ever returns code that parses and runs. The endpoint ships dark (503) until the
+// key + ENABLE_GENERATE are set; every failure mode gets a plain-English message.
+// Like every other tier, the result is OFFERED, never applied on its own.
+function fcDescribeRow() {
+  const old = errorsDiv.querySelector('.fc-describe');
+  if (old) { const i = old.querySelector('input'); if (i) i.focus(); return old; }
+  const row = document.createElement('div');
+  row.className = 'fc-describe';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 6px;padding:6px 9px;background:#101c24;border:1px solid #24505a;border-radius:5px;color:#9fd3e0';
+  const label = document.createElement('span');
+  label.textContent = 'Describe the game you want:';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.maxLength = 1000; inp.placeholder = 'a frog that hops across traffic';
+  inp.setAttribute('aria-label', 'describe your game');
+  inp.style.cssText = "flex:1;min-width:200px;font:12px 'Share Tech Mono',monospace;background:#06121a;color:#d8f2f8;border:1px solid #24505a;border-radius:4px;padding:5px 8px";
+  const go = document.createElement('button');
+  go.type = 'button'; go.textContent = '\u2728 make it';
+  go.style.cssText = "font:12px 'Share Tech Mono',monospace;background:#0d2029;color:#9fd3e0;border:1px solid #24505a;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap";
+  const status = document.createElement('span');
+  status.className = 'fc-describe-status'; status.style.cssText = 'color:#9fd3e0;font-size:11.5px';
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button'; dismiss.textContent = '\u2715'; dismiss.title = 'dismiss';
+  dismiss.style.cssText = "font:12px 'Share Tech Mono',monospace;background:none;color:#9fd3e0;border:none;cursor:pointer;padding:4px";
+  dismiss.onclick = function () { row.remove(); };
+  go.onclick = function () { fcDescribe(inp.value, row, go, inp, status); };
+  inp.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); fcDescribe(inp.value, row, go, inp, status); } };
+  row.appendChild(label); row.appendChild(inp); row.appendChild(go); row.appendChild(status); row.appendChild(dismiss);
+  errorsDiv.insertBefore(row, errorsDiv.firstChild);
+  inp.focus();
+  return row;
+}
+const FC_DESCRIBE_WHY = {
+  400: 'describe something first', 401: 'sign in to use this', 403: 'that request was rejected',
+  413: 'that description is too long (1000 characters max)',
+  429: 'daily limit reached \u2014 try again tomorrow', 502: 'could not turn that into a runnable game',
+  503: 'not enabled on this server yet',
+};
+async function fcDescribe(prompt, row, go, inp, status) {
+  const text = String(prompt || '').trim();
+  if (!text) { inp.focus(); return; }
+  go.disabled = true; status.textContent = 'writing\u2026';
+  let status_code = 0, body = null, offline = false;
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-CO': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: text }),
+    });
+    status_code = r.status;
+    body = await r.json().catch(function () { return null; });
+  } catch (_) { offline = true; }
+  go.disabled = false;
+  if (body && body.code) {
+    fcNetRecord('describe', 'ok');
+    row.remove();
+    fcShowGenerated(text, body.code, body.attempts);
+    return;
+  }
+  fcNetRecord('describe', 'status ' + (status_code || 'offline'));
+  status.textContent = offline ? 'could not reach the server (are you online?)'
+    : (FC_DESCRIBE_WHY[status_code] || (body && body.error) || 'that did not work — try again');
+}
+function fcShowGenerated(prompt, code, attempts) {
+  const old = errorsDiv.querySelector('.fc-generated'); if (old) old.remove();
+  const bar = document.createElement('div');
+  bar.className = 'fc-generated';
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 6px;padding:6px 9px;background:#12240f;border:1px solid #2c6e2c;border-radius:5px;color:#9f9';
+  const txt = document.createElement('span');
+  const short = prompt.length > 48 ? prompt.slice(0, 47) + '\u2026' : prompt;
+  txt.textContent = 'Safety net: here is \u201c' + short + '\u201d as a game (' + (attempts || 1) + ' ' + ((attempts === 1) ? 'try' : 'tries') + ') \u2014 it already runs.';
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.textContent = '\u270e use it & run';
+  btn.style.cssText = "font:12px 'Share Tech Mono',monospace;background:#10240f;color:#9f9;border:1px solid #2c6e2c;border-radius:4px;padding:5px 10px;cursor:pointer;white-space:nowrap";
+  btn.onclick = function () {
+    fcNetRecord('accepted', 'generated');
+    editor.value = code; editor.dispatchEvent(new Event('input', { bubbles: true })); run(code, true); bar.remove();
+  };
+  const x = document.createElement('button');
+  x.type = 'button'; x.textContent = '\u2715'; x.title = 'dismiss';
+  x.style.cssText = "font:12px 'Share Tech Mono',monospace;background:none;color:#9f9;border:none;cursor:pointer;padding:4px";
+  x.onclick = function () { bar.remove(); };
+  bar.appendChild(txt); bar.appendChild(btn); bar.appendChild(x);
+  errorsDiv.insertBefore(bar, errorsDiv.firstChild);
+}
 function run(source, explicit) {
   if (explicit) { fcScheduleFloor(source); fcNetRecord('runs'); }
   // wasm is the default engine; WASMCORE.run() falls back to runJSCore() itself
@@ -5963,6 +6051,8 @@ when button "menu" is clicked go to title
 run game with update`,
   };
   const helpOverlay = document.getElementById('help-overlay');
+  const describeBtn = document.getElementById('tool-describe');
+  if (describeBtn) describeBtn.onclick = function () { fcDescribeRow(); };
   const helpBtn = document.getElementById('tool-help');
   if (helpBtn) helpBtn.onclick = () => { helpOverlay.style.display = 'block'; helpOverlay.scrollTop = 0; };
   const helpClose = document.getElementById('help-close');

@@ -5,6 +5,33 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (d) — safety net Phase 2 client + Phase 3 shipped
+
+**Phase 3 (the floor of "it always runs") — shipped.** `spec/heal/scaffold.mjs`
+holds four small starters (collect / bounce / shoot / stars) with keyword scoring.
+When an explicit run leaves the canvas entirely black and the source has no
+`run game`, the app offers an amber banner with two directions; picking one loads
+that starter into the editor with the user's own lines kept as `--` comments.
+Never auto-applied. Telemetry is **local only** (localStorage counters exposed as
+`window.FC_NET_STATS()`, summary + copy button in Settings) so the common rewrites
+can be absorbed into the language — server-side aggregation is Q8.
+
+**Phase 2 client — built (the endpoint still ships dark).** A `✎ describe` toolbar
+button opens a prompt row, POSTs to `/api/generate` with the `X-CO` CSRF header and
+same-origin credentials, and OFFERS the gate-validated result ("here is … as a game
+(2 tries) — it already runs") with `✎ use it & run` / dismiss. Failure modes each
+get a plain-English line (sign in / too long / daily limit / not enabled on this
+server yet / offline). Going live still needs the owner's key + `ENABLE_GENERATE`
+(Q3); the larger eval set with a semantic rubric remains open.
+
+Verification: `spec/heal/eval.mjs` asserts every starter and every `scaffold()`
+output passes the gate for 8 inputs (gibberish included) and that index.html's
+inlined starter data equals the module's. `tools/ui-check.mjs` drives the real app:
+the floor appears for a dead end, offers two directions, loads and draws the picked
+starter; the telemetry records the run and the offered heal and shows in Settings;
+the describe path POSTs with the prompt + CSRF header, offers (not applies) the
+code, applies it on tap, and explains a dark endpoint. **32/32 UI checks.**
+
 ## 2026-09-29 (c) — `say` works on the default engine
 
 **Bug (user-visible):** `say` was implemented only in the JS core. The wasm core —

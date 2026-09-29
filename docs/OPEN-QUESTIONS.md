@@ -63,6 +63,19 @@ feedback list feeds docs/GROWTH-PLAN.md.
 
 ---
 
+## 🟡 Q8 — Safety-net telemetry: keep it local, or aggregate it?
+Owner: kevin. Phase 3 logs what the net keeps fixing (offered heal reasons,
+accepted fixes, chosen starters) so the common cases can become natively-accepted
+syntax — but **only on each device** (`localStorage`, `window.FC_NET_STATS()`,
+copy button in Settings). Aggregating it server-side would need an endpoint + a
+privacy stance (the audience is kids; `/privacy/` exists). Recommend: stay local
+until the log proves useful, then add an opt-in "send my log" action that posts
+the JSON the copy button already produces.
+
+**Answer:**
+
+---
+
 ## 🟡 Q7 — Dynamic colors (`draw … in shade`) don't resolve — demos render flat
 Owner: kevin. `resolveColor()` maps *literal* names only; a color **variable** is
 never looked up, in either engine. So every demo whose effect depends on it paints
