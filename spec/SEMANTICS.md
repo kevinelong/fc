@@ -517,6 +517,66 @@ loop, `say` output is never drawn** — `sayBuffer` accumulates and is ignored.
 
 ---
 
+## 18. Additions after the line-cited pass (2026-09)
+
+Runtime meaning of the forms added in GRAMMAR §11. Same rule as everywhere in this
+file: the corpus program is the contract; the harnesses are the proof.
+
+- **Match timer** (`time limit is N seconds|frames`) — the limit is converted to a
+  FRAME count (seconds × 60) and decremented once per frame in the game loop, so it
+  is wall-clock independent and deterministic. The builtin `timer` is
+  `ceil(remaining_frames / 60)`, never negative, and reads 0 once the limit is spent.
+  `when time runs out` fires **exactly once**, on the frame the countdown crosses to
+  zero (measured: a 5-frame limit counts 1 1 1 1 0 and fires on frame 5; a 1-second
+  limit fires on frame 60). It does NOT stop the game — the handler decides (`go to
+  results`, `mode is "over"`, `stop`, …). With no `time limit` statement there is no
+  `timer` and the handler never runs, which is why every pre-existing golden is
+  unchanged. Frozen by `spec/corpus/time_limit_static.fc` and
+  `spec/port/spike/frame-tests/f_timer.fc` (which draws its own fired-counter).
+- **Behavior verbs** (`chases`/`wanders`/`patrols between A and B`, optional
+  `speed N`, `through walls`) are set-once declarations: they store a marker on the
+  subject sprite (editable data, e.g. `ghost.behavior.speed`) and the engine moves
+  the sprite every frame from then on. Motion is Euler per frame with libm `sqrt`
+  (IEEE-identical across engines) and map-solid collision restores the blocked axis
+  unless `through walls` is set. Frozen by `behaviors_register.fc`,
+  `behavior_list_subject.fc`, and the idle draw-parity of every example that uses
+  them.
+- **Frame animation** (`animate NAME with "a" "b" every N frames`) advances on the
+  GLOBAL tick, not per entity, so every animated sprite stays in step and the result
+  is deterministic; the frame index lives on the sprite.
+- **Particles** (`burst N … at X, Y [in COLOR]`) write into one shared pool (cap 400,
+  oldest dropped), updated once per frame and drawn OVER the game layer,
+  camera-aware. The noun between the count and `at` is decorative (`burst 8 stars at
+  …` is legal and means the same as `burst 8 sparks at …`).
+- **Tilemaps** (`tile`, `map is …`, `map at x, y is …`, `draw map`, `is solid at`) —
+  the world size is derived from the map; solid cells block movement through the
+  axis-restore path described in §13, and `draw map` is camera-aware. An empty or
+  absent map keeps the old free-floating world (`map_without_tiles.fc`).
+- **`increase` / `decrease`** desugar at parse time to `add X to TARGET` /
+  `remove X from TARGET` with the default amount 1, so they inherit the polymorphic
+  `add`/`remove` semantics in §5 exactly.
+- **Comparison words** are rewritten to operators BEFORE the parse tree exists
+  (`collapse_cmp`: `is more/greater than` → `>`, `is less/fewer than`,
+  `is under/below` → `<`, `is over/above` → `>`, `is at least` → `>=`,
+  `is at most` → `<=`). They are syntax sugar, not new semantics.
+- **List membership** (`X is in [a, b]`) uses `Array.includes` semantics: STRICT
+  equality, so `"1" is in [1]` is false, and a non-list operand is false. `is not
+  in` parses as `not (in)` — negation of membership, not an inequality.
+- **`say`** appends `interpolate(display(value))` to the say buffer; the HOST paints
+  those lines (stacked from 2,2 in `#fff1e8`) only when the program has no game
+  loop, mirroring what a terminal would do. Both engines expose the buffer
+  (JS `runtime.sayBuffer`; wasm `dump_say()`, with `has_game()` deciding the paint)
+  — the wasm had no `say` at all before 2026-09-29 (`spec/corpus/say_lines.fc`).
+- **`stop music` / `stop sound`** is a host effect: the wasm emits a
+  `sound/kind:stopmusic` command and the page calls the audio engine's stop, which
+  clears the looping track's interval. **[QUIRK]** the JS parser checks this BEFORE
+  the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
+  name (that was the shipped behavior until 2026-09-29, when the verb was dead in
+  every engine).
+- **Dynamic colors are not implemented** — see GRAMMAR §11's [QUIRK] and
+  `docs/OPEN-QUESTIONS.md` Q7. A color variable resolves to the default white at
+  paint time.
+
 ## Summary for porters
 
 The grammar is the small part. The MEANING of an fc program lives in:

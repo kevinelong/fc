@@ -1,5 +1,16 @@
 # fc Conformance Harness Contract
 
+> **[2026-09-29] Status.** The `~L` citations and the `/home/kevin/codeonline/`
+> paths in this file describe the revision it was written against; the file has
+> since more than doubled. Treat the *contract* sections as current and the line
+> numbers as historical. The executable record is the harness suite: the wasm core
+> is the browser's DEFAULT engine and matches the JS oracle on `tokenize-diff`
+> 2118/2118 lines · `ast-diff` 77/77 programs · `exec-diff` 55/55 · `draw-diff`
+> 10/10 · `examples-diff` 22/22 (30 frames) · `dump-vars-diff` 22/22 · `smoke`
+> 16/16 · `mp-smoke` 5/5 · `fuzz` 3000/3000 (see docs/STATUS.md). The corpus is now
+> 55 programs plus 22 examples.
+
+
 Status: descriptive contract for validating any fc implementation (the current
 JS in `/home/kevin/codeonline/index.html`, and the future Rust→WASM core)
 against a shared set of golden programs.

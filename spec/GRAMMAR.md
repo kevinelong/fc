@@ -20,6 +20,14 @@ index scans (`findWord`, `findIndex`), documented inline.
 
 ---
 
+> **[2026-09-29] Coverage note.** The `~L` citations below target the revision this
+> document was last pass-edited against (`/home/kevin/codeonline/index.html`,
+> 4972 lines). The live file is now ~7300 lines and carries verbs this pass did not
+> reach; they are listed in **§11 Additions** at the end, cited by parse function
+> instead of line number, each frozen by a corpus program. The executable authority
+> is the harness suite (`docs/STATUS.md` table): `ast-diff` (77/77 programs) freezes
+> the parse, `exec-diff` (55/55) the top-level semantics.
+
 ## 1. Lexical layer
 
 Source is split on `\n` into raw lines (`parse`, ~L1437). Each non-blank line is
@@ -558,3 +566,41 @@ positional scans in §3 are where a Rust re-implementation is most likely to div
 stress tables in §6.1 and §7.3 are seed cases for `spec/corpus/`. Any behavioral change
 to the above functions is a grammar change and must update both this file and the golden
 conformance suite **together**.
+
+---
+
+## 11. Additions after the line-cited pass (2026-09)
+
+Statement and condition forms that shipped after this document's last edit. Every
+row is frozen by the corpus program in the last column — that program, not this
+prose, is the contract. (JS implementation: `index.html`'s `parseLine` +
+`parseCondition`; Rust: `spec/port/spike/src/lib.rs` `parse_line` / `parse_cond`,
+differentially tested against it.)
+
+| Form | Production | Frozen by |
+|---|---|---|
+| `time limit is` expr [`seconds`\|`frames`] | optional match countdown (`Stmt::TimeLimit` / `time_limit`); seconds = ×60 frames | `time_limit_static.fc`, `frame-tests/f_timer.fc` |
+| `when time runs out` | timeout handler, fires once at the crossing frame | `frame-tests/f_timer.fc` |
+| `increase` REF [`by` expr] \| `decrease` REF [`by` expr] | desugars to `add`/`remove` (default 1) | `english_ops.fc` |
+| SUBJECT (`chases`\|`chase`) TARGET [`speed` expr] [`through walls`] | set-once chase behavior | `behaviors_register.fc`, `behavior_list_subject.fc` |
+| SUBJECT (`wanders`\|`wander`) \| (`patrols`\|`patrol`) `between` A `and` B | set-once wander / patrol | `behaviors_register.fc` |
+| `animate` NAME `with` STRING … [`every` N `frames`] | frame cycling on the global tick | `animate_and_burst.fc` |
+| `burst` expr [WORD] `at` expr [`,` expr] [`in` COLOR] | particle burst (pool cap 400) | `animate_and_burst.fc` |
+| `tile` STRING `is` OBJECT | tile type definition | `map_dims_and_solid.fc` |
+| `map is grid` W `by` H `of tiles` STRING \| `map is` indented rows | tilemap construction | `map_dims_and_solid.fc`, `map_without_tiles.fc` |
+| `map at` expr `,` expr `is` STRING | set one cell | `map_without_tiles.fc` |
+| `draw map` | draw the tilemap, camera-aware | `map_dims_and_solid.fc` |
+| `is solid at` expr `,` expr | condition: solid cell (blocks movement) | `map_dims_and_solid.fc` |
+| `with` WORD … (block) + `its` FIELD | factor out a repeated subject; `its` rewrites to the subject's field | `with_its.fc` |
+| `X is in` `[` … `]` \| `X is not in` `[` … `]` | list membership (JS `Array.includes`: STRICT equality) | `list_membership.fc` |
+| `X is more/greater than` Y · `is less/fewer than` · `is under/below` · `is over/above` · `is at least` · `is at most` | comparison words (`collapse_cmp`), rewritten to `>` `<` `>=` `<=` before parsing | `english_ops.fc` |
+| `say` STRING \| `say` expr | appends an interpolated line to the say buffer (host paints it only without a game loop) | `say_lines.fc` |
+| `stop music` \| `stop sound` | one node (`stop_music`); the host stops the looping track. **[QUIRK]** checked BEFORE the sprite form `stop X`, which would otherwise swallow `music`/`sound` as a target name | `stop_music.fc` |
+| `pset` … | direct pixel write (wasm port followed later) | `draw-tests/` (see README) |
+
+**[QUIRK] Dynamic colors are NOT implemented.** `draw … in NAME` resolves at paint
+time through `resolveColor(name)`, which maps literal palette/CSS names only — a
+color *variable* (`shade is green` … `in shade`) paints the default white. Demos
+that lean on it (starfield's parallax brightness, matrix's fading tail, sand's three
+grain tones) therefore render flat. Tracked as an open decision, not a documented
+feature: `docs/OPEN-QUESTIONS.md` Q7.
