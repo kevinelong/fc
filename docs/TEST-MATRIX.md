@@ -35,4 +35,6 @@ Status legend: ✅ pass · ⚠️ issue (note it) · — not tested.
 
 > This file is the executable spec for the manual pass; fill in a dated results
 > table per release. It is intentionally not automated — the value is on real
-> hardware. (Headless render regressions are covered by `tools/visual-golden.cjs`.)
+> hardware. (Headless render regressions are covered by `tools/visual-golden.cjs`;
+> browser-side UI behaviour — dialog a11y, the live-inspect panel — by
+> `node tools/ui-check.mjs`, which needs no npm install.)

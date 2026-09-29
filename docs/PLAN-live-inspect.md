@@ -1,4 +1,16 @@
-# Plan — Live inspect / step ("see the state")
+# Plan — Live inspect / step ("see the state") ✅ SHIPPED 2026-09-29
+
+**Status:** shipped. Engine seam: `dump_vars()` in `spec/port/spike/src/lib.rs`
+(read-only over the live runtime, JSON into the shared RES buffer). UI in
+`index.html`: a floating 🔍 panel with ⏸ Pause / ▶ Resume / ⏭ Step, a live
+key→value tree, and changed values highlighted; the JS core path reads
+`runtime.vars` with no engine change.
+
+Verified: `node spec/port/spike/dump-vars-diff.mjs` — **22/22** examples, the wasm
+`dump_vars()` is identical to the JS `runtime.vars` after 20 stepped frames; and
+`node tools/ui-check.mjs` drives the real panel in a browser (step disabled until
+paused, pause → "paused", ⏭ ×3 changes a variable, panel stays live). The seeded-RNG
+"record a repro" idea below remains a possible future step, not a promise.
 
 Goal: pause a running game, step it one frame at a time, and **see every variable's
 current value** update live — the Bret Victor "see the state" idea. This is a

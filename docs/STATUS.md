@@ -5,7 +5,36 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
-## 2026-09-29 — engine parity batch (JS↔wasm) + harness portability
+## 2026-09-29 (b) — plans closed out: accessibility, duration, live inspect
+
+Three plans had shipped code with unverified or stale claims; each is now verified
+and marked in its own doc, and two new tests close real coverage gaps.
+
+- **PLAN-duration.md → ✅ SHIPPED.** Semantics measured frame-by-frame in both
+  engines: `time limit is 5 frames` counts `1 1 1 1 0` and fires the handler
+  **exactly once** at the crossing frame; `1 seconds` fires at frame 60; with no
+  limit no `timer` exists and no handler runs (all 22 example goldens unchanged).
+  `frame-tests/f_timer.fc` now draws a fired-counter (`f {fires}`) so a
+  fires-twice regression changes the pixels; still 5/5 JS↔wasm.
+- **PLAN-accessibility.md → complete.** The #5 ARIA/keyboard pass was already
+  implemented (6 dialogs: role/aria-modal/label, MutationObserver focus in/out,
+  Escape-to-close, Tab trap); it had never been exercised. Now verified in a real
+  browser — see the new tool below.
+- **PLAN-live-inspect.md → ✅ SHIPPED.** `dump_vars()` differential (22/22) plus
+  the panel behaviour asserted in the browser.
+- **New: `tools/ui-check.mjs`** — zero-dependency browser UI checks (Chrome over
+  the DevTools protocol using node's built-in WebSocket/fetch, since the repo has
+  no bundled playwright). Covers all six dialogs' ARIA, open→focus-in,
+  Escape→close, focus restore, Tab wrap, and the live-inspect panel (step gated on
+  pause, pause → "paused", ⏭ ×3 changes a value, panel stays live). **16/16 pass.**
+  This closes the UI half of PLAN-live-inspect's test plan and is the repo's first
+  browser-side test that needs no external npm install.
+
+Remaining plan work: PLAN-classroom (blocked, Q1), SAFETY-NET Phase 2 go-live
+(needs the API key, Q3) and Phase 3, TEST-MATRIX (hardware, Q4), FEEDBACK-PLAN
+(human posting, Q5).
+
+## 2026-09-29 (a) — engine parity batch (JS↔wasm) + harness portability
 
 Started from a red baseline: three differential harnesses disagreed with each
 other. All causes turned out to be **real bugs**, not harness noise.
@@ -20,17 +49,24 @@ other. All causes turned out to be **real bugs**, not harness noise.
 | 4 | token→text joins used `sval()` (empty for numbers) and multi-token bare refs | `set x to 99` produced the ref `"x to "` | shared `tok_text_join` (JS `tokens.map(t => t.value).join(' ')`) |
 | 5 | wasm AST omitted `argExprs` on call nodes; args were re-split at exec time | ast-diff drift on 7 programs once the JS oracle was fixed | `Stmt::Call(name, args, argExprs)`; AST emits `argExprs`; exec binds from the parsed exprs |
 
+**Follow-up in this batch:** `X is in [list]` (documented in LANGUAGE.md §list
+membership) silently evaluated as equality in the wasm, so every such test was
+false — the app's default engine disagreed with the JS core and the docs. Added
+`Cond::In` with strict-equality membership (JS `Array.includes`) + corpus guard
+`list_membership.fc`.
+
 ### Fixed (JS reference core — `spec/lang/fc-core.mjs`)
 
 The file is the corpus oracle ("byte-verified equal to the browser") but had
 silently drifted from `index.html` / `fc-core-record.mjs`: it was missing the
 **parentheses fix** (`a is (3 + 4)` → NaN for every game on the `?core=js`
 fallback), the **user-function parameter** binding, and the `in` param filter.
-Ported all five language hunks; the `is in [list]` gap is still wasm-only (below).
+Ported all five language hunks.
 
 ### New corpus guards (the repo's convention for a language change)
 
-`not_and_condition.fc` · `color_word_assign.fc` · `dotted_then_math.fc`.
+`not_and_condition.fc` · `color_word_assign.fc` · `dotted_then_math.fc` ·
+`list_membership.fc`.
 
 ### Harness portability (they were Unix-only; results were silently wrong here)
 
@@ -45,43 +81,46 @@ Ported all five language hunks; the `is in [list]` gap is still wasm-only (below
 
 | Harness | Result |
 |---|---|
-| `tokenize-diff.mjs` | 2084/2084 lines |
-| `ast-diff.mjs` | **74/74** programs |
-| `exec-diff.mjs` | **52/52** corpus |
+| `tokenize-diff.mjs` | 2105/2105 lines |
+| `ast-diff.mjs` | **75/75** programs |
+| `exec-diff.mjs` | **53/53** corpus |
 | `draw-diff.mjs` | 10/10 cmds |
 | `examples-diff.mjs` | **22/22** games, 30 frames |
 | `dump-vars-diff.mjs` | **22/22** live-var snapshots |
-| `transpile-diff.mjs` | 74/74 programs (golden regenerated) |
+| `transpile-diff.mjs` | 75/75 programs |
 | `transpile-embed-check.mjs` | index.html inlined copy matches transpile.mjs |
 | `smoke.mjs` | 16/16 games |
 | `frames-run.mjs` | 5/5 programs |
 | `mp-smoke.mjs` | 5/5 multiplayer games |
 | `fuzz.mjs` | 3000/3000 random programs |
-| `run-node.mjs` (corpus conformance) | **52/52** |
-| `spec/heal/eval.mjs` | 34/34 cases · 73/73 corpus untouched · gate 74 accepted |
+| `run-node.mjs` (corpus conformance) | **53/53** |
+| `spec/heal/eval.mjs` | 34/34 cases · 74/74 corpus untouched · gate 75 accepted |
+| `tools/ui-check.mjs` | 16/16 browser UI checks |
 
-Rebuilt wasm re-inlined into `index.html` (`inline-wasm.mjs`); verified in headless
-Chrome that `examples/matrix.fc` still renders digits on the default wasm core.
+Rebuilt wasm re-inlined into `index.html` (`inline-wasm.mjs`) after each core
+change; the app was checked in headless Chrome (matrix still renders digits; the
+inspect panel now reports `shade: "light gray"`, i.e. the color-word fix is live).
 
 ### Known gaps found (not yet fixed)
 
-1. **`is in [list]` is broken in the wasm** (documented in LANGUAGE.md §list
-   membership; JS `hit=true`, wasm `hit=false`). No corpus case covered it. Next batch.
-2. **Dynamic colors (`draw … in shade`) never resolve** in *either* engine —
+1. **Dynamic colors (`draw … in shade`) never resolve** in *either* engine —
    `resolveColor()` only maps literal names. Every "fading tail" / "brighter stars" /
    3-tone sand effect renders flat white. Product decision: Q7.
+2. The visual-golden tool's pinned set (`spec/golden-shots/`) covers the 16 classic
+   games but not the 6 generative toys (matrix, sand, starfield, life, langton,
+   chaos) — running `tools/visual-golden.cjs` would add them (needs playwright-core).
 
 ## Plan state at audit
 
 | Plan | State |
 |---|---|
-| PLAN-visual-golden.md | ✅ shipped (the 6 generative toys are not in its golden set) |
+| PLAN-visual-golden.md | ✅ shipped (toys not in its golden set — see gap 2) |
 | PLAN-runnable-export.md | ✅ shipped |
 | PLAN-community-gallery.md | ✅ shipped (Q2 = the one open product call) |
-| PLAN-accessibility.md | items 1–4 ✅ · #5 ARIA/keyboard ⬜ next |
-| PLAN-duration.md | implementation present in all three cores ⬜ (corpus covers only the static form) |
-| PLAN-live-inspect.md | feature present + `dump_vars` differential ✅ ⬜ (no UI test) |
-| SAFETY-NET-PLAN.md | Phase 0/1 ✅ · Phase 2 gate+proxy ✅ (dark, needs key) · Phase 3 ⬜ |
+| PLAN-accessibility.md | ✅ complete (verified 2026-09-29) |
+| PLAN-duration.md | ✅ shipped (verified 2026-09-29) |
+| PLAN-live-inspect.md | ✅ shipped (verified 2026-09-29) |
+| SAFETY-NET-PLAN.md | Phase 0/1 ✅ · Phase 2 gate+proxy ✅ (dark, needs key, Q3) · Phase 3 ⬜ |
 | PLAN-classroom.md | ⬜ blocked on Q1 |
 | TEST-MATRIX.md | ⬜ hardware-only (Q4) |
 | FEEDBACK-PLAN.md | ⬜ human posting (Q5) |

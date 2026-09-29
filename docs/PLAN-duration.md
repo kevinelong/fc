@@ -1,4 +1,16 @@
-# Plan — optional duration / match timer
+# Plan — optional duration / match timer ✅ SHIPPED 2026-09-29
+
+**Status:** shipped in all three cores (`index.html`, `spec/lang/fc-core.mjs`,
+`spec/port/spike/fc-core-record.mjs`, `src/lib.rs`). `time limit is N
+seconds` / `N frames`, the `timer` HUD value, and `when time runs out` are live.
+Verified: 5-frame limit counts 1,1,1,1 → 0 and fires the handler exactly once at
+the crossing frame (60-frame limit fires at frame 60); no limit ⇒ no `timer` and
+no handler, so all pre-existing goldens are unchanged. Tests:
+`spec/corpus/time_limit_static.fc` (set + read), `spec/port/spike/frame-tests/f_timer.fc`
+(countdown + fire-once, drawn counter, JS↔wasm frame parity). Demo:
+`examples/time-attack.fc` + launcher tile + thumbnail + share page + visual golden.
+
+---
 
 Research (MakeCode Arcade `startCountdown`, Scratch timer var, arcade time-limit
 history): the useful shape is **set a duration in seconds → a countdown ticks →

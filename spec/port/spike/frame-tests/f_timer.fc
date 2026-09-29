@@ -1,12 +1,14 @@
 mode is "play"
+fires is 0
 time limit is 5 frames
 when time runs out
   mode is "over"
+  fires is fires + 1
 to update
   tick is 1
 to draw
   if mode is "play"
-    write "t {timer}" at 2, 2 in white on hud
+    write "t {timer} f {fires}" at 2, 2 in white on hud
   if mode is "over"
-    write "TIME UP" at 30, 60 in red on hud
+    write "TIME UP f {fires}" at 30, 60 in red on hud
 run game with update and draw

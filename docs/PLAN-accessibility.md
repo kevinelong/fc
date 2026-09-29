@@ -53,6 +53,13 @@ helper + a MutationObserver on each overlay's visibility, so no open/close code 
 touched. Close buttons + the canvas got accessible labels; the canvas is now
 keyboard-focusable (tabindex).
 
+**Verified 2026-09-29 in a real browser** (`node tools/ui-check.mjs` — a zero-dep
+CDP check, since the repo has no bundled playwright): all six dialogs report
+role=dialog + aria-modal + a label; Help moves focus in, Escape closes it, focus
+returns to the triggering button, and Tab at the last control wraps to the first.
+The same tool covers the live-inspect panel (pause gated step, 3 steps → values
+change, stays paused).
+
 ## Bigger, optional
 - **Runnable transpiler export** — ship a tiny fc-runtime shim so an exported
   Python/JS game actually runs elsewhere ("take your game to a real language").
@@ -62,4 +69,7 @@ keyboard-focusable (tabindex).
 ## Order
 Settings panel → CVD → reduced-motion → contrast/text (one bundle), then the
 debugger as its own pass. **All of the above shipped 2026-07-05** (commits 8a899ed,
-e41c4ca). Remaining: the ARIA/keyboard pass (#5) and the two optional big items.
+e41c4ca) — the ARIA/keyboard pass (#5) is verified working as of 2026-09-29, and
+both "bigger, optional" items shipped too (runnable transpiler export =
+PLAN-runnable-export.md; visual-golden harness = PLAN-visual-golden.md). Nothing
+outstanding in this plan.
