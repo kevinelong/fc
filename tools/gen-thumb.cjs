@@ -9,6 +9,8 @@
 //
 // Needs playwright-core + a chromium binary. In this repo neither is a dep, so:
 //   NODE_PATH=/tmp/pw2/node_modules node tools/gen-thumb.cjs <game> [<game> ...]
+// (or install it in the repo root: `npm i playwright-core` — .gitignore covers
+// node_modules/package.json/package-lock.json, so the repo stays dependency-free)
 // (or `npm i -D playwright-core` and drop NODE_PATH). CHROME env overrides the
 // browser path. With no game args it regenerates every recipe below.
 const { chromium } = require('playwright-core');
@@ -37,7 +39,9 @@ const RECIPES = {
 };
 
 async function shoot(browser, game) {
-  const src = fs.readFileSync(path.join(ROOT, 'examples', `${game}.fc`), 'utf8');
+  // normalize line endings: a Windows checkout has CRLF, and the base64'd payload
+  // must match the LF source that every published ?code= link and g/ page carries.
+  const src = fs.readFileSync(path.join(ROOT, 'examples', `${game}.fc`), 'utf8').replace(/\r\n/g, '\n');
   const url = 'file://' + path.join(ROOT, 'index.html') + '?code=' + encodeURIComponent(Buffer.from(src, 'utf8').toString('base64'));
   const page = await browser.newPage();
   await page.goto(url, { waitUntil: 'load' });

@@ -13,6 +13,8 @@
 //
 // Title + tagline come from each .fc's first comment line ("-- TITLE · desc"),
 // the single source of truth. Run: NODE_PATH=/tmp/pw2/node_modules node tools/gen-share-pages.cjs
+// (or install it in the repo root: `npm i playwright-core` — .gitignore covers
+// node_modules/package.json/package-lock.json, so the repo stays dependency-free)
 const { chromium } = require('playwright-core');
 const fs = require('fs');
 const path = require('path');
@@ -79,12 +81,17 @@ const pageHtml = (name, title, desc, b64) => `<!doctype html>
 
 async function run() {
   if (!fs.existsSync(OUT_CARD)) fs.mkdirSync(OUT_CARD, { recursive: true });
-  const files = fs.readdirSync(EX).filter(f => f.endsWith('.fc')).sort();
+  // optional game-name arguments: regenerate just those cards/pages (handy after
+  // re-capturing a thumbnail); the sitemap is only rewritten on a full run.
+  const only = process.argv.slice(2).filter(a => !a.startsWith('--'));
+  const files = fs.readdirSync(EX).filter(f => f.endsWith('.fc')).sort()
+    .filter(f => !only.length || only.includes(f.replace(/\.fc$/, '')));
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   try {
     for (const f of files) {
       const name = f.replace(/\.fc$/, '');
-      const src = fs.readFileSync(path.join(EX, f), 'utf8');
+      // normalize line endings (Windows checkouts are CRLF; every published link is LF)
+      const src = fs.readFileSync(path.join(EX, f), 'utf8').replace(/\r\n/g, '\n');
       const { title, desc } = meta(src, name);
       const b64 = Buffer.from(src, 'utf8').toString('base64');
       // 1) OG card png — inline the thumbnail as a data URI (setContent runs at
@@ -108,6 +115,7 @@ async function run() {
   } finally { await browser.close(); }
   // 3) sitemap.xml — the homepage, the docs, and every per-game landing page, so
   // search engines can crawl the toy shelf (nothing else links into /g/<name>/).
+  if (only.length) { console.log('done: ' + files.length + ' games (sitemap untouched)'); return; }
   const urls = [BASE + '/', BASE + '/docs/']
     .concat(files.map(f => BASE + '/g/' + f.replace(/\.fc$/, '') + '/'));
   const sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n' +

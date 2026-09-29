@@ -13,6 +13,8 @@
 // Goldens live in spec/golden-shots/<game>.png. First run (or --update) writes
 // them; later runs compare sha256 (identical pixels => identical chromium PNG).
 //   NODE_PATH=/tmp/pw2/node_modules node tools/visual-golden.cjs [--update] [game...]
+// (or install it in the repo root: `npm i playwright-core` — .gitignore covers
+// node_modules/package.json/package-lock.json, so the repo stays dependency-free)
 const { chromium } = require('playwright-core');
 const fs = require('fs');
 const path = require('path');
@@ -31,6 +33,7 @@ const INIT = `(() => {
   window.requestAnimationFrame = (f) => { cb = f; return 1; };
   window.cancelAnimationFrame = () => {};
   window.__fcStep = () => { const f = cb; cb = null; if (f) f(16.7); return !!f; };
+  window.__fcHasFrame = () => !!cb;   // false until the engine has booted and scheduled a frame
 })();`;
 
 const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
@@ -42,27 +45,64 @@ async function capture(browser, game) {
   await page.addInitScript(INIT);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction('typeof window.__fcStep === "function"');
-  await page.waitForTimeout(150);
+  // Wait until the engine has actually booted (the wasm loads asynchronously; stepping
+  // before the first frame is scheduled silently drops those frames, which used to make
+  // this tool produce machine-speed-dependent renders for any game that moves on its own).
+  await page.waitForFunction('window.__fcHasFrame && window.__fcHasFrame()', null, { timeout: 15000 });
+  // Settle BEFORE stepping and again before reading: the app boots asynchronously
+  // (the wasm loads, then paints frame 1), so stepping or reading too early captured
+  // whatever happened to be on the canvas — machine-speed-dependent renders. Both
+  // delays are load-bearing: the goldens reproduce with either 400 or 700ms of settle.
+  await page.waitForTimeout(400);
   // drive an exact number of frames, deterministically
   await page.evaluate((n) => { for (let i = 0; i < n; i++) window.__fcStep(); }, FRAMES);
-  const data = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png'));
+  await page.waitForTimeout(75);
+  // The PNG bytes are NOT a stable identity across Chrome builds (the encoder emits
+  // different IDAT for identical pixels), so the comparison hashes the raw RGBA the
+  // canvas holds. The golden is decoded in-page to the same raw form, so a golden
+  // stays valid across encoder versions; PNGs are still written for humans.
+  const goldenPath = path.join(SHOTS, `${game}.png`);
+  const goldenB64 = (!UPDATE && fs.existsSync(goldenPath)) ? fs.readFileSync(goldenPath).toString('base64') : null;
+  const res = await page.evaluate(async ({ golden }) => {
+    const hash = async (bytes) => {
+      const h = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+    const c = document.getElementById('screen'), g = c.getContext('2d');
+    const raw = g.getImageData(0, 0, c.width, c.height).data;
+    const live = await hash(new Uint8Array(raw.buffer.slice(0)));
+    let goldenHash = null;
+    if (golden) {
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = 'data:image/png;base64,' + golden; });
+        const dc = document.createElement('canvas'); dc.width = img.width; dc.height = img.height;
+        const dg = dc.getContext('2d'); dg.drawImage(img, 0, 0);
+        const d = dg.getImageData(0, 0, img.width, img.height).data;
+        goldenHash = (img.width === c.width && img.height === c.height) ? await hash(new Uint8Array(d.buffer.slice(0))) : 'size-mismatch';
+      } catch (_) { goldenHash = 'unreadable'; }
+    }
+    return { png: c.toDataURL('image/png'), live, goldenHash };
+  }, { golden: goldenB64 });
   await page.close();
-  return Buffer.from(data.split(',')[1], 'base64');
+  return { png: Buffer.from(res.png.split(',')[1], 'base64'), live: res.live, goldenHash: res.goldenHash };
 }
 
 (async () => {
   if (!fs.existsSync(SHOTS)) fs.mkdirSync(SHOTS, { recursive: true });
   const arg = process.argv.slice(2).filter(a => !a.startsWith('--'));
   const games = (arg.length ? arg : fs.readdirSync(path.join(ROOT, 'examples')).filter(f => f.endsWith('.fc')).map(f => f.replace(/\.fc$/, ''))).sort();
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  // `--disable-gpu` matters: GPU rasterization anti-aliases circles/lines differently
+  // from Skia's software path (which is what produced these goldens), so without it
+  // every game that draws a circle reports a false pixel diff.
+  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox', '--disable-gpu', '--force-device-scale-factor=1'] });
   let pass = 0, fail = 0, wrote = 0;
   try {
     for (const g of games) {
       const got = await capture(browser, g);
       const golden = path.join(SHOTS, `${g}.png`);
-      if (UPDATE || !fs.existsSync(golden)) { fs.writeFileSync(golden, got); wrote++; console.log(`WROTE ${g}.png (${got.length}b)`); continue; }
-      if (sha(got) === sha(fs.readFileSync(golden))) { pass++; console.log(`PASS  ${g}`); }
-      else { fail++; const out = path.join(SHOTS, `${g}.actual.png`); fs.writeFileSync(out, got); console.log(`FAIL  ${g}  (render changed; wrote ${g}.actual.png)`); }
+      if (UPDATE || !fs.existsSync(golden)) { fs.writeFileSync(golden, got.png); wrote++; console.log(`WROTE ${g}.png (${got.png.length}b)`); continue; }
+      if (got.goldenHash === got.live) { pass++; console.log(`PASS  ${g}`); }
+      else { fail++; const out = path.join(SHOTS, `${g}.actual.png`); fs.writeFileSync(out, got.png); console.log(`FAIL  ${g}  (pixels changed [golden ${String(got.goldenHash).slice(0,10)}… vs live ${got.live.slice(0,10)}…]; wrote ${g}.actual.png)`); }
     }
   } finally { await browser.close(); }
   console.log(`\n${wrote ? `wrote ${wrote} golden(s); ` : ''}${pass}/${pass + fail} visual goldens match`);

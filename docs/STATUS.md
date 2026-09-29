@@ -5,6 +5,37 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (g) — demo media regenerated + two visual-harness bugs
+
+Cleared the "needs a dependency" items with a local playwright-core (installed in the
+repo root, which `.gitignore` already covers — `/node_modules`, `/package.json`,
+`/package-lock.json`):
+
+- **Regenerated the 3 stale demo assets** — `examples/thumbs/{matrix,starfield,sand}.png`
+  (the in-app launcher reads these) and their `share/*.png` OG cards. Starfield now
+  shows the parallax brightness, matrix the green tail, sand the grain tones.
+- **`examples/thumbs` + `g/` + `share/` generators normalize line endings** (a Windows
+  checkout is CRLF; every published `?code=` link is LF — the base64 payload was
+  being generated from CRLF source).
+- **`tools/gen-share-pages.cjs` takes optional game names** so one card can be
+  regenerated without rewriting all 22 (and skips the sitemap on a partial run).
+- **Two real bugs in `tools/visual-golden.cjs`**, found because 16 goldens "failed"
+  while the renders were identical:
+  1. it compared **SHA-256 of PNG file bytes** → Chrome-build-dependent encoder output
+     reported false diffs. It now hashes the **raw RGBA** the canvas holds, decoding
+     the golden in-page to the same form.
+  2. it launched Chrome **without `--disable-gpu`** → GPU anti-aliasing of circles
+     differs from the software (Skia) path that produced the goldens, so the three
+     circle-drawing games (pong, breakout, bubble-pop) reported false diffs. Both
+     fixes plus a boot-settle before stepping/reading.
+- **The golden set now covers all 22 examples** (the 6 generative toys were added);
+  `chaos` was re-pinned because it had been captured during the GPU-rasterized run.
+
+Evidence that the session's engine work did not alter the library: rendering
+`index.html` from the pre-session commit (`7c2058d`) and from HEAD produced
+**identical pixel hashes** for pong, breakout, bubble-pop and snake — matching their
+goldens. Final: `tools/visual-golden.cjs` **22/22**, deterministic across runs.
+
 ## 2026-09-29 (f) — roadmap feature work: colors, effects, tween, AI, inventory
 
 Working down ROADMAP's "Still planned" list, each item built the repo's way (both

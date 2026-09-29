@@ -1,8 +1,14 @@
 # Plan — visual-golden harness (pixel regression) ✅ SHIPPED 2026-07-05
 
-**Status:** shipped (`spec/port/spike/visual-golden.{mjs,html,json}`). Renders every
-example deterministically (seed 0, 30 idle frames — same as examples-diff), hashes
-the real 128×128 RGBA pixels, pins them, diffs on change. Verified: 16/16
+**Status:** shipped (`spec/port/spike/visual-golden.{mjs,html,json}` for the
+reference rasterizer; `tools/visual-golden.cjs` + `spec/golden-shots/` for the real
+app). The app-level set now covers **all 22 examples** (the 6 generative toys were
+pinned on 2026-09-29) and compares **raw RGBA pixel hashes** — comparing PNG *file*
+hashes produced false diffs across Chrome builds, since the encoder emits different
+IDAT for identical pixels. Note the rasterizer must match: launch with
+`--disable-gpu` (GPU anti-aliasing of circles/lines differs from Skia's software
+path, which is what the goldens were rendered with — without the flag, pong,
+breakout and bubble-pop reported false diffs on Windows). Verified: 22/22
 pixel-identical and deterministic across repeated runs; `--cvd` (colorblind palette
 forced on) diffs the 10 color-affected examples while palette-unaffected ones pass,
 proving it catches a real pixel change. Note on scope: it pins the pixel output of
