@@ -22529,6 +22529,105 @@
       "type": "else"
     }
   ],
+  "tween_forms.fc": [
+    {
+      "target": "panel",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 0
+          },
+          "y": {
+            "type": "literal",
+            "value": 0
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "ease": "",
+      "frames": {
+        "type": "literal",
+        "value": 1
+      },
+      "from": {
+        "type": "literal",
+        "value": 0
+      },
+      "target": "panel.x",
+      "to": {
+        "type": "literal",
+        "value": 100
+      },
+      "type": "tween",
+      "unit": "seconds"
+    },
+    {
+      "ease": "in",
+      "frames": {
+        "type": "literal",
+        "value": 30
+      },
+      "from": {
+        "type": "literal",
+        "value": 0
+      },
+      "target": "panel.y",
+      "to": {
+        "type": "literal",
+        "value": 50
+      },
+      "type": "tween",
+      "unit": "frames"
+    },
+    {
+      "ease": "bounce",
+      "frames": {
+        "type": "literal",
+        "value": 0.5
+      },
+      "from": {
+        "left": {
+          "type": "literal",
+          "value": 0
+        },
+        "op": "-",
+        "right": {
+          "type": "literal",
+          "value": 20
+        },
+        "type": "math"
+      },
+      "target": "panel.x",
+      "to": {
+        "type": "literal",
+        "value": 20
+      },
+      "type": "tween",
+      "unit": "seconds"
+    },
+    {
+      "ease": "",
+      "frames": {
+        "type": "literal",
+        "value": 12
+      },
+      "from": {
+        "type": "literal",
+        "value": 0
+      },
+      "target": "panel.y",
+      "to": {
+        "type": "literal",
+        "value": 10
+      },
+      "type": "tween",
+      "unit": "frames"
+    }
+  ],
   "with_its.fc": [
     {
       "target": "coin",

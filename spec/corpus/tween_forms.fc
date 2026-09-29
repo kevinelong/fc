@@ -1,0 +1,7 @@
+-- `tween` argument forms: required from/to/over, optional easing, frames vs seconds,
+-- and a dotted target.
+panel is {x: 0, y: 0}
+tween panel.x from 0 to 100 over 1 second
+tween panel.y from 0 to 50 over 30 frames ease in
+tween panel.x from -20 to 20 over 0.5 seconds ease bounce
+tween panel.y to 10 over 12 frames

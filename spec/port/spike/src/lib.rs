@@ -204,6 +204,7 @@ enum Stmt {
     TimeLimit(Expr, String), WhenTimeout(Option<Box<Stmt>>, Vec<Stmt>),
     Flash(String, Expr, String), Shake(Expr, String, Expr),
     Emit { rate: Expr, x: Option<Expr>, y: Option<Expr>, rf: Option<String>, marker: String, color: String, frames: Expr, unit: String },
+    Tween { target: String, from: Expr, to: Expr, frames: Expr, unit: String, ease: String },
     ClearScreen(String), Draw(DrawArgs), Pset(Expr, Expr, String), Write(WriteArgs), Say(Expr),
     Each(String, Expr, Option<Cond>, Option<Box<Stmt>>, Vec<Stmt>),
     RunGame(Vec<String>), Follow(String), Goto(String), GoBack,
@@ -567,6 +568,22 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         let marker = marker_i.map(|mi| ts[mi].sval().to_string()).unwrap_or_default();
         return Stmt::Emit { rate, x, y, rf, marker, color, frames, unit };
     }
+    // -- tween X.y from A to B over N [seconds|frames] [ease in|out|in out|bounce] --
+    if first=="tween" {
+        let kw = |w: &str| ts.iter().enumerate().position(|(i,t)| i > 1 && t.is_word(w));
+        let from_i = kw("from"); let to_i = kw("to"); let over_i = kw("over"); let ease_i = kw("ease");
+        let end = |a: usize, b: usize| if b > a { b } else { ts.len() };
+        let t_end = from_i.unwrap_or(end(0, to_i.unwrap_or(0)));
+        let target = tokens_to_ref(&ts[1..t_end]);
+        let from = from_i.map(|fi| parse_expr(&ts[fi+1..end(fi, to_i.unwrap_or(0))])).unwrap_or(Expr::Lit(LitVal::Num(0.0)));
+        let to = to_i.map(|ti| parse_expr(&ts[ti+1..end(ti, over_i.unwrap_or(0))])).unwrap_or(Expr::Lit(LitVal::Num(0.0)));
+        let (frames, unit) = over_i.map(|oi| {
+            let stop = if ease_i.map(|e| e > oi).unwrap_or(false) { ease_i.unwrap() } else { ts.len() };
+            duration_tail(&ts[oi+1..stop])
+        }).unwrap_or((Expr::Lit(LitVal::Num(60.0)), "frames".to_string()));
+        let ease = ease_i.map(|ei| word_join(&ts[ei+1..]).to_lowercase()).unwrap_or_default();
+        return Stmt::Tween { target, from, to, frames, unit, ease };
+    }
     if first=="burst" {
         if let Some(ai)=find_word(ts,"at") { if ai>1 {
             let ii = ts.iter().enumerate().position(|(k,t)| k>ai && t.is_word("in"));
@@ -843,6 +860,15 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::WhenKey(k,then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"key\":"); json_str(k,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_key\"}"); }
         Stmt::WhenTimeout(then,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"when_timeout\"}"); }
         Stmt::Flash(color,f,u)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"frames\":"); emit_expr(f,out); out.push_str(",\"type\":\"flash\",\"unit\":"); json_str(u,out); out.push('}'); }
+        Stmt::Tween{target,from,to,frames,unit,ease}=>{
+            out.push_str("{\"ease\":"); json_str(ease,out);
+            out.push_str(",\"from\":"); emit_expr(from,out);
+            out.push_str(",\"frames\":"); emit_expr(frames,out);
+            out.push_str(",\"target\":"); json_str(target,out);
+            out.push_str(",\"to\":"); emit_expr(to,out);
+            out.push_str(",\"type\":\"tween\",\"unit\":"); json_str(unit,out);
+            out.push('}');
+        }
         Stmt::Emit{rate,x,y,rf,marker,color,frames,unit}=>{
             out.push_str("{\"color\":"); json_str(color,out);
             out.push_str(",\"frames\":"); emit_expr(frames,out);
@@ -1363,19 +1389,21 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
-    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter> }
+    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween> }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 // A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
 // frame at its point (or at the referenced sprite), following the same random draw
 // order as `burst`.
 struct Emitter { rf: Option<String>, x: f64, y: f64, color: String, marker: String, rate: i64, frames: i64 }
+// A frame-counted property tween created by `tween X.y from A to B over N`.
+struct Tween { target: String, from: f64, to: f64, frames: i64, tick: i64, ease: String }
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new() } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new() } }
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1402,6 +1430,19 @@ impl Rt {
     }
     // Move/age the particle pool and emit one rect per live particle. JS iterates
     // from the end down, splicing dead ones — so command order is reverse-index.
+    fn apply_tweens(&mut self) {
+        if self.tweens.is_empty() { return; }
+        let mut i = self.tweens.len();
+        while i > 0 {
+            i -= 1;
+            let p = { let t = &self.tweens[i]; if t.frames <= 0 { 1.0 } else { (t.tick as f64 / t.frames as f64).min(1.0) } };
+            let (target, from, to, ease) = { let t = &self.tweens[i]; (t.target.clone(), t.from, t.to, t.ease.clone()) };
+            let e = ease_curve(&ease, p);
+            self.set_var(&target, Val::Num(from + (to - from) * e));
+            self.tweens[i].tick += 1;
+            if p >= 1.0 { self.tweens.remove(i); }
+        }
+    }
     fn update_emitters(&mut self) {
         if self.emitters.is_empty() { return; }
         let mut i = self.emitters.len();
@@ -1769,6 +1810,7 @@ impl Rt {
                 o.borrow_mut().insert("image".to_string(), Val::Str(frames[idx].clone()));
             }
         }
+        self.apply_tweens();
         // gravity → clamp → map-solid axis restore (player)
         if let Val::Obj(p) = self.get_var("player") {
             let g = as_num(&self.get_var("gravity"));
@@ -2105,6 +2147,18 @@ impl Rt {
                     while self.emitters.len() > 16 { self.emitters.remove(0); }
                 }
             }
+            Stmt::Tween{target,from,to,frames,unit,ease} => {
+                let n = as_num(&self.eval(frames));
+                let f = if unit=="seconds" { js_floor(n*60.0 + 0.5) } else { js_floor(n + 0.5) };
+                let frames_v = if f < 1.0 { 1 } else { f as i64 };
+                let a = as_num(&self.eval(from));
+                let b = as_num(&self.eval(to));
+                let e = match ease.as_str() { "in"|"out"|"in out"|"bounce" => ease.clone(), _ => String::new() };
+                self.tweens.retain(|t| t.target != *target);   // a new tween replaces one on the same target
+                self.tweens.push(Tween { target: target.clone(), from: a, to: b, frames: frames_v, tick: 0, ease: e });
+                if self.tweens.len() > 16 { self.tweens.remove(0); }
+                self.set_var(target, Val::Num(a));
+            }
             Stmt::Goto(target) => {
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }
                 self.set_var("mode", Val::Str(target.clone()));
@@ -2403,6 +2457,23 @@ fn color_hex(n: &str) -> Option<&'static str> {
 // A color word resolves to the palette/CSS name — UNLESS a variable of that name
 // exists, in which case its value names the color (dynamic colors: `shade is green`
 // … `draw rect … in shade`). Mirrors the JS Runtime.colorOf.
+// Easing curves for `tween` — identical to the JS easeOf.
+fn ease_curve(kind: &str, t: f64) -> f64 {
+    match kind {
+        "in" => t * t,
+        "out" => t * (2.0 - t),
+        "in out" => if t < 0.5 { 2.0 * t * t } else { 1.0 - 2.0 * (1.0 - t) * (1.0 - t) },
+        "bounce" => {
+            let (n, d) = (7.5625, 2.75);
+            let mut t = t;
+            if t < 1.0 / d { return n * t * t; }
+            if t < 2.0 / d { t -= 1.5 / d; return n * t * t + 0.75; }
+            if t < 2.5 / d { t -= 2.25 / d; return n * t * t + 0.9375; }
+            t -= 2.625 / d; n * t * t + 0.984375
+        }
+        _ => t,
+    }
+}
 fn color_of(vars: &BTreeMap<String, Val>, name: &str) -> String {
     if !name.is_empty() {
         if let Some(Val::Str(s)) = vars.get(name) { return resolve_color(s); }

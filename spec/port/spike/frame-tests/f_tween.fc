@@ -1,0 +1,22 @@
+-- One tween per easing curve, driving five dots across the screen over exactly the
+-- six frames this harness steps — so each eased position is compared per frame.
+a is {x: 0, y: 10}
+b is {x: 0, y: 30}
+c is {x: 0, y: 50}
+d is {x: 0, y: 70}
+e is {x: 0, y: 90}
+tween a.x from 0 to 100 over 6 frames
+tween b.x from 0 to 100 over 6 frames ease in
+tween c.x from 0 to 100 over 6 frames ease out
+tween d.x from 0 to 100 over 6 frames ease in out
+tween e.x from 0 to 100 over 6 frames ease bounce
+to update
+  tick is 1
+to draw
+  clear screen to black
+  draw rect at a.x, a.y size 4, 4 in white
+  draw rect at b.x, b.y size 4, 4 in red
+  draw rect at c.x, c.y size 4, 4 in green
+  draw rect at d.x, d.y size 4, 4 in blue
+  draw rect at e.x, e.y size 4, 4 in yellow
+run game with update and draw

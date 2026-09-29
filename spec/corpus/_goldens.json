@@ -670,6 +670,16 @@
       "r": "f"
     }
   },
+  "tween_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "panel": {
+        "x": -20,
+        "y": 0
+      }
+    }
+  },
   "with_its.fc": {
     "errors": [],
     "say": [],

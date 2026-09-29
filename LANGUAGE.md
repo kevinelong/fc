@@ -236,6 +236,20 @@ flash screen red for 8 frames
 shake camera for 0.3 seconds by 3 pixels
 ```
 
+## Motion: tweens
+
+`tween` slides a property from one value to another over a fixed time — a door
+opening, a menu sliding in, a bar filling:
+
+```
+tween panel.x from 0 to 100 over 1 second
+tween ball.y from 0 to 90 over 0.5 seconds ease bounce
+```
+
+Easing (optional): `ease in`, `ease out`, `ease in out`, `ease bounce` — plain
+`linear` is the default. The duration is counted in frames (60 per second), so it
+pauses and steps with the game.
+
 ## Particles
 
 `burst` is a one-off pop; `emit` keeps spraying for a while — a trail, smoke, a

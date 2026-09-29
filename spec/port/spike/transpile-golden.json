@@ -227,6 +227,10 @@
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nif 0:\n    r = \"t\"\nelse:\n    r = \"f\"\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nif (0) {\n  r = \"t\";\n}\nelse {\n  r = \"f\";\n}\n"
   },
+  "tween_forms.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\npanel = {\"x\": 0, \"y\": 0}\n# tween (target=panel.x, unit=seconds, ease=)\n# tween (target=panel.y, unit=frames, ease=in)\n# tween (target=panel.x, unit=seconds, ease=bounce)\n# tween (target=panel.y, unit=frames, ease=)\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet panel = {x: 0, y: 0};\n// tween (target=panel.x, unit=seconds, ease=)\n// tween (target=panel.y, unit=frames, ease=in)\n// tween (target=panel.x, unit=seconds, ease=bounce)\n// tween (target=panel.y, unit=frames, ease=)\n"
+  },
   "with_its.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\ncoin = {\"x\": 10, \"y\": 20}\nplayer = {\"x\": 0, \"hp\": 3}\ncoin[\"x\"] += 5\ncoin[\"y\"] += 2\nplayer[\"x\"] += 1\nplayer[\"hp\"] -= 1\nif player[\"hp\"] >= 2:\n    player[\"x\"] = player[\"x\"] + 100\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet coin = {x: 10, y: 20};\nlet player = {x: 0, hp: 3};\ncoin.x += 5;\ncoin.y += 2;\nplayer.x += 1;\nplayer.hp -= 1;\nif (player.hp >= 2) {\n  player.x = player.x + 100;\n}\n"

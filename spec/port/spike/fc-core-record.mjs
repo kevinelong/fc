@@ -61,6 +61,22 @@ const COLORS = {
   'lime': '#aaff00', 'sky': '#87ceeb', 'coral': '#ff6f61',
 };
 
+// Easing curves for `tween` (pure functions of p in 0..1, shared by the sim and the
+// rust core; `bounce` is the classic 7.5625/2.75 bounce-out).
+function easeOf(kind, t) {
+  if (kind === 'in') return t * t;
+  if (kind === 'out') return t * (2 - t);
+  if (kind === 'in out') return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+  if (kind === 'bounce') {
+    const n = 7.5625, d = 2.75;
+    if (t < 1 / d) return n * t * t;
+    if (t < 2 / d) { t -= 1.5 / d; return n * t * t + 0.75; }
+    if (t < 2.5 / d) { t -= 2.25 / d; return n * t * t + 0.9375; }
+    t -= 2.625 / d; return n * t * t + 0.984375;
+  }
+  return t;
+}
+
 function resolveColor(name) {
   if (!name) return '#fff1e8';
   const n = String(name).toLowerCase().trim();
@@ -1150,6 +1166,22 @@ function parse(source) {
       if (forIdx > 0) { const d = parseDurationTail(raw.slice(forIdx + 1)); frames = d.value; unit = d.unit; }
       return { type: 'emit', rate, x, y, ref, marker: markerIdx > 0 ? tv(raw[markerIdx]) : '',
                color: color || 'orange', frames, unit, lineNum };
+    }
+
+    // -- tween X.y from A to B over N [seconds|frames] [ease in|out|in out|bounce] --
+    // Frame-counted property interpolation (no wall clock): the property is set to
+    // `from` immediately and eased to `to` over N frames.
+    if (first === 'tween') {
+      const kw = (w) => raw.findIndex((t, i) => i > 1 && tv(t) === w);
+      const fromIdx = kw('from'), toIdx = kw('to'), overIdx = kw('over'), easeIdx = kw('ease');
+      const end = (a, b) => b > a ? b : raw.length;
+      const target = tokensToRef(raw.slice(1, fromIdx > 0 ? fromIdx : end(0, toIdx)));
+      const from = fromIdx > 0 ? parseExpression(raw.slice(fromIdx + 1, end(fromIdx, toIdx))) : { type: 'literal', value: 0 };
+      const to = toIdx > 0 ? parseExpression(raw.slice(toIdx + 1, end(toIdx, overIdx))) : { type: 'literal', value: 0 };
+      let frames = { type: 'literal', value: 60 }, unit = 'frames';
+      if (overIdx > 0) { const d = parseDurationTail(raw.slice(overIdx + 1, easeIdx > overIdx ? easeIdx : raw.length)); frames = d.value; unit = d.unit; }
+      const ease = easeIdx > 0 ? raw.slice(easeIdx + 1).map(t => String(t.value).toLowerCase()).join(' ') : '';
+      return { type: 'tween', target, from, to, frames, unit, ease, lineNum };
     }
 
     // -- burst 12 sparks at player  ·  burst 8 sparks at 64, 64 in yellow --
@@ -2279,7 +2311,7 @@ class Runtime {
     this.map = null;
     this.behaviorSubjects = [];
     this.animSubjects = [];
-    this.particles = []; this.emitters = [];
+    this.particles = []; this.emitters = []; this.tweens = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -2317,7 +2349,7 @@ class Runtime {
     this.map = null;
     this.behaviorSubjects = [];
     this.animSubjects = [];
-    this.particles = []; this.emitters = [];
+    this.particles = []; this.emitters = []; this.tweens = [];
     this.pickupHandlers = {};
     this.hitHandlers = {};
     this.defeatHandlers = {};
@@ -3171,6 +3203,19 @@ class Runtime {
           break;
         }
 
+        case 'tween': {
+          const secs = Number(this.evalExpr(stmt.frames)) || 0;
+          const frames = Math.max(1, Math.round(stmt.unit === 'seconds' ? secs * 60 : secs));
+          const from = Number(this.evalExpr(stmt.from)) || 0;
+          const to = Number(this.evalExpr(stmt.to)) || 0;
+          const ease = ['in', 'out', 'in out', 'bounce'].includes(stmt.ease) ? stmt.ease : '';
+          this.tweens = (this.tweens || []).filter(t => t.target !== stmt.target);   // a new tween replaces one on the same target
+          this.tweens.push({ target: stmt.target, from, to, frames, tick: 0, ease });
+          this.setVar(stmt.target, from);
+          if (this.tweens.length > 16) this.tweens.splice(0, this.tweens.length - 16);
+          break;
+        }
+
         case 'net_join':
           NET.join(stmt.game, stmt.room);
           this.vars.peers = NET.peers;   // live array, kept fresh by the relay
@@ -3289,6 +3334,19 @@ class Runtime {
   // Sustained emitters (`emit … for N frames`): spawn `rate` particles per frame at
   // the emitter's current position (following REF), with the same random draw ORDER
   // as `burst` so both engines stay in lockstep.
+  // Frame-counted property tweens (`tween ball.y from 0 to 100 over 1 second`): each
+  // frame writes the eased value, and the tween retires once p reaches 1.
+  applyTweens() {
+    if (!this.tweens || !this.tweens.length) return;
+    for (let i = this.tweens.length - 1; i >= 0; i--) {
+      const t = this.tweens[i];
+      const p = t.frames <= 0 ? 1 : Math.min(1, t.tick / t.frames);
+      this.setVar(t.target, t.from + (t.to - t.from) * easeOf(t.ease, p));
+      t.tick++;
+      if (p >= 1) this.tweens.splice(i, 1);
+    }
+  }
+
   updateEmitters() {
     if (!this.emitters || !this.emitters.length) return;
     for (let i = this.emitters.length - 1; i >= 0; i--) {
@@ -3629,6 +3687,7 @@ class Runtime {
       self.applyBehaviors();
       // Frame-swap any `animate X with ...` subjects
       self.applyAnimations();
+      self.applyTweens();
 
       // Gravity: if the user set a positive `gravity`, the player accelerates
       // downward each frame (dy builds up, then moves y). `jump player` sets a

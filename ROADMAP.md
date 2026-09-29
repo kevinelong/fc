@@ -121,8 +121,9 @@ and every claim below is checked. The genuinely-open items are collected at the 
 
 - **Dialogue / NPC system** — `when player talks to`, `show dialog`, `show choice`.
 - **Inventory verbs** — `add "key" to player inventory` (today: lists + `has`).
-- **Tween / easing** — `tween X.y from 0 to 100 over 1 second`, `ease in/out`, and
-  the `{frames: [...], fps: N}` sprite-property form of animation.
+- **The `{frames: [...], fps: N}` sprite-property form of animation** — `animate X
+  with "a" "b" every N frames` is the implemented form; a sprite that declares its
+  own frame list is still planned. (`tween … ease in/out/bounce` shipped 2026-09-29.)
 - **Enemy AI extras** — `flee from player`, `shoot at player every N seconds`,
   waypoint patrols.
 - **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting

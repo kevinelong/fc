@@ -573,6 +573,15 @@ file: the corpus program is the contract; the harnesses are the proof.
   the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
   name (that was the shipped behavior until 2026-09-29, when the verb was dead in
   every engine).
+- **`tween X.y from A to B over N [seconds|frames] [ease …]`** sets the dotted
+  property to `A` immediately and then writes the eased value every frame until it
+  reaches exactly `B` at frame N (the tween then retires; a second tween on the same
+  target replaces the first, and at most 16 are kept). It runs in the UPDATE phase
+  (right after `animate`), so the same frame's draws already see the tweened value.
+  Curves: linear (default), `in` (t²), `out` (t(2−t)), `in out` (piecewise), `bounce`
+  (classic 7.5625/2.75 bounce-out) — pure math, no RNG, no wall clock, identical in
+  both engines (`frame-tests/f_tween.fc` compares every eased frame of all five).
+  The transpiled "real code" view prints it as a labeled comment.
 - **`emit` (sustained particles)** spawns `rate` particles per frame (default 2, cap
   16) at its point — or at the referenced sprite's centre, re-resolved EVERY frame,
   which is what makes `emit sparks from player` a trail that follows. Each spawn uses
