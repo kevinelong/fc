@@ -113,7 +113,10 @@ Keep `codeonline.io` focused on learners. Present the developer product as
 Minimum package:
 
 1. A versioned WASM runtime with JavaScript fallback and a small embedding API.
-2. A web component or SDK that accepts fc source and mounts the 128×128 runtime.
+2. A web component or SDK that accepts fc source and mounts its declared logical
+   screen, defaulting compatibly to 128×128. The embedding contract keeps logical
+   screen size separate from window and export resolution; see
+   [DISPLAY-PROFILES-PLAN.md](DISPLAY-PROFILES-PLAN.md).
 3. Tool/API operations:
    - `validate(source)` — parse, lint, and bounded execution;
    - `repair(source)` — deterministic fixes first, model repair second;

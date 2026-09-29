@@ -10,6 +10,7 @@ any browser.
 > · [AI market hypothesis](docs/AI-MARKET-PLAN.md)
 > · [human and machine readability benchmark](docs/READABILITY-BENCHMARK.md)
 > · [lexicon, data, and example-game plan](docs/LEXICON-AND-EXAMPLE-PLAN.md)
+> · [display profiles, logical screens, and export sizes](docs/DISPLAY-PROFILES-PLAN.md)
 
 ```
 trees are solid

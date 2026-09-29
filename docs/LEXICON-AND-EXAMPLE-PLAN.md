@@ -575,6 +575,12 @@ The existing 128 by 128 canvas is not a sensible recipe editor. Add an applicati
 surface that uses accessible browser controls and responsive layout while retaining
 fc as the logic/data language.
 
+The boundary between fixed game screens, presentation/export resolutions, and this
+responsive surface is specified in
+[DISPLAY-PROFILES-PLAN.md](DISPLAY-PROFILES-PLAN.md). Recipe Book is the acceptance
+example for the responsive side of that boundary, not a reason to turn the game
+canvas into a web-form layout engine.
+
 Proposed components:
 
     show text field "Title" for recipe.title
