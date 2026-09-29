@@ -104,35 +104,22 @@ send action must preview the exact data and receive a separate privacy decision.
 
 ---
 
-## 🟡 Q7 — Dynamic colors (`draw … in shade`) don't resolve — demos render flat
-Owner: kevin. `resolveColor()` maps *literal* names only; a color **variable** is
-never looked up, in either engine. So every demo whose effect depends on it paints
-one flat color:
+## 🟢 Q7 — Dynamic colors (RESOLVED 2026-09-29 — implemented)
+`draw … in <var>` resolved only literal color names, so starfield's parallax
+brightness, matrix's fading tail and sand's three grain tones painted flat white.
+Implemented across all four cores (`Runtime.colorOf` in index.html + both
+`spec/*.mjs` copies, `color_of` in the rust core) at every color choke-point; a
+variable wins over a palette name, a non-color value falls back to white.
 
-- `starfield.fc` — "faster stars are brighter (parallax)": all 70 stars are the
-  same white (see `examples/thumbs/starfield.png`).
-- `matrix.fc` — "bright head with a fading tail": the whole trail is one shade.
-- `sand.fc` — 3-tone grains (`yellow` / `orange` / `gold`) all render white.
+Verified in the app: starfield now paints black + dark gray + light gray + white,
+matrix black + dark green + green + white, sand black + yellow + orange + gold —
+identically on the wasm and JS engines. Guards: `draw-tests/d_dyncolor.fc` (draw-op
+parity), `draw-tests/d_meter.fc`, `meter_forms.fc`.
 
-Evidence: two-engine probe (`shade is green` + `draw … in shade` → `#fff1e8` white
-in JS **and** wasm), and the pinned launcher thumbnails.
-
-Options: (a) implement color-variable resolution at the paint choke-points
-(index.html + `fc-core.mjs` + `fc-core-record.mjs` + wasm `paint()`/`resolve_color`,
-plus goldens) — a real language change; (b) reword the three demos + taglines to
-what they actually do. My recommendation: (a) — the demos were written expecting
-it, and it is a small, presentation-only lookup.
-
-**Answer:** Implement option (a) as an isolated parity patch. Preserve literal
-colors and the existing unknown-color fallback; resolve an identifier through the
-current scope only to a recognized color string. Update the JavaScript reference
-copies, Rust/WASM, export/transpile behavior, documentation, conformance cases, and
-focused visual tests together. Inspect the expected starfield, matrix, and sand
-changes before accepting new goldens. Do not expand this into arbitrary CSS colors,
-gradients, or a new color type. See REMOTE-AGENT-GUIDANCE.md for the full constraints.
+*While implementing this I also fixed the `show meter` parse in the wasm (it
+ignored a size-less `at x, y … in color` form the JS parser accepts).*
 
 ---
-
 ## 🟢 Q6 — `write <bare tokens>` semantics (RESOLVED by audit, no answer needed)
 `write random 10 at x, y in shade` (examples/matrix.fc) parses in the JS/browser
 core as the **literal text** `"random 10"` — `LANGUAGE.md` only ever documents

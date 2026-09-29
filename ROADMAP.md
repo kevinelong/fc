@@ -125,12 +125,12 @@ and every claim below is checked. The genuinely-open items are collected at the 
   the `{frames: [...], fps: N}` sprite-property form of animation.
 - **Enemy AI extras** — `flee from player`, `shoot at player every N seconds`,
   waypoint patrols.
-- **Dynamic colors** — `draw … in shade` resolves only *literal* color names, so a
-  color variable paints white (starfield's parallax brightness, matrix's fading
-  tail and Falling Sand's three grain tones all render flat). See
-  docs/OPEN-QUESTIONS.md Q7.
 - **True subpixel rendering** — today's CRT subpixels are a CSS overlay tinting
   columns, not per-pixel RGB stripes derived from the color values.
+- **Stale demo media** — `examples/thumbs/{matrix,starfield,sand}.png` and their
+  `share/*.png` OG cards were rendered before dynamic colors worked, so they still
+  show flat shapes; regenerate with `tools/gen-thumb.cjs` + `tools/gen-share-pages.cjs`
+  (needs playwright-core). The in-app launcher reads those thumbnails.
 - **Compiler targets beyond Python/JavaScript** (Lua, Godot, Unity).
 
 ## Discussed but not implemented

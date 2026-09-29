@@ -1,0 +1,6 @@
+-- `show meter` argument forms (the parser is index-scan based, so each shape is
+-- worth freezing): full (size + color), size-less with a color, and bare.
+score is 4
+show meter score of 10 at 2, 40 size 40, 5 in green
+show meter score of 10 at 2, 50 in yellow
+show meter score of 10

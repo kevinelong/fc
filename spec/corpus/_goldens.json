@@ -408,6 +408,13 @@
       }
     }
   },
+  "meter_forms.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "score": 4
+    }
+  },
   "not_and_condition.fc": {
     "errors": [],
     "say": [],

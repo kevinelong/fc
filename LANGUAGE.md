@@ -230,6 +230,18 @@ draw sprite "heart" at 4, 4 on hud                  -- HUD heart icon
 
 PICO-8 inspired 16-color palette, plus CSS color names as fallback:
 
+A color can also come from a variable — handy for fade-outs and shading:
+
+```
+shade is light gray
+if lives is less than 2 shade is red
+draw rect at 2, 2 size 8, 8 in shade
+```
+
+The variable wins over the palette name (so avoid naming variables after colors
+unless that is what you want), a two-word name like `dark gray` can only be a
+literal, and a value that is not a color name draws white.
+
 `black, dark blue, dark purple, dark green, brown, dark gray, light gray, white, red, orange, yellow, green, blue, indigo, pink, peach`
 
 Plus aliases: `gray`, `gold`, `cyan`, `magenta`, `purple`, `lime`, `sky`, `coral`. Hex (`#ff00ff`) and `rgb(...)` also accepted.

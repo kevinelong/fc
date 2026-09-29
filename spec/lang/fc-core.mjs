@@ -2271,6 +2271,17 @@ class Runtime {
     return true;
   }
 
+  // A color word resolves to the palette/CSS name — UNLESS a variable of that name
+  // exists, in which case its value names the color (dynamic colors: `shade is
+  // green` … `draw rect … in shade`). A two-word name like "dark gray" can never be
+  // a variable, so it always stays a palette lookup.
+  colorOf(name) {
+    if (name) {
+      const v = this.getVar(String(name));
+      if (typeof v === 'string' || typeof v === 'number') return resolveColor(String(v));
+    }
+    return resolveColor(name);
+  }
   getVar(name) {
     if (name.includes('.')) {
       const parts = name.split('.');
@@ -2929,7 +2940,7 @@ class Runtime {
         }
 
         case 'clearscreen': {
-          const color = resolveColor(stmt.color);
+          const color = this.colorOf(stmt.color);
           ctx.fillStyle = color;
           ctx.fillRect(0, 0, 128, 128);
           break;
@@ -3040,7 +3051,7 @@ class Runtime {
             x = o.x + 4; y = o.y + 4;
           } else { x = this.evalExpr(stmt.x); y = this.evalExpr(stmt.y); }
           const n = Math.max(1, Math.min(64, this.evalExpr(stmt.count) | 0));
-          const palette = stmt.color ? [resolveColor(stmt.color)] : ['#ffec27', '#fff1e8', '#ffa300'];
+          const palette = stmt.color ? [this.colorOf(stmt.color)] : ['#ffec27', '#fff1e8', '#ffa300'];
           for (let i = 0; i < n; i++) {
             const a = Math.random() * Math.PI * 2;
             const sp = 0.4 + Math.random() * 1.4;
@@ -3073,7 +3084,7 @@ class Runtime {
         case 'pset': {
           const x = Math.floor(this.evalExpr(stmt.x));
           const y = Math.floor(this.evalExpr(stmt.y));
-          ctx.fillStyle = resolveColor(stmt.color);
+          ctx.fillStyle = this.colorOf(stmt.color);
           ctx.fillRect(x, y, 1, 1);
           break;
         }
@@ -3251,7 +3262,7 @@ class Runtime {
     const oy = stmt.hud ? 0 : this.camera.y;
     const x = (a.x ? this.evalExpr(a.x) : 0) - ox;
     const y = (a.y ? this.evalExpr(a.y) : 0) - oy;
-    const color = resolveColor(a.color);
+    const color = this.colorOf(a.color);
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
@@ -3352,7 +3363,7 @@ class Runtime {
     // filled portion
     const fillW = Math.round((w - 2) * frac);
     if (fillW > 0) {
-      ctx.fillStyle = resolveColor(stmt.color);
+      ctx.fillStyle = this.colorOf(stmt.color);
       ctx.fillRect(x + 1, y + 1, fillW, h - 2);
     }
     // percent text, centered, only if the bar is big enough to fit it
@@ -3371,7 +3382,7 @@ class Runtime {
     const oy = stmt.hud ? 0 : this.camera.y;
     const x = this.evalExpr(stmt.x) - ox;
     const y = this.evalExpr(stmt.y) - oy;
-    const color = resolveColor(stmt.color);
+    const color = this.colorOf(stmt.color);
     drawText(text, x, y, color);
   }
 

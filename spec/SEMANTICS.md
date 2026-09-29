@@ -573,9 +573,19 @@ file: the corpus program is the contract; the harnesses are the proof.
   the sprite form `stop X`, which otherwise swallows `music`/`sound` as a target
   name (that was the shipped behavior until 2026-09-29, when the verb was dead in
   every engine).
-- **Dynamic colors are not implemented** — see GRAMMAR §11's [QUIRK] and
-  `docs/OPEN-QUESTIONS.md` Q7. A color variable resolves to the default white at
-  paint time.
+- **Dynamic colors** (implemented 2026-09-29) resolve at paint time through
+  `Runtime.colorOf` (JS) / `color_of` (rust): if a variable with the color word's
+  name exists and holds a string, that string is resolved as the color; otherwise
+  the literal word is. Everything that takes a color goes through it
+  (`clear screen to`, `draw … in`, `pset`, `write`, `show meter`, `burst`), and the
+  lookup is read-only — a game can compute a shade per frame
+  (`shade is light gray`) with no cost to determinism. Frozen by
+  `draw-tests/d_dyncolor.fc` plus the idle parity of starfield/matrix/sand.
+- **`show meter CURRENT of MAX [at X, Y] [size W, H] [in COLOR]`** — defaults:
+  max 1, x/y 2, w/h 40×5, color `green`. [QUIRK] `size` only takes effect when it
+  carries a comma (a lone value is ignored) and the x,y segment stops at `size` or
+  `in`, whichever comes first — the JS parser is an index scan and the Rust port
+  mirrors it byte-for-byte (`spec/corpus/meter_forms.fc`).
 
 ## Summary for porters
 

@@ -1,0 +1,7 @@
+-- every `show meter` shape, with a dynamic color on one of them
+shade is orange
+score is 7
+show meter score of 10 at 2, 4 size 40, 5 in shade
+show meter score of 10 at 2, 20 in yellow
+show meter score of 10
+show meter score of 10 at 2, 60 size 60, 8 in blue

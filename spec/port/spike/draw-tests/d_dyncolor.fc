@@ -1,0 +1,14 @@
+-- dynamic colors: a color variable names the color; a variable that shadows a
+-- palette name wins; a non-color value falls back to the default white
+shade is green
+shadow is dark gray
+red is blue
+weird is "not-a-color"
+score is 4
+clear screen to shade
+draw rect at 2, 2 size 4, 4 in shadow
+draw circle at 20, 20 size 5 in red
+pset 40, 40 in shade
+write "hi {shade}" at 2, 20 in weird
+show meter score of 10 at 2, 40 in shade
+burst 4 sparks at 60, 60 in shadow

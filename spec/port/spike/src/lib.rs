@@ -1063,20 +1063,50 @@ fn parse_write(ts: &[Tok]) -> Stmt {
 }
 fn safe<'a>(ts: &'a [Tok], a: usize, b: usize) -> &'a [Tok] { if a <= b && b <= ts.len() { &ts[a..b] } else { &[] } }
 fn parse_meter(ts: &[Tok]) -> Stmt {
-    // show meter CURRENT of MAX at X,Y size W,H in COLOR
-    let of_i = find_word(ts,"of").unwrap_or(ts.len());
-    let at_i = find_word(ts,"at").unwrap_or(ts.len());
-    let size_i = find_word(ts,"size").unwrap_or(ts.len());
-    let in_i = find_word(ts,"in").unwrap_or(ts.len());
-    let current = parse_expr(safe(ts, 2, of_i));
-    let max = parse_expr(safe(ts, of_i+1, at_i));
-    let at_seg = split_top_commas(safe(ts, at_i+1, size_i));
-    let x = parse_expr(at_seg.get(0).copied().unwrap_or(&[]));
-    let y = parse_expr(at_seg.get(1).copied().unwrap_or(&[]));
-    let size_seg = split_top_commas(safe(ts, size_i+1, in_i));
-    let w = parse_expr(size_seg.get(0).copied().unwrap_or(&[]));
-    let h = parse_expr(size_seg.get(1).copied().unwrap_or(&[]));
-    let color = if in_i < ts.len() { word_join(&ts[in_i+1..]) } else { String::new() };
+    // show meter CURRENT of MAX at x, y [size w, h] [in color]
+    // Mirrors the JS parseMeter exactly, including its quirks:
+    //  - keywords only count from index > 1
+    //  - `size` needs a comma to take effect (a single value is ignored)
+    //  - defaults: current→(expr) up to `of`/`at`, max 1, x/y 2, w/h 40x5, color green
+    //  - the x,y segment stops at `size` OR `in`, whichever comes first
+    let idx_of = |w: &str| ts.iter().enumerate().position(|(i, t)| i > 1 && t.is_word(w));
+    let of_i = idx_of("of");
+    let at_i = idx_of("at");
+    let size_i = idx_of("size");
+    let in_i = idx_of("in");
+    let num = |v: f64| Expr::Lit(LitVal::Num(v));
+
+    let cur_end = of_i.or(at_i).unwrap_or(ts.len());
+    let current = parse_expr(safe(ts, 2, cur_end));
+    let max = match of_i {
+        Some(o) => parse_expr(safe(ts, o + 1, at_i.unwrap_or(ts.len()))),
+        None => num(1.0),
+    };
+
+    let mut x = num(2.0);
+    let mut y = num(2.0);
+    if let Some(a) = at_i {
+        let xy_end = match (size_i, in_i) {
+            (Some(s), Some(i2)) => s.min(i2),
+            (Some(s), None) => s,
+            (None, Some(i2)) => i2,
+            (None, None) => ts.len(),
+        };
+        let xy = split_top_commas(safe(ts, a + 1, xy_end));
+        if xy.len() > 1 { x = parse_expr(xy[0]); y = parse_expr(xy[1]); }
+        else if let Some(s0) = xy.get(0) { x = parse_expr(s0); }
+    }
+
+    let mut w = num(40.0);
+    let mut h = num(5.0);
+    if let Some(sz_i) = size_i {
+        if in_i.map(|i2| i2 > sz_i).unwrap_or(true) {
+            let sz = split_top_commas(safe(ts, sz_i + 1, in_i.unwrap_or(ts.len())));
+            if sz.len() > 1 { w = parse_expr(sz[0]); h = parse_expr(sz[1]); }
+        }
+    }
+
+    let color = match in_i { Some(i2) => word_join(&ts[i2 + 1..]), None => "green".to_string() };
     Stmt::Meter(current, max, x, y, w, h, color)
 }
 fn parse_button(ts: &[Tok]) -> Stmt {
@@ -1847,18 +1877,18 @@ impl Rt {
             }
             Stmt::Return(_) => { self.returning=true; }
             Stmt::Stop => { self.stopped=true; }
-            Stmt::ClearScreen(color) => { let c = resolve_color(color); self.cmds.push(Cmd::Rect(0.0,0.0,128.0,128.0,c)); }
+            Stmt::ClearScreen(color) => { let c = color_of(&self.vars, color); self.cmds.push(Cmd::Rect(0.0,0.0,128.0,128.0,c)); }
             Stmt::Pset(x, y, color) => {
                 // plot a single pixel — a 1x1 rect, no camera offset (matches JS pset)
                 let px = js_floor(as_num(&self.eval(x)));
                 let py = js_floor(as_num(&self.eval(y)));
-                self.cmds.push(Cmd::Rect(px, py, 1.0, 1.0, resolve_color(color)));
+                let cc = color_of(&self.vars, color); self.cmds.push(Cmd::Rect(px, py, 1.0, 1.0, cc));
             }
             Stmt::Draw(a) => {
                 let (ox, oy) = if a.hud { (0.0,0.0) } else { self.camera };
                 let x = (if let Some(e)=&a.x { as_num(&self.eval(e)) } else { 0.0 }) - ox;
                 let y = (if let Some(e)=&a.y { as_num(&self.eval(e)) } else { 0.0 }) - oy;
-                let col = resolve_color(a.color.as_deref().unwrap_or(""));
+                let col = color_of(&self.vars, a.color.as_deref().unwrap_or(""));
                 match a.shape.as_str() {
                     "rect" => { let w = if let Some(e)=&a.w { as_num(&self.eval(e)) } else { 8.0 }; let h = if let Some(e)=&a.h { as_num(&self.eval(e)) } else { w }; self.cmds.push(Cmd::Rect(x,y,w,h,col)); }
                     "circle" => { let r = if let Some(e)=&a.w { as_num(&self.eval(e)) } else { 4.0 }; self.cmds.push(Cmd::Circle(x,y,r,col)); }
@@ -1899,7 +1929,7 @@ impl Rt {
                 let tv = self.eval(&w.text); let txt = self.interpolate(&display(&tv));
                 let x = (if let Some(e)=&w.x { as_num(&self.eval(e)) } else { 0.0 }) - ox;
                 let y = (if let Some(e)=&w.y { as_num(&self.eval(e)) } else { 0.0 }) - oy;
-                let col = resolve_color(w.color.as_deref().unwrap_or(""));
+                let col = color_of(&self.vars, w.color.as_deref().unwrap_or(""));
                 self.cmds.push(Cmd::Text(txt, x, y, col));
             }
             Stmt::WhenKey(key, then, body) => { self.key_handlers.insert(key.to_lowercase(), (then.as_ref().map(|b| (**b).clone()), body.clone())); }
@@ -1937,7 +1967,7 @@ impl Rt {
                 self.cmds.push(Cmd::Rect(x, y, w, h, "#000000".to_string()));
                 self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, w - 2.0, h - 2.0, "#5f574f".to_string()));
                 let fill_w = js_floor((w - 2.0) * frac + 0.5);
-                if fill_w > 0.0 { self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, fill_w, h - 2.0, resolve_color(color))); }
+                if fill_w > 0.0 { let cc = color_of(&self.vars, color); self.cmds.push(Cmd::Rect(x + 1.0, y + 1.0, fill_w, h - 2.0, cc)); }
                 if w >= 18.0 && h >= 5.0 {
                     let mut pct = display(&Val::Num(js_floor(frac * 100.0 + 0.5))); pct.push('%');
                     let text_w = (pct.chars().count() as f64) * 4.0 - 1.0;
@@ -2120,7 +2150,7 @@ impl Rt {
                 if let Some((px, py)) = pos {
                     let n = (as_num(&self.eval(count)) as i64).max(1).min(64);
                     let palette: Vec<String> = match color {
-                        Some(c) => { let mut v = Vec::new(); v.push(resolve_color(c)); v }
+                        Some(c) => { let mut v = Vec::new(); v.push(color_of(&self.vars, c)); v }
                         None => { let mut v = Vec::new(); v.push("#ffec27".to_string()); v.push("#fff1e8".to_string()); v.push("#ffa300".to_string()); v }
                     };
                     for i in 0..n {
@@ -2207,6 +2237,15 @@ fn color_hex(n: &str) -> Option<&'static str> {
         "cyan"=>"#00ffff","magenta"=>"#ff00ff","purple"=>"#9b59b6","lime"=>"#aaff00","sky"=>"#87ceeb","coral"=>"#ff6f61",
         _=>return None,
     })
+}
+// A color word resolves to the palette/CSS name — UNLESS a variable of that name
+// exists, in which case its value names the color (dynamic colors: `shade is green`
+// … `draw rect … in shade`). Mirrors the JS Runtime.colorOf.
+fn color_of(vars: &BTreeMap<String, Val>, name: &str) -> String {
+    if !name.is_empty() {
+        if let Some(Val::Str(s)) = vars.get(name) { return resolve_color(s); }
+    }
+    resolve_color(name)
 }
 fn resolve_color(name: &str) -> String {
     let n = name.trim().to_lowercase();

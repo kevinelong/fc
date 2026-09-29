@@ -597,10 +597,21 @@ differentially tested against it.)
 | `say` STRING \| `say` expr | appends an interpolated line to the say buffer (host paints it only without a game loop) | `say_lines.fc` |
 | `stop music` \| `stop sound` | one node (`stop_music`); the host stops the looping track. **[QUIRK]** checked BEFORE the sprite form `stop X`, which would otherwise swallow `music`/`sound` as a target name | `stop_music.fc` |
 | `pset` … | direct pixel write (wasm port followed later) | `draw-tests/` (see README) |
+| `show meter` CURRENT `of` MAX [`at` X `,` Y] [`size` W `,` H] [`in` COLOR] | HUD meter; all three shapes parse (index-scan parser) | `meter_forms.fc`, `draw-tests/d_meter.fc` |
 
-**[QUIRK] Dynamic colors are NOT implemented.** `draw … in NAME` resolves at paint
-time through `resolveColor(name)`, which maps literal palette/CSS names only — a
-color *variable* (`shade is green` … `in shade`) paints the default white. Demos
-that lean on it (starfield's parallax brightness, matrix's fading tail, sand's three
-grain tones) therefore render flat. Tracked as an open decision, not a documented
-feature: `docs/OPEN-QUESTIONS.md` Q7.
+**Dynamic colors (implemented 2026-09-29).** Everywhere a color word is accepted
+(`clear screen to`, `draw … in`, `pset … in`, `write … in`, `show meter … in`,
+`burst … in`), the word resolves to the palette/CSS name — UNLESS a variable of that
+name exists, in which case that variable's value names the color:
+
+```
+shade is green            -- a variable holding a color name
+draw rect at 10, 10 size 8, 8 in shade
+red is blue               -- a variable that shadows a palette name WINS
+```
+
+A value that is not a color name falls back to the default white, a two-word name
+(`dark gray`) can never be a variable so it always stays a palette lookup, and the
+lookup order matches expression refs (variable first, then the palette name). Frozen
+by `draw-tests/d_dyncolor.fc` (JS↔wasm draw-op parity) and the idle parity of
+starfield / matrix / sand.
