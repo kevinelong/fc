@@ -1,13 +1,21 @@
-# Classroom mode — decision-ready design (needs your sign-off)
+# Classroom mode — signed off, frontend shipped dark
 
-The unlock for teacher adoption *and* school revenue. The whole gate is a privacy
-decision, so this doc is written to be **approved (or adjusted) in a few minutes** —
-then I build it. I deliberately did NOT pre-build the backend: apid is the live
-server for sign-in + cloud saves + the gallery, and classroom's shape depends on the
-choices below. Not worth risking live auth for an unapproved design.
+**Status 2026-09-29:** the four privacy decisions were approved as recommended and the
+backend is live-but-dark behind `ENABLE_CLASSROOM`; the **frontend is built** (launcher
+and editor entries, join-by-code, the class shelf, hand-in, teacher create/assign/roster/
+delete) and verified on the real server (`tools/class-e2e.mjs`) and in the browser
+(`tools/ui-check.mjs`). Launching is one env var; nothing appears until then.
+
+The unlock for teacher adoption *and* school revenue. The whole gate was a privacy
+decision, so this doc was written to be **approved (or adjusted) in a few minutes** — and
+it now is (OPEN-QUESTIONS.md Q1, approved 2026-09-29 with all four recommendations). The
+**backend is built** and ships dark behind `ENABLE_CLASSROOM` (`/api/class/*` returns 404
+until enabled); what remains is the frontend below and flipping the flag. The original
+"not pre-built" wording is kept in the question list for the record.
 
 ## The core idea (privacy-first)
-A teacher creates a **class** and gets a short **join code** (e.g. `SKY-4821`).
+A teacher creates a **class** and gets a short **join code** — six characters from an
+unambiguous alphabet (`genClassCode()`: no O/0/I/1/L), e.g. `SKY482`.
 Students go to `codeonline.io`, tap **Join a class**, enter the code and a
 **display name** — no email, no account, no personal data. The class gives them a
 shared shelf of the teacher's assigned games and (optionally) a place to submit
@@ -33,6 +41,12 @@ collecting the things those laws regulate. The teacher is the only account.
 
 Approve those four (or tweak) and the build is straightforward.
 
+*Status update:* all four were approved as recommended (see OPEN-QUESTIONS.md Q1,
+2026-09-29), and the steps below are now implemented — endpoints, the app's join/shelf/
+teacher UI, and the a11y registration. Remaining before launch: flip
+`ENABLE_CLASSROOM=true` in apid, and add the "Classroom mode" section to `/privacy/`
+that this doc calls for.
+
 ## Implementation (post-sign-off) — all reuses existing apid
 - **Flag:** `ENABLE_CLASSROOM` (default off) so it ships dark and flips on cleanly.
 - **Store** (new `db.classes`): `{ code: { ownerId, name, createdAt, lastActive,
@@ -46,6 +60,9 @@ Approve those four (or tweak) and the build is straightforward.
 - **Frontend:** a **Join a class** entry on the launcher (code + name), a class
   shelf (assigned games → tap to play/remix), and a teacher **New class** action
   (shows the code + a simple roster). All behind the flag until sign-off.
+  *Built:* the entries appear only when `/api/class/enabled` answers 200; the shelf
+  lives on the launcher, the dialog carries join / class / teacher panes, and the
+  teacher can assign the editor's program, delete submissions and un-assign games.
 - **Privacy page:** add a "Classroom mode" section stating exactly what's stored
   (already foreshadowed in `/privacy/`).
 

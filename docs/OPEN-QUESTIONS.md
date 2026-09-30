@@ -6,11 +6,26 @@ owner of each item is named so an answer has an obvious consumer.
 
 Status legend: 🔴 blocked · 🟡 answer helps · 🟢 answered (work proceeding).
 
+No open blockers: Q1–Q11 are all answered. The remaining gates are business/account
+decisions tracked in GROWTH-PLAN (a Stripe account for Pro, licensing for schools).
+
 ---
 
-## 🔴 Q1 — Classroom mode sign-off (blocks PLAN-classroom.md)
-Owner: kevin. Four product/privacy decisions must be approved before any backend
-is written (apid is live; the shape depends on these):
+## 🟢 Q1 — Classroom mode sign-off (RESOLVED 2026-09-29 — all four as recommended)
+Owner: kevin. The four decisions are approved exactly as recommended, and as already
+implemented in `apid/server.js` behind `ENABLE_CLASSROOM` (the endpoint group returns
+404 until it is flipped):
+1. Student display names — free text only when it matches `^[A-Za-z0-9 ]{2,20}$` and
+   is not profane; otherwise a generated adjective+animal (`studentName()`).
+2. Student submissions — allowed, stored per class, teacher-deletable, auto-purged.
+3. Retention — a class idle for 90 days is deleted (`purgeIdleClasses()`).
+4. Caps — 60 students/class, 20 classes/teacher, 40 assigned games, 200 submissions.
+Done 2026-09-29: the **frontend is built** and verified — `tools/class-e2e.mjs` runs the
+real apid + a real browser through join → shelf → tap-to-play → hand-in → teacher
+roster/assign/delete, and proves the feature stays invisible with the flag off;
+`tools/ui-check.mjs` covers the page with the endpoints stubbed. **Launching is now one
+env var** (`ENABLE_CLASSROOM=true` in apid's environment) plus the `/privacy/`
+"Classroom mode" paragraph. The original questions follow for the record.
 
 1. Student display names — free text, or generated adjective+animal list (+ optional
    filtered edit)? *Recommend: generated + optional edit, profanity-filtered.*
@@ -19,17 +34,21 @@ is written (apid is live; the shape depends on these):
 3. Retention — auto-delete a class + its data after 90 days idle? *Recommend: yes.*
 4. Caps — students per class (e.g. 60) and classes per teacher (e.g. 20)? *Recommend: yes.*
 
-**Answer:**
+**Answer:** Approved as recommended — see the resolution above.
 
 ---
 
-## 🟡 Q2 — Community gallery moderation stance
+## 🟢 Q2 — Community gallery moderation stance (RESOLVED 2026-09-29 — keep post-moderation)
 Owner: kevin. Currently **post-moderation** (sign-in required, delete-your-own,
 caps, name filter) and live. The alternative is **curated/pre-moderation**
 (`status:'pending'` + admin approve + admin identity in `.env`) for a kids-facing
 audience. This is a trust/UX change, not a code gap.
 
-**Answer:**
+**Answer:** Keep post-moderation as shipped. The public gallery's audience is hobbyists,
+teachers and older students who opted into an account; the *kids-facing* surface is the
+classroom mode's private gallery (Q1), which is where a review queue would belong if a
+school asks for one — a scoped feature later, not a change to the public gallery. This
+answer unblocks the dynamic OG cards for user `?code=`/gallery games (GROWTH-PLAN #1).
 
 ---
 
@@ -48,20 +67,38 @@ change deployment configuration until kevin explicitly performs the go-live.
 
 ---
 
-## 🟡 Q4 — Manual device pass (docs/TEST-MATRIX.md)
-Owner: kevin. Touch, mobile audio-autoplay, Safari, PWA-install and the APK can
-only be verified on real hardware. Nothing in the headless suite can substitute.
+## 🟢 Q4 — Manual device pass (RESOLVED 2026-09-29 — four must-do entries)
+Owner: kevin. Touch, mobile audio-autoplay, Safari, PWA-install and the APK can only be
+verified on real hardware; the full matrix stays in `docs/TEST-MATRIX.md`. The must-do
+list for any release touching input, audio, the canvas or the service worker is these
+four, in order:
 
-**Answer:**
+1. **iOS Safari** — audio unlocks on the first tap (a built-in SFX, a `define sound`,
+   and `play music`), and Add to Home Screen launches fullscreen and offline.
+2. **Android Chrome** — the on-screen D-pad + A/B move and fire, multitouch works
+   (move and fire together), no page scroll, no tap delay.
+3. **Installed APK** — loads and runs an example from the launcher.
+4. **Two-device multiplayer** — peers appear and the mechanic works in one game
+   (tag or online pong), including after backgrounding.
+
+Everything else — the desktop trio, iPad split-view, the sustained-60fps check — is
+opportunistic. The automatable slice of the touch path (pointer events under
+`hasTouch`) belongs in `tools/ui-check.mjs`; the rest needs real hardware.
+
+**Answer:** Approved as described above.
 
 ---
 
-## 🟡 Q5 — Feedback launch (docs/FEEDBACK-PLAN.md)
+## 🟢 Q5 — Feedback launch (RESOLVED 2026-09-29 — after classroom ships)
 Owner: kevin. Copy is written; posting must come from your own accounts (karma /
-captcha / anti-spam gating). Nothing to build until posts land — the recurring
-feedback list feeds docs/GROWTH-PLAN.md.
+captcha / anti-spam gating). Nothing to build until posts land — the recurring feedback
+list feeds docs/GROWTH-PLAN.md.
 
-**Answer:**
+**Answer:** Hold the launch until classroom mode is live, so the pitch leads with
+teachers (the multiplier) rather than a generic "look at my project". Then one venue per
+day in the plan's order: r/SideProject → Show HN (weekday morning US-Eastern, one
+attempt) → one player sub → Lexaloffle / r/fantasyconsoles → optional education venues,
+replying to every comment for the first few hours.
 
 ---
 

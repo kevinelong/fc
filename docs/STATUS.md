@@ -5,6 +5,50 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (l) — classroom mode: the frontend, verified against the real server
+
+The four classroom decisions were approved as recommended (OPEN-QUESTIONS Q1), which
+unblocked the last piece of the teacher vertical: the app now has a classroom.
+
+**What shipped** (all dark until apid sets `ENABLE_CLASSROOM=true`):
+
+- **Feature probe.** `GET /api/class/enabled` answers 200 only with the flag on; the app
+  checks it on load and shows nothing at all otherwise — no dead buttons, no failed
+  requests, no console noise.
+- **Students.** A launcher button and an editor-toolbar button open the classroom
+  dialog: type the class code and a display name, and you land on the class shelf —
+  the assigned games as tiles, tap one and it loads into the editor and runs. The shelf
+  also appears on the launcher for a returning student (stored in the app's own
+  `STORE`), and reopening re-reads the class from the server.
+- **Hand-in.** A student can submit the program currently in the editor, titled, into
+  the class.
+- **Teachers.** Signed in, "I'm a teacher — create a class" makes a code and shows the
+  roster; the class view can assign the editor's program, un-assign one (new
+  `DELETE /api/class/:code/assign/:id`), remove a submission, and copy the code.
+- The dialog registers with the dialog-a11y sweep (role/aria/label, Escape, focus
+  restore, Tab trap) like every other overlay, and the launcher's tile helpers are
+  shared through one `window.FC_UI` handle instead of three globals.
+
+**Guards.** `tools/class-e2e.mjs` (new) runs the **real** apid with the flag on, a
+static+proxy server so the app's relative `/api/...` calls reach it, and a real Chrome:
+it seeds one teacher and one class, joins cookieless as a student, taps the assigned
+tile into the editor, hands a game in, then installs the session cookie and checks the
+teacher's roster/assign/delete controls — then restarts apid with the flag off and
+proves the entries and the module are absent. 10/10. `tools/ui-check.mjs` grew section
+16 (74/74): same page behaviour with the endpoints stubbed, including the
+returning-student re-read and the flag-off invisibility. apid's dependencies are now
+installed locally to run it (`cd apid && npm install`; `apid/node_modules` and
+`apid/data` are already gitignored).
+
+**To launch:** set `ENABLE_CLASSROOM=true` in apid's environment and add the
+"Classroom mode" paragraph to `/privacy/` (what is stored: class code, display name,
+assigned games, submissions; 90-day idle purge). No code change needed.
+
+Suite: tokenize 2200/2200 · ast 85/85 · exec 63/63 · draw 12/12 · examples 22/22 ·
+dump-vars 22/22 · frames 12/12 · smoke 16/16 · mp-smoke 5/5 · err-diff 13 + 109 sweep ·
+transpile 85/85 ×4 + embed-check · visual goldens 22/22 · heal 34/34 ·
+class-e2e 10/10 · ui-check 74/74.
+
 ## 2026-09-29 (k) — the runtime explains itself: line-tagged diagnostics, both engines
 
 fc's promise is "type English, it always runs", so a bad value never stops anything: an

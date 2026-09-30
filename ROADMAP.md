@@ -188,9 +188,10 @@ Mentioned above; CSS tint columns are a placeholder.
 
 ---
 
-## Open design questions
+## Design decisions
 
-These are unresolved tensions where we haven't picked a direction yet:
+These were open tensions; all seven were decided 2026-09-29. The original question is
+kept with each decision so a later change is an informed reversal, not a surprise.
 
 ### Q1. Function names with spaces
 
@@ -200,6 +201,11 @@ Trade-off: makes calls `restart game` (without underscore) more natural, but par
 
 Current workaround: use single-word names or screen functions (`to screen title`).
 
+**Decided: no.** Multi-word names make every "verb followed by anything" ambiguous, and
+the underlying mistake is a naming one — so it gets a message instead: the safety net
+should explain that `draw title` is a sprite and that a function is reached by naming it,
+suggesting an underscore (`to draw_title`).
+
 ### Q2. Default behavior of generic `draw <noun>`
 
 The user has a function `to title` and types `draw title` — should that:
@@ -208,9 +214,18 @@ The user has a function `to title` and types `draw title` — should that:
 
 We default to draw-as-sprite; functions need to be called by name without `draw`. This is a real source of confusion for the user.
 
+**Decided: the function wins.** If the program defines a function with that name,
+`draw title` calls it; otherwise it draws a sprite named "title" (today's behaviour).
+Deterministic, and it is what people mean — sprite names stay reachable because they
+come from declarations.
+
 ### Q3. Automatic image inference from list name
 
 `coins is list of 8 sprites` — currently you must add `{image: "coin"}`. Should the runtime singularize the variable name and use it as the default image?
+
+**Decided: yes, when unambiguous** — and only when the sprite has no explicit `image`.
+`coins` / `trees` / `enemies` infer `coin` / `tree` / `enemy`; an irregular or
+unrecognised plural keeps the placeholder, and any explicit `image` always wins.
 
 Pro: shorter; matches user intuition.
 Con: magic; breaks if the user uses non-standard plurals or just wants generic placeholder.
@@ -219,19 +234,35 @@ Con: magic; breaks if the user uses non-standard plurals or just wants generic p
 
 Should every sprite type imply a default sound (sword = clang, coin = ding)? Or always require explicit `play sound "ding"`?
 
+**Decided: keep sounds explicit.** Audio is the one channel a user cannot un-hear, and
+browsers gate it behind a gesture anyway. Instead the starter/scaffold templates carry
+`play sound` examples, so the idiom is one edit away rather than implied.
+
 ### Q5. Screen system — implicit vs explicit
 
 `to screen X` auto-dispatches when `mode is "X"`. Should we also auto-call an `update_X` function? Right now `update` runs every frame regardless of mode (the user has to gate with `if mode is not "play" return`).
 
 A cleaner pattern would be: `to update X` only runs when `mode is "X"`. But that changes the implicit conventions.
 
+**Decided: yes, additively.** When `to update <mode>` exists for the current `mode` it
+runs *instead of* the bare `update`; the bare `update` keeps its meaning everywhere
+else, so programs with no mode variants — every example today — are untouched.
+
 ### Q6. What happens after `go to win` when there's no `screen_win` defined?
 
 Currently nothing; the screen just doesn't render. Should we error? Fall back to a generic "NO SCREEN: win" message?
 
+**Decided: draw the placeholder and say so.** Render "NO SCREEN: win — define `to screen
+win`" on the canvas and push a one-time `Line N:` note through the runtime diagnostics,
+so a missing screen is visible instead of a blank rectangle.
+
 ### Q7. Should `clear screen` be implicit at the start of each frame?
 
 Right now the user must call `clear screen to X` themselves. If they forget, old frames stick. Pro of implicit: friendlier. Con: prevents intentional motion-blur effects, partial redraws.
+
+**Decided: stay explicit.** Motion blur and partial redraws are real techniques, and
+every starter/scaffold already clears on frame 1, so the friendly path is already the
+default path — no engine magic needed.
 
 ---
 

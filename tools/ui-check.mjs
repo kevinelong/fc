@@ -96,7 +96,7 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
 
     // ---- 1. every modal overlay is a labelled dialog --------------------------
     const dialogs = await evaluate(cdp, `(function(){
-      var ids = ['help-overlay','code-overlay','settings-overlay','forge-overlay','signin-overlay','verify-overlay'];
+      var ids = ['help-overlay','code-overlay','settings-overlay','forge-overlay','signin-overlay','verify-overlay','class-overlay'];
       return ids.map(function(id){ var el = document.getElementById(id); return { id: id, found: !!el,
         role: el && el.getAttribute('role'), modal: el && el.getAttribute('aria-modal'), label: el && el.getAttribute('aria-label') }; });
     })()`);
@@ -519,6 +519,101 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await sleep(700);
     const quiet = await evaluate(cdp, `document.querySelectorAll('#errors div').length`);
     check('a correct program stays silent', quiet === 0, String(quiet));
+
+    // ---- 16. classroom mode (flag on, endpoints stubbed) ----------------------
+    // apid serves /api/class/* only with ENABLE_CLASSROOM=true; the app must stay
+    // invisible without it and, with it, let a student join by code and tap straight
+    // into an assigned game. tools/class-e2e.mjs covers the real server; this covers
+    // the page. The stub has to be installed BEFORE the page script runs (the app
+    // probes on load), hence addScriptToEvaluateOnNewDocument.
+    const classStub = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+      window.__classCalls = [];
+      const orig = window.fetch;
+      window.fetch = function (url, opts) {
+        const u = String(url);
+        if (u.indexOf('/api/class') === 0) {
+          window.__classCalls.push(u);
+          const view = { code: 'SKY482', name: 'Room 12', teacher: 'Ms Lee', students: 3, isOwner: false,
+                         assigned: [{ id: 'a1', title: 'Bouncing Ball', code: 'to draw' + String.fromCharCode(10) + '  clear screen to black' + String.fromCharCode(10) }],
+                         submissions: [] };
+          let body = { enabled: true };
+          if (u === '/api/class/join') body = Object.assign({}, view, { you: 'Ada' });
+          else if (u.indexOf('/api/class/SKY482') === 0) body = view;
+          return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(body); } });
+        }
+        return orig.apply(this, arguments);
+      };
+    })();` });
+
+    await loadSource('to draw\n  clear screen to black\n  draw rect at 4, 4 size 20, 20 in red\nrun game with update and draw\n');
+    const clsEntry = await evaluate(cdp, `(function(){
+      var b = document.getElementById('lr-class'), t = document.getElementById('tool-class');
+      return { launcher: getComputedStyle(b).display, editor: getComputedStyle(t).display };
+    })()`);
+    check('with the flag on, both classroom entries appear',
+      clsEntry.launcher !== 'none' && clsEntry.editor !== 'none', JSON.stringify(clsEntry));
+
+    await evaluate(cdp, `document.getElementById('lr-class').click()`);
+    await sleep(200);
+    const clsForm = await evaluate(cdp, `(function(){
+      var o = document.getElementById('class-overlay');
+      o.setAttribute('tabindex', '-1');
+      return { open: getComputedStyle(o).display !== 'none', code: !!document.getElementById('cl-code'),
+               name: !!document.getElementById('cl-name'), labelled: o.getAttribute('aria-label') };
+    })()`);
+    check('the classroom dialog opens with a join form', clsForm.open && clsForm.code && clsForm.name, JSON.stringify(clsForm));
+
+    await evaluate(cdp, `(function(){
+      document.getElementById('cl-code').value = 'sky482';
+      document.getElementById('cl-name').value = 'Ada';
+      var bs = document.querySelectorAll('#class-body button');
+      for (var i = 0; i < bs.length; i++) if (/Join the class/.test(bs[i].textContent)) { bs[i].click(); return 1; }
+      return 0;
+    })()`);
+    await sleep(400);
+    const clsJoined = await evaluate(cdp, `(function(){
+      return { code: (document.querySelector('.cl-code') || {}).textContent,
+               tiles: document.querySelectorAll('#class-body .lr-tile').length,
+               shelf: getComputedStyle(document.getElementById('lr-classroom')).display !== 'none',
+               calls: window.__classCalls };
+    })()`);
+    check('joining shows the class view for that code', clsJoined.code === 'SKY482', JSON.stringify(clsJoined));
+    check('the assigned game appears as a tile', clsJoined.tiles === 1, JSON.stringify(clsJoined));
+    check('the class shelf appears on the launcher', clsJoined.shelf === true, JSON.stringify(clsJoined));
+    check('it probed the feature and posted the join',
+      clsJoined.calls[0] === '/api/class/enabled' && clsJoined.calls.indexOf('/api/class/join') !== -1,
+      JSON.stringify(clsJoined.calls));
+
+    // reopening (a returning student) re-reads the class from the server
+    await evaluate(cdp, `document.getElementById('lr-class').click()`);
+    await sleep(400);
+    const clsReopen = await evaluate(cdp, `(function(){
+      return { calls: window.__classCalls, code: (document.querySelector('.cl-code') || {}).textContent,
+               tiles: document.querySelectorAll('#class-body .lr-tile').length };
+    })()`);
+    check('reopening re-reads the class (returning student)',
+      clsReopen.calls.some(function (u) { return /^\/api\/class\/SKY482/.test(u); }) && clsReopen.code === 'SKY482' && clsReopen.tiles === 1,
+      JSON.stringify(clsReopen));
+    await evaluate(cdp, `document.getElementById('class-close').click()`);
+
+    await evaluate(cdp, `(function(){ document.querySelector('#class-body .lr-tile').click(); })()`);
+    await sleep(400);
+    const clsTap = await evaluate(cdp, `(function(){
+      var ed = document.querySelector('textarea');
+      return { start: ed.value.slice(0, 12), open: getComputedStyle(document.getElementById('class-overlay')).display !== 'none' };
+    })()`);
+    check('tapping an assigned game loads it and closes the dialog',
+      clsTap.start.startsWith('to draw') && clsTap.open === false, JSON.stringify(clsTap));
+
+    // flag off: no entries, no probe-driven state
+    await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: classStub.identifier });
+    await loadSource('to draw\n  clear screen to black\nrun game with update and draw\n');
+    const clsDark = await evaluate(cdp, `(function(){
+      return { launcher: getComputedStyle(document.getElementById('lr-class')).display,
+               editor: getComputedStyle(document.getElementById('tool-class')).display };
+    })()`);
+    check('without the flag the classroom stays invisible',
+      clsDark.launcher === 'none' && clsDark.editor === 'none', JSON.stringify(clsDark));
 
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);

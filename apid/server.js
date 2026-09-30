@@ -453,6 +453,8 @@ const server = http.createServer(async (req, res) => {
     // ---- Classroom mode (opt-in via ENABLE_CLASSROOM; PII-free: class code + display name) ----
     if (p.startsWith('/api/class')) {
       if (!ENABLE_CLASSROOM) return json(res, 404, { error: 'not found' });
+      // feature probe: the app shows the classroom UI only when this answers 200
+      if (p === '/api/class/enabled') return json(res, 200, { enabled: true });
       purgeIdleClasses();
 
       if (p === '/api/class/new' && method === 'POST') {          // teacher creates a class
@@ -522,6 +524,14 @@ const server = http.createServer(async (req, res) => {
           if (!csrfOk) return json(res, 403, { error: 'bad request' });
           if (!isOwner) return json(res, 403, { error: 'not your class' });
           c.submissions = c.submissions.filter(s => s.id !== m[3]); c.lastActive = Date.now(); save();
+          return json(res, 200, { ok: true });
+        }
+
+        const unassign = p.match(/^\/api\/class\/([A-Z0-9-]{3,12})\/assign\/([a-f0-9]+)$/i);
+        if (unassign && method === 'DELETE') {                    // teacher un-assigns a game
+          if (!csrfOk) return json(res, 403, { error: 'bad request' });
+          if (!isOwner) return json(res, 403, { error: 'not your class' });
+          c.assigned = c.assigned.filter(a => a.id !== unassign[2]); c.lastActive = Date.now(); save();
           return json(res, 200, { ok: true });
         }
 

@@ -213,6 +213,16 @@ body.embed #launcher { display: none !important; }   /* embed never shows the la
 .lr-tile .del { position: absolute; top: 1px; right: 3px; background: none; border: none; color: #8a7340; font-size: 15px; cursor: pointer; line-height: 1; padding: 2px 5px; }
 .lr-tile .del:hover { color: #ff6a6a; }
 #lr-community { display: none; max-width: 480px; margin: 0 auto 12px; }
+#lr-classroom { display: none; max-width: 480px; margin: 0 auto 12px; }
+.cl-code { font-family: 'Bebas Neue', sans-serif; font-size: 34px; letter-spacing: .2em; color: #ffec27; }
+.cl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.cl-in { font: 13px 'Share Tech Mono', monospace; background: #101010; color: #ffe9bd; border: 1px solid #5a4a28; border-radius: 5px; padding: 7px 9px; }
+.cl-btn { font: 12px 'Share Tech Mono', monospace; background: #161616; color: #c8a96e; border: 1px solid #5a4a28; border-radius: 5px; padding: 7px 12px; cursor: pointer; letter-spacing: .04em; }
+.cl-btn:hover { border-color: #c8a96e; }
+.cl-btn.go { background: #10240f; color: #9f9; border-color: #2c6e2c; }
+.cl-note { color: #8a7340; font-size: 12px; line-height: 1.5; }
+.cl-err { color: #ff8f8f; font-size: 12px; min-height: 14px; }
+.cl-h { font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: #c8a96e; letter-spacing: .12em; margin: 14px 0 4px; }
 #lr-hero { max-width: 720px; margin: 0 auto 16px; }
 .lr-hero-in { display: flex; gap: 14px; align-items: center; background: #1b1710; border: 1px solid #3a2f18; border-radius: 10px; padding: 10px; cursor: pointer; }
 .lr-hero-in:hover { border-color: #5a4a28; }
@@ -374,6 +384,7 @@ body.touch.playing #back-btn {
       <div id="account"></div>
       <button type="button" id="lr-open">↧ Open shared</button>
       <button type="button" id="lr-new">+ New Game</button>
+      <button type="button" id="lr-class" style="display:none;background:#1b1710;color:#c8a96e;border:1px solid #5a4a28">&#127979; Join a class</button>
     </div>
   </div>
   <div id="lr-hero">
@@ -389,6 +400,7 @@ body.touch.playing #back-btn {
   <div id="lr-featured"></div>
   <div id="lr-remix"></div>
   <div id="lr-yours"></div>
+  <div id="lr-classroom"></div>
   <div id="lr-community"></div>
   <div id="lr-grid"></div>
   <div id="lr-foot">
@@ -424,6 +436,7 @@ body.touch.playing #back-btn {
       <button type="button" id="tool-help" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">? help</button>
       <button type="button" id="tool-code" title="see this program written in Python or JavaScript" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&lt;/&gt; real code</button>
       <button type="button" id="tool-describe" title="describe a game in plain English and let the safety net write it (sign-in required)" style="font:12px 'Share Tech Mono',monospace;background:#101c24;color:#9fd3e0;border:1px solid #24505a;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">✎ describe</button>
+      <button type="button" id="tool-class" title="classroom: join with a code, or create a class and assign this game" style="display:none;font:12px 'Share Tech Mono',monospace;background:#1b1710;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#127979; class</button>
       <button type="button" id="tool-settings" title="accessibility &amp; display settings" aria-label="settings" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#9881;</button>
       <button type="button" id="tool-debug" title="step through your program line by line" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">&#128027; step</button>
       <button type="button" id="tool-save" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:6px 11px;cursor:pointer;letter-spacing:.08em">💾 save</button>
@@ -515,6 +528,14 @@ body.touch.playing #back-btn {
       <button type="button" id="code-copy" style="font:12px 'Share Tech Mono',monospace;background:#161616;color:#c8a96e;border:1px solid #5a4a28;border-radius:4px;padding:7px 13px;cursor:pointer;letter-spacing:.06em;margin-left:0">&#10697; copy</button>
     </div>
     <pre id="code-out" style="background:#0b0b0b;border:1px solid #3a2f18;border-radius:6px;padding:14px 16px;overflow:auto;color:#d8e6d8;font:12.5px/1.55 'Share Tech Mono',monospace;white-space:pre;margin:0"></pre>
+  </div>
+</div>
+<div id="class-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(3,3,3,.97);overflow:auto;padding:46px 18px 28px;font-family:'Share Tech Mono',monospace;color:#cbb083">
+  <button type="button" id="class-close" aria-label="close" style="position:absolute;top:8px;right:14px;font:26px 'Bebas Neue',sans-serif;background:none;border:none;color:#c8a96e;cursor:pointer">&#10005;</button>
+  <div style="max-width:820px;margin:0 auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#c8a96e;letter-spacing:.16em">CLASSROOM</div>
+    <div id="class-sub" style="color:#8a7340;font-size:12px;margin:2px 0 14px">A class code gets everyone the same games &mdash; no email, no accounts. Students join with a code and a display name.</div>
+    <div id="class-body"></div>
   </div>
 </div>
 <!-- fc-runtime shim for RUNNABLE JS export. Non-executing here (type text/plain);
@@ -6413,6 +6434,8 @@ run game with update and draw`;
   }
   function openGameView() { document.body.classList.remove('home'); }
   function loadAndRun(src, play) { editor.value = src; openGameView(); run(src); setPlaying(!!play); }
+  // the classroom module is a separate IIFE but needs these three launcher helpers
+  window.FC_UI = { makeIcon: makeIcon, setGameDesc: setGameDesc, loadAndRun: loadAndRun };
   let _currentDemo = null;   // {file, src} of the last opened built-in demo — lets Share emit the clean /g/<file> link while it's unmodified
   // Show the "↗ page" permalink only while an unmodified built-in demo is open —
   // that's exactly when a clean, preview-rich /g/<file>/ page exists for it.
@@ -8240,6 +8263,202 @@ function fcTpArrRemove(target, value, ctx) {
   });
 })();
 
+// ============================================================
+// CLASSROOM — a teacher makes a class and shares its code; students join with the
+// code and a display name (no email, no account, nothing personal). Ships DARK: the
+// entries only appear when apid answers /api/class/enabled with 200, which it does
+// only when ENABLE_CLASSROOM=true. See docs/PLAN-classroom.md.
+// ============================================================
+(function classroom() {
+  const overlay = document.getElementById('class-overlay');
+  const body = document.getElementById('class-body');
+  const sub = document.getElementById('class-sub');
+  const closeBtn = document.getElementById('class-close');
+  const lrBtn = document.getElementById('lr-class');
+  const toolBtn = document.getElementById('tool-class');
+  const shelf = document.getElementById('lr-classroom');
+  if (!overlay || !body) return;
+
+  const state = { code: '', name: '', view: null };
+  try { const saved = STORE.get('class'); if (saved && saved.code) { state.code = saved.code; state.name = saved.name || ''; } } catch (_) {}
+
+  function call(path, opts) {
+    return fetch('/api/class' + path, Object.assign({
+      credentials: 'same-origin', headers: { 'X-CO': '1', 'Content-Type': 'application/json' },
+    }, opts || {})).then(r => r.json().catch(() => ({})))
+      .then(d => { if (!d || d.error) throw new Error((d && d.error) || 'the classroom service did not answer'); return d; });
+  }
+  function remember() { try { STORE.set('class', { code: state.code, name: state.name }); } catch (_) {} }
+  function say(msg) { if (typeof toast === 'function') toast(msg); }
+  function err(msg) { const e = document.getElementById('cl-err'); if (e) e.textContent = msg || ''; }
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const btn = (label, cls, onClick) => { const b = el('button', cls, label); b.type = 'button'; b.onclick = onClick; return b; };
+  const grid = (children) => { const g = el('div', 'lr-grid-y'); children.forEach(c => g.appendChild(c)); return g; };
+
+  // a game tile: tapping it loads that program into the editor and runs it
+  function gameTile(title, tagline, code, onDelete) {
+    const t = el('div', 'lr-tile community');
+    if (window.FC_UI) t.appendChild(FC_UI.makeIcon('star'));
+    t.appendChild(el('span', 'nm', title || 'Untitled'));
+    if (tagline) t.appendChild(el('span', 'tag', tagline));
+    if (onDelete) { const d = btn('\u00d7', 'del', e => { e.stopPropagation(); onDelete(); }); d.title = 'Remove'; t.appendChild(d); }
+    t.onclick = () => {
+      const UI = window.FC_UI || {};
+      if (UI.loadAndRun) UI.loadAndRun(code, true); else { editor.value = code; run(code); }
+      if (UI.setGameDesc) UI.setGameDesc({ name: title || 'Untitled', desc: tagline || 'class game' });
+      close();
+    };
+    return t;
+  }
+
+  // ------------------------------------------------------------ launcher shelf
+  function renderShelf() {
+    if (!shelf) return;
+    const v = state.view;
+    if (!v) { shelf.style.display = 'none'; shelf.innerHTML = ''; return; }
+    shelf.style.display = 'block'; shelf.innerHTML = '';
+    const head = el('div', 'lr-sub2');
+    head.textContent = '\u{1F3EB} ' + v.name + ' \u2014 ' + (v.assigned.length ? 'tap a game to play & remix' : 'nothing assigned yet');
+    shelf.appendChild(head);
+    if (v.assigned.length) shelf.appendChild(grid(v.assigned.slice(0, 6).map(a => gameTile(a.title, 'assigned', a.code))));
+    else shelf.appendChild(el('div', 'cl-note', 'Your teacher has not assigned a game yet.'));
+    shelf.appendChild(btn('Open the classroom', 'cl-btn', open));
+  }
+
+  // ------------------------------------------------------------ join / class panes
+  function joinForm(prefill) {
+    body.innerHTML = '';
+    const code = el('input', 'cl-in'); code.id = 'cl-code'; code.placeholder = 'class code';
+    code.value = prefill || ''; code.maxLength = 12; code.autocapitalize = 'characters'; code.style.textTransform = 'uppercase';
+    const name = el('input', 'cl-in'); name.id = 'cl-name'; name.placeholder = 'your display name'; name.maxLength = 20;
+    const row = el('div', 'cl-row'); row.appendChild(code); row.appendChild(name);
+    row.appendChild(btn('Join the class', 'cl-btn go', () => {
+      err('');
+      const c = (code.value || '').trim().toUpperCase(), n = (name.value || '').trim();
+      if (!c) return err('Type the class code first.');
+      if (!n) return err('Pick a display name first \u2014 something your teacher will recognise.');
+      call('/join', { method: 'POST', body: JSON.stringify({ code: c, name: n }) })
+        .then(v => { state.code = v.code; state.name = v.you || n; state.view = v; remember(); render(); say('Joined ' + v.name); })
+        .catch(e => err(e.message));
+    }));
+    body.appendChild(row);
+    const e = el('div', 'cl-err'); e.id = 'cl-err'; body.appendChild(e);
+    body.appendChild(el('div', 'cl-note', 'No email, no account \u2014 just a name for the shelf. Your teacher sees the roster.'));
+    const teacherRow = el('div', 'cl-row');
+    teacherRow.appendChild(btn('\u{1F3EB} I\u2019m a teacher \u2014 create a class', 'cl-btn', newClass));
+    body.appendChild(teacherRow);
+    setTimeout(() => { try { code.focus(); } catch (_) {} }, 30);
+  }
+
+  function classView() {
+    const v = state.view;
+    body.innerHTML = '';
+    const codeRow = el('div', 'cl-row');
+    codeRow.appendChild(el('span', 'cl-code', v.code));
+    codeRow.appendChild(btn('\u{1F4CB} copy code', 'cl-btn', () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v.code);
+      say('Code copied \u2014 write it on the board.');
+    }));
+    body.appendChild(codeRow);
+    body.appendChild(el('div', 'cl-note', (v.isOwner ? 'Yours' : 'Teacher: ' + (v.teacher || '\u2014')) +
+      ' \u00b7 ' + v.students + (v.students === 1 ? ' student' : ' students') + (v.you ? ' \u00b7 you are ' + v.you : '')));
+
+    const actions = el('div', 'cl-row');
+    if (v.isOwner) {
+      actions.appendChild(btn('\u2795 assign the game in the editor', 'cl-btn go', () => {
+        err('');
+        const title = prompt('Name for this assigned game:', 'Class game');
+        if (title == null) return;
+        call('/' + v.code + '/assign', { method: 'POST', body: JSON.stringify({ title, code: editor.value }) })
+          .then(() => { say('Assigned'); return reload(); }).catch(x => err(x.message));
+      }));
+    } else {
+      actions.appendChild(btn('\u2b06 submit the game in the editor', 'cl-btn go', () => {
+        err('');
+        const title = prompt('Name for your game:', 'My game');
+        if (title == null) return;
+        call('/' + v.code + '/submit', { method: 'POST', body: JSON.stringify({ name: state.name, title, code: editor.value }) })
+          .then(() => { say('Handed in'); return reload(); }).catch(x => err(x.message));
+      }));
+      actions.appendChild(btn('Leave class', 'cl-btn', () => {
+        state.code = ''; state.view = null; remember(); render();
+      }));
+    }
+    body.appendChild(actions);
+    const e = el('div', 'cl-err'); e.id = 'cl-err'; body.appendChild(e);
+
+    body.appendChild(el('div', 'cl-h', 'ASSIGNED'));
+    body.appendChild(v.assigned.length
+      ? grid(v.assigned.map(a => gameTile(a.title, 'assigned', a.code, v.isOwner ? () => {
+          err('');
+          call('/' + v.code + '/assign/' + a.id, { method: 'DELETE' }).then(() => reload()).catch(x => err(x.message));
+        } : null)))
+      : el('div', 'cl-note', 'Nothing assigned yet.'));
+
+    if (v.submissions && v.submissions.length) {
+      body.appendChild(el('div', 'cl-h', 'SUBMITTED'));
+      body.appendChild(grid(v.submissions.map(s => gameTile(s.title, 'by ' + s.name, s.code, v.isOwner ? () => {
+        err('');
+        call('/' + v.code + '/submission/' + s.id, { method: 'DELETE' }).then(() => reload()).catch(x => err(x.message));
+      } : null))));
+    }
+    if (v.isOwner && v.roster && v.roster.length) {
+      body.appendChild(el('div', 'cl-h', 'ROSTER'));
+      v.roster.forEach(r => body.appendChild(el('div', 'cl-note', r.name + ' \u00b7 joined ' + new Date(r.joinedAt).toLocaleDateString())));
+    }
+  }
+
+  function render() {
+    if (state.view) { sub.textContent = state.view.name + ' \u00b7 code ' + state.view.code; classView(); }
+    else {
+      sub.textContent = 'A class code gets everyone the same games \u2014 no email, no accounts. Students join with a code and a display name.';
+      joinForm(state.code);
+    }
+    renderShelf();
+  }
+
+  function reload() {
+    if (!state.code) return Promise.resolve();
+    return call('/' + state.code)
+      .then(v => { state.view = v; render(); })
+      .catch(e => {
+        err(e.message);
+        if (/not found/i.test(e.message)) { state.code = ''; state.view = null; remember(); render(); }
+      });
+  }
+
+  function open() { overlay.style.display = 'block'; render(); if (state.code) reload(); }
+  function close() { overlay.style.display = 'none'; }
+  if (closeBtn) closeBtn.onclick = close;
+  if (lrBtn) lrBtn.onclick = open;
+  if (toolBtn) toolBtn.onclick = open;
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.style.display === 'block') close(); });
+
+  // teachers: create a class (needs a signed-in account)
+  function newClass() {
+    const name = prompt('Name for your class:', 'My class');
+    if (name == null) return;
+    err('');
+    call('/new', { method: 'POST', body: JSON.stringify({ name }) })
+      .then(v => { state.code = v.code; state.view = null; remember(); return reload(); })
+      .catch(e => { err(/sign in/i.test(e.message) ? 'Sign in first (top right), then create your class.' : e.message); });
+  }
+
+  // ------------------------------------------------------------ feature probe
+  fetch('/api/class/enabled', { credentials: 'same-origin' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      if (!d || !d.enabled) return;              // flag off: nothing appears, nothing breaks
+      if (lrBtn) lrBtn.style.display = '';
+      if (toolBtn) toolBtn.style.display = '';
+      if (state.code) reload();
+      window.FC_CLASSROOM = { open: open, close: close, state: state, reload: reload };   // tools/ui-check drives this
+    })
+    .catch(() => {});
+})();
+
 // ---- Dialog accessibility: role/aria, Escape-to-close, focus trap + restore ----
 // Enhances every modal overlay WITHOUT touching its open/close code — a
 // MutationObserver watches its visibility (works for both inline-display and
@@ -8253,6 +8472,7 @@ function fcTpArrRemove(target, value, ctx) {
     { id:'forge-overlay',    close:'forge-close',    label:'Editor' },
     { id:'signin-overlay',   close:'signin-close',   label:'Sign in' },
     { id:'verify-overlay',   close:'verify-close',   label:'Enter your code', focus:'verify-code' },
+    { id:'class-overlay',    close:'class-close',    label:'Classroom' },
   ];
   var lastFocus = null;
   function isOpen(el){ return getComputedStyle(el).display !== 'none'; }   // fixed els: can't use offsetParent

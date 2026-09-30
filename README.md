@@ -79,6 +79,14 @@ fuzz, smoke, mp-smoke, visual-golden). **Every language change must keep them gr
 across all engines** (the JS reference in `index.html`, the two JS oracles, and the
 Rust/WASM core) — that discipline is how the port stays trustworthy.
 
+**Classroom mode** — a teacher makes a class code, students join with the code and a
+display name (no email, no account) — is built and ships **dark** behind apid's
+`ENABLE_CLASSROOM`. `tools/class-e2e.mjs` drives the real server and a real browser
+through the whole flow (join → shelf → tap to play → hand in → teacher roster, assign
+and delete) and then proves the feature is invisible with the flag off; it needs
+`cd apid && npm install` first. `tools/ui-check.mjs` covers the same page behaviour
+without the server, stubbed.
+
 Runtime diagnostics have their own guard: `err-diff` pins the messages over
 `spec/port/spike/err-tests/*.fc` and asserts the **shipped wasm core and the JS
 reference report the same words on the same lines** (then sweeps the corpus to
