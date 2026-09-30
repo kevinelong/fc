@@ -1,0 +1,7 @@
+-- A name whose singular is not a sprite keeps the placeholder: no magic.
+widgets is list of 2 sprites
+to draw
+  clear screen to black
+  each w in widgets
+    draw sprite w at w.x, w.y
+run game with update and draw

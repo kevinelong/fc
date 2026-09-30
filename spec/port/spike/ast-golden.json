@@ -13084,6 +13084,172 @@
       "type": "rungame"
     }
   ],
+  "list_explicit_image.fc": [
+    {
+      "target": "coins",
+      "type": "assign",
+      "value": {
+        "count": {
+          "type": "literal",
+          "value": 3
+        },
+        "props": {
+          "props": {
+            "image": {
+              "type": "literal",
+              "value": "gem"
+            }
+          },
+          "type": "object_expr"
+        },
+        "type": "list_of_sprites"
+      }
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "spriteNameExpr": {
+                  "name": "c",
+                  "type": "ref"
+                },
+                "x": {
+                  "name": "c.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "c.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "sprite",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "coins",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "c",
+          "where": null
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "list_image_inference.fc": [
+    {
+      "target": "coins",
+      "type": "assign",
+      "value": {
+        "count": {
+          "type": "literal",
+          "value": 4
+        },
+        "props": null,
+        "type": "list_of_sprites"
+      }
+    },
+    {
+      "target": "first",
+      "type": "assign",
+      "value": {
+        "index": {
+          "type": "literal",
+          "value": 1
+        },
+        "list": {
+          "name": "coins",
+          "type": "ref"
+        },
+        "type": "item_of"
+      }
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "spriteNameExpr": {
+                  "name": "c",
+                  "type": "ref"
+                },
+                "x": {
+                  "name": "c.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "c.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "sprite",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "coins",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "c",
+          "where": null
+        },
+        {
+          "color": "white",
+          "hud": false,
+          "text": {
+            "type": "literal",
+            "value": "{first.image}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 2
+          },
+          "y": {
+            "type": "literal",
+            "value": 2
+          }
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "list_membership.fc": [
     {
       "target": "color",
@@ -13308,6 +13474,69 @@
       },
       "thenStmt": null,
       "type": "if"
+    }
+  ],
+  "list_no_inference.fc": [
+    {
+      "target": "widgets",
+      "type": "assign",
+      "value": {
+        "count": {
+          "type": "literal",
+          "value": 2
+        },
+        "props": null,
+        "type": "list_of_sprites"
+      }
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "body": [
+            {
+              "args": {
+                "spriteNameExpr": {
+                  "name": "w",
+                  "type": "ref"
+                },
+                "x": {
+                  "name": "w.x",
+                  "type": "ref"
+                },
+                "y": {
+                  "name": "w.y",
+                  "type": "ref"
+                }
+              },
+              "hud": false,
+              "shape": "sprite",
+              "type": "draw"
+            }
+          ],
+          "list": {
+            "name": "widgets",
+            "type": "ref"
+          },
+          "thenStmt": null,
+          "type": "each",
+          "varName": "w",
+          "where": null
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
     }
   ],
   "load_missing_default.fc": [

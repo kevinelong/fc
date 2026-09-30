@@ -488,6 +488,76 @@
       "second": "b"
     }
   },
+  "list_explicit_image.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "c": {
+        "image": "gem",
+        "x": 56,
+        "y": 65
+      },
+      "coins": [
+        {
+          "image": "gem",
+          "x": 33,
+          "y": 4
+        },
+        {
+          "image": "gem",
+          "x": 29,
+          "y": 20
+        },
+        {
+          "image": "gem",
+          "x": 56,
+          "y": 65
+        }
+      ],
+      "connected": false,
+      "peers": []
+    }
+  },
+  "list_image_inference.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "c": {
+        "image": "coin",
+        "x": 72,
+        "y": 76
+      },
+      "coins": [
+        {
+          "image": "coin",
+          "x": 33,
+          "y": 4
+        },
+        {
+          "image": "coin",
+          "x": 29,
+          "y": 20
+        },
+        {
+          "image": "coin",
+          "x": 56,
+          "y": 65
+        },
+        {
+          "image": "coin",
+          "x": 72,
+          "y": 76
+        }
+      ],
+      "connected": false,
+      "first": {
+        "image": "coin",
+        "x": 33,
+        "y": 4
+      },
+      "peers": []
+    }
+  },
   "list_membership.fc": {
     "errors": [],
     "say": [],
@@ -503,6 +573,28 @@
         3
       ],
       "strict2": true
+    }
+  },
+  "list_no_inference.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "peers": [],
+      "w": {
+        "x": 29,
+        "y": 20
+      },
+      "widgets": [
+        {
+          "x": 33,
+          "y": 4
+        },
+        {
+          "x": 29,
+          "y": 20
+        }
+      ]
     }
   },
   "load_missing_default.fc": {

@@ -1,0 +1,7 @@
+-- An explicit image always wins over the inferred one.
+coins is list of 3 sprites {image: "gem"}
+to draw
+  clear screen to black
+  each c in coins
+    draw sprite c at c.x, c.y
+run game with update and draw

@@ -9,7 +9,9 @@ const CORPUS = fileURLToPath(new URL('../corpus/', import.meta.url));
 export function fcRun(src, seed) {
   const rt = new Runtime(); rt.reset();
   const _r = Math.random;
-  if (seed != null) { let a = (seed>>>0)||1; Math.random = () => { a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+  // seed exactly as the wasm's Rt::new(seed) does (mulberry32); mapping 0 -> 1 here
+  // would put the two engines on different streams
+  if (seed != null) { let a = seed>>>0; Math.random = () => { a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
   try { rt.exec(parse(src)); } catch (e) { try { rt.error('threw: '+e.message); } catch(_){} }
   Math.random = _r;
   const vars = {};
@@ -17,7 +19,10 @@ export function fcRun(src, seed) {
   return { say:(rt.sayBuffer||[]).slice(), errors:(rt.errors||[]).slice(), vars };
 }
 const files = fs.readdirSync(CORPUS).filter(f=>f.endsWith('.fc')).sort();
-const seedOf = f => /random/.test(f) ? 12345 : undefined;
+// Every corpus file is seeded the way spec/port/spike/exec-diff.mjs seeds the wasm
+// (12345 for the `*random*` files, 0 otherwise) — `list of sprites` placement is
+// random, so an unseeded golden is not reproducible and cannot be diffed.
+const seedOf = f => /random/.test(f) ? 12345 : 0;
 // Canonical (recursively key-sorted) form: compare/record by CONTENT, so a key
 // insertion-order difference is never reported as a behavior diff.
 const canon = v => Array.isArray(v) ? v.map(canon)

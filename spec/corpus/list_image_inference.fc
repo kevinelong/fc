@@ -1,0 +1,10 @@
+-- `coins is list of 4 sprites`: the list's name says what the sprites are, so each
+-- one gets image "coin" (design decisions, Q3) instead of a placeholder.
+coins is list of 4 sprites
+first is item 1 of coins
+to draw
+  clear screen to black
+  each c in coins
+    draw sprite c at c.x, c.y
+  write "{first.image}" at 2, 2 in white
+run game with update and draw

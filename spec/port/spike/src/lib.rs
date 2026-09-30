@@ -907,7 +907,12 @@ fn emit_expr(e: &Expr, out: &mut String) {
             for (i,(k,v)) in kv.iter().enumerate() { if i>0 {out.push(',');} json_str(k,out); out.push(':'); emit_expr(v,out); }
             out.push_str("},\"type\":\"object_expr\"}"); }
         Expr::Sprite(pos,props)=>{ out.push_str("{\"position\":"); json_str(pos,out); out.push_str(",\"props\":"); emit_expr(props,out); out.push_str(",\"type\":\"sprite_expr\"}"); }
-        Expr::ListOfSprites(c,p)=>{ out.push_str("{\"count\":"); emit_expr(c,out); out.push_str(",\"props\":"); emit_expr(p,out); out.push_str(",\"type\":\"list_of_sprites\"}"); }
+        Expr::ListOfSprites(c,p)=>{
+            out.push_str("{\"count\":"); emit_expr(c,out); out.push_str(",\"props\":");
+            // the JS parser records `props: null` when a sprite list names no properties;
+            // an empty object is the port's way of saying the same thing
+            if matches!(strip_at(p), Expr::Object(items) if items.is_empty()) { out.push_str("null"); } else { emit_expr(p,out); }
+            out.push_str(",\"type\":\"list_of_sprites\"}"); }
         Expr::Count(e)=>{ out.push_str("{\"expr\":"); emit_expr(e,out); out.push_str(",\"type\":\"count\"}"); }
     }
 }
@@ -1572,6 +1577,9 @@ fn fc_show(v: &Val) -> String {
     }
 }
 // how to name an expression in a message: a variable reads as itself
+// every expression carries a line stamp (`Expr::At`); shape checks want the inner node
+fn strip_at(e: &Expr) -> &Expr { match e { Expr::At(_, inner) => inner, other => other } }
+
 fn fc_name_of(e: &Expr) -> String {
     match e {
         Expr::At(_, inner) => fc_name_of(inner),
@@ -2478,7 +2486,27 @@ impl Rt {
     fn exec_one(&mut self, s: &Stmt) {
         if self.stopped || self.returning { return; }
         match s {
-            Stmt::Assign(t, v) => { let val=self.eval(v); self.set_var(t, val); }
+            Stmt::Assign(t, v) => {
+                let val = self.eval(v);
+                // `coins is list of 4 sprites` — the list's name says what the sprites
+                // are (design decisions, Q3): fill in an image when the singular is a
+                // built-in sprite and the sprite did not name one.
+                let is_sprites = matches!(strip_at(v), Expr::ListOfSprites(..));
+                if is_sprites && !t.contains('.') {
+                    let sing = singularize(t);
+                    if SPRITES.iter().any(|(n, _)| *n == sing) {
+                        if let Val::List(l) = &val {
+                            for item in l.borrow_mut().iter_mut() {
+                                if let Val::Obj(o) = item {
+                                    let mut m = o.borrow_mut();
+                                    if !m.contains_key("image") { m.insert("image".to_string(), Val::Str(sing.clone())); }
+                                }
+                            }
+                        }
+                    }
+                }
+                self.set_var(t, val);
+            }
             Stmt::Add(t, v) => {
                 let val=self.eval(v); let cur=self.get_var(t);
                 // amount mirrors JS: `typeof val==='string' ? parseFloat(val)||0 : val`

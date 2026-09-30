@@ -2840,6 +2840,16 @@ class Runtime {
 
         case 'assign': {
           const val = this.evalExpr(stmt.value);
+          // `coins is list of 4 sprites` — the list's name says what the sprites are
+          // (design decisions, Q3): fill in an image when the singular is a built-in
+          // sprite and the sprite did not name one. An explicit image always wins.
+          const infer = (stmt.value && stmt.value.type === 'list_of_sprites' && stmt.target.indexOf('.') === -1)
+            ? singularize(stmt.target) : '';
+          if (infer && SPRITES[infer] && Array.isArray(val)) {
+            for (const item of val) {
+              if (item && typeof item === 'object' && !Array.isArray(item) && item.image == null) item.image = infer;
+            }
+          }
           this.setVar(stmt.target, val);
           break;
         }
