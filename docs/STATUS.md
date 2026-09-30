@@ -45,6 +45,9 @@ transpile 101/101 ×4 · core-copy OK · mirror OK · visual goldens 22/22 ·
 heal 99/99 corpus · class-e2e 10/10 · share-e2e 6/6 · api-e2e 10/10 · ui-check 82/82 —
 and all of it runs as `node tools/checks.mjs` (22 checks) in CI.
 
+**Resuming?** Read [HANDOFF.md](./HANDOFF.md) — the pick-up view (how to run the
+suite, the known gaps, and the next actions in order).
+
 ## 2026-09-30 (b) — the guards around the guards, and the classroom launch
 
 The audit in (a) found gaps because nothing ran the whole suite in one place. This entry
