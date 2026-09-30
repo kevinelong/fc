@@ -2593,9 +2593,30 @@ impl Rt {
                                 }
                             }
                         }
+                        if !name.is_empty() && !SPRITES.iter().any(|(n, _)| *n == name) {
+                            self.error(&alloc::format!("no sprite called {} — if you meant a function, write {} on its own line", name, name));
+                        }
                         blit_sprite(&name, x, y + bounce, &mut self.cmds);
                     }
-                    _ => {}
+                    noun => {
+                        // `draw title` (the generic-noun form): a function wins (design
+                        // decisions, Q2), else a sprite of that name, else a message.
+                        if !noun.is_empty() && self.funcs.contains_key(noun) {
+                            if a.x.is_some() || a.y.is_some() {
+                                self.error(&alloc::format!("\"{}\" is a function, so draw ignores the position — write {} on its own line to call it", noun, noun));
+                            }
+                            if let Some((_params, body)) = self.funcs.get(noun).cloned() {
+                                let saved = self.stopped; self.stopped = false;
+                                self.exec_block(&body);
+                                self.returning = false;
+                                self.stopped = saved;
+                            }
+                        } else if !noun.is_empty() && SPRITES.iter().any(|(n, _)| *n == noun) {
+                            blit_sprite(noun, x, y, &mut self.cmds);
+                        } else if !noun.is_empty() {
+                            self.error(&alloc::format!("no sprite called {} — if you meant a function, write {} on its own line", noun, noun));
+                        }
+                    }
                 }
             }
             Stmt::Say(e) => { let raw = display(&self.eval(e)); let t = self.interpolate(&raw); self.says.push(t); }
@@ -2976,8 +2997,17 @@ static mut RES: [u8; RES_CAP] = [0; RES_CAP];
     let program = parse_program(&src);
     let mut rt = Rt::new(seed);
     rt.exec_block(&program);
+    // The JS oracle runs frame 1 as soon as a game loop starts, which is where it
+    // seeds the multiplayer vars; mirror that so an exec comparison sees the same
+    // variables (a headless run has no net input).
+    if rt.has_game {
+        rt.vars.insert("peers".to_string(), Val::List(Rc::new(RefCell::new(Vec::new()))));
+        rt.vars.insert("connected".to_string(), Val::Bool(false));
+    }
     let mut s = String::new();
-    s.push_str("{\"errors\":[],\"say\":[");
+    s.push_str("{\"errors\":[");
+    for (i,e) in rt.errors.iter().enumerate() { if i>0 { s.push(','); } json_str(e, &mut s); }
+    s.push_str("],\"say\":[");
     for (i,t) in rt.says.iter().enumerate() { if i>0 {s.push(',');} json_str(t,&mut s); }
     s.push_str("],\"vars\":{");
     for (i,(k,v)) in rt.vars.iter().enumerate() { if i>0 {s.push(',');} json_str(k,&mut s); s.push(':'); emit_val(v,&mut s); }

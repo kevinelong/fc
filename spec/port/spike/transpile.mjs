@@ -491,7 +491,13 @@ function fcTpDraw(s, ctx) {
     case 'rect': return 'draw_rect(' + E(a.x) + ', ' + E(a.y) + ', ' + E(a.w) + ', ' + E(a.h) + col + ')';
     case 'circle': return 'draw_circle(' + E(a.x) + ', ' + E(a.y) + ', ' + E(a.w) + col + ')';
     case 'line': return 'draw_line(' + E(a.x1) + ', ' + E(a.y1) + ', ' + E(a.x2) + ', ' + E(a.y2) + col + ')';
-    default: return 'draw_' + (s.shape || 'shape') + '(' + [a.x, a.y, a.w, a.h].filter(v => v != null).map(E).join(', ') + col + ')';
+    default: {
+      // `draw title` where `to title` exists calls it (design decisions, Q2) — the
+      // runtime's rule, mirrored so the translation says what the engine does
+      const noun = s.shape;
+      if (noun && ctx.funcs.has(noun)) return fcTpRval(noun, ctx) + '()';
+      return 'draw_' + (noun || 'shape') + '(' + [a.x, a.y, a.w, a.h].filter(v => v != null).map(E).join(', ') + col + ')';
+    }
   }
 }
 

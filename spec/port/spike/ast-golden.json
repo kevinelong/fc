@@ -5609,6 +5609,147 @@
       }
     }
   ],
+  "draw_function_wins.fc": [
+    {
+      "body": [
+        {
+          "color": "yellow",
+          "hud": false,
+          "text": {
+            "type": "literal",
+            "value": "THE GAME"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 30
+          },
+          "y": {
+            "type": "literal",
+            "value": 8
+          }
+        },
+        {
+          "color": "white",
+          "hud": false,
+          "text": {
+            "type": "literal",
+            "value": "press A"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 36
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        }
+      ],
+      "name": "title",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "dark blue",
+          "type": "clearscreen"
+        },
+        {
+          "args": {},
+          "hud": false,
+          "shape": "title",
+          "type": "draw"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "draw_missing_sprite.fc": [
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "args": {
+            "spriteNameExpr": {
+              "name": "nosuchthing",
+              "type": "ref"
+            },
+            "x": {
+              "type": "literal",
+              "value": 10
+            },
+            "y": {
+              "type": "literal",
+              "value": 10
+            }
+          },
+          "hud": false,
+          "shape": "sprite",
+          "type": "draw"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "draw_sprite_fallback.fc": [
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "args": {
+            "x": {
+              "type": "literal",
+              "value": 60
+            },
+            "y": {
+              "type": "literal",
+              "value": 60
+            }
+          },
+          "hud": false,
+          "shape": "hero",
+          "type": "draw"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "elseif_in_loop.fc": [
     {
       "target": "result",

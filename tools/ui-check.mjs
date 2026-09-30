@@ -474,6 +474,19 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
       JSON.stringify({ js: [panes.js.run, panes.js.dl], lua: [panes.lua.run, panes.lua.dl], gd: [panes.gdscript.run, panes.gdscript.dl] }));
     await evaluate(cdp, `(function(){ document.getElementById('code-close').click(); return 1; })()`);
 
+    // R2 mirror: `draw title` with `to title` defined translates as a CALL, the same
+    // rule the engine follows (design decisions, Q2)
+    await loadSource('to title' + String.fromCharCode(10) + '  say "hi"' + String.fromCharCode(10) + 'to draw' + String.fromCharCode(10) + '  clear screen to black' + String.fromCharCode(10) + '  draw title' + String.fromCharCode(10) + 'run game with update and draw' + String.fromCharCode(10));
+    const r2 = await evaluate(cdp, `(function(){
+      document.getElementById('tool-code').click();
+      document.querySelector('#code-overlay .code-lang[data-lang="js"]').click();
+      var code = document.getElementById('code-out').textContent;
+      document.getElementById('code-close').click();
+      return { calls: /title\(\)/.test(code), sprite: /draw_sprite/.test(code) };
+    })()`);
+    check('the panel translates `draw title` as a call when that function exists',
+      r2.calls === true && r2.sprite === false, JSON.stringify(r2));
+
     // ---- 15. runtime diagnostics: a bad line is explained, on the line --------
     // fc substitutes a value instead of dying (item past the end -> nothing, a
     // misspelled field -> nothing). The panel should say what it did and where, the

@@ -188,7 +188,10 @@
     }
   },
   "divide_by_zero.fc": {
-    "errors": [],
+    "errors": [
+      "Line 1: can't divide by zero — I used 0",
+      "Line 2: can't divide by zero — I used 0"
+    ],
     "say": [],
     "vars": {
       "m": 0,
@@ -206,6 +209,30 @@
       "shade": "dark gray",
       "sum1": 5,
       "sum2": 24
+    }
+  },
+  "draw_function_wins.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "peers": []
+    }
+  },
+  "draw_missing_sprite.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "peers": []
+    }
+  },
+  "draw_sprite_fallback.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "peers": []
     }
   },
   "elseif_in_loop.fc": {
@@ -577,7 +604,10 @@
     }
   },
   "plus_op_nonnumeric.fc": {
-    "errors": [],
+    "errors": [
+      "Line 1: \"hi\" is text, so I used 0",
+      "Line 1: \"x\" is text, so I used 0"
+    ],
     "say": [],
     "vars": {
       "r": 0

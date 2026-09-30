@@ -3881,11 +3881,27 @@ class Runtime {
           }
         }
         name = name || '';
+        if (name && !SPRITES[name] && !USER_SPRITES[name]) {
+          this.error('no sprite called ' + name + ' — if you meant a function, write ' + name + ' on its own line');
+        }
         drawSprite(name, x, y + bounceY);
         break;
       }
-      default:
+      default: {
+        // `draw title` (the generic-noun form): a function of that name wins (design
+        // decisions, Q2); with no function, a sprite of that name is drawn; with
+        // neither it is a mistake worth naming on the line.
+        const noun = stmt.shape;
+        if (noun && this.funcs[noun]) {
+          if (a.x || a.y) this.error('"' + noun + '" is a function, so draw ignores the position — write ' + noun + ' on its own line to call it');
+          this.callFunc(noun);
+        } else if (noun && (SPRITES[noun] || USER_SPRITES[noun])) {
+          drawSprite(noun, x, y);
+        } else if (noun) {
+          this.error('no sprite called ' + noun + ' — if you meant a function, write ' + noun + ' on its own line');
+        }
         break;
+      }
     }
   }
 

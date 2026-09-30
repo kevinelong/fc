@@ -58,6 +58,9 @@
   "loop_dedupe.fc": [
     "Line 5: hands only has 1 item, but you asked for item 9"
   ],
+  "no_such_sprite.fc": [
+    "Line 5: no sprite called banner — if you meant a function, write banner on its own line"
+  ],
   "text_in_maths.fc": [
     "Line 3: \"abc\" is text, so I used 0"
   ]

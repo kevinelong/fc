@@ -1,0 +1,6 @@
+-- Neither a function nor a sprite, in the generic form: the message names it and
+-- points at the function spelling, because that is the usual mix-up.
+to draw
+  clear screen to black
+  draw banner at 4, 4
+run game with update and draw

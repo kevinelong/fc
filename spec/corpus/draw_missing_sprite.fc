@@ -1,0 +1,6 @@
+-- A name that is neither a function nor a sprite draws nothing, and says so once,
+-- on the line.
+to draw
+  clear screen to black
+  draw sprite nosuchthing at 10, 10
+run game with update and draw

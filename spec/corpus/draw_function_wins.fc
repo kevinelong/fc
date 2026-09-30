@@ -1,0 +1,9 @@
+-- `draw title` where `to title` is defined CALLS the function (design decisions, Q2):
+-- a name the program declares as a function is what the author meant.
+to title
+  write "THE GAME" at 30, 8 in yellow
+  write "press A" at 36, 20 in white
+to draw
+  clear screen to dark blue
+  draw title
+run game with update and draw

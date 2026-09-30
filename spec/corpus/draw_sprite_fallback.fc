@@ -1,0 +1,6 @@
+-- With no function of that name, `draw hero` draws the sprite called hero: the
+-- generic-noun form falls back to the sprite table.
+to draw
+  clear screen to black
+  draw hero at 60, 60
+run game with update and draw
