@@ -1,10 +1,12 @@
 # Classroom mode — signed off, frontend shipped dark
 
-**Status 2026-09-29:** the four privacy decisions were approved as recommended and the
-backend is live-but-dark behind `ENABLE_CLASSROOM`; the **frontend is built** (launcher
-and editor entries, join-by-code, the class shelf, hand-in, teacher create/assign/roster/
-delete) and verified on the real server (`tools/class-e2e.mjs`) and in the browser
-(`tools/ui-check.mjs`). Launching is one env var; nothing appears until then.
+**Status 2026-09-30:** the four privacy decisions were approved as recommended, the
+backend and frontend are built behind `ENABLE_CLASSROOM`, and the whole flow is verified
+on the real server (`tools/class-e2e.mjs` 10/10) and in the browser (`tools/ui-check.mjs`).
+
+**To launch:** set `ENABLE_CLASSROOM=true` in apid's environment and restart it — that
+is the only step; the app probes `/api/class/enabled` and shows nothing until it answers.
+The `/privacy/` page already carries the classroom paragraph.
 
 The unlock for teacher adoption *and* school revenue. The whole gate was a privacy
 decision, so this doc was written to be **approved (or adjusted) in a few minutes** — and

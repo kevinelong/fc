@@ -131,8 +131,13 @@ first; a real curriculum; possibly grants/CSR. **Metric.** schools licensed, sea
 2. **A3 teacher page + first lesson** — unlock the multiplier; it's also the B3
    sales asset.
 3. **A2 landing hook** — lift activation once traffic arrives.
-4. **A3 classroom mode** (privacy unlock) → **B2 Pro** (passive revenue) → **B3
-   school licensing** (the business) — each gated on a decision/account.
+4. **A3 classroom mode** — *built and verified 2026-09-30*; it flips on with one env var
+   (`ENABLE_CLASSROOM`) → **B2 Pro** (passive revenue) → **B3 school licensing** (the
+   business) — the last two gated on an account/decision.
+
+Because a shared game now has a server-rendered page (`/s/<id>`, OG tags for scrapers),
+the Q5 feedback launch can follow classroom going live: posts to Show HN / reddit will
+finally preview with the game's title instead of a bare link.
 
 You can't monetize an audience you don't have, so appeal (A) precedes revenue (B);
 and the same teacher investment (A3) is the on-ramp to the only durable revenue

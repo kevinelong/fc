@@ -8,6 +8,16 @@ touches input, audio, the canvas, or the service worker.
 
 Status legend: ✅ pass · ⚠️ issue (note it) · — not tested.
 
+## Must-do four (any release touching input/audio/canvas/SW)
+
+Decided 2026-09-29 (OPEN-QUESTIONS Q4). The full matrix below is opportunistic; these are
+not: (1) iOS Safari — audio unlocks on the first tap, Add to Home Screen launches offline;
+(2) Android Chrome — the pad moves and fires, multitouch works, no page scroll or tap
+delay; (3) the installed APK runs an example; (4) two-device multiplayer in one game.
+The touch *wiring* is automated (`tools/ui-check.mjs` emulates a touch device: pad
+appears, multitouch reaches the engine, dragging never scrolls); everything else here
+needs real hardware.
+
 ## Devices / browsers to cover
 | Target | Why it matters |
 |---|---|

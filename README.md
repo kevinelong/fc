@@ -87,6 +87,14 @@ and delete) and then proves the feature is invisible with the flag off; it needs
 `cd apid && npm install` first. `tools/ui-check.mjs` covers the same page behaviour
 without the server, stubbed.
 
+`node tools/checks.mjs` runs every harness in one pass and fails if any of them stops
+producing its summary line (a harness that dies silently or runs zero cases is a FAIL,
+not a pass) — it is the guard against the rot that hid a broken `frames-run` for a while.
+
+`tools/core-copy-check.mjs` holds the "one program, three homes" invariant: index.html's
+JS core, `spec/lang/fc-core.mjs` and `fc-core-record.mjs` must have identical code for
+every shared declaration (three presentation differences are listed with reasons).
+
 Sharing has two guards: `tools/share-e2e.mjs` checks the server-rendered `/s/<id>`
 page (OG tags, the code round-trip, a 404 for an unknown id), and `tools/ui-check.mjs`
 checks that the Share button emits it once a game is published.

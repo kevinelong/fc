@@ -5518,7 +5518,7 @@ let debounceTimer = null;
 // every examples/*.fc + the spec corpus. Engine-agnostic (runs before routing),
 // non-blocking — the program still runs. fc is deliberately lenient (unknown
 // verbs no-op), so this is the one place a beginner gets told about a typo.
-const LINT_VERBS = ['draw','write','say','add','remove','increase','decrease','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk','flee','flees','tween','shoot','shoots'];
+const LINT_VERBS = ['draw','write','say','add','remove','increase','decrease','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk','flee','flees','tween','shoot','shoots','sprite','song'];
 function damerau(a, b) {
   const m = a.length, n = b.length;
   const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);

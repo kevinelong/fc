@@ -5,6 +5,66 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-30 (b) — the guards around the guards, and the classroom launch
+
+The audit in (a) found gaps because nothing ran the whole suite in one place. This entry
+is the rest of that list: make the claims checkable, then do the product moves the answers
+unblocked.
+
+**`tools/checks.mjs` — one command, and a liveness guard.** It runs every harness and
+requires each one's *summary line*, with a minimum case count: exit 0 is not enough, so a
+harness that dies silently or runs 0/0 fails. That matters because `frames-run.mjs` had
+been throwing before its first frame (an unbound `mouse` map) while its "12/12" kept being
+repeated, and it also caught `frames-run` printing nothing to stdout — fixed. Checks whose
+prerequisites are missing (the built wasm, Chrome, apid's `node_modules`) SKIP loudly.
+`--full` widens the fuzzer, `--only <name>` runs one, `--list` shows them.
+
+**`tools/core-copy-check.mjs` — the "one program, three homes" invariant.** index.html's JS
+core, `spec/lang/fc-core.mjs` and `fc-core-record.mjs` must have identical code for every
+shared declaration (comments and line endings normalised, `\u2026`-style escapes folded to
+their characters, formatting ignored). It found real drift on its first run: the browser's
+debugger hooks (`_trace`/`_traceLoopFuncs`, `_fmtVal`, `_snapshotVars`) were missing from
+both oracle copies — now mirrored, so the oracle really is the browser's core again. Three
+declarations differ on purpose (the app's colourblind-safe colour remap, and the record
+core's recorder instead of a painter) and are listed with their reasons.
+
+**`tools/api-e2e.mjs` — the live server's other half.** apid's classroom and share pages
+had guards; auth, cloud saves and the gallery were live in production with none. It seeds
+a user + session, starts the real server and pins: a write without `X-CO` is 403, without a
+session is 401, a signed-in save round-trips, publishing returns an id, the gallery lists
+it as mine with the code intact, publishing nothing is 400, deleting removes it, and the
+classroom stays 404 without the flag. 10/10.
+
+**`spec/port/spike/transpile-mirror.mjs` — the panel must say what the engine does.** The
+panel is a second implementation of the language's *rules* and can drift (it did, for
+`draw title`). The one rule it is supposed to mirror is asserted in all four languages; the
+four runtime-only rules (image inference, mode dispatch, the missing-screen placeholder,
+the diagnostics) are recorded with their reasons rather than left as an omission.
+
+**Doc claims about code get a check or a date.** The spike README's "byte-verified equal to
+the browser" now names the check that actually does it; `spec/MODULARIZATION.md`'s
+inventory said 4972 lines and the file is 8584 — re-measured with a date, since the plan is
+still deferred.
+
+**The coverage case found one more real bug.** Teaching the healer that `sprite "x" is
+"<hex>"` is a verb: the safety net was "correcting" it to `write "x" is "<hex>"`, which
+silently destroys a user's sprite art on the default path. `VERBS`/`LINT_VERBS` gained
+`sprite` and `song`, and the drift check that compares the two lists caught the first,
+partial fix immediately.
+
+**Product moves (action 8).** `/privacy/` now describes the classroom mode as it exists
+(what is stored, the 90-day purge, teacher deletion) instead of promising a planned
+feature; `PLAN-classroom.md` states the launch step in one line (`ENABLE_CLASSROOM=true`
+plus a restart); GROWTH-PLAN records that classroom is built and that the Q5 launch can
+follow it — helped by `/s/<id>`, which finally makes a *user* game link preview for
+scrapers; and TEST-MATRIX leads with the must-do four device entries.
+
+Suite: tokenize 2348/2348 · ast 100/100 · exec 78/78 · draw 13/13 · examples 22/22 ·
+dump-vars 22/22 · frames 13/13 · shape-diff 15 cases · smoke 16/16 · mp-smoke 5/5 ·
+fuzz 2000/2000 · err-diff 15 + 126 sweep · transpile 100/100 ×4 · core-copy OK ·
+mirror OK · visual goldens 22/22 · heal 99/99 corpus · class-e2e 10/10 ·
+share-e2e 6/6 · api-e2e 10/10 · ui-check 82/82.
+
 ## 2026-09-30 (a) — the coverage audit, and the ten documented forms the wasm never parsed
 
 Every gap found in the previous sessions was invisible because the test corpus lacked a

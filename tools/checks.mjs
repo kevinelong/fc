@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+// checks.mjs — one command that runs every harness and asserts each one's *summary*.
+//
+// Why: `frames-run.mjs` spent an unknown stretch throwing before its first frame (an
+// unbound `mouse` map) while its "12/12" claim kept being repeated, and the spike's
+// visual-golden still cannot run on a machine without Linux paths. Exit code alone is
+// not a guard — a harness that dies silently, runs zero cases, or stops printing its
+// summary must fail here. Every check therefore needs:
+//   * exit status 0,
+//   * a summary line matching a regex that encodes "N/N passed",
+//   * at least `min` cases in that summary (so 0/0 is not a pass).
+//
+//   node tools/checks.mjs              fast set (fuzz 500)
+//   node tools/checks.mjs --full       fuzz 2000 as well
+//   node tools/checks.mjs --only ast   one check (substring match)
+//   node tools/checks.mjs --list
+//
+// Checks that need something this machine may not have (a built wasm, Chrome, apid's
+// node_modules) SKIP loudly rather than pretending.
+import { spawnSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SPIKE = path.join(ROOT, 'spec', 'port', 'spike');
+const N = '(\\d+)';
+const same = re => new RegExp(re, 'm');
+
+const CHECKS = [
+  // ---- language cores: the same program must behave identically everywhere ----
+  { name: 'tokenize', cwd: SPIKE, run: 'node tokenize-diff.mjs', min: 1000, expect: same(`Lexer differential test: ${N}/${N} lines match, 0 diff`) },
+  { name: 'ast', cwd: SPIKE, run: 'node ast-diff.mjs', min: 40, expect: same(`Parser differential test: (\\d+)/\\1 programs match`) },
+  { name: 'exec', cwd: SPIKE, run: 'node exec-diff.mjs', min: 40, expect: same(`Runtime exec: (\\d+)/\\1 match`) },
+  { name: 'draw', cwd: SPIKE, run: 'node draw-diff.mjs', min: 8, expect: same(`Render cmds: (\\d+)/\\1 match`) },
+  { name: 'examples', cwd: SPIKE, run: 'node examples-diff.mjs', min: 15, expect: same(`(\\d+)/\\1 examples render bit-identical`) },
+  { name: 'dump-vars', cwd: SPIKE, run: 'node dump-vars-diff.mjs', min: 15, expect: same(`(\\d+)/\\1 examples: dump_vars`) },
+  { name: 'frames', cwd: SPIKE, run: 'node frames-run.mjs', min: 5, expect: same(`Frames \\(\\d+ each\\): (\\d+)/\\1 programs match`) },
+  { name: 'smoke', cwd: SPIKE, run: 'node smoke.mjs', min: 8, expect: same(`(\\d+)/\\1 games pass interaction-aware smoke`) },
+  { name: 'mp-smoke', cwd: SPIKE, run: 'node mp-smoke.mjs', min: 3, expect: same(`(\\d+)/\\1 multiplayer games pass`) },
+  { name: 'shape', cwd: SPIKE, run: 'node shape-diff.mjs', min: 0, expect: same(`shape-diff: .*· OK$`) },
+  { name: 'err', cwd: SPIKE, run: 'node err-diff.mjs', min: 0, expect: same(`err-diff: .*· OK$`) },
+  { name: 'transpile', cwd: SPIKE, run: 'node transpile-diff.mjs', min: 40, expect: same(`transpile-diff: OK`) },
+  { name: 'embed', cwd: SPIKE, run: 'node transpile-embed-check.mjs', min: 0, expect: same(`transpile-embed-check: OK`) },
+  { name: 'core-copy', cwd: ROOT, run: 'node tools/core-copy-check.mjs', min: 0, expect: same(`core-copy-check: OK`) },
+  { name: 'mirror', cwd: SPIKE, run: 'node transpile-mirror.mjs', min: 1, expect: same('transpile-mirror: .*· OK$') },
+  { name: 'fuzz', cwd: SPIKE, run: 'node fuzz.mjs 500 1', min: 400, expect: same(`fuzz: (\\d+)/\\1 programs match`) },
+  { name: 'heal', cwd: ROOT, run: 'node spec/heal/eval.mjs', min: 0, expect: same(`Phase 3 floor: .*(valid|matches)`) },
+  // ---- browser and server surfaces ----
+  { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome'], expect: same(`(\\d+)/\\1 visual goldens match`) },
+  { name: 'ui-check', cwd: ROOT, run: 'node tools/ui-check.mjs starfield', min: 60, needs: ['chrome'], expect: same(`(\\d+)/\\1 UI checks pass`) },
+  { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
+  { name: 'share-e2e', cwd: ROOT, run: 'node tools/share-e2e.mjs', min: 4, needs: ['apid'], expect: same(`(\\d+)/\\1 share-page checks pass`) },
+  { name: 'api-e2e', cwd: ROOT, run: 'node tools/api-e2e.mjs', min: 6, needs: ['apid'], expect: same(`(\\d+)/\\1 api checks pass`) },
+];
+
+const argv = process.argv.slice(2);
+const only = argv.includes('--only') ? argv[argv.indexOf('--only') + 1] : null;
+const full = argv.includes('--full');
+if (argv.includes('--list')) { for (const c of CHECKS) console.log(c.name.padEnd(14) + (c.needs || []).join(',')); process.exit(0); }
+
+const have = {
+  chrome: !!(process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(p => fs.existsSync(p))),
+  apid: fs.existsSync(path.join(ROOT, 'apid', 'node_modules')),
+  wasm: fs.existsSync(path.join(SPIKE, 'target', 'wasm32-unknown-unknown', 'release', 'fc_spike.wasm')),
+};
+
+const results = [];
+for (const c of CHECKS) {
+  if (only && !c.name.includes(only)) continue;
+  const missing = (c.needs || []).filter(k => !have[k]);
+  if (missing.length) { results.push({ ...c, status: 'SKIP', why: 'needs ' + missing.join('+') }); continue; }
+  if (!c.needs) c.needs = [];
+  if (['tokenize', 'ast', 'exec', 'draw', 'examples', 'dump-vars', 'frames', 'smoke', 'mp-smoke', 'shape', 'err', 'transpile', 'embed', 'fuzz'].includes(c.name) && !have.wasm) {
+    results.push({ ...c, status: 'SKIP', why: 'needs the built wasm' }); continue;
+  }
+  const cmd = full && c.name === 'fuzz' ? 'node fuzz.mjs 2000 1' : c.run;
+  const started = Date.now();
+  const r = spawnSync(cmd, { cwd: c.cwd, shell: true, encoding: 'utf8' });
+  const out = (r.stdout || '') + (r.stderr || '');
+  const m = out.match(c.expect);
+  const cases = m && m[1] ? Number(m[1]) : null;
+  let status = 'PASS', why = '';
+  if (r.status !== 0) { status = 'FAIL'; why = 'exit ' + r.status; }
+  else if (!m) { status = 'FAIL'; why = 'no summary line — the harness may have gone silent'; }
+  else if (cases !== null && cases < c.min) { status = 'FAIL'; why = `${cases} cases (min ${c.min})`; }
+  results.push({ ...c, status, why, ms: Date.now() - started });
+}
+
+const pad = (s, n) => String(s).padEnd(n);
+console.log('\n' + pad('check', 15) + pad('', 2) + 'detail');
+for (const r of results) {
+  const detail = r.status === 'PASS' ? `${(r.ms / 1000).toFixed(1)}s` : (r.why || '');
+  console.log(pad(r.name, 15) + (r.status === 'PASS' ? 'ok  ' : (r.status === 'SKIP' ? 'skip' : 'FAIL')) + '  ' + detail);
+}
+const pass = results.filter(r => r.status === 'PASS').length;
+const fail = results.filter(r => r.status === 'FAIL').length;
+const skip = results.filter(r => r.status === 'SKIP').length;
+console.log(`\n${pass} passed · ${fail} failed · ${skip} skipped of ${results.length}`);
+process.exit(fail ? 1 : 0);

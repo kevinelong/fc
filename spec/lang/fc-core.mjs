@@ -2523,6 +2523,8 @@ class Runtime {
     this._errSeen = new Set();
     this.stopped = false;
     this.sayBuffer = [];
+    this._trace = null;              // when an array, exec() records a step per statement (debugger)
+    this._traceLoopFuncs = null;     // captured `run game` funcs so the debugger can step one frame w/o RAF
     // don't reset keyState - it's maintained by event listeners
   }
 
@@ -2536,7 +2538,7 @@ class Runtime {
     if (this.errors.length >= 25) {
       if (this._errSeen.has('+cap')) return;
       this._errSeen.add('+cap');
-      this.errors.push('(\u2026and more \u2014 fix these first)');
+      this.errors.push('(…and more \u2014 fix these first)');
       return;
     }
     this.errors.push((n ? `Line ${n}: ` : '') + msg);
@@ -3024,7 +3026,10 @@ class Runtime {
           if (this.vars.world && typeof this.vars.world.width === 'number') {
             this.world = this.vars.world;
           }
-          this.startGameLoop(stmt.funcs);
+          // In a debug trace we must NOT start the live RAF loop — capture the
+          // loop functions so the debugger can step exactly one frame instead.
+          if (this._trace) { this._traceLoopFuncs = stmt.funcs; }
+          else { this.startGameLoop(stmt.funcs); }
           break;
         }
 
@@ -3569,6 +3574,13 @@ class Runtime {
         const stmt = list[i];
         if (stmt && stmt.lineNum) this._line = stmt.lineNum;   // diagnostics point here
 
+        // Debugger trace: record the line about to run + a snapshot of state
+        // (bounded). Skip funcdefs (a `to X` line does nothing visible on its own).
+        // Zero cost unless a debug run set this._trace.
+        if (this._trace && this._trace.length < 6000 && stmt && stmt.lineNum && stmt.type !== 'funcdef') {
+          this._trace.push({ line: stmt.lineNum, vars: this._snapshotVars() });
+        }
+
         if (stmt.type === 'if') {
           lastIfResult = this.isTruthy(this.evalCondition(stmt.condition));
           if (lastIfResult) {
@@ -3601,6 +3613,27 @@ class Runtime {
     smartExecList(stmts);
     // Consume any in-flight return so it doesn't leak to callers of exec
     this._returning = priorReturning;
+  }
+
+  // Compact, display-ready snapshot of variables for the step debugger. Values
+  // are formatted to short strings (not deep-cloned) — cheap and safe per step.
+  _fmtVal(v) {
+    if (v == null) return String(v);
+    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : (Math.round(v * 100) / 100).toString();
+    if (typeof v === 'string') return JSON.stringify(v);
+    if (typeof v === 'boolean') return v ? 'yes' : 'no';
+    if (Array.isArray(v)) return '[' + v.length + (v.length === 1 ? ' item]' : ' items]');
+    if (typeof v === 'object') { try { const s = JSON.stringify(v); return s.length > 64 ? s.slice(0, 63) + '…' : s; } catch (_) { return '{…}'; } }
+    return String(v);
+  }
+  _snapshotVars() {
+    const out = {};
+    for (const k in this.vars) {
+      const v = this.vars[k];
+      if (typeof v === 'function') continue;
+      out[k] = this._fmtVal(v);
+    }
+    return out;
   }
 
   // Cycle `animate X with ...` frames using the global tick.

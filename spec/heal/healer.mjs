@@ -18,7 +18,7 @@
 // still match, so drift is caught rather than shipped.
 
 // VERBS mirrors index.html's LINT_VERBS exactly (drift-checked by eval.mjs).
-export const VERBS = ['draw','write','say','add','remove','increase','decrease','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk', 'flee', 'flees', 'tween', 'shoot', 'shoots'];
+export const VERBS = ['draw','write','say','add','remove','increase','decrease','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk', 'flee', 'flees', 'tween', 'shoot', 'shoots', 'sprite', 'song'];
 
 export const COLORS = ['black','dark blue','dark purple','dark green','brown','dark gray','dark grey','light gray','light grey','white','red','orange','yellow','green','blue','indigo','pink','peach','gray','grey','gold','cyan','magenta','purple','lime','sky','coral'];
 

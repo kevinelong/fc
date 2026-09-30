@@ -35,4 +35,5 @@ for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith('.fc')).sort()){
   if(same) ok++; else bad++;
 }
 out.push(`Frames (${N} each): ${ok}/${ok+bad} programs match`);
+console.log(out[out.length-1]);   // the summary must be visible, not only in the temp file
 fs.writeFileSync(path.join(os.tmpdir(), 'frames-result.txt'), out.join('\n')+'\n');

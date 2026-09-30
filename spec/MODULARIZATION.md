@@ -1,7 +1,9 @@
 # fc — Modularization Plan
 
 **Status:** plan (not yet executed). **Real source:** `/home/kevin/codeonline/index.html`
-(4972 lines; one classic `<script>` at L441–4880, a second tiny `<script>` at L4883–4970
+(4972 lines when this plan was written in 2026-06 — **8584 lines as of 2026-09-30**, so
+re-measure the inventory below before executing any of it; one classic `<script>` at
+L441–4880, a second tiny `<script>` at L4883–4970
 for the service-worker registration). **Goal of this document:** split the monolith into
 small source modules with a clean lang↔platform seam, while keeping the *shipped* artifact a
 single self-contained `index.html` — the file that is served, bundled into the APK, and

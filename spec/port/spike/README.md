@@ -2,7 +2,9 @@
 
 Proves the "one core, web + native" thesis incrementally: each stage ports one
 layer of the real interpreter and **differential-tests it against the JS** (via
-`../../lang/fc-core.mjs`, which is byte-verified equal to the browser) over the
+`../../lang/fc-core.mjs`, whose shared declarations are verified identical to the
+browser's by `tools/core-copy-check.mjs` — three declarations differ on purpose and are
+listed there with their reasons) over the
 corpus + the 9 example games. No layer is trusted until its diff is 0.
 
 ## Build
