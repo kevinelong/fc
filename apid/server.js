@@ -450,6 +450,44 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    // ---- /s/<id>: a shared community game, with OG tags for scrapers --------------
+    // Client ?code= links cannot carry meta for crawlers, so a published game gets a
+    // server-rendered page: tags for the preview, then a redirect into the game.
+    {
+      const sm = p.match(/^\/s\/([a-f0-9]{6,32})\/?$/);
+      if (sm && method === 'GET') {
+        const g = (db.community || []).find(x => x.id === sm[1]);
+        if (!g) return json(res, 404, { error: 'not found' });
+        const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const title = esc(String(g.name || 'A game').slice(0, 60));
+        const desc = 'A game made with plain English in fc — play it free, no install, right in your browser.';
+        const url = ORIGIN + '/s/' + g.id;
+        const img = ORIGIN + '/og-image.png';
+        // the base64 must be percent-encoded or a `+` in it turns into a space
+        const code = encodeURIComponent(Buffer.from(String(g.code || ''), 'utf8').toString('base64'));
+        const html = '<!doctype html>\n<html lang="en"><head>\n<meta charset="utf-8">\n'
+          + '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+          + '<title>' + title + ' — a game made in fc · codeonline.io</title>\n'
+          + '<meta name="description" content="' + esc(desc) + '">\n'
+          + '<link rel="canonical" href="' + url + '">\n'
+          + '<meta property="og:type" content="website">\n<meta property="og:site_name" content="codeonline.io">\n'
+          + '<meta property="og:title" content="' + title + ' — made in fc">\n'
+          + '<meta property="og:description" content="' + esc(desc) + '">\n'
+          + '<meta property="og:url" content="' + url + '">\n'
+          + '<meta property="og:image" content="' + img + '">\n'
+          + '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
+          + '<meta name="twitter:card" content="summary_large_image">\n'
+          + '<meta name="twitter:title" content="' + title + ' — made in fc">\n'
+          + '<meta name="twitter:description" content="' + esc(desc) + '">\n'
+          + '<meta name="twitter:image" content="' + img + '">\n'
+          + '<script>location.replace("/?code=' + code + '");</script>\n'
+          + '</head><body style="background:#0b0b0b;color:#8a7340;font-family:monospace;padding:24px">'
+          + 'Loading ' + title + '… <a style="color:#c8a96e" href="/?code=' + code + '">play it</a></body></html>';
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(html);
+      }
+    }
+
     // ---- Classroom mode (opt-in via ENABLE_CLASSROOM; PII-free: class code + display name) ----
     if (p.startsWith('/api/class')) {
       if (!ENABLE_CLASSROOM) return json(res, 404, { error: 'not found' });

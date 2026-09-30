@@ -628,6 +628,89 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     check('without the flag the classroom stays invisible',
       clsDark.launcher === 'none' && clsDark.editor === 'none', JSON.stringify(clsDark));
 
+    // ---- 17. sharing a published game: the server-rendered /s/<id> link -------
+    // A published game has a real page with OG tags (tools/share-e2e.mjs covers the
+    // server half); the Share button should emit that link instead of a ?code= blob.
+    // publish only exists for a signed-in user, so sign in with a stubbed /api/auth/me
+    const authStub = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+      const orig = window.fetch;
+      window.fetch = function (url, opts) {
+        const u = String(url);
+        if (u === '/api/auth/me') return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ user: { id: 'u1', nickname: 'Tester' } }) });
+        if (u === '/api/auth/config') return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ google: '', github: '' }) });
+        return orig.apply(this, arguments);
+      };
+    })();` });
+    await loadSource('to draw\n  clear screen to black\n  draw rect at 4, 4 size 12, 12 in red\nrun game with update and draw\n');
+    await sleep(300);
+    const signedIn = await evaluate(cdp, `(function(){ return getComputedStyle(document.getElementById('tool-publish')).display !== 'none'; })()`);
+    check('a signed-in user sees the publish button', signedIn === true, 'publish stayed hidden');
+    await evaluate(cdp, `(function(){
+      window.__shared = null; window.__pubCalls = 0;
+      const orig = window.fetch;
+      window.fetch = function (url, opts) {
+        if (String(url).indexOf('/api/games/publish') === 0) { window.__pubCalls++; return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve({ id: 'abc123def4', name: 'Mine' }); } }); }
+        return orig.apply(this, arguments);
+      };
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: function (t) { window.__shared = t; return Promise.resolve(); } } });
+      Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+      window.__realPrompt = window.prompt; window.prompt = function () { return 'Mine'; };
+      return 1;
+    })()`);
+    await evaluate(cdp, `(function(){ var b = document.getElementById('tool-publish'); if (b) b.click(); return 1; })()`);
+    await sleep(500);
+    const pubShare = await evaluate(cdp, `(function(){
+      document.getElementById('tool-share').click();
+      return { calls: window.__pubCalls, link: window.__shared, permalink: (document.getElementById('tool-permalink') || {}).href };
+    })()`);
+    check('publishing remembers the game id', pubShare.calls === 1, JSON.stringify(pubShare));
+    check('Share emits the preview-rich /s/<id> link',
+      !!pubShare.link && /\/s\/abc123def4\/$/.test(pubShare.link), JSON.stringify(pubShare.link));
+    check('the permalink points at the same page',
+      !!pubShare.permalink && /\/s\/abc123def4\/$/.test(pubShare.permalink), JSON.stringify(pubShare.permalink));
+    await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: authStub.identifier });
+
+    // ---- 18. the touch path — Q4's automatable slice --------------------------
+    // Real hardware is still the only way to check audio-unlock/PWA/APK
+    // (docs/TEST-MATRIX.md), but emulated touch proves the wiring: a touch device
+    // gets the pad, its buttons reach the engine, multitouch works, no scrolling.
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await cdp.send('Emulation.setDeviceMetricsOverride', { mobile: true, width: 390, height: 720, deviceScaleFactor: 2 });
+    const touchSrc = 'rights is 0\ntaps is 0\nplayer is {x: 40, y: 40}\nto update\n  tick is 1\nto draw\n  clear screen to black\n  if right is pressed\n    rights is rights + 1\n  if space is pressed\n    taps is taps + 1\n  draw sprite player at player.x, player.y\nrun game with update and draw\n';
+    await loadSource(touchSrc);
+    await evaluate(cdp, `(function(){ document.getElementById('tool-run').click(); })()`);
+    await sleep(800);
+    const tpPad = await evaluate(cdp, `(function(){
+      const p = document.getElementById('gamepad');
+      return { touch: document.body.classList.contains('touch'), shown: getComputedStyle(p).display !== 'none',
+               buttons: p.querySelectorAll('.gp-btn').length };
+    })()`);
+    check('a touch device gets the on-screen pad', tpPad.touch === true && tpPad.shown === true && tpPad.buttons >= 6, JSON.stringify(tpPad));
+
+    const tpPts = await evaluate(cdp, `(function(){
+      const at = (sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
+      return { right: at('#gamepad .gp-btn[data-gp-key="right"]'), space: at('#gamepad .gp-btn[data-gp-key="space"]') };
+    })()`);
+    const touchVars = () => evaluate(cdp, `(function(){ const v = (typeof WASMCORE !== 'undefined' && WASMCORE.active) ? (WASMCORE.vars() || {}) : (runtime.vars || {}); return { rights: v.rights, taps: v.taps }; })()`);
+    const tpBefore = await touchVars();
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tpPts.right.x, y: tpPts.right.y, id: 1 }, { x: tpPts.space.x, y: tpPts.space.y, id: 2 }] });
+    await sleep(500);
+    const tpDuring = await touchVars();
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    check('multitouch: moving and firing at once both reach the engine',
+      (tpDuring.rights || 0) > (tpBefore.rights || 0) && (tpDuring.taps || 0) > (tpBefore.taps || 0),
+      JSON.stringify({ tpBefore, tpDuring }));
+
+    const tpDrag = await evaluate(cdp, `(function(){ const r = document.getElementById('gamepad').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tpDrag.x, y: tpDrag.y, id: 1 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: tpDrag.x, y: tpDrag.y - 140, id: 1 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(150);
+    const tpScrolled = await evaluate(cdp, `window.scrollY || 0`);
+    check('dragging on the pad does not scroll the page', tpScrolled === 0, String(tpScrolled));
+    await cdp.send('Emulation.clearDeviceMetricsOverride');
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

@@ -214,6 +214,10 @@ with dismissal). Buildable-now:
   the clean `/g/<name>/` link when the loaded code is an unmodified built-in demo,
   else the self-contained `?code=` link. Verified: scrapers see per-game OG tags
   (curl), humans land in the right game, share button switches correctly.
-  **Next step (gated, not built):** dynamic cards for *user* `?code=`/gallery games
-  needs a server render path (an apid-served `/s/<id>` that stores the game + serves
-  HTML with OG tags), since client `?code=` can't carry meta for scrapers.
+  **Next step — SHIPPED 2026-09-29:** a published game gets a server-rendered
+  `/s/<id>` page (apid serves the OG/Twitter tags, then redirects a human into the
+  game; the embedded base64 is percent-encoded so a `+` cannot become a space), and the
+  Share button emits that link whenever the editor still holds a published game.
+  Guarded by `tools/share-e2e.mjs` (tags, the code round-trip, the `+` case, a 404) and
+  a `tools/ui-check.mjs` case for the button. Cards for *anonymous* `?code=` links are
+  still out of reach — there is nothing stored to render.

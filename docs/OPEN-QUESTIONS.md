@@ -82,8 +82,10 @@ four, in order:
    (tag or online pong), including after backgrounding.
 
 Everything else — the desktop trio, iPad split-view, the sustained-60fps check — is
-opportunistic. The automatable slice of the touch path (pointer events under
-`hasTouch`) belongs in `tools/ui-check.mjs`; the rest needs real hardware.
+opportunistic. The automatable slice of the touch path is **done** (2026-09-29):
+`tools/ui-check.mjs` emulates a touch device and asserts the pad appears, its buttons
+reach the engine, multitouch (move + fire in one frame) works, and dragging on the pad
+never scrolls. Audio unlock, PWA install, the APK and iPad still need real hardware.
 
 **Answer:** Approved as described above.
 

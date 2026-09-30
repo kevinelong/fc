@@ -6486,7 +6486,8 @@ run game with update and draw`;
   function openGameView() { document.body.classList.remove('home'); }
   function loadAndRun(src, play) { editor.value = src; openGameView(); run(src); setPlaying(!!play); }
   // the classroom module is a separate IIFE but needs these three launcher helpers
-  window.FC_UI = { makeIcon: makeIcon, setGameDesc: setGameDesc, loadAndRun: loadAndRun };
+  window.FC_UI = { makeIcon: makeIcon, setGameDesc: setGameDesc, loadAndRun: loadAndRun, setGallery: function (g) { _currentGallery = g; updatePermalink(); } };
+  let _currentGallery = null;   // {id, name, code} of a published community game — Share then emits /s/<id>
   let _currentDemo = null;   // {file, src} of the last opened built-in demo — lets Share emit the clean /g/<file> link while it's unmodified
   // Show the "↗ page" permalink only while an unmodified built-in demo is open —
   // that's exactly when a clean, preview-rich /g/<file>/ page exists for it.
@@ -6495,6 +6496,9 @@ run game with update and draw`;
     if (!el) return;
     if (_currentDemo && editor.value.trim() === _currentDemo.src.trim()) {
       el.href = '/g/' + _currentDemo.file + '/';
+      el.style.display = '';
+    } else if (_currentGallery && editor.value.trim() === _currentGallery.code.trim()) {
+      el.href = '/s/' + _currentGallery.id + '/';
       el.style.display = '';
     } else { el.style.display = 'none'; }
   }
@@ -6572,7 +6576,9 @@ run game with update and draw`;
       // unmodified built-in demo → the clean, preview-rich /g/<name> link; otherwise the self-contained ?code link
       const url = (_currentDemo && editor.value.trim() === _currentDemo.src.trim())
         ? location.origin + '/g/' + _currentDemo.file + '/'
-        : location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));
+        : (_currentGallery && editor.value.trim() === _currentGallery.code.trim())
+          ? location.origin + '/s/' + _currentGallery.id + '/'   // preview-rich, server-rendered
+          : location.origin + '/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(editor.value))));
       try {
         if (navigator.share && isTouch) { await navigator.share({ title: 'My fc game', url }); return; }
         await navigator.clipboard.writeText(url);
@@ -6702,7 +6708,11 @@ run game with update and draw`;
             del.onclick = (e) => { e.stopPropagation(); if (confirm('Remove “' + g.name + '” from the community?')) fetch('/api/games/community/' + g.id, { method: 'DELETE', headers: { 'X-CO': '1' }, credentials: 'same-origin' }).then(() => renderCommunity()); };
             t.appendChild(del);
           }
-          t.onclick = () => { loadAndRun(g.code, true); setGameDesc({ name: g.name, desc: 'community game by ' + g.author }); };
+          t.onclick = () => {
+            loadAndRun(g.code, true);
+            setGameDesc({ name: g.name, desc: 'community game by ' + g.author });
+            if (window.FC_UI && window.FC_UI.setGallery) window.FC_UI.setGallery({ id: g.id, name: g.name, code: g.code });
+          };
           grid.appendChild(t);
         });
         wrap.appendChild(grid);
@@ -6878,6 +6888,7 @@ run game with update`,
     toast('Publishing…');
     try {
       const r = await fetch('/api/games/publish', { method: 'POST', headers: { 'X-CO': '1', 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ name: name, code: editor.value }) }).then(x => x.json()).catch(() => ({}));
+      if (r && r.id && window.FC_UI && window.FC_UI.setGallery) window.FC_UI.setGallery({ id: r.id, name: r.name || name, code: editor.value });
       if (r && r.id) { toast('Published to the community ✓'); if (window.fcRenderCommunity) window.fcRenderCommunity(); }
       else { toast((r && r.error) || 'Publish failed'); }
     } catch (e) { toast('Publish failed'); }

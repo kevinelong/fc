@@ -208,6 +208,10 @@ the underlying mistake is a naming one — so it gets a message instead: the saf
 should explain that `draw title` is a sprite and that a function is reached by naming it,
 suggesting an underscore (`to draw_title`).
 
+**Shipped 2026-09-29.** `draw <name>` resolves as: a function of that name, then a sprite
+of that name, then a message naming the mistake and pointing at the function spelling
+(`no sprite called banner — if you meant a function, write banner on its own line`).
+
 ### Q2. Default behavior of generic `draw <noun>`
 
 The user has a function `to title` and types `draw title` — should that:
@@ -221,6 +225,9 @@ We default to draw-as-sprite; functions need to be called by name without `draw`
 Deterministic, and it is what people mean — sprite names stay reachable because they
 come from declarations.
 
+**Shipped 2026-09-29** — same resolution as above, in all four runtimes and mirrored by
+the transpiler (the panel shows `title();`).
+
 ### Q3. Automatic image inference from list name
 
 `coins is list of 8 sprites` — currently you must add `{image: "coin"}`. Should the runtime singularize the variable name and use it as the default image?
@@ -228,6 +235,9 @@ come from declarations.
 **Decided: yes, when unambiguous** — and only when the sprite has no explicit `image`.
 `coins` / `trees` / `enemies` infer `coin` / `tree` / `enemy`; an irregular or
 unrecognised plural keeps the placeholder, and any explicit `image` always wins.
+
+**Shipped 2026-09-29.** `coins is list of 4 sprites` fills in `image: "coin"` when the
+singular is a built-in sprite; the engines agree byte for byte (err-diff/exec-diff).
 
 Pro: shorter; matches user intuition.
 Con: magic; breaks if the user uses non-standard plurals or just wants generic placeholder.
@@ -250,6 +260,10 @@ A cleaner pattern would be: `to update X` only runs when `mode is "X"`. But that
 runs *instead of* the bare `update`; the bare `update` keeps its meaning everywhere
 else, so programs with no mode variants — every example today — are untouched.
 
+**Shipped 2026-09-29.** `to update play` defines `update_play`, dispatched while `mode`
+is "play" — the same shape as `to screen X`, so (like `screen`) it takes no parameter.
+Covered by a corpus case and a frame test that flips mode mid-run.
+
 ### Q6. What happens after `go to win` when there's no `screen_win` defined?
 
 Currently nothing; the screen just doesn't render. Should we error? Fall back to a generic "NO SCREEN: win" message?
@@ -257,6 +271,9 @@ Currently nothing; the screen just doesn't render. Should we error? Fall back to
 **Decided: draw the placeholder and say so.** Render "NO SCREEN: win — define `to screen
 win`" on the canvas and push a one-time `Line N:` note through the runtime diagnostics,
 so a missing screen is visible instead of a blank rectangle.
+
+**Shipped 2026-09-29.** The placeholder is drawn and reported once; the notice carries no
+line because the wasm AST has none for a `go to`, and both engines must agree exactly.
 
 ### Q7. Should `clear screen` be implicit at the start of each frame?
 

@@ -87,6 +87,10 @@ and delete) and then proves the feature is invisible with the flag off; it needs
 `cd apid && npm install` first. `tools/ui-check.mjs` covers the same page behaviour
 without the server, stubbed.
 
+Sharing has two guards: `tools/share-e2e.mjs` checks the server-rendered `/s/<id>`
+page (OG tags, the code round-trip, a 404 for an unknown id), and `tools/ui-check.mjs`
+checks that the Share button emits it once a game is published.
+
 Runtime diagnostics have their own guard: `err-diff` pins the messages over
 `spec/port/spike/err-tests/*.fc` and asserts the **shipped wasm core and the JS
 reference report the same words on the same lines** (then sweeps the corpus to

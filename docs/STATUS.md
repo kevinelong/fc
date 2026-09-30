@@ -5,6 +5,49 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (m) — the decided language items, /s/<id> share pages, and the touch slice
+
+All seven design decisions from the answers round are now either shipped or a deliberate
+"no change", and the two buildable items from the growth/device lists shipped too.
+
+**Language, ported to all four runtimes with cases first:**
+
+- **`draw <name>` (R1+R2).** It used to parse as an unknown shape and draw nothing. Now a
+  function of that name is called, else a sprite of that name is drawn, else the line is
+  explained. `draw sprite <name>` with an unknown name says the same.
+- **`coins is list of 4 sprites` (R3)** fills in `image: "coin"` — the singular of the list
+  name, when it is a built-in sprite and the sprite named no image. An explicit image
+  always wins; an unrecognised plural keeps the placeholder.
+- **`to update play` (R5)** defines `update_play`, dispatched instead of the bare `update`
+  while `mode` is "play" — the machinery `to screen X` already used.
+- **`go to win` with no `to screen win` (R6)** draws "NO SCREEN: win" + the fix hint and
+  reports it once, instead of a blank frame.
+
+R4 (built-in sounds) and R7 (implicit `clear screen`) were "no change", so nothing was
+built for them.
+
+**Sharing (`/s/<id>`).** A published game now has a server-rendered page: OG/Twitter tags
+for scrapers, then a redirect into the game, with the base64 percent-encoded (a `+` would
+otherwise become a space and the wrong game loads). The Share button emits that link
+whenever the editor still holds a published game, and the permalink points at it too.
+
+**The touch slice.** Q4's automatable half: under emulated touch the on-screen pad appears
+for a touch device, its buttons reach the engine, multitouch (move + fire in one frame)
+works, and dragging on the pad never scrolls the page. The rest of the device pass still
+needs real hardware.
+
+**Gaps found on the way, all fixed:** the wasm AST emitted `props: {}` where the JS parser
+records `props: null` for a sprite list without properties; the wasm exec JSON hardcoded
+empty errors and missed the multiplayer vars a game loop seeds; and
+`spec/lang/run-node.mjs` seeded Math.random as `(seed>>>0)||1`, putting seed 0 on a
+different stream from the wasm — invisible until a bare `list of N sprites` (random
+placement) entered the corpus. Corpus goldens are reproducible now.
+
+Suite: tokenize 2271/2271 · ast 93/93 · exec 71/71 · draw 13/13 · examples 22/22 ·
+dump-vars 22/22 · frames 13/13 · smoke 16/16 · mp-smoke 5/5 · fuzz 2000/2000 ·
+err-diff 15 pinned + 119 sweep · transpile 93/93 ×4 + embed-check · visual goldens 22/22 ·
+heal 34/34 · class-e2e 10/10 · share-e2e 6/6 · ui-check 82/82.
+
 ## 2026-09-29 (l) — classroom mode: the frontend, verified against the real server
 
 The four classroom decisions were approved as recommended (OPEN-QUESTIONS Q1), which
