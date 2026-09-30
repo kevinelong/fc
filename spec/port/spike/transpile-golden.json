@@ -341,6 +341,12 @@
     "lua": "-- Illustrative Lua translation of your fc program.\n-- Read-only — shows the shape. draw_*/play_sound/etc. are\n-- fantasy-console calls (fc has a built-in game engine).\n\nprint(\"hello\")\nanswer = 42\nprint(\"answer \" .. tostring(answer))\nprint(answer)\n",
     "gdscript": "# Illustrative GDScript translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nprint(\"hello\")\nanswer = 42\nprint(\"answer \" + str(answer))\nprint(answer)\n"
   },
+  "screen_missing.fc": {
+    "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\ngo_to_screen(\"win\")\n\ndef draw():\n    clear_screen(\"black\")\nrun_game(update, draw)\n",
+    "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\ngo_to_screen(\"win\");\n\nfunction draw() {\n  clear_screen(\"black\");\n}\nrun_game(update, draw);\n",
+    "lua": "-- Illustrative Lua translation of your fc program.\n-- Read-only — shows the shape. draw_*/play_sound/etc. are\n-- fantasy-console calls (fc has a built-in game engine).\n\ngo_to_screen(\"win\")\n\nfunction draw()\n  clear_screen(\"black\")\nend\nrun_game(update, draw)\n",
+    "gdscript": "# Illustrative GDScript translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\ngo_to_screen(\"win\")\n\nfunc draw():\n    clear_screen(\"black\")\nrun_game(update, draw)\n"
+  },
   "set_make_noop.fc": {
     "python": "# Illustrative Python translation of your fc program.\n# Read-only — shows the shape. draw_*/play_sound/etc. are\n# fantasy-console calls (fc has a built-in game engine).\n\nx = 1\n# set x to 99  (unknown command — ignored)\n# make a thing  (unknown command — ignored)\nx *= 2\n",
     "js": "// Illustrative JavaScript translation of your fc program.\n// Read-only — shows the shape. draw_*/play_sound/etc. are\n// fantasy-console calls (fc has a built-in game engine).\n\nlet x = 1;\n// set x to 99  (unknown command — ignored)\n// make a thing  (unknown command — ignored)\nx *= 2;\n",

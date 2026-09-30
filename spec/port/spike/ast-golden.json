@@ -20546,6 +20546,30 @@
       "type": "say"
     }
   ],
+  "screen_missing.fc": [
+    {
+      "target": "win",
+      "type": "goto"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "set_make_noop.fc": [
     {
       "target": "x",

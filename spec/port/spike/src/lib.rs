@@ -1521,7 +1521,7 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
     says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween>, talk_handlers: Vec<(String, Option<Box<Stmt>>, Vec<Stmt>)>, choice_labels: Vec<(String, String)>, talk_prev: bool, ui_text: String, ui_box: (f64, f64), ui_labels: Vec<String>, ui_choice_box: (f64, f64),
-    cur_line: u32, errors: Vec<String>, err_seen: BTreeSet<String> }
+    cur_line: u32, errors: Vec<String>, err_seen: BTreeSet<String>, screen_target: Option<String> }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 // A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
@@ -1623,7 +1623,7 @@ impl Rt {
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new() } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new(), screen_target: None } }
 
     // One message per (line, text): a bad `item` inside a loop must not spam the
     // panel every frame. Capped so a broken program cannot flood the host.
@@ -2437,6 +2437,18 @@ impl Rt {
         if let Val::Str(mode) = self.get_var("mode") {
             let sname = alloc::format!("screen_{}", mode);
             if let Some(b) = self.funcs.get(&sname).cloned() { self.exec_block(&b.1); self.returning = false; }
+            else if self.screen_target.as_deref() == Some(mode.as_str()) {
+                // `go to win` with no `to screen win`: say so on the canvas and once in
+                // the diagnostics (design decisions, Q6).
+                // a navigation carries no line of its own, so this notice has none
+                let line_was = self.cur_line; self.cur_line = 0;
+                self.error(&alloc::format!("no screen called {} — add \"to screen {}\"", mode, mode));
+                self.cur_line = line_was;
+                let l1 = alloc::format!("NO SCREEN: {}", mode);
+                let l2 = alloc::format!("define \"to screen {}\"", mode);
+                self.cmds.push(Cmd::Text(l1, 20.0, 58.0, "#ffec27".to_string()));
+                self.cmds.push(Cmd::Text(l2, 12.0, 68.0, "#fff1e8".to_string()));
+            }
         }
 
         // Built-in dialog UI: the engine draws it every frame while the conversation is
@@ -2733,11 +2745,12 @@ impl Rt {
                 if let Some(a) = at { inv.borrow_mut().remove(a); }
             }
             Stmt::Goto(target) => {
+                self.screen_target = Some(target.clone());
                 if let Val::Str(m) = self.get_var("mode") { if !m.is_empty() { self.screen_stack.push(m); } }
                 self.set_var("mode", Val::Str(target.clone()));
                 self.buttons.clear();   // old buttons must not catch stale clicks
             }
-            Stmt::GoBack => { if let Some(m) = self.screen_stack.pop() { self.set_var("mode", Val::Str(m)); self.buttons.clear(); } }
+            Stmt::GoBack => { if let Some(m) = self.screen_stack.pop() { self.set_var("mode", Val::Str(m.clone())); self.screen_target = Some(m); self.buttons.clear(); } }
             // `jump <target> <force>` — upward velocity impulse (pairs with `gravity is N`).
             // Mirrors JS: obj.dy = -force. Without this arm the stmt was a silent no-op,
             // so flappy's flap / pitfall's hop did nothing in the wasm core (gravity-only fall).

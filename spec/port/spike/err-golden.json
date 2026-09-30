@@ -58,6 +58,9 @@
   "loop_dedupe.fc": [
     "Line 5: hands only has 1 item, but you asked for item 9"
   ],
+  "no_screen.fc": [
+    "no screen called win — add \"to screen win\""
+  ],
   "no_such_sprite.fc": [
     "Line 5: no sprite called banner — if you meant a function, write banner on its own line"
   ],

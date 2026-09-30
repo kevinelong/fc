@@ -786,6 +786,17 @@
       "answer": 42
     }
   },
+  "screen_missing.fc": {
+    "errors": [
+      "no screen called win — add \"to screen win\""
+    ],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "mode": "win",
+      "peers": []
+    }
+  },
   "set_make_noop.fc": {
     "errors": [],
     "say": [],

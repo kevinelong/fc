@@ -1,0 +1,5 @@
+-- `go to win` with no `to screen win`: instead of a blank screen, say so (Q6).
+go to win
+to draw
+  clear screen to black
+run game with update and draw

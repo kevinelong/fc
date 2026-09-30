@@ -2476,6 +2476,7 @@ class Runtime {
     this.followTarget = null;
     this.world = { width: 128, height: 128 };
     this._screenStack = [];
+    this._screenTarget = null;
     this.errors = [];
     this._line = 0;        // source line of the statement being executed
     this._errSeen = new Set();
@@ -2516,6 +2517,7 @@ class Runtime {
     this.followTarget = null;
     this.world = { width: 128, height: 128 };
     this._screenStack = [];
+    this._screenTarget = null;
     this.errors = [];
     this._line = 0;
     this._errSeen = new Set();
@@ -3039,6 +3041,7 @@ class Runtime {
           // Navigate to a screen, remember previous for `go back`
           if (this.vars.mode) this._screenStack.push(this.vars.mode);
           this.vars.mode = stmt.target;
+          this._screenTarget = stmt.target;   // marks a NAVIGATION (see the draw dispatch)
           // Clear buttons immediately so old buttons don't catch stale clicks
           this.buttons = [];
           break;
@@ -4160,6 +4163,16 @@ class Runtime {
       const mode = self.vars.mode;
       if (mode && self.funcs['screen_' + mode]) {
         self.callFunc('screen_' + mode);
+      } else if (mode && self._screenTarget === mode) {
+        // `go to win` with no `to screen win`: say so on the canvas, and once in the
+        // diagnostics, instead of rendering nothing (design decisions, Q6).
+        // a navigation has no line of its own in the wasm AST, so this notice carries
+        // no line either — the two engines must say exactly the same thing
+        const lineWas = self._line; self._line = 0;
+        self.error('no screen called ' + mode + ' \u2014 add "to screen ' + mode + '"');
+        self._line = lineWas;
+        drawText('NO SCREEN: ' + mode, 20, 58, '#ffec27');
+        drawText('define "to screen ' + mode + '"', 12, 68, '#fff1e8');
       }
 
       // Timed presentation effects — the page renders these (`FX.flash` paints the
