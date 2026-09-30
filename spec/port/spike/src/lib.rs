@@ -1523,7 +1523,12 @@ impl Rt {
             if bytes[i] == b'{' { if let Some(close) = s[i+1..].find('}') {
                 out.push_str(&s[seg..i]);
                 let inner = &s[i+1..i+1+close];
-                out.push_str(&display(&self.get_var(inner.trim())));
+                // An UNKNOWN variable leaves the literal `{name}` in place — the JS
+                // engine's documented behaviour (spec/SEMANTICS.md, [QUIRK]).
+                match self.get_var(inner.trim()) {
+                    Val::Undef => { out.push('{'); out.push_str(inner); out.push('}'); }
+                    v => out.push_str(&display(&v)),
+                }
                 i += close + 2; seg = i; continue;
             } }
             i += 1;

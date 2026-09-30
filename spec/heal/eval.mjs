@@ -31,6 +31,12 @@ function driftCheck() {
   const cmp = (label, a, b) => { if (diff(a, b).length || diff(b, a).length) problems.push(`${label} drift: only-A=${JSON.stringify(diff(a, b))} only-B=${JSON.stringify(diff(b, a))}`); };
   cmp('VERBS(index LINT_VERBS vs healer)', htmlVerbs, VERBS);
   cmp('COLORS(index vs healer)', htmlColors, COLORS);
+  // the transpiler carries its own palette copy (it is inlined into index.html, so it
+  // cannot import) — keep all three in step
+  const tp = fs.readFileSync(path.join(ROOT, 'spec', 'port', 'spike', 'transpile.mjs'), 'utf8');
+  const tm = tp.match(/const FC_TP_COLORS = new Set\(\[([\s\S]*?)\]\);/);
+  const tpColors = tm ? [...tm[1].matchAll(/'([^']+)'/g)].map(m => m[1]) : [];
+  cmp('COLORS(index vs transpile.mjs)', htmlColors, tpColors);
   cmp('DISPATCH(index FC_DISPATCH vs healer)', inlineArr('FC_DISPATCH'), DISPATCH);
   cmp('STRUCTURAL(index FC_STRUCTURAL vs healer)', inlineArr('FC_STRUCTURAL'), STRUCTURAL);
   cmp('BEHAVIOR(index FC_BEHAVIOR vs healer)', [...(html.match(/FC_BEHAVIOR = new Set\(\[([^\]]*)\]/)?.[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean) || [])], BEHAVIOR_WORDS);

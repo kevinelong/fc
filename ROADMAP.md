@@ -103,10 +103,11 @@ and every claim below is checked. The genuinely-open items are collected at the 
 - **Friendlier debugger** ✅ — 🐞 step gives a per-statement trace with a scrubber
   (step back, not just forward), and the 🔍 live-inspect panel pauses, steps one
   frame, and shows every variable with changed values highlighted.
-- **Multi-target compilation** ⚠️ partial — the **real code** panel transpiles every
-  program to Python and JavaScript, the JS output runs standalone (`▶ run this` /
-  `⬇ download .html`, PLAN-runnable-export), and the gated LLM tier writes fc from
-  English. Lua/LÖVE, Godot and Unity targets are NOT implemented.
+- **Multi-target compilation** ✅ for the languages a kid meets next — the **real code**
+  panel transpiles every program to Python, JavaScript, **Lua** and **GDScript**
+  (LÖVE2D/PICO-8/Roblox and Godot), and the JS output runs standalone (`▶ run this` /
+  `⬇ download .html`, PLAN-runnable-export); the gated LLM tier writes fc from English.
+  Python/Lua/GDScript are read-only mirrors. A **Unity/C#** target is NOT implemented.
 - **Particle / effect verbs** ✅ — `burst N sparks at X, Y [in color]`,
   `emit [N] sparks [rising|falling] at X, Y | from SPRITE [in color] [for N
   [seconds|frames]]` (both 2026-09-29 for emit), and `flash screen` /

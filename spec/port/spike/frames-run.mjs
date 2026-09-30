@@ -15,7 +15,7 @@ function loadKeys(f){ const p=path.join(DIR,f.replace(/\.fc$/,'.keys')); const m
 const mulberry32 = a => () => { a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };
 let ok=0,bad=0;
 for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith('.fc')).sort()){
-  const src=fs.readFileSync(path.join(DIR,f),'utf8'); const keys=loadKeys(f);
+  const src=fs.readFileSync(path.join(DIR,f),'utf8'); const keys=loadKeys(f), mouse=loadMouse(f);
   Math.random = mulberry32(0);
   __CMDS.length=0; const rt=new Runtime(); rt.reset(); __bindRT(rt); rt.exec(parse(src));
   const jf=[__CMDS.map(norm)];
@@ -23,7 +23,13 @@ for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith('.fc')).sort()){
   const w = (await WebAssembly.instantiate(fs.readFileSync('target/wasm32-unknown-unknown/release/fc_spike.wasm'),{})).instance.exports;
   const b=enc.encode(src); new Uint8Array(w.memory.buffer,w.src_ptr(),b.length).set(b);
   let n=w.parse_render(b.length,0); const wf=[JSON.parse(dec.decode(new Uint8Array(w.memory.buffer,w.res_ptr(),n)))];
-  for(let i=1;i<N;i++){ for(const [c,o] of (keys[i]||[])) w.set_key(c,o); n=w.step_frame(); wf.push(JSON.parse(dec.decode(new Uint8Array(w.memory.buffer,w.res_ptr(),n)))); }
+  for(let i=1;i<N;i++){ for(const [c,o] of (keys[i]||[])) w.set_key(c,o);
+    // the JS side gets a one-shot click per `mouse[i]` entry; mirror it into the
+    // wasm (down before the step, up after — the smoke harness pattern)
+    for(const [mx,my] of (mouse[i]||[])) w.set_mouse(Math.round(mx),Math.round(my),1);
+    n=w.step_frame();
+    for(const [mx,my] of (mouse[i]||[])) w.set_mouse(Math.round(mx),Math.round(my),0);
+    wf.push(JSON.parse(dec.decode(new Uint8Array(w.memory.buffer,w.res_ptr(),n)))); }
   const wn=wf.map(fr=>fr.map(norm)); let same=true;
   for(let i=0;i<N;i++) if(JSON.stringify(jf[i])!==JSON.stringify(wn[i])){ same=false; out.push(`DIFF ${f} frame ${i+1}`); out.push('  js:   '+jf[i].join(' ')); out.push('  wasm: '+wn[i].join(' ')); break; }
   if(same) ok++; else bad++;

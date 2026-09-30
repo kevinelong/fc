@@ -45,8 +45,8 @@ frame animation · particles · an optional match timer · **real-time multiplay
 (16 example games, five of them multiplayer) · cloud saves + a community gallery
 (optional sign-in) · a syntax-highlighting editor, a live variable inspector, and a
 **step-through debugger** · a **"see it in real code"** view that mirrors your
-program as Python or JavaScript — and **exports a runnable, standalone `.html`**
-of the JS version · **accessibility** settings (colorblind-safe palette, reduced
+program in Python, JavaScript, Lua or GDScript — and **exports a runnable,
+standalone `.html`** of the JS version · **accessibility** settings (colorblind-safe palette, reduced
 motion, high-contrast + larger text).
 
 ## Run it
@@ -78,10 +78,13 @@ fuzz, smoke, mp-smoke, visual-golden). **Every language change must keep them gr
 across all engines** (the JS reference in `index.html`, the two JS oracles, and the
 Rust/WASM core) — that discipline is how the port stays trustworthy.
 
-The **fc→Python/JS transpiler** (`transpile.mjs`, powering the "see it in real code"
-view) has the same discipline: `transpile-diff` pins its output over the corpus +
-examples, and `transpile-embed-check` asserts the copy inlined in `index.html` stays
-byte-identical to the module. Re-pin an intentional change with `node dump-transpile.mjs`.
+The **fc→Python/JS/Lua/GDScript transpiler** (`transpile.mjs`, powering the "see it in
+real code" view) has the same discipline: `transpile-diff` pins its output over the
+corpus + examples in all four languages, and `transpile-embed-check` asserts the copy
+inlined in `index.html` stays byte-identical to the module. Re-pin an intentional
+change with `node dump-transpile.mjs`. Only the JavaScript target is *runnable* (the
+app ships a small runtime shim for it, plus `▶ run this` / `⬇ download .html`); Python,
+Lua and GDScript are read-only mirrors, like the panel's own caption says.
 
 **visual-golden** adds a *pixel*-level guard. `examples-diff` proves the engines
 *agree* on draw ops; `visual-golden` pins the actual rendered 128×128 pixels

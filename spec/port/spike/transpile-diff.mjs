@@ -38,7 +38,7 @@ for (const name of [...names].sort()) {
   checked++;
   if (!g) { console.log(`+ NEW ${name} (not in golden)`); mismatches++; continue; }
   if (!f) { console.log(`- MISSING ${name} (in golden, not produced now)`); mismatches++; continue; }
-  for (const lang of ['python', 'js']) {
+  for (const lang of ['python', 'js', 'lua', 'gdscript']) {
     if ((g[lang] || '') !== (f[lang] || '')) {
       console.log(`✗ ${name} [${lang}]`);
       console.log(firstDiffLine(g[lang], f[lang]));
@@ -48,7 +48,7 @@ for (const name of [...names].sort()) {
 }
 
 if (mismatches === 0) {
-  console.log(`transpile-diff: OK — ${checked} programs, python+js identical to golden.`);
+  console.log(`transpile-diff: OK — ${checked} programs, all four languages identical to golden.`);
   process.exit(0);
 }
 console.log(`\ntranspile-diff: ${mismatches} mismatch(es). If intentional, run: node dump-transpile.mjs`);

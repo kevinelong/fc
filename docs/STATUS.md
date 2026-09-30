@@ -5,6 +5,58 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (j) — real-code panel: Lua + GDScript, and a colour bug the panel exposed
+
+The "see it in real code" view — and `transpile.mjs`, its source of truth — now emits
+**four** languages: Python, JavaScript, **Lua** and **GDScript**, the two a kid meets
+next (LÖVE2D / PICO-8 / Roblox, and Godot). Four tabs, each with its own accent;
+`▶ run this` / `⬇ download` stay JavaScript-only, the one a browser can actually run.
+
+**Refactor.** The second language used to be an `if (lang === …)` inside every fifth
+line. A dialect is now a table of formatters + helpers (`fcTpDialect`), so a language
+difference lives in one place and a new target is a table, not a fork. Python and JS
+output stayed byte-identical to the pinned golden through the whole refactor (0
+mismatches over 85 programs × 2 languages, re-checked after every batch).
+
+**Two real bugs fell out of writing the Lua/GDScript tables — both present in *all*
+four languages:**
+
+- a **colour word** was emitted as a bare identifier: `shade is dark green` became
+  `shade = dark green` (invalid everywhere). A multi-word name is never an identifier,
+  and a bare word the program never declares is an fc colour name (fc's own ref
+  semantics: variable first, then the palette), so both now emit a string literal.
+- the reverse: a colour **variable** was emitted as a quoted name — `in shade` became
+  `in "shade"`. A word naming a declared variable now passes the variable, so dynamic
+  colours survive the translation.
+
+**Guards.** `transpile-diff` diffs all four languages over corpus + examples (85/85);
+`transpile-embed-check` still holds the inlined copy byte-identical;
+`tools/ui-check.mjs` grew a final section (58/58) that clicks every tab and asserts the
+output really has that language's shape (`def …:` / `function … {` / `… then … end` /
+`func …:`) and that the four are distinct; `spec/heal/eval.mjs` now drift-checks the
+transpiler's palette copy against the app's `COLORS`.
+
+**Two harness repairs came out of running the battery:**
+
+- `frames-run.mjs` never bound the `mouse` map added last session — the harness threw
+  before its first frame, so every "frames" claim since then was unverified. It also
+  never forwarded clicks to the wasm (only the JS side got them), which is why
+  `f_talk`'s choice pick looked broken. Both fixed: **frames 12/12**, and the wasm's
+  `set_mouse` now receives the same one-shot clicks the JS side does. The choice-pick
+  parity bug was a harness gap, not an engine bug.
+- the wasm core substituted an **unknown** `{var}` with an empty string, while the JS
+  reference — and `spec/SEMANTICS.md` (interpolate, [QUIRK]) — leaves the literal
+  `{name}` in place. Rust `interpolate` now matches the documented behaviour; wasm
+  rebuilt and re-inlined (285 KB → base64 in `index.html`).
+
+**Suite after:** tokenize 2200/2200 · ast 85/85 · exec 63/63 · draw 12/12 · examples
+22/22 · dump-vars 22/22 · transpile 85/85 ×4 languages + embed-check · smoke 16/16 ·
+frames 12/12 · mp-smoke 5/5 · fuzz 2000/2000 (seed 1) · visual goldens 22/22 ·
+heal 34/34 · ui-check 58/58.
+
+Roadmap status: **multi-target compilation** moves to ✅ for the panel's part (Python,
+JS, Lua, GDScript); a Unity/C# target is the remaining one.
+
 ## 2026-09-29 (i) — true subpixel rendering (opt-in), measured verdict
 
 The roadmap's last unbuilt feature. **Opt-in** via ⚙ → "True subpixel (RGB stripes)"

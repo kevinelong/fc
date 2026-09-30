@@ -35,7 +35,8 @@ export function buildGolden() {
     let program;
     try { program = parse(src); }
     catch (e) { golden[name] = { error: String(e && e.message || e) }; continue; }
-    golden[name] = { python: transpile(program, 'python'), js: transpile(program, 'js') };
+    golden[name] = { python: transpile(program, 'python'), js: transpile(program, 'js'),
+                      lua: transpile(program, 'lua'), gdscript: transpile(program, 'gdscript') };
   }
   return golden;
 }

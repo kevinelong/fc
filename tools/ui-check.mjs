@@ -432,6 +432,48 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await evaluate(cdp, `(function(){ window.STORE ? window.STORE.set('a11y:subpixel', false) : localStorage.removeItem('fc:save:a11y:subpixel'); return 1; })()`);
     await evaluate(cdp, `a11yApply()`);
     await evaluate(cdp, `(function(){ var c = document.getElementById('settings-close'); if (c) c.click(); return 1; })()`);
+    // ---- 14. the real-code panel offers four languages, each truly different --
+    // The panel is the "see it in a language professionals use" mirror; Lua and
+    // GDScript (LÖVE2D/PICO-8 and Godot) are the ones kids meet next.
+    await loadSource(src);
+    const offered = await evaluate(cdp, `(function(){
+      document.getElementById('tool-code').click();
+      return Array.prototype.map.call(document.querySelectorAll('#code-overlay .code-lang'),
+        function(b){ return b.getAttribute('data-lang'); });
+    })()`);
+    check('the code panel offers python, js, lua and gdscript',
+      ['python','js','lua','gdscript'].every(l => offered.indexOf(l) !== -1), JSON.stringify(offered));
+
+    const panes = {};
+    for (const lang of ['python','js','lua','gdscript']) {
+      const r = await evaluate(cdp, `(function(){
+        var b = document.querySelector('#code-overlay .code-lang[data-lang="${lang}"]');
+        b.click();
+        var run = document.getElementById('code-run'), dl = document.getElementById('code-download');
+        return { code: document.getElementById('code-out').textContent,
+                 run: run ? run.style.display !== 'none' : false,
+                 dl: dl ? dl.style.display !== 'none' : false };
+      })()`);
+      panes[lang] = r;
+      check(`${lang}: the panel renders that language`, !!r.code && r.code.length > 40, r.code.slice(0, 60));
+    }
+    const SHAPE = {
+      python:   [/^# /m, /\bdef \w+\([^)]*\):/, /\bfor \w+ in range\(/],
+      js:       [/^(let|const) /m, /\bfunction \w+\([^)]*\) \{/, /\bMath\.random\(/],
+      lua:      [/^-- /m, /\bfunction \w+\([^)]*\)/, /\bthen\b/, /\bend\b/, /\bmath\.random\(/],
+      gdscript: [/^# /m, /\bfunc \w+\([^)]*\):/, /\brandi_range\(/],
+    };
+    for (const lang of Object.keys(SHAPE)) {
+      const miss = SHAPE[lang].filter(re => !re.test(panes[lang].code));
+      check(`${lang}: output has ${lang}'s shape`, miss.length === 0, miss.map(String).join(' '));
+    }
+    const codes = ['python','js','lua','gdscript'].map(l => panes[l].code);
+    check('the four languages really differ', new Set(codes).size === 4, `distinct=${new Set(codes).size}`);
+    check('run/download appear only for the runnable JS port',
+      panes.js.run && panes.js.dl && !panes.python.run && !panes.lua.run && !panes.gdscript.run,
+      JSON.stringify({ js: [panes.js.run, panes.js.dl], lua: [panes.lua.run, panes.lua.dl], gd: [panes.gdscript.run, panes.gdscript.dl] }));
+    await evaluate(cdp, `(function(){ document.getElementById('code-close').click(); return 1; })()`);
+
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {
