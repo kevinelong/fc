@@ -638,6 +638,17 @@
       "score": 4
     }
   },
+  "mode_update.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "mode": "play",
+      "otherTicks": 0,
+      "peers": [],
+      "playTicks": 1
+    }
+  },
   "not_and_condition.fc": {
     "errors": [],
     "say": [],

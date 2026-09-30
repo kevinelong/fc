@@ -447,6 +447,10 @@ fn parse_line(ts: &[Tok]) -> Stmt {
             let params: Vec<String> = ts[3..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with" && t.sval()!="in").map(|t| t.sval().to_string()).collect();
             return Stmt::FuncDef(format!("screen_{}", ts[2].sval().to_lowercase()), params, Vec::new());
         }
+        // `to update X` -> `update_X`, dispatched while mode is X (design decisions, Q5)
+        if ts.len()>=3 && ts[1].is_word("update") {
+            return Stmt::FuncDef(alloc::format!("update_{}", ts[2].sval().to_lowercase()), Vec::new(), Vec::new());
+        }
         let params: Vec<String> = ts[2..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with" && t.sval()!="in").map(|t| t.sval().to_string()).collect();
         return Stmt::FuncDef(ts[1].sval().to_string(), params, Vec::new());
     }
@@ -2094,7 +2098,12 @@ impl Rt {
             Val::Obj(ref o) => match (Self::obj_num(o, "x"), Self::obj_num(o, "y")) { (Some(x), Some(y)) => Some((x, y)), _ => None },
             _ => None,
         };
-        if let Some(f0) = fs.get(0) { if let Some(b) = self.funcs.get(f0).cloned() { self.exec_block(&b.1); self.returning = false; } }
+        if let Some(f0) = fs.get(0) {
+            // `to update <mode>` replaces the bare update while `mode` matches (Q5)
+            let mode_fn = match self.get_var("mode") { Val::Str(m) if !m.is_empty() => Some(alloc::format!("update_{}", m)), _ => None };
+            let target = match mode_fn { Some(n) if self.funcs.contains_key(&n) => n, _ => f0.clone() };
+            if let Some(b) = self.funcs.get(&target).cloned() { self.exec_block(&b.1); self.returning = false; }
+        }
         // autowalk: any sprite with walking:true advances by dx,dy * speed
         let gspeed = match self.get_var("speed") { Val::Num(n)=>n, _=>1.0 };
         if let Val::Obj(p) = self.get_var("player") {

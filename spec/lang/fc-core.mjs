@@ -923,6 +923,11 @@ function parse(source) {
       if (raw.length >= 3 && tv(raw[1]) === 'screen') {
         return { type: 'funcdef', name: 'screen_' + raw[2].value, params: [], body: [], lineNum };
       }
+      // "to update X" -> function named "update_<X>", dispatched while mode is X
+      // (design decisions, Q5). Same shape as `screen`: neither takes a parameter.
+      if (raw.length >= 3 && tv(raw[1]) === 'update') {
+        return { type: 'funcdef', name: 'update_' + raw[2].value, params: [], body: [], lineNum };
+      }
       const name = raw[1] ? raw[1].value : 'unknown';
       const params = [];
       for (let i = 2; i < raw.length; i++) {
@@ -4085,7 +4090,14 @@ class Runtime {
       }
 
       // Run update function first (movement, input)
-      if (funcNames.length > 0) self.callFunc(funcNames[0]);
+      if (funcNames.length > 0) {
+        // `to update <mode>` replaces the bare update while `mode` is that mode; the
+        // bare update keeps its meaning for every other mode (design decisions, Q5).
+        const modeNow = self.vars.mode;
+        const modeFn = (typeof modeNow === 'string' && modeNow) ? ('update_' + modeNow) : '';
+        if (modeFn && self.funcs[modeFn]) self.callFunc(modeFn);
+        else self.callFunc(funcNames[0]);
+      }
 
       // Auto-move any sprite with walking: yes (player + future NPCs)
       // Walks until: solid collision, world edge, or stop_walking

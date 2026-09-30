@@ -1,0 +1,15 @@
+-- Which update runs follows `mode`: playTicks while mode is "play", otherTicks once
+-- the space key flips it (frame 2). Six frames of draw ops must agree across engines.
+mode is "play"
+playTicks is 0
+otherTicks is 0
+when "space" is pressed
+  mode is "over"
+to update play
+  playTicks is playTicks + 1
+to update
+  otherTicks is otherTicks + 1
+to draw
+  clear screen to black
+  write "{playTicks}-{otherTicks}" at 2, 2 in white on hud
+run game with update and draw

@@ -1,0 +1,13 @@
+-- `to update play` runs only while mode is "play"; the bare `to update` runs
+-- otherwise (design decisions, Q5).
+mode is "play"
+playTicks is 0
+otherTicks is 0
+to update play
+  playTicks is playTicks + 1
+to update
+  otherTicks is otherTicks + 1
+to draw
+  clear screen to black
+  write "play {playTicks} other {otherTicks}" at 2, 2 in white on hud
+run game with update and draw

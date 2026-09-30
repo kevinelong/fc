@@ -14940,6 +14940,113 @@
       }
     }
   ],
+  "mode_update.fc": [
+    {
+      "target": "mode",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "play"
+      }
+    },
+    {
+      "target": "playTicks",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "otherTicks",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "playTicks",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "playTicks",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "name": "update_play",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "target": "otherTicks",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "otherTicks",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "color": "white",
+          "hud": true,
+          "text": {
+            "type": "literal",
+            "value": "play {playTicks} other {otherTicks}"
+          },
+          "type": "write",
+          "x": {
+            "type": "literal",
+            "value": 2
+          },
+          "y": {
+            "type": "literal",
+            "value": 2
+          }
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "mp-dots.fc": [
     {
       "game": "dots",
