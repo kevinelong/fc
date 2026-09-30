@@ -214,6 +214,12 @@ enum Stmt {
     MoveArrows(String, Option<Expr>), MoveBy(String, Expr, Expr, Option<String>),
     PlaySound(String, String), StopSound, Button(String, Expr, Expr), Return(Option<Expr>), Stop,
     Jump(String, f64), Broadcast(Expr), NetJoin(String, String), DefSfx(String, SfxRecipe),
+    DefSprite(String, String), DefSong(String, f64, Vec<String>),
+    Chain(Vec<Stmt>), Probability(f64, Box<Stmt>), RestorePos(String),
+    Walk(String, String), Face(String, String), WalkToward(String, String), FaceToward(String, String),
+    StopWalking(String), ClearVar(String),
+    WhenKeyIn(Vec<String>, Option<Box<Stmt>>, Vec<Stmt>),
+    WhenGeneric(Vec<(String, String)>, Vec<Stmt>),
     Meter(Expr, Expr, Expr, Expr, Expr, Expr, String),
     Damage(String, Expr), Heal(String, Expr), Knock(String, String, Expr),
     Save(Expr, Expr), TileDef(String, Expr), MapDef(Vec<String>), DrawMap,
@@ -442,6 +448,14 @@ fn call_arg_exprs(a: &[Tok]) -> Vec<Expr> {
 fn parse_line(ts: &[Tok]) -> Stmt {
     if ts.is_empty() { return Stmt::Call(String::new(), Vec::new(), Vec::new()); }
     let first = ts[0].sval();
+    // `halve score and halve score` — two statements on one line
+    {
+        let and_parts = split_on_and(ts);
+        if and_parts.len() > 1 {
+            let parts: Vec<Stmt> = and_parts.iter().map(|p| parse_line(p)).collect();
+            return Stmt::Chain(parts);
+        }
+    }
     if first=="to" && ts.len()>=2 {
         if ts.len()>=3 && ts[1].is_word("screen") {
             let params: Vec<String> = ts[3..].iter().filter(|t| t.t==3 && t.sval()!="at" && t.sval()!="with" && t.sval()!="in").map(|t| t.sval().to_string()).collect();
@@ -525,6 +539,24 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="double" && ts.len()>=2 { return Stmt::Simple("double", join_dot(&ts[1..])); }
     if first=="halve" && ts.len()>=2 { return Stmt::Simple("halve", join_dot(&ts[1..])); }
     if first=="toggle" && ts.len()>=2 { return Stmt::Simple("toggle", join_dot(&ts[1..])); }
+    if first=="restore" && ts.len()>=2 { return Stmt::RestorePos(ts[1].sval().to_string()); }
+    if first=="forever" && ts.len()==1 { return Stmt::Forever(Vec::new()); }
+    if first=="clear" && ts.len()>=2 && !ts[1].is_word("screen") { return Stmt::ClearVar(tokens_to_ref(&ts[1..])); }
+    if first=="stop" && ts.len()>=3 && ts[1].is_word("walking") { return Stmt::StopWalking(ts[2].sval().to_string()); }
+    if (first=="walk" || first=="face") && ts.len()>=3 {
+        let target = ts[1].sval().to_string();
+        if ts[2].is_word("toward") && ts.len()>=4 {
+            let toward = ts[3].sval().to_string();
+            return if first=="walk" { Stmt::WalkToward(target, toward) } else { Stmt::FaceToward(target, toward) };
+        }
+        let dir = ts[2].sval().to_string();
+        return if first=="walk" { Stmt::Walk(target, dir) } else { Stmt::Face(target, dir) };
+    }
+    if let Some((prob, used)) = probability_phrase(ts) {
+        let rest = &ts[used..];
+        let stmt = if rest.is_empty() { Stmt::Call(String::new(), Vec::new(), Vec::new()) } else { parse_line(rest) };
+        return Stmt::Probability(prob, Box::new(stmt));
+    }
     if first=="clear" && ts.len()>=2 && ts[1].is_word("screen") {
         let color = if let Some(k)=find_word(ts,"to") { word_join(&ts[k+1..]) } else { String::new() };
         return Stmt::ClearScreen(color);
@@ -761,6 +793,17 @@ fn parse_line(ts: &[Tok]) -> Stmt {
         return Stmt::Assign(name.clone(), Expr::Math("-".to_string(), Box::new(Expr::Lit(LitVal::Num(0.0))), Box::new(Expr::Ref(name))));
     }
     if let Some(k)=find_word(ts,"are") { return Stmt::Tag(tokens_to_ref(&ts[..k]), word_join(&ts[k+1..]).to_lowercase()); }
+    // sprite "name" is "<64 hex>" / song "name" is N — the JS parser's def_sprite and
+    // def_song: they register art and music, they never create a variable.
+    if ts[0].is_word("sprite") && ts.get(1).map_or(false, |t| t.t == 1) {
+        let hex = ts.iter().skip(2).find(|t| t.t == 1).map(|t| t.sval().to_lowercase()).unwrap_or_default();
+        return Stmt::DefSprite(ts[1].sval().to_string(), hex);
+    }
+    if ts[0].is_word("song") && ts.get(1).map_or(false, |t| t.t == 1) {
+        let tempo = ts.iter().find(|t| t.t == 2).map(|t| t.sval().parse::<f64>().unwrap_or(120.0)).unwrap_or(120.0);
+        let rows: Vec<String> = ts.iter().skip(2).filter(|t| t.t == 1).map(|t| t.sval().to_string()).collect();
+        return Stmt::DefSong(ts[1].sval().to_string(), tempo, rows);
+    }
     if let Some(k)=find_word(ts,"is") { return Stmt::Assign(tokens_to_ref(&ts[..k]), parse_expr(&ts[k+1..])); }
     call_fallback(ts)
 }
@@ -800,13 +843,29 @@ fn parse_when(ts: &[Tok]) -> Stmt {
         return Stmt::WhenMouse(event, then, Vec::new());
     }
     if has("button") && has("clicked") { return Stmt::WhenButton(first_str(), inline_after("clicked"), Vec::new()); }
-    if has("pressed") { return Stmt::WhenKey(first_str(), inline_after("pressed"), Vec::new()); }
-    call_fallback(ts)
+    // the JS is strict about the shape: `when "x" is pressed` or `when key "x" is
+    // pressed`; anything else containing "pressed" is an unrecognised `when`
+    let key_form = (ts.len() >= 4 && ts.get(1).map_or(false, |t| t.t == 1) && ts[2].is_word("is") && ts[3].is_word("pressed"))
+        || (ts.len() >= 5 && ts[1].is_word("key") && ts.get(2).map_or(false, |t| t.t == 1));
+    if key_form { return Stmt::WhenKey(first_str(), inline_after("pressed"), Vec::new()); }
+    // when key is in ["a", "b"] — the JS when_key_in (fires on the key's rising edge)
+    if ts.len() >= 4 && ts[1].is_word("key") && ts[2].is_word("is") {
+        let mut keys: Vec<String> = Vec::new();
+        for t in &ts[3..] { if t.t == 1 { keys.push(t.sval().to_string()); } }
+        return Stmt::WhenKeyIn(keys, None, Vec::new());
+    }
+    // anything else the port does not model: the JS keeps such a `when` as an inert
+    // bucket rather than a call, so mirror that
+    {
+        let toks: Vec<(String, String)> = ts[1..].iter().map(|t| (if t.t == 1 { "string".to_string() } else { "word".to_string() }, t.sval().to_string())).collect();
+        Stmt::WhenGeneric(toks, Vec::new())
+    }
 }
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
     match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
         |Stmt::Forever(b)|Stmt::With(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
+        |Stmt::WhenKeyIn(_,_,b)|Stmt::WhenGeneric(_,b)
         |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::WhenTalk(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
 struct Line { indent: u32, toks: Vec<Tok>, num: u32 }
@@ -951,6 +1010,27 @@ fn emit_stmts(v: &[Stmt], out: &mut String) {
 fn emit_stmt(s: &Stmt, out: &mut String) {
     match s {
         Stmt::Assign(t,v)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"assign\",\"value\":"); emit_expr(v,out); out.push('}'); }
+        Stmt::RestorePos(t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"restore\"}"); }
+        Stmt::Chain(parts)=>{ out.push_str("{\"parts\":["); for (i,x) in parts.iter().enumerate() { if i>0 {out.push(',');} emit_stmt(x,out); } out.push_str("],\"type\":\"chain\"}"); }
+        Stmt::Probability(pr,st)=>{ out.push_str("{\"prob\":"); json_num(*pr,out); out.push_str(",\"stmt\":"); emit_stmt(st,out); out.push_str(",\"type\":\"probability\"}"); }
+        Stmt::Walk(t,d)=>{ out.push_str("{\"direction\":"); json_str(d,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"walk\"}"); }
+        Stmt::Face(t,d)=>{ out.push_str("{\"direction\":"); json_str(d,out); out.push_str(",\"target\":"); json_str(t,out); out.push_str(",\"type\":\"face\"}"); }
+        Stmt::WalkToward(t,w)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"towardName\":"); json_str(w,out); out.push_str(",\"type\":\"walk_toward\"}"); }
+        Stmt::FaceToward(t,w)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"towardName\":"); json_str(w,out); out.push_str(",\"type\":\"face_toward\"}"); }
+        Stmt::StopWalking(t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"stop_walking\"}"); }
+        Stmt::ClearVar(t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"clear\"}"); }
+        Stmt::WhenKeyIn(keys,then,body)=>{
+            out.push_str("{\"body\":["); for (i,x) in body.iter().enumerate() { if i>0 {out.push(',');} emit_stmt(x,out); } out.push_str("],\"keys\":[");
+            for (i,k) in keys.iter().enumerate() { if i>0 {out.push(',');} json_str(k,out); }
+            out.push_str("],\"thenStmt\":"); match then { Some(t)=>{ emit_stmt(t,out); } None=>out.push_str("null") }
+            out.push_str(",\"type\":\"when_key_in\"}"); }
+        Stmt::WhenGeneric(toks,body)=>{
+            out.push_str("{\"body\":["); for (i,x) in body.iter().enumerate() { if i>0 {out.push(',');} emit_stmt(x,out); }
+            out.push_str("],\"tokens\":[");
+            for (i,(ty,v)) in toks.iter().enumerate() { if i>0 {out.push(',');} out.push_str("{\"type\":"); json_str(ty,out); out.push_str(",\"value\":"); json_str(v,out); out.push('}'); }
+            out.push_str("],\"type\":\"when_generic\"}"); }
+        Stmt::DefSprite(n,h)=>{ out.push_str("{\"hex\":"); json_str(h,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"type\":\"def_sprite\"}"); }
+        Stmt::DefSong(n,tp,rows)=>{ out.push_str("{\"name\":"); json_str(n,out); out.push_str(",\"rows\":["); for (i,r) in rows.iter().enumerate() { if i>0 {out.push(',');} json_str(r,out); } out.push_str("],\"tempo\":"); json_num(*tp,out); out.push_str(",\"type\":\"def_song\"}"); }
         Stmt::Add(t,v)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"add\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::Remove(t,v)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\"remove\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Stmt::Simple(ty,t)=>{ out.push_str("{\"target\":"); json_str(t,out); out.push_str(",\"type\":\""); out.push_str(ty); out.push_str("\"}"); }
@@ -1141,6 +1221,54 @@ static mut OUT: [u8; OUT_CAP] = [0; OUT_CAP];
 
 // --- game sub-parsers ---------------------------------------------------------
 static mut UFUNCS: Vec<String> = Vec::new();
+// `X and Y` on one line is two statements (the JS splitOnAnd): skip the lines whose
+// first word already owns its `and` (run game with…, when …, to …), and never split
+// inside `between A and B`.
+fn split_on_and(ts: &[Tok]) -> Vec<Vec<Tok>> {
+    if ts.is_empty() { return Vec::new(); }
+    let first = ts[0].sval();
+    if first == "run" || first == "when" || first == "to" { return alloc::vec![ts.to_vec()]; }
+    let mut parts: Vec<Vec<Tok>> = Vec::new();
+    let mut cur: Vec<Tok> = Vec::new();
+    let mut in_between = false;
+    for (i, t) in ts.iter().enumerate() {
+        let v = t.sval();
+        if v == "between" { in_between = true; }
+        if v == "and" && in_between { in_between = false; cur.push(t.clone()); continue; }
+        if v == "and" && !cur.is_empty() {
+            if let Some(next) = ts.get(i + 1) {
+                if next.t == 3 && is_command_word(next.sval()) { parts.push(cur.clone()); cur.clear(); continue; }
+            }
+        }
+        cur.push(t.clone());
+    }
+    parts.push(cur);
+    parts
+}
+
+// the label the host uses for a key code, mirroring the JS keydown handler
+// the JS PROBABILITY table, same order (the first matching prefix wins)
+fn probability_phrase(ts: &[Tok]) -> Option<(f64, usize)> {
+    const PHRASES: &[(&str, f64)] = &[
+        ("always", 1.0), ("almost certainly", 0.95), ("very likely", 0.85),
+        ("highly likely", 0.90), ("likely", 0.70), ("probably", 0.70), ("probable", 0.70),
+        ("better than even", 0.60), ("maybe", 0.50), ("even chance", 0.50),
+        ("about even", 0.50), ("probably not", 0.25), ("unlikely", 0.20),
+        ("we doubt", 0.20), ("little chance", 0.10), ("chances are slight", 0.10),
+        ("improbable", 0.10), ("highly unlikely", 0.05), ("rarely", 0.05),
+        ("almost never", 0.02), ("almost no chance", 0.02), ("never", 0.0),
+    ];
+    for (phrase, prob) in PHRASES {
+        let words: Vec<&str> = phrase.split(' ').collect();
+        if ts.len() < words.len() { continue; }
+        if words.iter().enumerate().all(|(i, w)| ts[i].t == 3 && ts[i].sval() == *w) {
+            return Some((*prob, words.len()));
+        }
+    }
+    None
+}
+
+fn key_label(code: u32) -> &'static str { match code { 0=>"up", 1=>"down", 2=>"left", 3=>"right", 4=>"space", 5=>"a", 6=>"b", _=>"" } }
 fn is_command_word(w: &str) -> bool {
     const CMDS: &[&str] = &["move","draw","write","say","add","remove","increase","decrease","clear","play","stop","jump",
         "walk","face","go","follow","run","when","repeat","every","each","toggle","double","halve",
@@ -1521,7 +1649,9 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
     says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween>, talk_handlers: Vec<(String, Option<Box<Stmt>>, Vec<Stmt>)>, choice_labels: Vec<(String, String)>, talk_prev: bool, ui_text: String, ui_box: (f64, f64), ui_labels: Vec<String>, ui_choice_box: (f64, f64),
-    cur_line: u32, errors: Vec<String>, err_seen: BTreeSet<String>, screen_target: Option<String> }
+    cur_line: u32, errors: Vec<String>, err_seen: BTreeSet<String>, screen_target: Option<String>,
+    user_sprites: Vec<(String, String)>,
+    key_in_handlers: Vec<(Vec<String>, Vec<Stmt>)>, prev_player: Option<(f64, f64)> }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 // A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
@@ -1623,7 +1753,7 @@ impl Rt {
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new(), screen_target: None } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new(), screen_target: None, user_sprites: Vec::new(), key_in_handlers: Vec::new(), prev_player: None } }
 
     // One message per (line, text): a bad `item` inside a loop must not spam the
     // panel every frame. Capped so a broken program cannot flood the host.
@@ -1642,6 +1772,31 @@ impl Rt {
     // A dotted read that came back empty: say which step failed, with a near-miss
     // guess at the name that was meant. Only for paths whose first name exists —
     // reading a variable that was never set is normal, not a mistake.
+    // `when key is in ["a","b"]` fires the moment a listed key goes down (the JS
+    // fires it from the keydown listener), so the wasm does it from set_key.
+    fn fire_key_in(&mut self, code: u32) {
+        let label = key_label(code);
+        if label.is_empty() { return; }
+        let handlers: Vec<(Vec<String>, Vec<Stmt>)> = self.key_in_handlers.clone();
+        for (keys, body) in handlers {
+            if keys.iter().any(|k| k == label) {
+                let _ = self.set_var("key", Val::Str(label.to_string()));
+                self.exec_block(&body);
+            }
+        }
+    }
+
+    // the dominant-axis direction from `target` to `toward`, the JS face_toward rule
+    fn toward_dir(&self, target: &str, toward: &str) -> Option<String> {
+        let a = match self.get_var(target) { Val::Obj(o) => o, _ => return None };
+        let b = match self.get_var(toward) { Val::Obj(o) => o, _ => return None };
+        let ax = Self::obj_num(&a, "x")?; let ay = Self::obj_num(&a, "y")?;
+        let bx = Self::obj_num(&b, "x")?; let by = Self::obj_num(&b, "y")?;
+        let (dx, dy) = (bx - ax, by - ay);
+        if dx.abs() > dy.abs() { Some(if dx > 0.0 { "right".into() } else { "left".into() }) }
+        else { Some(if dy > 0.0 { "down".into() } else { "up".into() }) }
+    }
+
     fn report_missing_path(&mut self, name: &str) {
         let parts: Vec<&str> = name.split('.').collect();
         let mut cur = match self.vars.get(parts[0]) { Some(v) => v.clone(), None => return };
@@ -1929,7 +2084,16 @@ impl Rt {
             Cond::Not(c) => !self.eval_cond(c),
             Cond::NotExpr(e) => { let v=self.eval(e); !truthy(&v) }
             Cond::Bare(e) => { let v=self.eval(e); truthy(&v) }
-            Cond::Has(l, r) => { let a=display(&self.eval(l)); let b=display(&self.eval(r)); a.contains(&b) }
+            Cond::Has(l, r) => {
+                // mirrors JS: a text left side is a case-insensitive substring test, a
+                // list left side is membership (strict, like Array.includes)
+                let a = self.eval(l); let b = self.eval(r);
+                match &a {
+                    Val::Str(s) => s.to_lowercase().contains(&display(&b).to_lowercase()),
+                    Val::List(list) => list.borrow().iter().any(|x| strict_eq(x, &b)),
+                    _ => false,
+                }
+            }
             // `X is in [..]` — JS uses Array.includes (STRICT equality), and a
             // non-list list operand is simply false.
             Cond::InvHas(subject, item) => {
@@ -2098,6 +2262,10 @@ impl Rt {
             Val::Obj(ref o) => match (Self::obj_num(o, "x"), Self::obj_num(o, "y")) { (Some(x), Some(y)) => Some((x, y)), _ => None },
             _ => None,
         };
+        // the JS snapshots the player every frame before the update function runs
+        if let Val::Obj(o) = self.get_var("player") {
+            if let (Some(px), Some(py)) = (Self::obj_num(&o, "x"), Self::obj_num(&o, "y")) { self.prev_player = Some((px, py)); }
+        }
         if let Some(f0) = fs.get(0) {
             // `to update <mode>` replaces the bare update while `mode` matches (Q5)
             let mode_fn = match self.get_var("mode") { Val::Str(m) if !m.is_empty() => Some(alloc::format!("update_{}", m)), _ => None };
@@ -2507,6 +2675,57 @@ impl Rt {
     fn exec_one(&mut self, s: &Stmt) {
         if self.stopped || self.returning { return; }
         match s {
+            Stmt::RestorePos(t) => {
+                // the JS keeps a one-frame snapshot of the player (for `restore` and
+                // for the solid-collision rollback)
+                if t == "player" {
+                    if let Some((px, py)) = self.prev_player {
+                        if let Val::Obj(o) = self.get_var(t) {
+                            let mut m = o.borrow_mut();
+                            m.insert("x".to_string(), Val::Num(px)); m.insert("y".to_string(), Val::Num(py));
+                        }
+                    }
+                }
+            }
+            Stmt::Chain(parts) => { for part in parts.clone() { self.exec_block(core::slice::from_ref(&part)); if self.stopped || self.returning { break; } } }
+            Stmt::Probability(pr, st) => { if self.rng() < *pr { let one = (**st).clone(); self.exec_block(core::slice::from_ref(&one)); } }
+            Stmt::Walk(t, d) => {
+                if let Val::Obj(o) = self.get_var(t) {
+                    let (dx, dy) = dir_vec(&d);
+                    let mut m = o.borrow_mut();
+                    m.insert("facing".to_string(), Val::Str(d.clone()));
+                    if dx != 0.0 || dy != 0.0 { m.insert("dx".to_string(), Val::Num(dx)); m.insert("dy".to_string(), Val::Num(dy)); }
+                    m.insert("walking".to_string(), Val::Bool(true));
+                }
+            }
+            Stmt::Face(t, d) => {
+                if let Val::Obj(o) = self.get_var(t) {
+                    let (dx, dy) = dir_vec(&d);
+                    let mut m = o.borrow_mut();
+                    m.insert("facing".to_string(), Val::Str(d.clone()));
+                    if dx != 0.0 || dy != 0.0 { m.insert("dx".to_string(), Val::Num(dx)); m.insert("dy".to_string(), Val::Num(dy)); }
+                }
+            }
+            Stmt::StopWalking(t) => { if let Val::Obj(o) = self.get_var(t) { o.borrow_mut().insert("walking".to_string(), Val::Bool(false)); } }
+            Stmt::WalkToward(t, w) => { if let Some(dir) = self.toward_dir(t, w) {
+                    if let Val::Obj(o) = self.get_var(t) { let (dx, dy) = dir_vec(&dir); let mut m = o.borrow_mut();
+                        m.insert("facing".to_string(), Val::Str(dir.clone()));
+                        if dx != 0.0 || dy != 0.0 { m.insert("dx".to_string(), Val::Num(dx)); m.insert("dy".to_string(), Val::Num(dy)); }
+                        m.insert("walking".to_string(), Val::Bool(true)); } } }
+            Stmt::FaceToward(t, w) => { if let Some(dir) = self.toward_dir(t, w) {
+                    if let Val::Obj(o) = self.get_var(t) { let (dx, dy) = dir_vec(&dir); let mut m = o.borrow_mut();
+                        m.insert("facing".to_string(), Val::Str(dir.clone()));
+                        if dx != 0.0 || dy != 0.0 { m.insert("dx".to_string(), Val::Num(dx)); m.insert("dy".to_string(), Val::Num(dy)); } } } }
+            Stmt::ClearVar(t) => {
+                let v = self.get_var(t);
+                let cleared = match &v { Val::List(_) => Val::List(Rc::new(RefCell::new(Vec::new()))), Val::Str(_) => Val::Str(String::new()),
+                                          Val::Bool(_) => Val::Bool(false), _ => Val::Num(0.0) };
+                self.set_var(t, cleared);
+            }
+            Stmt::WhenKeyIn(keys, _then, body) => { self.key_in_handlers.push((keys.clone(), body.clone())); }
+            Stmt::WhenGeneric(_, _) => { /* the JS parse bucket keeps an unrecognised `when` inert */ }
+            Stmt::DefSprite(n, h) => { if h.len() == 64 { self.user_sprites.push((n.clone(), h.clone())); } }
+            Stmt::DefSong(_n, _tempo, _rows) => { /* the song data cannot cross the ABI; the host plays by name */ }
             Stmt::Assign(t, v) => {
                 let val = self.eval(v);
                 // `coins is list of 4 sprites` — the list's name says what the sprites
@@ -2645,7 +2864,7 @@ impl Rt {
                         if !name.is_empty() && !SPRITES.iter().any(|(n, _)| *n == name) {
                             self.error(&alloc::format!("no sprite called {} — if you meant a function, write {} on its own line", name, name));
                         }
-                        blit_sprite(&name, x, y + bounce, &mut self.cmds);
+                        blit_sprite(&name, x, y + bounce, &self.user_sprites, &mut self.cmds);
                     }
                     noun => {
                         // `draw title` (the generic-noun form): a function wins (design
@@ -2661,7 +2880,7 @@ impl Rt {
                                 self.stopped = saved;
                             }
                         } else if !noun.is_empty() && SPRITES.iter().any(|(n, _)| *n == noun) {
-                            blit_sprite(noun, x, y, &mut self.cmds);
+                            blit_sprite(noun, x, y, &self.user_sprites, &mut self.cmds);
                         } else if !noun.is_empty() {
                             self.error(&alloc::format!("no sprite called {} — if you meant a function, write {} on its own line", noun, noun));
                         }
@@ -2888,7 +3107,7 @@ impl Rt {
                         let img = match img { Some(i) => i, None => continue };
                         let x = (c * 8) as f64 - ox;
                         if x <= -8.0 || x >= 128.0 { continue; }
-                        blit_sprite(&img, x, y, &mut self.cmds);
+                        blit_sprite(&img, x, y, &self.user_sprites, &mut self.cmds);
                     }
                 }
             }
@@ -3152,8 +3371,9 @@ fn singularize(plural: &str) -> String {
     s
 }
 // Mirror of index.html drawSprite(): one 1x1 rect per opaque pixel (recorder parity).
-fn blit_sprite(name: &str, x: f64, y: f64, cmds: &mut Vec<Cmd>) {
-    let hex = match SPRITES.iter().find(|(n, _)| *n == name) { Some((_, h)) => *h, None => return };
+fn blit_sprite(name: &str, x: f64, y: f64, user: &[(String, String)], cmds: &mut Vec<Cmd>) {
+    let hex = match user.iter().find(|(n, _)| n == name).map(|(_, h)| h.as_str())
+        .or_else(|| SPRITES.iter().find(|(n, _)| *n == name).map(|(_, h)| *h)) { Some(h) => h, None => return };
     let (fx, fy) = (js_floor(x), js_floor(y));
     for (i, ch) in hex.bytes().enumerate().take(64) {
         let ci = match ch { b'0'..=b'9' => (ch - b'0') as usize, b'a'..=b'f' => (ch - b'a' + 10) as usize, b'A'..=b'F' => (ch - b'A' + 10) as usize, _ => 0 };
@@ -3198,7 +3418,9 @@ static mut LIVE_RT: Option<Rt> = None;
 #[no_mangle] pub extern "C" fn set_key(code: u32, on: u32) {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };
     let name = match code { 0=>"up",1=>"down",2=>"left",3=>"right",4=>"space",5=>"a",6=>"b",_=>return };
+    let was = rt.key_state.get(name).copied().unwrap_or(false);
     rt.key_state.insert(name.to_string(), on != 0);
+    if on != 0 && !was { rt.fire_key_in(code); }
 }
 #[no_mangle] pub extern "C" fn set_mouse(x: i32, y: i32, down: u32) {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return };

@@ -1,0 +1,21 @@
+-- `between`, `has` (list and text) and `halve`: conditions and a verb that had no
+-- coverage in any suite until the shape audit.
+score is 10
+halve score
+inRange is 0
+outOfRange is 0
+if score is between 1 and 9
+  inRange is 1
+if score is between 20 and 30
+  outOfRange is 1
+inHands is 0
+notInHands is 0
+hands is ["sword", "shield"]
+if hands has "shield"
+  inHands is 1
+if hands has "banana"
+  notInHands is 1
+inWord is 0
+word is "hello world"
+if word has "world"
+  inWord is 1

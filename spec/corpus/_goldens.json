@@ -804,6 +804,93 @@
       "x": 2
     }
   },
+  "shapes_conditions.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "hands": [
+        "sword",
+        "shield"
+      ],
+      "inHands": 1,
+      "inRange": 0,
+      "inWord": 1,
+      "notInHands": 0,
+      "outOfRange": 0,
+      "score": 5,
+      "word": "hello world"
+    }
+  },
+  "shapes_defs.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "peers": []
+    }
+  },
+  "shapes_forever_stop.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "ticks": 4
+    }
+  },
+  "shapes_loops.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "x": 3,
+      "y": 2
+    }
+  },
+  "shapes_more.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "player": {
+        "dx": -1,
+        "dy": 0,
+        "facing": "left",
+        "walking": false,
+        "x": 20,
+        "y": 20
+      },
+      "score": 2
+    }
+  },
+  "shapes_motion.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "hands": [],
+      "player": {
+        "dx": 1,
+        "dy": 0,
+        "facing": "right",
+        "walking": true,
+        "x": 20,
+        "y": 20
+      },
+      "target": {
+        "x": 60,
+        "y": 20
+      }
+    }
+  },
+  "shapes_restore_probability.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "connected": false,
+      "moved": 1,
+      "peers": [],
+      "player": {
+        "x": 10,
+        "y": 10
+      }
+    }
+  },
   "shoot_forms.fc": {
     "errors": [],
     "say": [],

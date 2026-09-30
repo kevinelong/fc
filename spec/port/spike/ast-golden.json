@@ -20628,6 +20628,679 @@
       "type": "double"
     }
   ],
+  "shapes_conditions.fc": [
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 10
+      }
+    },
+    {
+      "target": "score",
+      "type": "halve"
+    },
+    {
+      "target": "inRange",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "outOfRange",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "inRange",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "left": {
+            "name": "score",
+            "type": "ref"
+          },
+          "right": {
+            "name": "between 1",
+            "type": "ref"
+          },
+          "type": "eq"
+        },
+        "right": {
+          "type": "literal",
+          "value": 9
+        },
+        "type": "and"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "outOfRange",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "left": {
+            "name": "score",
+            "type": "ref"
+          },
+          "right": {
+            "name": "between 20",
+            "type": "ref"
+          },
+          "type": "eq"
+        },
+        "right": {
+          "type": "literal",
+          "value": 30
+        },
+        "type": "and"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "target": "inHands",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "notInHands",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "hands",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "type": "literal",
+            "value": "sword"
+          },
+          {
+            "type": "literal",
+            "value": "shield"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "inHands",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "hands",
+          "type": "ref"
+        },
+        "right": {
+          "type": "literal",
+          "value": "shield"
+        },
+        "type": "has"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "body": [
+        {
+          "target": "notInHands",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "hands",
+          "type": "ref"
+        },
+        "right": {
+          "type": "literal",
+          "value": "banana"
+        },
+        "type": "has"
+      },
+      "thenStmt": null,
+      "type": "if"
+    },
+    {
+      "target": "inWord",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "target": "word",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": "hello world"
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "inWord",
+          "type": "assign",
+          "value": {
+            "type": "literal",
+            "value": 1
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "word",
+          "type": "ref"
+        },
+        "right": {
+          "type": "literal",
+          "value": "world"
+        },
+        "type": "has"
+      },
+      "thenStmt": null,
+      "type": "if"
+    }
+  ],
+  "shapes_defs.fc": [
+    {
+      "hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "name": "ball",
+      "type": "def_sprite"
+    },
+    {
+      "name": "tune",
+      "rows": [],
+      "tempo": 120,
+      "type": "def_song"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        },
+        {
+          "args": {
+            "spriteNameExpr": {
+              "name": "ball",
+              "type": "ref"
+            },
+            "x": {
+              "type": "literal",
+              "value": 8
+            },
+            "y": {
+              "type": "literal",
+              "value": 8
+            }
+          },
+          "hud": false,
+          "shape": "sprite",
+          "type": "draw"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
+  "shapes_forever_stop.fc": [
+    {
+      "target": "ticks",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "ticks",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "ticks",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        },
+        {
+          "body": [
+            {
+              "type": "stop"
+            }
+          ],
+          "condition": {
+            "left": {
+              "name": "ticks",
+              "type": "ref"
+            },
+            "right": {
+              "type": "literal",
+              "value": 4
+            },
+            "type": "eq"
+          },
+          "thenStmt": null,
+          "type": "if"
+        }
+      ],
+      "type": "forever"
+    }
+  ],
+  "shapes_loops.fc": [
+    {
+      "target": "x",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "x",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "x",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "x",
+          "type": "ref"
+        },
+        "right": {
+          "type": "literal",
+          "value": 3
+        },
+        "type": "eq"
+      },
+      "type": "repeat_until"
+    },
+    {
+      "target": "y",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "body": [
+        {
+          "target": "y",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "y",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "condition": {
+        "left": {
+          "name": "y",
+          "type": "ref"
+        },
+        "op": "<",
+        "right": {
+          "type": "literal",
+          "value": 2
+        },
+        "type": "cmp"
+      },
+      "type": "repeat_while"
+    }
+  ],
+  "shapes_more.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 20
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "score",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 8
+      }
+    },
+    {
+      "parts": [
+        {
+          "target": "score",
+          "type": "halve"
+        },
+        {
+          "target": "score",
+          "type": "halve"
+        }
+      ],
+      "type": "chain"
+    },
+    {
+      "direction": "right",
+      "target": "player",
+      "type": "walk"
+    },
+    {
+      "target": "player",
+      "type": "stop_walking"
+    },
+    {
+      "direction": "left",
+      "target": "player",
+      "type": "face"
+    },
+    {
+      "body": [
+        {
+          "target": "score",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "score",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 1
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "keys": [
+        "a",
+        "b"
+      ],
+      "thenStmt": null,
+      "type": "when_key_in"
+    },
+    {
+      "body": [
+        {
+          "target": "score",
+          "type": "assign",
+          "value": {
+            "left": {
+              "name": "score",
+              "type": "ref"
+            },
+            "op": "+",
+            "right": {
+              "type": "literal",
+              "value": 2
+            },
+            "type": "math"
+          }
+        }
+      ],
+      "tokens": [
+        {
+          "type": "string",
+          "value": "c"
+        },
+        {
+          "type": "word",
+          "value": "or"
+        },
+        {
+          "type": "string",
+          "value": "d"
+        },
+        {
+          "type": "word",
+          "value": "is"
+        },
+        {
+          "type": "word",
+          "value": "pressed"
+        }
+      ],
+      "type": "when_generic"
+    }
+  ],
+  "shapes_motion.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 20
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "target",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 60
+          },
+          "y": {
+            "type": "literal",
+            "value": 20
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "hands",
+      "type": "assign",
+      "value": {
+        "items": [
+          {
+            "type": "literal",
+            "value": "a"
+          },
+          {
+            "type": "literal",
+            "value": "b"
+          }
+        ],
+        "type": "listliteral"
+      }
+    },
+    {
+      "target": "hands",
+      "type": "clear"
+    },
+    {
+      "target": "player",
+      "towardName": "target",
+      "type": "walk_toward"
+    },
+    {
+      "target": "player",
+      "towardName": "target",
+      "type": "face_toward"
+    }
+  ],
+  "shapes_restore_probability.fc": [
+    {
+      "target": "player",
+      "type": "assign",
+      "value": {
+        "props": {
+          "x": {
+            "type": "literal",
+            "value": 10
+          },
+          "y": {
+            "type": "literal",
+            "value": 10
+          }
+        },
+        "type": "object_expr"
+      }
+    },
+    {
+      "target": "moved",
+      "type": "assign",
+      "value": {
+        "type": "literal",
+        "value": 0
+      }
+    },
+    {
+      "prob": 0.5,
+      "stmt": {
+        "target": "moved",
+        "type": "assign",
+        "value": {
+          "type": "literal",
+          "value": 1
+        }
+      },
+      "type": "probability"
+    },
+    {
+      "body": [
+        {
+          "blockedBy": null,
+          "dx": {
+            "type": "literal",
+            "value": 5
+          },
+          "dy": {
+            "type": "literal",
+            "value": 0
+          },
+          "target": "player",
+          "type": "move_by"
+        },
+        {
+          "target": "player",
+          "type": "restore"
+        }
+      ],
+      "name": "update",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "body": [
+        {
+          "color": "black",
+          "type": "clearscreen"
+        }
+      ],
+      "name": "draw",
+      "params": [],
+      "type": "funcdef"
+    },
+    {
+      "funcs": [
+        "update",
+        "draw"
+      ],
+      "type": "rungame"
+    }
+  ],
   "shoot_forms.fc": [
     {
       "target": "turret",

@@ -1,0 +1,7 @@
+-- the toward-forms and list `clear`
+player is {x: 20, y: 20}
+target is {x: 60, y: 20}
+hands is ["a", "b"]
+clear hands
+walk player toward target
+face player toward target

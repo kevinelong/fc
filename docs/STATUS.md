@@ -5,6 +5,58 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-30 (a) — the coverage audit, and the ten documented forms the wasm never parsed
+
+Every gap found in the previous sessions was invisible because the test corpus lacked a
+*shape*, not because a test failed. So the first job was to measure that: **29 of the
+parser's 115 node types were exercised by zero of the test programs.**
+
+**`spec/port/spike/shape-diff.mjs`** (new) does two things: it enumerates the node types
+the parser can emit (lexer token types excluded, taken from the tokenizer itself),
+reports the ones no program exercises, and pins that list (`shape-golden.json`) so a new
+node type cannot appear without either a case or an acknowledgement; then it runs one
+tiny cross-engine program per unexercised *statement* shape, comparing draw commands,
+variables and diagnostics.
+
+**What it found, and what got fixed.** The first run reported 5 divergences; the AST
+comparison (once the new cases existed) showed ten documented forms were not parsed by
+the wasm at all — they fell through to a generic call and silently did nothing on the
+default engine:
+
+| form | wasm before | now |
+|---|---|---|
+| `has` on a list (`if hands has "shield"`) | false (text-only test) | matches JS (list membership) |
+| `sprite "x" is "<hex>"` | created a `spritex` variable, drew nothing | registers the art; the sprite renders |
+| `song "x" is N …` | created a `songx` variable | registers; never a variable |
+| `forever` | never ran its body | runs until `stop` |
+| `X and Y` on one line | one statement | `chain` of both |
+| `clear hands` | a call | empties the list |
+| `walk`/`face`/`stop walking T` | a call | sets facing/dx/dy/walking |
+| `walk`/`face T toward U` | a call | aims on the dominant axis |
+| `maybe …` (22 probability phrases) | a call | probability statement |
+| `restore mover` | a call | restores the frame's saved position |
+| `when key is in [...]` | a call | registered, fires on the key's rising edge |
+
+Also fixed: the wasm's `when … pressed` test was looser than the JS shape check, so
+`when "c" or "d" is pressed` became a `when_key` instead of the (inert) generic bucket —
+which means all `when` handling now matches the JS again (ast-diff 100/100).
+
+**Cases first**, per the port discipline: 7 new corpus programs
+(`shapes_conditions/loops/forever_stop/defs/motion/restore_probability/more.fc`) plus a
+frame test for the mode switch. Coverage went from 84/103 to **102/103 node types**; the
+one left (`between`) is unreachable behind the `and`-split and is pinned with a note.
+
+**Harness limits recorded honestly** so they cannot look like engine bugs later: the JS
+recording core calls AUDIO directly while the wasm emits a sound command the host plays
+(so `shape-diff` compares draw commands, not sound ops), and the JS recording core's
+`__setKey` writes key state without firing the DOM `keydown` listener that drives
+`when key is in [...]` (so that path is covered in the app, not in the frame harness).
+
+Suite: tokenize 2348/2348 · ast 100/100 · exec 78/78 · draw 13/13 · examples 22/22 ·
+dump-vars 22/22 · frames 13/13 · shape-diff 15 cases + 102/103 covered · smoke 16/16 ·
+mp-smoke 5/5 · fuzz 2000/2000 · err-diff 15 + 126 sweep · transpile 100/100 ×4 ·
+visual goldens 22/22 · heal 34/34 · class-e2e 10/10 · share-e2e 6/6 · ui-check 82/82.
+
 ## 2026-09-29 (m) — the decided language items, /s/<id> share pages, and the touch slice
 
 All seven design decisions from the answers round are now either shipped or a deliberate

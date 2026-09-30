@@ -1,0 +1,10 @@
+-- `restore` (a mover's previous position) and the probability phrase form
+player is {x: 10, y: 10}
+moved is 0
+maybe moved is 1
+to update
+  move player by 5, 0
+  restore player
+to draw
+  clear screen to black
+run game with update and draw

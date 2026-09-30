@@ -1,0 +1,12 @@
+-- the shapes the audit still listed: statement chaining, the when-fallbacks, and the
+-- direction forms of walk / face / stop walking
+player is {x: 20, y: 20}
+score is 8
+halve score and halve score
+walk player right
+stop walking player
+face player left
+when key is in ["a", "b"]
+  score is score + 1
+when "c" or "d" is pressed
+  score is score + 2

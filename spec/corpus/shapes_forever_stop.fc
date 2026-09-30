@@ -1,0 +1,6 @@
+-- `forever` bounded by `stop`
+ticks is 0
+forever
+  ticks is ticks + 1
+  if ticks is 4
+    stop

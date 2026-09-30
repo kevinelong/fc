@@ -1,0 +1,7 @@
+-- `repeat until` and `repeat while`
+x is 0
+repeat until x is 3
+  x is x + 1
+y is 0
+repeat while y is less than 2
+  y is y + 1

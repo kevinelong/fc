@@ -1,0 +1,7 @@
+-- user-defined sprite art and a user-defined song: register, never a variable
+sprite "ball" is "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+song "tune" is 120
+to draw
+  clear screen to black
+  draw sprite ball at 8, 8
+run game with update and draw
