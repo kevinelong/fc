@@ -22,7 +22,16 @@ const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'spec', 'golden-shots');
-const CHROME = process.env.CHROME || '/usr/bin/chromium';
+const CHROME = process.env.CHROME || [
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/chromium',
+  '/usr/bin/google-chrome',
+].find(p => fs.existsSync(p));
+if (!CHROME) {
+  console.error('No Chrome found — set CHROME=/path/to/chrome');
+  process.exit(2);
+}
 const FRAMES = 24;          // step this many frames before capturing
 const UPDATE = process.argv.includes('--update');
 

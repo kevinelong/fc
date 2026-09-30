@@ -121,7 +121,8 @@ Lua and GDScript are read-only mirrors, like the panel's own caption says.
 *agree* on draw ops; `visual-golden` pins the actual rendered 128×128 pixels
 (SHA-256 of the RGBA bytes, seed 0, 30 idle frames) so it catches drift the op-level
 check can't — a color-resolution change, the bitmap font, layout. It renders headless
-in chromium (needs `/usr/bin/chromium` + `python3`). Check: `node visual-golden.mjs`;
+in an auto-detected Chrome/Chromium; set `CHROME=/path/to/chrome` when it is installed
+elsewhere. Check: `node visual-golden.mjs`;
 re-pin: `node visual-golden.mjs --update`; prove it bites: `node visual-golden.mjs
 --cvd` (forces the colorblind palette on → the color-affected examples diff).
 

@@ -623,8 +623,8 @@ draw rect at 10, 10 size 8, 8 in shade
 red is blue               -- a variable that shadows a palette name WINS
 ```
 
-A value that is not a color name falls back to the default white, a two-word name
-(`dark gray`) can never be a variable so it always stays a palette lookup, and the
-lookup order matches expression refs (variable first, then the palette name). Frozen
-by `draw-tests/d_dyncolor.fc` (JS↔wasm draw-op parity) and the idle parity of
-starfield / matrix / sand.
+An unrecognized string value falls back to the default white. A non-string variable
+does not shadow a literal palette word; for example, `yellow is 4` still paints
+yellow when a draw uses `in yellow`. A two-word name (`dark gray`) can never be a
+variable, so it always stays a palette lookup. Frozen by `draw-tests/d_dyncolor.fc`
+(JS↔wasm draw-op parity) and the idle parity of starfield / matrix / sand.

@@ -2592,7 +2592,7 @@ class Runtime {
   colorOf(name) {
     if (name) {
       const v = this.getVar(String(name));
-      if (typeof v === 'string' || typeof v === 'number') return resolveColor(String(v));
+      if (typeof v === 'string') return resolveColor(v);
     }
     return resolveColor(name);
   }
