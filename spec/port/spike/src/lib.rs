@@ -6,6 +6,7 @@
 extern crate alloc;
 use core::panic::PanicInfo;
 use core::ptr::{addr_of, addr_of_mut};
+use alloc::collections::BTreeSet;
 #[panic_handler] fn panic(_: &PanicInfo) -> ! { core::arch::wasm32::unreachable() }
 
 // --- Step 0: real reclaiming global allocator (dlmalloc — what std uses on wasm)
@@ -183,7 +184,7 @@ enum LitVal { Num(f64), Str(String), Bool(bool) }
 enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
     ListLit(Vec<Expr>), Random(Box<Expr>), ItemOf(Box<Expr>, Box<Expr>),
     Object(Vec<(String, Expr)>), Sprite(String, Box<Expr>), ListOfSprites(Box<Expr>, Box<Expr>), Count(Box<Expr>),
-    Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>) }
+    Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>), At(u32, Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
     Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), InvHas(String,Expr), Bare(Expr), Key(String) }
@@ -236,7 +237,15 @@ fn find_word(ts: &[Tok], w: &str) -> Option<usize> { ts.iter().position(|t| t.is
 fn tokens_to_ref(ts: &[Tok]) -> String { let mut s=String::new(); for t in ts { s.push_str(t.sval()); } s }
 fn join_dot(ts: &[Tok]) -> String { let mut parts: Vec<&str>=Vec::new(); for t in ts { parts.push(t.sval()); } parts.join(".") }
 
+// Every expression is stamped with the line it was parsed from (CUR_LINE, set per
+// source line by parse_block). Evaluating an `At` records that line, so a diagnostic
+// raised deep inside knows which line to name. The AST JSON emitter unwraps it, so
+// the parser's emitted shape is unchanged.
 fn parse_expr(ts: &[Tok]) -> Expr {
+    let inner = parse_expr_inner(ts);
+    Expr::At(unsafe { CUR_LINE }, Box::new(inner))
+}
+fn parse_expr_inner(ts: &[Tok]) -> Expr {
     if ts.is_empty() { return Expr::Lit(LitVal::Num(0.0)); }
     // strip a fully-wrapping paren group: ( EXPR ) -> EXPR. only when the opening
     // paren's match is the LAST token (so (a+b)*(c) isn't mis-stripped).
@@ -796,7 +805,7 @@ fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
         |Stmt::Forever(b)|Stmt::With(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
         |Stmt::WhenKey(_,_,b)|Stmt::WhenButton(_,_,b)|Stmt::WhenMouse(_,_,b)|Stmt::WhenTimeout(_,b)|Stmt::WhenTalk(_,_,b)|Stmt::Each(_,_,_,_,b) => *b=body, _=>{} }
 }
-struct Line { indent: u32, toks: Vec<Tok> }
+struct Line { indent: u32, toks: Vec<Tok>, num: u32 }
 // Rewrite `its <field>` -> `<subj> . <field>` inside a `with` block (dot = token type 5).
 fn rewrite_its(toks: &[Tok], subj: &[Tok]) -> Vec<Tok> {
     let mut out: Vec<Tok> = Vec::new();
@@ -813,6 +822,7 @@ fn parse_block(lines: &[Line], start: usize, min_indent: u32, subj: Option<&[Tok
     while i < lines.len() && lines[i].indent >= min_indent {
         if lines[i].indent > min_indent { i += 1; continue; }
         let toks: Vec<Tok> = match subj { Some(s) => rewrite_its(&lines[i].toks, s), None => lines[i].toks.clone() };
+        unsafe { CUR_LINE = lines[i].num; }
         let mut stmt = parse_line(&toks);
         let mut j = i + 1;
         while j < lines.len() && lines[j].indent > min_indent { j += 1; }
@@ -833,13 +843,14 @@ fn parse_block(lines: &[Line], start: usize, min_indent: u32, subj: Option<&[Tok
     out
 }
 static mut EVERY_ID: u32 = 0;   // monotonic id source for `every` statements (reset per program)
+static mut CUR_LINE: u32 = 0;   // source line being parsed (diagnostics point here)
 fn parse_program(src: &[u8]) -> Vec<Stmt> {
     unsafe { EVERY_ID = 0; }
     let mut lines: Vec<Line> = Vec::new();
-    for raw in src.split(|&b| b == b'\n') {
+    for (i, raw) in src.split(|&b| b == b'\n').enumerate() {
         let (indent, toks) = lex_line(raw);
         if toks.is_empty() { continue; }
-        lines.push(Line { indent, toks });
+        lines.push(Line { indent, toks, num: (i as u32) + 1 });   // raw source line (blanks count, like JS)
     }
     // two-pass: collect user function names so they count as command words in the
     // parseIf / splitOnAnd boundary checks.
@@ -884,6 +895,7 @@ fn emit_expr(e: &Expr, out: &mut String) {
     match e {
         Expr::Lit(l)=>emit_lit(l,out),
         Expr::Ref(n)=>{ out.push_str("{\"name\":"); json_str(n,out); out.push_str(",\"type\":\"ref\"}"); }
+        Expr::At(_, e)=>{ emit_expr(e, out); }   // line stamp is not part of the AST contract
         Expr::Math(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"math\"}"); }
         Expr::ListLit(items)=>{ out.push_str("{\"items\":["); for (i,e) in items.iter().enumerate(){ if i>0 {out.push(',');} emit_expr(e,out);} out.push_str("],\"type\":\"listliteral\"}"); }
         Expr::Random(m)=>{ out.push_str("{\"max\":"); emit_expr(m,out); out.push_str(",\"type\":\"random\"}"); }
@@ -1499,7 +1511,8 @@ struct Rt { vars: BTreeMap<String, Val>, funcs: BTreeMap<String, (Vec<String>, V
     tags: BTreeMap<String, Vec<String>>, pickup_handlers: BTreeMap<String, Vec<Stmt>>, hit_handlers: BTreeMap<String, Vec<Stmt>>, defeat_handlers: BTreeMap<String, Vec<Stmt>>, every_counts: BTreeMap<u32, u64>, run_fs: Vec<String>, behavior_subjects: Vec<String>, key_state: BTreeMap<String, bool>, key_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, time_limit_frames: Option<i64>, time_left: i64, timeout_fired: bool, timeout_handler: Option<(Option<Stmt>, Vec<Stmt>)>, particles: Vec<Particle>,
     button_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>, mouse_handlers: BTreeMap<String, (Option<Stmt>, Vec<Stmt>)>,
     buttons: Vec<(String, f64, f64, f64, f64)>, screen_stack: Vec<String>, mouse: (f64, f64, bool),
-    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween>, talk_handlers: Vec<(String, Option<Box<Stmt>>, Vec<Stmt>)>, choice_labels: Vec<(String, String)>, talk_prev: bool, ui_text: String, ui_box: (f64, f64), ui_labels: Vec<String>, ui_choice_box: (f64, f64) }
+    says: Vec<String>, has_game: bool, flash_frames: i64, flash_color: String, shake_frames: i64, shake_mag: f64, emitters: Vec<Emitter>, tweens: Vec<Tween>, talk_handlers: Vec<(String, Option<Box<Stmt>>, Vec<Stmt>)>, choice_labels: Vec<(String, String)>, talk_prev: bool, ui_text: String, ui_box: (f64, f64), ui_labels: Vec<String>, ui_choice_box: (f64, f64),
+    cur_line: u32, errors: Vec<String>, err_seen: BTreeSet<String> }
 // Particle pool created by `burst`; mirrors the JS {x,y,vx,vy,life,color} fields.
 struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 // A sustained emitter created by `emit … for N frames`; spawns `rate` particles per
@@ -1508,12 +1521,151 @@ struct Particle { x: f64, y: f64, vx: f64, vy: f64, life: i32, color: String }
 struct Emitter { rf: Option<String>, x: f64, y: f64, color: String, marker: String, rate: i64, frames: i64 }
 // A frame-counted property tween created by `tween X.y from A to B over N`.
 struct Tween { target: String, from: f64, to: f64, frames: i64, tick: i64, ease: String }
+
+// ---- runtime diagnostics: plain-English help for the forgiving engine --------
+// fc never stops for a bad value; it substitutes one (an item out of range becomes
+// nothing, text in maths becomes 0) and carries on. These helpers turn that silence
+// into a message a beginner can act on, tagged with the line it happened on. The
+// wording must stay identical to the JS core's — err-diff.mjs compares both engines.
+// JS: !isNaN(parseFloat(s)) — a leading numeric prefix counts ("12abc" is a number,
+// "abc" is not). js_parse_float() is the *forgiving* mirror (garbage -> 0), so it
+// cannot answer this question.
+fn fc_is_numeric(s: &str) -> bool {
+    let t = s.trim_start();
+    let lower = t.to_ascii_lowercase();
+    if lower.starts_with("infinity") { return true; }
+    let b = t.as_bytes();
+    let mut i = 0;
+    if i < b.len() && (b[i] == b'+' || b[i] == b'-') { i += 1; }
+    let mut digits = false;
+    while i < b.len() && b[i].is_ascii_digit() { i += 1; digits = true; }
+    if i < b.len() && b[i] == b'.' {
+        i += 1;
+        while i < b.len() && b[i].is_ascii_digit() { i += 1; digits = true; }
+    }
+    if !digits { return false; }
+    if i < b.len() && (b[i] == b'e' || b[i] == b'E') {
+        let mut k = i + 1;
+        if k < b.len() && (b[k] == b'+' || b[k] == b'-') { k += 1; }
+        let mut exp_digits = false;
+        while k < b.len() && b[k].is_ascii_digit() { k += 1; exp_digits = true; }
+        if exp_digits { return true; }
+    }
+    true
+}
+fn fc_type_name(v: &Val) -> &'static str {
+    match v {
+        Val::Num(_) => "number",
+        Val::Str(_) => "text",
+        Val::Bool(_) => "yes/no",
+        Val::List(_) => "list",
+        Val::Obj(_) => "thing",
+        Val::Undef => "nothing",
+    }
+}
+fn fc_show(v: &Val) -> String {
+    match v {
+        Val::Num(n) => { let mut s = String::new(); json_num(*n, &mut s); s }
+        Val::Str(s) => format!("\"{}\"", s),
+        Val::Bool(b) => if *b { "yes".to_string() } else { "no".to_string() },
+        _ => "that".to_string(),
+    }
+}
+// how to name an expression in a message: a variable reads as itself
+fn fc_name_of(e: &Expr) -> String {
+    match e {
+        Expr::At(_, inner) => fc_name_of(inner),
+        Expr::Ref(n) => n.clone(),
+        Expr::Lit(LitVal::Num(n)) => fc_show(&Val::Num(*n)),
+        Expr::Lit(LitVal::Str(s)) => fc_show(&Val::Str(s.clone())),
+        _ => "that".to_string(),
+    }
+}
+fn fc_edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect(); let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for i in 1..=a.len() {
+        let mut cur: Vec<usize> = Vec::new();
+        cur.push(i);
+        for j in 1..=b.len() {
+            let sub = prev[j - 1] + if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            cur.push((prev[j] + 1).min(cur[j - 1] + 1).min(sub));
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+// the closest known name, when it is close enough to be a typo
+fn fc_near_miss(word: &str, keys: &[String]) -> Option<String> {
+    let mut sorted: Vec<String> = keys.to_vec();
+    sorted.sort();
+    let mut best: Option<String> = None; let mut best_d = 99usize;
+    for k in &sorted {
+        let d = fc_edit_distance(&word.to_lowercase(), &k.to_lowercase());
+        if d < best_d { best_d = d; best = Some(k.clone()); }
+    }
+    if best_d <= 2 && best_d > 0 { best } else { None }
+}
 impl Rt {
     fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0) } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new() } }
+
+    // One message per (line, text): a bad `item` inside a loop must not spam the
+    // panel every frame. Capped so a broken program cannot flood the host.
+    fn error(&mut self, msg: &str) {
+        let n = self.cur_line;
+        let key = format!("{}:{}", n, msg);
+        if !self.err_seen.insert(key) { return; }
+        if self.errors.len() >= 25 {
+            if !self.err_seen.insert("+cap".to_string()) { return; }
+            self.errors.push("(…and more — fix these first)".to_string());
+            return;
+        }
+        self.errors.push(if n > 0 { format!("Line {}: {}", n, msg) } else { msg.to_string() });
+    }
+
+    // A dotted read that came back empty: say which step failed, with a near-miss
+    // guess at the name that was meant. Only for paths whose first name exists —
+    // reading a variable that was never set is normal, not a mistake.
+    fn report_missing_path(&mut self, name: &str) {
+        let parts: Vec<&str> = name.split('.').collect();
+        let mut cur = match self.vars.get(parts[0]) { Some(v) => v.clone(), None => return };
+        let mut path = parts[0].to_string();
+        for i in 1..parts.len() {
+            let key = parts[i];
+            match cur.clone() {
+                Val::Undef => return,
+                Val::List(l) => {
+                    if key == "count" || key == "length" { cur = Val::Num(l.borrow().len() as f64); path = format!("{}.{}", path, key); continue; }
+                    self.error(&format!("{} is a list, so it has no {}", path, key));
+                    return;
+                }
+                Val::Obj(o) => {
+                    let has = o.borrow().contains_key(key);
+                    if !has {
+                        let keys: Vec<String> = o.borrow().keys().cloned().collect();
+                        let guess = fc_near_miss(key, &keys);
+                        let msg = match guess {
+                            Some(g) => format!("{} has no {} — did you mean {}?", path, key, g),
+                            None => format!("{} has no {}", path, key),
+                        };
+                        self.error(&msg);
+                        return;
+                    }
+                    cur = o.borrow().get(key).cloned().unwrap_or(Val::Undef);
+                    path = format!("{}.{}", path, key);
+                }
+                other => {
+                    self.error(&format!("{} is a {}, so it has no {}", path, fc_type_name(&other), key));
+                    return;
+                }
+            }
+        }
+    }
+
     fn interpolate(&self, s: &str) -> String {
         // replace {expr} with the value of expr (a var path), like the JS engine
         // copy literal runs as UTF-8 slices (not byte-by-byte) so multi-byte
@@ -1658,16 +1810,55 @@ impl Rt {
             Expr::Lit(LitVal::Num(n)) => Val::Num(*n),
             Expr::Lit(LitVal::Str(s)) => Val::Str(s.clone()),
             Expr::Lit(LitVal::Bool(b)) => Val::Bool(*b),
-            Expr::Ref(n) => { let v = self.get_var(n); if !matches!(v, Val::Undef) { v } else if color_hex(&n.to_lowercase()).is_some() { Val::Str(n.clone()) } else { Val::Undef } }
+            Expr::At(line, inner) => { self.cur_line = *line; self.eval(inner) }
+            Expr::Ref(n) => {
+                let v = self.get_var(n);
+                if !matches!(v, Val::Undef) { v }
+                else if color_hex(&n.to_lowercase()).is_some() { Val::Str(n.clone()) }
+                else { if n.contains('.') { self.report_missing_path(n); } Val::Undef }
+            }
             Expr::Math(op, l, r) => {
-                let a = as_num(&self.eval(l)); let b = as_num(&self.eval(r));
-                Val::Num(match op.as_str() { "+"=>a+b, "-"=>a-b, "*"=>a*b, "/"=>if b!=0.0 {a/b} else {0.0}, "%"=>if b!=0.0 {a%b} else {0.0}, _=>0.0 })
+                let lv = self.eval(l); let rv = self.eval(r);
+                if let Val::Str(s) = &lv { if !fc_is_numeric(s) { self.error(&format!("\"{}\" is text, so I used 0", s)); } }
+                if let Val::Str(s) = &rv { if !fc_is_numeric(s) { self.error(&format!("\"{}\" is text, so I used 0", s)); } }
+                let a = as_num(&lv); let b = as_num(&rv);
+                Val::Num(match op.as_str() {
+                    "+"=>a+b, "-"=>a-b, "*"=>a*b,
+                    "/"=>if b!=0.0 {a/b} else { self.error("can't divide by zero — I used 0"); 0.0 },
+                    "%"=>if b!=0.0 {a%b} else { self.error("can't divide by zero — I used 0"); 0.0 },
+                    _=>0.0 })
             }
             Expr::ListLit(items) => { let mut v=Vec::new(); for it in items { v.push(self.eval(it)); } Val::List(Rc::new(RefCell::new(v))) }
             Expr::Random(m) => { let max = as_num(&self.eval(m)); let r = self.rng(); Val::Num((r * (max + 1.0)) as i64 as f64) }
-            Expr::ItemOf(idx, list) => { let i = as_num(&self.eval(idx)) as i64; match self.eval(list) { Val::List(l) => { let b=l.borrow(); if i>=1 && (i as usize)<=b.len() { b[(i-1) as usize].clone() } else { Val::Undef } } _=>Val::Undef } }
+            Expr::ItemOf(idx, list) => {
+                let iv = self.eval(idx);
+                let lv = self.eval(list);
+                if let Val::List(l) = &lv {
+                    let b = l.borrow();
+                    let i = match &iv { Val::Num(n) if *n == *n && *n != f64::INFINITY && *n != f64::NEG_INFINITY => *n as i64,
+                                        _ => { self.error(&format!("can't use {} as an item number", fc_show(&iv))); return Val::Undef; } };
+                    if i < 1 { self.error(&format!("item numbers start at 1, but you asked for item {}", i)); return Val::Undef; }
+                    if (i as usize) > b.len() {
+                        let what = fc_name_of(list);
+                        self.error(&format!("{} only has {}{}, but you asked for item {}", what, b.len(), if b.len() == 1 { " item" } else { " items" }, i));
+                        return Val::Undef;
+                    }
+                    b[(i - 1) as usize].clone()
+                } else {
+                    match lv {
+                        Val::Undef => Val::Undef,
+                        _ => { let what = fc_name_of(list);
+                                   self.error(&format!("{} isn't a list, so I can't take item {} from it", what, fc_show(&iv)));
+                                   Val::Undef }
+                    }
+                }
+            }
             Expr::Object(props) => { let mut m=BTreeMap::new(); for (k,v) in props { let val=self.eval(v); m.insert(k.clone(), val); } Val::Obj(Rc::new(RefCell::new(m))) }
-            Expr::Count(e) => match self.eval(e) { Val::List(l)=>Val::Num(l.borrow().len() as f64), Val::Str(s)=>Val::Num(s.chars().count() as f64), _=>Val::Num(0.0) },
+            Expr::Count(e) => { let v = self.eval(e); match &v {
+                Val::List(l)=>Val::Num(l.borrow().len() as f64),
+                Val::Str(s)=>Val::Num(s.chars().count() as f64),
+                Val::Undef=>Val::Num(0.0),
+                other=>{ self.error(&format!("{} is a {}, so I can't count it", fc_name_of(e), fc_type_name(other))); Val::Num(0.0) } } }
             Expr::Load(k) => { let key = display(&self.eval(k)); match self.store.get(&key) { Some(v)=>deep_clone(v), None=>Val::Num(0.0) } }
             Expr::SolidAt(x, y) => {
                 let xv = as_num(&self.eval(x)); let yv = as_num(&self.eval(y));
@@ -2975,6 +3166,16 @@ static mut LIVE_RT: Option<Rt> = None;
 }
 // Read-only snapshot of the LIVE runtime's variables (for the live inspect panel).
 // Same JSON shape as parse_exec_to_json's vars, but over the running game's state.
+#[no_mangle] pub extern "C" fn errors_json() -> u32 {
+    let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_ref() } { Some(r) => r, None => return 0 };
+    let mut s = String::from("[");
+    for (i, e) in rt.errors.iter().enumerate() { if i > 0 { s.push(','); } json_str(e, &mut s); }
+    s.push(']');
+    let b = s.as_bytes(); let m = b.len().min(RES_CAP);
+    unsafe { let out = core::slice::from_raw_parts_mut(addr_of_mut!(RES) as *mut u8, RES_CAP); out[..m].copy_from_slice(&b[..m]); }
+    m as u32
+}
+
 #[no_mangle] pub extern "C" fn dump_vars() -> u32 {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_ref() } { Some(r) => r, None => return 0 };
     let mut s = String::from("{");

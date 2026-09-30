@@ -1,0 +1,3 @@
+-- Reading a field off a list (count/length are the useful ones).
+hands is ["sword", "shield"]
+label is hands.label

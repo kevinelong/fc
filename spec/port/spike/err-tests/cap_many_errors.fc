@@ -1,0 +1,29 @@
+-- More mistakes than the panel will list: it should stop and say so.
+hands is ["a"]
+slot1 is item 9 of hands
+slot2 is item 9 of hands
+slot3 is item 9 of hands
+slot4 is item 9 of hands
+slot5 is item 9 of hands
+slot6 is item 9 of hands
+slot7 is item 9 of hands
+slot8 is item 9 of hands
+slot9 is item 9 of hands
+slot10 is item 9 of hands
+slot11 is item 9 of hands
+slot12 is item 9 of hands
+slot13 is item 9 of hands
+slot14 is item 9 of hands
+slot15 is item 9 of hands
+slot16 is item 9 of hands
+slot17 is item 9 of hands
+slot18 is item 9 of hands
+slot19 is item 9 of hands
+slot20 is item 9 of hands
+slot21 is item 9 of hands
+slot22 is item 9 of hands
+slot23 is item 9 of hands
+slot24 is item 9 of hands
+slot25 is item 9 of hands
+slot26 is item 9 of hands
+slot27 is item 9 of hands

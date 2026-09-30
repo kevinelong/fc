@@ -1,0 +1,3 @@
+-- A misspelled field: the message should guess what was meant.
+player is {x: 40, y: 40, speed: 2}
+spd is player.speeed

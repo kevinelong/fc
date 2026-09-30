@@ -1,0 +1,64 @@
+{
+  "cap_many_errors.fc": [
+    "Line 3: hands only has 1 item, but you asked for item 9",
+    "Line 4: hands only has 1 item, but you asked for item 9",
+    "Line 5: hands only has 1 item, but you asked for item 9",
+    "Line 6: hands only has 1 item, but you asked for item 9",
+    "Line 7: hands only has 1 item, but you asked for item 9",
+    "Line 8: hands only has 1 item, but you asked for item 9",
+    "Line 9: hands only has 1 item, but you asked for item 9",
+    "Line 10: hands only has 1 item, but you asked for item 9",
+    "Line 11: hands only has 1 item, but you asked for item 9",
+    "Line 12: hands only has 1 item, but you asked for item 9",
+    "Line 13: hands only has 1 item, but you asked for item 9",
+    "Line 14: hands only has 1 item, but you asked for item 9",
+    "Line 15: hands only has 1 item, but you asked for item 9",
+    "Line 16: hands only has 1 item, but you asked for item 9",
+    "Line 17: hands only has 1 item, but you asked for item 9",
+    "Line 18: hands only has 1 item, but you asked for item 9",
+    "Line 19: hands only has 1 item, but you asked for item 9",
+    "Line 20: hands only has 1 item, but you asked for item 9",
+    "Line 21: hands only has 1 item, but you asked for item 9",
+    "Line 22: hands only has 1 item, but you asked for item 9",
+    "Line 23: hands only has 1 item, but you asked for item 9",
+    "Line 24: hands only has 1 item, but you asked for item 9",
+    "Line 25: hands only has 1 item, but you asked for item 9",
+    "Line 26: hands only has 1 item, but you asked for item 9",
+    "Line 27: hands only has 1 item, but you asked for item 9",
+    "(…and more — fix these first)"
+  ],
+  "clean_program.fc": [],
+  "count_of_a_number.fc": [
+    "Line 3: score is a number, so I can't count it"
+  ],
+  "divide_by_zero.fc": [
+    "Line 3: can't divide by zero — I used 0"
+  ],
+  "field_on_a_list.fc": [
+    "Line 3: hands is a list, so it has no label"
+  ],
+  "field_on_a_number.fc": [
+    "Line 3: lives is a number, so it has no count"
+  ],
+  "field_typo.fc": [
+    "Line 3: player has no speeed — did you mean speed?"
+  ],
+  "item_below_one.fc": [
+    "Line 3: item numbers start at 1, but you asked for item 0"
+  ],
+  "item_not_a_list.fc": [
+    "Line 3: score isn't a list, so I can't take item 2 from it"
+  ],
+  "item_past_end.fc": [
+    "Line 4: hands only has 3 items, but you asked for item 5"
+  ],
+  "item_text_index.fc": [
+    "Line 4: can't use \"first\" as an item number"
+  ],
+  "loop_dedupe.fc": [
+    "Line 5: hands only has 1 item, but you asked for item 9"
+  ],
+  "text_in_maths.fc": [
+    "Line 3: \"abc\" is text, so I used 0"
+  ]
+}

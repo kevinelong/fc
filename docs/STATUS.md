@@ -5,6 +5,70 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-29 (k) — the runtime explains itself: line-tagged diagnostics, both engines
+
+fc's promise is "type English, it always runs", so a bad value never stops anything: an
+item out of range becomes `nothing`, text in arithmetic becomes 0, a misspelled field
+becomes nothing. That silence was the last ⚠️ item on the roadmap — the only message a
+beginner ever saw was the host's generic "I got confused: …" (thrown parse errors
+only), with no line and no bounds detail.
+
+**What it says now** — same words from either engine, one message per (line, mistake),
+capped at 25 so a broken loop cannot flood the panel:
+
+| the mistake | the message |
+|---|---|
+| `item 5 of hands` (3 items) | `Line 4: hands only has 3 items, but you asked for item 5` |
+| `item 0 of hands` | `Line 4: item numbers start at 1, but you asked for item 0` |
+| `item 2 of score` | `Line 3: score isn't a list, so I can't take item 2 from it` |
+| `item which of hands` (which = "first") | `Line 4: can't use "first" as an item number` |
+| `count of score` | `Line 3: score is a number, so I can't count it` |
+| `player.speeed` | `Line 3: player has no speeed — did you mean speed?` |
+| `lives.count` (lives = 3) | `Line 3: lives is a number, so it has no count` |
+| `score + "abc"` | `Line 3: "abc" is text, so I used 0` |
+| `10 / score` (score = 0) | `Line 3: can't divide by zero — I used 0` |
+
+**Where it shows.** The app's existing error panel: its rows already become clickable
+`Line N:` links that select that line in the editor, so the UI only needed feeding. The
+panel is pumped once per frame (rAF, the watchdog fallback, and a single paused step),
+so a mistake inside `update`/`draw` surfaces while the game runs, not only at setup.
+
+**How the engines stay identical.** The JS core tracks the executing statement's line
+(statements carry `lineNum`) and reports through `Rt.error(msg, line)`. The wasm AST
+deliberately carries no line numbers (the JSON contract strips them), so a line is
+carried by a new `Expr::At(line, inner)` stamp instead: the parser wraps every
+expression, evaluating one records that line, and the JSON emitter unwraps it — the
+emitted AST is unchanged (ast-diff 85/85, same as before). `errors_json()` exports the
+wasm's list over the same result buffer `dump_vars` uses. No *value* changed anywhere:
+every differential, golden and pixel test is untouched.
+
+**Guards.** `spec/port/spike/err-tests/*.fc` (13 cases: one per class plus a loop-dedupe
+case, a 26-mistake cap case and a clean control), `dump-err.mjs` pins them, and
+`err-diff.mjs` asserts JS == wasm == golden for the cases and JS == wasm across a
+109-program sweep (corpus, examples, draw-tests, frame-tests; 2 of those report
+diagnostics on purpose — they exist to exercise the forgiving path). `tools/ui-check.mjs`
+grew six browser checks (64/64): the default wasm engine explains a bad item, guesses
+the misspelled field, the rows are clickable and clicking selects line 4, the JS core
+says exactly the same thing, and a correct program stays silent.
+
+Two bugs surfaced while wiring it, both fixed:
+
+- the wasm's new `fc_is_numeric` used the *forgiving* `js_parse_float` (garbage → 0), so
+  "abc" looked numeric and the text-in-maths message never fired. err-diff caught the
+  divergence on the first run; it now scans a parseFloat-style numeric prefix.
+- the app cleared the error panel on every run with raw `innerHTML`, leaving the host's
+  "already shown" watermark stale, so a second run's messages were swallowed. Clears now
+  go through `fcDiagClear()`.
+
+`transpile-embed-check` also compares content now, ignoring line endings: git stores LF
+and Windows checkouts get CRLF, and the injected region must not depend on which tool
+last wrote the file.
+
+Suite: tokenize 2200/2200 · ast 85/85 · exec 63/63 · draw 12/12 · examples 22/22 ·
+dump-vars 22/22 · frames 12/12 · smoke 16/16 · mp-smoke 5/5 · fuzz 2000/2000 ·
+err-diff 13 pinned + 109 sweep · transpile 85/85 ×4 languages + embed-check ·
+visual goldens 22/22 · heal 34/34 · ui-check 64/64.
+
 ## 2026-09-29 (j) — real-code panel: Lua + GDScript, and a colour bug the panel exposed
 
 The "see it in real code" view — and `transpile.mjs`, its source of truth — now emits

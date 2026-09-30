@@ -2408,6 +2408,55 @@ function parse(source) {
 // INTERPRETER
 // ============================================================
 
+// ---- runtime diagnostics: plain-English help for the forgiving engine --------
+// fc never stops for a bad value; it substitutes one (an item out of range becomes
+// nothing, text in maths becomes 0) and carries on. These helpers turn that
+// silence into a message a beginner can act on, tagged with a clickable line.
+function fcIsNumeric(s) { return !isNaN(parseFloat(String(s))); }
+function fcTypeName(v) {
+  if (v === null || v === undefined) return 'nothing';
+  if (Array.isArray(v)) return 'list';
+  if (typeof v === 'number') return 'number';
+  if (typeof v === 'string') return 'text';
+  if (typeof v === 'boolean') return 'yes/no';
+  return 'thing';
+}
+function fcShow(v) {
+  if (v === null || v === undefined) return 'nothing';
+  if (typeof v === 'string') return '"' + v + '"';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  return 'that';
+}
+// how to name an expression in a message: a variable reads as itself
+function fcNameOf(node) {
+  if (node && node.type === 'ref') return String(node.name);
+  if (node && node.type === 'literal' && (typeof node.value === 'number' || typeof node.value === 'string')) return fcShow(node.value);
+  return 'that';
+}
+function fcEditDistance(a, b) {
+  a = String(a); b = String(b);
+  let prev = [];
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// the closest known name, when it is close enough to be a typo
+function fcNearMiss(word, keys) {
+  const sorted = keys.slice().sort();
+  let best = null, bestD = 99;
+  for (const k of sorted) {
+    const d = fcEditDistance(String(word).toLowerCase(), String(k).toLowerCase());
+    if (d < bestD) { bestD = d; best = k; }
+  }
+  return bestD <= 2 && bestD > 0 ? best : null;
+}
 class Runtime {
   constructor() {
     this.vars = {};
@@ -2435,6 +2484,8 @@ class Runtime {
     this.world = { width: 128, height: 128 };
     this._screenStack = [];
     this.errors = [];
+    this._line = 0;        // source line of the statement being executed
+    this._errSeen = new Set();
     this.stopped = false;
     this.sayBuffer = [];
     this._rafId = null;
@@ -2473,14 +2524,57 @@ class Runtime {
     this.world = { width: 128, height: 128 };
     this._screenStack = [];
     this.errors = [];
+    this._line = 0;
+    this._errSeen = new Set();
     this.stopped = false;
     this.sayBuffer = [];
     // don't reset keyState - it's maintained by event listeners
   }
 
   error(msg, lineNum) {
-    const prefix = lineNum ? `Line ${lineNum}: ` : '';
-    this.errors.push(prefix + msg);
+    const n = lineNum || this._line || 0;
+    // one message per (line, text): a bad `item` in a loop must not spam the panel
+    this._errSeen = this._errSeen || new Set();
+    const key = n + ':' + msg;
+    if (this._errSeen.has(key)) return;
+    this._errSeen.add(key);
+    if (this.errors.length >= 25) {
+      if (this._errSeen.has('+cap')) return;
+      this._errSeen.add('+cap');
+      this.errors.push('(\u2026and more \u2014 fix these first)');
+      return;
+    }
+    this.errors.push((n ? `Line ${n}: ` : '') + msg);
+  }
+
+  // A dotted read that came back empty: say which step failed, with a near-miss
+  // guess at the name that was meant. Only for paths whose first name exists —
+  // reading a variable that was never set is normal, not a mistake.
+  reportMissingPath(name) {
+    const parts = String(name).split('.');
+    let cur = this.vars[parts[0]];
+    if (cur === undefined) return;
+    let path = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      const key = parts[i];
+      if (cur === null || cur === undefined) return;
+      if (Array.isArray(cur)) {
+        if (key === 'count' || key === 'length') { cur = cur.length; path = path + '.' + key; continue; }
+        this.error(`${path} is a list, so it has no ${key}`);
+        return;
+      }
+      if (typeof cur !== 'object') {
+        this.error(`${path} is a ${fcTypeName(cur)}, so it has no ${key}`);
+        return;
+      }
+      if (!Object.prototype.hasOwnProperty.call(cur, key)) {
+        const guess = fcNearMiss(key, Object.keys(cur));
+        this.error(`${path} has no ${key}` + (guess ? ` \u2014 did you mean ${guess}?` : ''));
+        return;
+      }
+      cur = cur[key];
+      path = path + '.' + key;
+    }
   }
 
   isTruthy(val) {
@@ -2562,20 +2656,21 @@ class Runtime {
         if (v !== undefined) return v;
         // might be a color name or unknown
         if (COLORS[node.name.toLowerCase()]) return node.name;
+        if (String(node.name).indexOf('.') !== -1) this.reportMissingPath(node.name);
         return undefined;
       }
       case 'math': {
         let l = this.evalExpr(node.left);
         let r = this.evalExpr(node.right);
-        // forgiving coercion
-        if (typeof l === 'string') l = parseFloat(l) || 0;
-        if (typeof r === 'string') r = parseFloat(r) || 0;
+        // forgiving coercion — but say so when the value was never a number
+        if (typeof l === 'string') { if (!fcIsNumeric(l)) this.error('"' + l + '" is text, so I used 0'); l = parseFloat(l) || 0; }
+        if (typeof r === 'string') { if (!fcIsNumeric(r)) this.error('"' + r + '" is text, so I used 0'); r = parseFloat(r) || 0; }
         switch (node.op) {
           case '+': return l + r;
           case '-': return l - r;
           case '*': return l * r;
-          case '/': return r !== 0 ? l / r : 0;
-          case '%': return r !== 0 ? l % r : 0;
+          case '/': if (r === 0) { this.error("can't divide by zero \u2014 I used 0"); return 0; } return l / r;
+          case '%': if (r === 0) { this.error("can't divide by zero \u2014 I used 0"); return 0; } return l % r;
         }
         return 0;
       }
@@ -2637,7 +2732,16 @@ class Runtime {
         const list = this.evalExpr(node.list);
         if (Array.isArray(list)) {
           // 1-based indexing
+          if (typeof idx !== 'number' || !isFinite(idx)) { this.error("can't use " + fcShow(idx) + " as an item number"); return undefined; }
+          if (idx < 1) { this.error('item numbers start at 1, but you asked for item ' + fcShow(idx)); return undefined; }
+          if (idx > list.length) {
+            this.error(fcNameOf(node.list) + ' only has ' + list.length + (list.length === 1 ? ' item' : ' items') + ', but you asked for item ' + fcShow(idx));
+            return undefined;
+          }
           return list[idx - 1];
+        }
+        if (list !== undefined && list !== null) {
+          this.error(fcNameOf(node.list) + " isn't a list, so I can't take item " + fcShow(idx) + ' from it');
         }
         return undefined;
       }
@@ -2645,6 +2749,9 @@ class Runtime {
         const val = this.evalExpr(node.expr);
         if (Array.isArray(val)) return val.length;
         if (typeof val === 'string') return val.length;
+        if (val !== undefined && val !== null) {
+          this.error(fcNameOf(node.expr) + ' is a ' + fcTypeName(val) + ", so I can't count it");
+        }
         return 0;
       }
       case 'not': return !this.isTruthy(this.evalCondition(node));
@@ -2725,6 +2832,7 @@ class Runtime {
     const execList = (list) => smartExecList(list);
     const execOne = (stmt) => {
       if (!stmt || this.stopped || this._returning) return;
+      if (stmt.lineNum) this._line = stmt.lineNum;
       switch (stmt.type) {
         case 'chain':
           for (const part of stmt.parts) execOne(part);
@@ -3453,6 +3561,7 @@ class Runtime {
         if (this.stopped || this._returning || ops > limit) return;
         ops++;
         const stmt = list[i];
+        if (stmt && stmt.lineNum) this._line = stmt.lineNum;   // diagnostics point here
 
         if (stmt.type === 'if') {
           lastIfResult = this.isTruthy(this.evalCondition(stmt.condition));
@@ -4053,6 +4162,9 @@ class Runtime {
     function runFrame() {
       lastFrame = performance.now();
       frame();
+      // the host shows whatever the engine just reported (no-op in the headless
+      // oracle, where fcPumpDiagnostics does not exist)
+      if (typeof fcPumpDiagnostics === 'function') fcPumpDiagnostics();
     }
 
     // Draw one frame immediately so canvas isn't blank

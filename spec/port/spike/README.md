@@ -78,6 +78,7 @@ source and re-inlined into index.html — is:
 | `dump-vars-diff.mjs` | 22/22 live-var snapshots (the inspect panel's read) |
 | `smoke.mjs` / `frames-run.mjs` / `mp-smoke.mjs` | 16/16 · 5/5 · 5/5 |
 | `fuzz.mjs` | 3000/3000 random programs |
+| `err-diff.mjs` | diagnostics: JS == wasm == `err-golden.json` (13 cases) + 109-program sweep |
 
 Rebuild loop after a core change: `cargo build --release --target
 wasm32-unknown-unknown` then `node inline-wasm.mjs` (re-inlines the bytes into
@@ -87,4 +88,6 @@ index.html), then re-run the table above and `node ../../heal/eval.mjs`.
 No stage is outstanding. The remaining work is language features on the roadmap
 (ROADMAP.md "Still planned") and keeping the JS oracle in lockstep: any language
 change must be ported to `spec/lang/fc-core.mjs`, `fc-core-record.mjs` and this
-crate, with corpus cases added FIRST.
+crate, with corpus cases added FIRST. index.html carries the same core text (the
+JS fallback engine and the oracle are the same code); a diagnostics or language
+change belongs in all four, and `err-diff`/the differentials are what prove it.

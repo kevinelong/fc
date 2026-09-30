@@ -1,0 +1,3 @@
+-- fc counts items from 1. `item 0` is a natural first guess.
+hands is ["sword", "shield"]
+first is item 0 of hands

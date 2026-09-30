@@ -1,0 +1,4 @@
+-- The index has to be a number; a word is a different story.
+hands is ["sword", "shield"]
+which is "first"
+pick is item which of hands

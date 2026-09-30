@@ -1,0 +1,3 @@
+-- Reading a field off a plain number.
+lives is 3
+left is lives.count

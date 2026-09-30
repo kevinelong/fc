@@ -1,0 +1,5 @@
+-- The same mistake on the same line, five times round a loop: ONE message,
+-- not one per frame (the panel must not flood).
+hands is ["sword"]
+repeat 5 times
+  best is item 9 of hands

@@ -1,0 +1,3 @@
+-- Dividing by zero: fc uses 0 instead of blowing up.
+score is 0
+half is 10 / score

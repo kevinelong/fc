@@ -1,0 +1,4 @@
+-- Asking for an item past the end of a list. fc hands back `nothing` and
+-- carries on; the message should say how many there were, and on which line.
+hands is ["sword", "shield", "potion"]
+best is item 5 of hands

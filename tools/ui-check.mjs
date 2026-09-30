@@ -474,6 +474,52 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
       JSON.stringify({ js: [panes.js.run, panes.js.dl], lua: [panes.lua.run, panes.lua.dl], gd: [panes.gdscript.run, panes.gdscript.dl] }));
     await evaluate(cdp, `(function(){ document.getElementById('code-close').click(); return 1; })()`);
 
+    // ---- 15. runtime diagnostics: a bad line is explained, on the line --------
+    // fc substitutes a value instead of dying (item past the end -> nothing, a
+    // misspelled field -> nothing). The panel should say what it did and where, the
+    // same way on both engines, and clicking the row should jump to that line.
+    const diagSrc = 'hands is ["sword", "shield"]' + String.fromCharCode(10) + 'best is item 5 of hands' + String.fromCharCode(10) + 'player is {speed: 2}' + String.fromCharCode(10) + 'spd is player.speeed' + String.fromCharCode(10) + 'to draw' + String.fromCharCode(10) + '  clear screen to black' + String.fromCharCode(10) + '  draw sprite player at 20, 20' + String.fromCharCode(10) + 'run game with update and draw' + String.fromCharCode(10) + '';
+    const diagRun = async (query) => {
+      await loadSource(diagSrc, query);
+      await evaluate(cdp, `(function(){ document.getElementById('tool-run').click(); })()`);
+      await sleep(900);
+      return evaluate(cdp, `(function(){
+        var rows = document.querySelectorAll('#errors div');
+        return { count: rows.length, all: Array.prototype.map.call(rows, function(r){ return r.textContent; }),
+                 clickable: rows.length ? rows[0].style.cursor === 'pointer' : false };
+      })()`);
+    };
+    const dWasm = await diagRun('');
+    check('the panel explains a bad item (default wasm engine)',
+      dWasm.count === 2 && /^Line 2: hands only has 2 items, but you asked for item 5$/.test(dWasm.all[0] || ''),
+      JSON.stringify(dWasm));
+    check('it guesses the misspelled field',
+      /^Line 4: player has no speeed — did you mean speed[?]$/.test(dWasm.all[1] || ''), JSON.stringify(dWasm.all));
+    check('each message is marked clickable (jump to the line)', dWasm.clickable === true, JSON.stringify(dWasm));
+
+    const jumped = await evaluate(cdp, `(function(){
+      var rows = document.querySelectorAll('#errors div');
+      if (rows.length < 2) return null;
+      var m = rows[1].textContent.match(/Line ([0-9]+)/);
+      rows[1].tap ? rows[1].tap() : rows[1].click();
+      var ed = document.querySelector('textarea');
+      return { want: m ? +m[1] : -1, got: ed.value.slice(0, ed.selectionStart).split(String.fromCharCode(10)).length,
+               selected: ed.value.slice(ed.selectionStart, ed.selectionEnd) };
+    })()`);
+    check('clicking the message selects that line in the editor',
+      !!jumped && jumped.want === jumped.got && jumped.want === 4 && /speeed/.test(jumped.selected || ''),
+      JSON.stringify(jumped));
+
+    const dJs = await diagRun('&core=js');
+    check('the JS core explains it identically',
+      JSON.stringify(dJs.all) === JSON.stringify(dWasm.all), JSON.stringify({ js: dJs.all, wasm: dWasm.all }));
+
+    await loadSource('to draw' + String.fromCharCode(10) + '  clear screen to black' + String.fromCharCode(10) + '  draw rect at 1, 1 size 8, 8 in red' + String.fromCharCode(10) + 'run game with update and draw' + String.fromCharCode(10) + '', '');
+    await evaluate(cdp, `(function(){ document.getElementById('tool-run').click(); })()`);
+    await sleep(700);
+    const quiet = await evaluate(cdp, `document.querySelectorAll('#errors div').length`);
+    check('a correct program stays silent', quiet === 0, String(quiet));
+
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {

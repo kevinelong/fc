@@ -96,10 +96,14 @@ and every claim below is checked. The genuinely-open items are collected at the 
   lists and objects; per-game namespace; missing key → safe default, no crash
   (corpus: `save_load_roundtrip.fc`, `load_missing_default.fc`). Cloud mirror via
   apid `/api/state`. Checkpoint auto-save is NOT implemented.
-- **Better error messages** ⚠️ partial — the deterministic safety net reports
-  near-miss verbs and colors before running ("Did you mean …"), and the runtime
-  keeps going instead of dying. The runtime's own messages are still generic
-  ("I got confused: …") with no bounds detail or line highlight.
+- **Better error messages** ✅ — the deterministic safety net reports near-miss
+  verbs and colors before running ("Did you mean …"), and the runtime keeps going
+  instead of dying. The runtime now explains itself too: `Line N:` plus what it did
+  and why ("hands only has 2 items, but you asked for item 5", "player has no
+  speeed — did you mean speed?"), for an item out of range or off a non-list, a
+  count of something uncountable, a dotted path that misses, text in arithmetic and
+  division by zero. One message per (line, mistake), capped at 25, and clicking a
+  message selects that line. Both engines say exactly the same thing (`err-diff`).
 - **Friendlier debugger** ✅ — 🐞 step gives a per-statement trace with a scrubber
   (step back, not just forward), and the 🔍 live-inspect panel pauses, steps one
   frame, and shows every variable with changed values highlighted.

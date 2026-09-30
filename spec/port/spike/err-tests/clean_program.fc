@@ -1,0 +1,8 @@
+-- A control: everything here is correct, so nothing should be reported.
+hands is ["sword", "shield", "potion"]
+best is item 3 of hands
+how_many is count of hands
+player is {x: 40, y: 40, speed: 2}
+spd is player.speed
+score is 10
+half is score / 2

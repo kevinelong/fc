@@ -1,0 +1,3 @@
+-- A word where a number belongs: fc uses 0 (and should say so).
+score is 0
+score is score + "abc"

@@ -44,9 +44,10 @@ keyboard/mouse/touch · camera/scrolling · enemy behaviors (chase/wander/patrol
 frame animation · particles · an optional match timer · **real-time multiplayer**
 (16 example games, five of them multiplayer) · cloud saves + a community gallery
 (optional sign-in) · a syntax-highlighting editor, a live variable inspector, and a
-**step-through debugger** · a **"see it in real code"** view that mirrors your
-program in Python, JavaScript, Lua or GDScript — and **exports a runnable,
-standalone `.html`** of the JS version · **accessibility** settings (colorblind-safe palette, reduced
+**step-through debugger** · plain-English runtime messages ("Line 4: hands only
+has 2 items, but you asked for item 5") that jump to the line · a **"see it in
+real code"** view that mirrors your program in Python, JavaScript, Lua or GDScript
+— and **exports a runnable, standalone `.html`** of the JS version · **accessibility** settings (colorblind-safe palette, reduced
 motion, high-contrast + larger text).
 
 ## Run it
@@ -77,6 +78,11 @@ Then run the harnesses in `spec/port/spike/` (exec-diff, ast-diff, examples-diff
 fuzz, smoke, mp-smoke, visual-golden). **Every language change must keep them green
 across all engines** (the JS reference in `index.html`, the two JS oracles, and the
 Rust/WASM core) — that discipline is how the port stays trustworthy.
+
+Runtime diagnostics have their own guard: `err-diff` pins the messages over
+`spec/port/spike/err-tests/*.fc` and asserts the **shipped wasm core and the JS
+reference report the same words on the same lines** (then sweeps the corpus to
+prove a correct program stays silent). Re-pin with `node dump-err.mjs`.
 
 The **fc→Python/JS/Lua/GDScript transpiler** (`transpile.mjs`, powering the "see it in
 real code" view) has the same discipline: `transpile-diff` pins its output over the

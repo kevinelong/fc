@@ -15,17 +15,20 @@ const ROOT = path.resolve(__dirname, '../../..');
 const BEGIN = '// <FC-TRANSPILE-BEGIN>';
 const END = '// <FC-TRANSPILE-END>';
 
+// Line endings are a checkout artifact (git stores LF; Windows checkouts get CRLF),
+// so compare the region's CONTENT: normalize before comparing, and keep both files
+// free to be edited by tools that write LF.
 function region(text, where) {
   const b = text.indexOf(BEGIN), e = text.indexOf(END);
   if (b < 0 || e < 0) { console.error(`FAIL: sentinels not found in ${where}`); process.exit(1); }
-  return text.slice(b, e + END.length);
+  return text.slice(b, e + END.length).replace(/\r\n/g, '\n');
 }
 
 const mod = region(fs.readFileSync(path.join(__dirname, 'transpile.mjs'), 'utf8'), 'transpile.mjs');
 const html = region(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), 'index.html');
 
 if (mod === html) {
-  console.log(`transpile-embed-check: OK — index.html inlined copy matches transpile.mjs (${mod.split('\n').length} lines).`);
+  console.log(`transpile-embed-check: OK — index.html inlined copy matches transpile.mjs (line endings ignored) (${mod.split('\n').length} lines).`);
   process.exit(0);
 }
 
