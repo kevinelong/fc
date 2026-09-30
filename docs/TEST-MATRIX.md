@@ -10,13 +10,23 @@ Status legend: ✅ pass · ⚠️ issue (note it) · — not tested.
 
 ## Must-do four (any release touching input/audio/canvas/SW)
 
-Decided 2026-09-29 (OPEN-QUESTIONS Q4). The full matrix below is opportunistic; these are
-not: (1) iOS Safari — audio unlocks on the first tap, Add to Home Screen launches offline;
+Recommended release gate (OPEN-QUESTIONS Q4); owner approval and results are still
+pending. The full matrix below is opportunistic; these four are the proposed minimum:
+(1) iOS Safari — audio unlocks on the first tap, Add to Home Screen launches offline;
 (2) Android Chrome — the pad moves and fires, multitouch works, no page scroll or tap
 delay; (3) the installed APK runs an example; (4) two-device multiplayer in one game.
 The touch *wiring* is automated (`tools/ui-check.mjs` emulates a touch device: pad
 appears, multitouch reaches the engine, dragging never scrolls); everything else here
 needs real hardware.
+
+## Latest release results
+
+| Date | Target | Result | Tester / notes |
+|---|---|---|---|
+| — | iOS Safari audio + PWA | — | Not yet recorded |
+| — | Android Chrome touch | — | Not yet recorded |
+| — | Installed APK | — | Not yet recorded |
+| — | Two-device multiplayer | — | Not yet recorded |
 
 ## Devices / browsers to cover
 | Target | Why it matters |

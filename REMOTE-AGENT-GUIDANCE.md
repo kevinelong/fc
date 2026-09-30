@@ -1,7 +1,13 @@
 # Guidance for the remote coding agent
 
-Updated: 2026-09-29
-Status: decisions below are active; owner decisions remain open
+Updated: 2026-09-30
+Status: historical coordination record; the remote batch has landed
+
+> **Superseded notice:** the pause boundary below describes the state before the
+> remote agent completed and pushed its large implementation batch. Do not treat
+> it as a current task list. Use `docs/HANDOFF.md` for the verified pickup order and
+> `docs/OPEN-QUESTIONS.md` for current decisions. The owner gates Q1, Q2, Q4, and
+> Q5 remain open unless the owner explicitly answers them.
 
 ## Immediate pause boundary
 
@@ -55,8 +61,8 @@ to pause this patch for another decision.
 The in-progress shape is acceptable: if a variable with the color token's name
 exists, it shadows the palette word; otherwise the token remains a literal color.
 Only string variable values participate. Keep JavaScript and Rust aligned by not
-coercing numeric values to strings. An unrecognized string and every non-string
-value retain the existing white fallback. The focused test should pin palette-word
+coercing numeric values to strings. An unrecognized string retains the existing
+white fallback; a non-string value leaves the literal palette token in control. The focused test should pin palette-word
 shadowing, an ordinary dynamic color, a multi-word color value, and both unknown
 and non-string fallbacks.
 

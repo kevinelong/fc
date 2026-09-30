@@ -14,6 +14,10 @@ node tools/checks.mjs --only ast   # one check (substring)
 node tools/checks.mjs --list       # names + prerequisites
 ```
 
+Local verification on 2026-09-30: `node tools/checks.mjs --full` completed with
+**22 passed, 0 failed, 0 skipped** on Windows, including browser goldens and all
+three real-server end-to-end checks.
+
 Prerequisites, and what happens without them: a built wasm
 (`cd spec/port/spike && cargo build --release --target wasm32-unknown-unknown`) for the
 differentials; `cd apid && npm install` for the class/share/api end-to-end checks; Chrome
@@ -64,14 +68,18 @@ are reported as **SKIP**, never as a pass. CI runs the same command
 
 ## Next actions, in order
 
-1. **Flip classroom on:** `ENABLE_CLASSROOM=true` in apid's environment + restart. Backend,
-   frontend, the flow (10/10 on the real server) and the `/privacy/` paragraph are done.
-2. **Q5 launch** (feedback/Show HN) — now worthwhile because `/s/<id>` makes a *user* game
-   link preview for scrapers. Follow the venue order in FEEDBACK-PLAN.
-3. **Device pass**: the must-do four in [TEST-MATRIX.md](./TEST-MATRIX.md) (the touch wiring
-   is automated; audio unlock, PWA, APK and iPad need hardware).
-4. **App↔server contract guard** (drive the real app against a local apid).
-5. Business gates, both decisions rather than code: a Stripe account for Pro, licensing for
+1. **Resolve classroom Q1:** owner choices plus qualified privacy/legal review. Keep
+   `ENABLE_CLASSROOM=false`; a complete implementation is not launch approval.
+2. **Device pass:** run and record the must-do four in
+   [TEST-MATRIX.md](./TEST-MATRIX.md). Touch wiring is automated; iOS audio/PWA,
+   APK loading, and two-device multiplayer need real hardware.
+3. **Controlled classroom pilot:** only after steps 1–2, verify retention/deletion,
+   review the final privacy/teacher copy, then decide whether to enable the flag for
+   a small pilot.
+4. **Q5 feedback decision:** the owner chooses whether and where to post. No external
+   account action is implied by the prepared copy.
+5. **App↔server contract guard** (drive the real app against a local apid).
+6. Business gates, both decisions rather than code: a Stripe account for Pro, licensing for
    schools.
-6. Small follow-ups: showcase the ten newly-working verbs in a starter/lesson (they were
+7. Small follow-ups: showcase the ten newly-working verbs in a starter/lesson (they were
    broken for users until this session); user-song playback in the wasm.

@@ -28,8 +28,9 @@ const GITHUB_CLIENT_SECRET = ENV.GITHUB_CLIENT_SECRET || process.env.GITHUB_CLIE
 const ORIGIN = (ENV.ORIGIN || process.env.ORIGIN || 'https://codeonline.io').replace(/\/$/, '');
 const PORT = Number(ENV.PORT || process.env.PORT || 8092);
 // Classroom mode — OFF by default (ships dark; /api/class/* returns 404 until enabled).
-// Privacy-first: a teacher account creates a class code; students join with the code and
-// a display name only — no email, no student accounts, no PII. See docs/PLAN-classroom.md.
+// Data-minimized: a teacher account creates a class code; students join with the code and
+// a display name only — no student email or account. Display names and submitted work can
+// still contain identifying information; see docs/PLAN-classroom.md before launch.
 const ENABLE_CLASSROOM = (ENV.ENABLE_CLASSROOM || process.env.ENABLE_CLASSROOM || 'false').toLowerCase() === 'true';
 const CLASS = { MAX_STUDENTS: 60, MAX_PER_TEACHER: 20, MAX_ASSIGNED: 40, MAX_SUBMISSIONS: 200, IDLE_PURGE_MS: 90 * 24 * 60 * 60 * 1000, CODE_BODY_MAX: 32 * 1024 };
 
@@ -488,7 +489,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ---- Classroom mode (opt-in via ENABLE_CLASSROOM; PII-free: class code + display name) ----
+    // ---- Classroom mode (opt-in via ENABLE_CLASSROOM; data-minimized, not PII-free) ----
     if (p.startsWith('/api/class')) {
       if (!ENABLE_CLASSROOM) return json(res, 404, { error: 'not found' });
       // feature probe: the app shows the classroom UI only when this answers 200

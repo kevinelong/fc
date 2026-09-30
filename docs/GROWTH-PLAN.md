@@ -45,18 +45,20 @@ interim: a single prominent **"✏️ Start coding"** primary CTA that loads the
 **Effort.** small–medium (layout care on a live page). **Metric.** bounce rate,
 % who edit-and-run within the first session.
 
-### A3. Teacher on-ramp  ·  ✅ (page+lesson) / 🔒 (classroom mode)
+### A3. Teacher on-ramp  ·  ✅ (page+lesson and dark implementation) / 🔒 (launch)
 **Why.** Teachers are the **audience multiplier** (1 teacher = 30 kids, every
 term) *and* the bridge to the only durable revenue (schools). They adopt only what
-is turnkey and privacy-safe. fc has none of this yet (no teacher page, no lessons,
-no classroom mode, no privacy page).
+is turnkey and privacy-safe. The teacher page, lessons, privacy page, and dark
+classroom implementation now exist; launch review and a real pilot remain.
 **What to build.** (✅) A `/teachers/` page: why fc fits a classroom (no install,
 offline, multiplayer, plain English), one ready 45-minute lesson plan, and a clear
-privacy stance. This doubles as the school-sales asset. (🔒) **Classroom mode:** a
-teacher creates a class **code**; students join with the code and a display name —
-**no accounts, no PII** — which sidesteps COPPA/FERPA *and* removes the biggest
-adoption blocker. Needs apid work + a privacy review.
-**Effort.** page = small; classroom mode = medium + a privacy decision.
+privacy stance. This doubles as the school-sales asset. **Classroom mode is built
+dark:** a teacher creates a class code; students join without student accounts or
+email and use a display name. That minimizes data but does not make the service
+PII-free or establish COPPA/FERPA compliance. Production use remains gated on the
+owner choices, qualified privacy/legal review, retention verification, and real-
+device results in `PLAN-classroom.md`.
+**Effort.** implementation complete; launch review and pilot remain.
 **Metric.** teacher-page visits, lesson downloads, class codes created.
 
 ### A4. Lead with "multiplayer you wrote"  ·  ✅ (launcher subtitle + 5 multiplayer demos)
@@ -68,9 +70,10 @@ two phones" line; a 30s clip for short-form video.
 share clicks.
 
 ### Foundational caveat — privacy/COPPA
-Kids < 13 + email auth + a public-ish gallery is both a teacher blocker and a legal
-issue. The **no-account "classroom code"** path (A3) fixes the appeal *and* legally
-unlocks the school revenue (B3). Do it before chasing education money.
+Kids under 13, identifiers, submitted work, and a public gallery create privacy and
+trust risks. The no-student-account classroom path (A3) reduces collection, but it
+does not by itself resolve legal or school-policy obligations. Complete the Q1
+review and a controlled pilot before pursuing education revenue.
 
 ---
 
@@ -131,13 +134,15 @@ first; a real curriculum; possibly grants/CSR. **Metric.** schools licensed, sea
 2. **A3 teacher page + first lesson** — unlock the multiplier; it's also the B3
    sales asset.
 3. **A2 landing hook** — lift activation once traffic arrives.
-4. **A3 classroom mode** — *built and verified 2026-09-30*; it flips on with one env var
-   (`ENABLE_CLASSROOM`) → **B2 Pro** (passive revenue) → **B3 school licensing** (the
-   business) — the last two gated on an account/decision.
+4. **A3 classroom mode** — implementation and automated tests are complete, but keep
+   `ENABLE_CLASSROOM=false` until Q1 privacy/product review, retention verification,
+   and Q4 device results are complete. A controlled pilot comes before **B3 school
+   licensing**. **B2 Pro** remains separately gated on pricing and a Stripe account.
 
 Because a shared game now has a server-rendered page (`/s/<id>`, OG tags for scrapers),
-the Q5 feedback launch can follow classroom going live: posts to Show HN / reddit will
-finally preview with the game's title instead of a bare link.
+the existing core product is ready for an owner-authorized feedback run. That launch
+does not need to wait for classroom mode, and no external posting is authorized by
+this plan alone.
 
 You can't monetize an audience you don't have, so appeal (A) precedes revenue (B);
 and the same teacher investment (A3) is the on-ramp to the only durable revenue

@@ -6,26 +6,28 @@ owner of each item is named so an answer has an obvious consumer.
 
 Status legend: 🔴 blocked · 🟡 answer helps · 🟢 answered (work proceeding).
 
-No open blockers: Q1–Q11 are all answered. The remaining gates are business/account
-decisions tracked in GROWTH-PLAN (a Stripe account for Pro, licensing for schools).
+Technical questions Q3 and Q6–Q11 have repository-grounded answers. Owner decisions
+remain open for classroom launch/privacy (Q1), gallery moderation (Q2), real-device
+results (Q4), and external feedback posting (Q5). Business/account gates are tracked
+separately in GROWTH-PLAN.
 
 ---
 
-## 🟢 Q1 — Classroom mode sign-off (RESOLVED 2026-09-29 — all four as recommended)
-Owner: kevin. The four decisions are approved exactly as recommended, and as already
-implemented in `apid/server.js` behind `ENABLE_CLASSROOM` (the endpoint group returns
-404 until it is flipped):
+## 🔴 Q1 — Classroom mode launch and privacy sign-off
+Owner: kevin. The implementation exists in `apid/server.js` and the client behind
+`ENABLE_CLASSROOM` (the endpoint group returns 404 until it is enabled). That work
+does not record owner approval of the product/privacy choices:
 1. Student display names — free text only when it matches `^[A-Za-z0-9 ]{2,20}$` and
    is not profane; otherwise a generated adjective+animal (`studentName()`).
 2. Student submissions — allowed, stored per class, teacher-deletable, auto-purged.
 3. Retention — a class idle for 90 days is deleted (`purgeIdleClasses()`).
 4. Caps — 60 students/class, 20 classes/teacher, 40 assigned games, 200 submissions.
-Done 2026-09-29: the **frontend is built** and verified — `tools/class-e2e.mjs` runs the
+Done technically: the **frontend is built** and verified — `tools/class-e2e.mjs` runs the
 real apid + a real browser through join → shelf → tap-to-play → hand-in → teacher
 roster/assign/delete, and proves the feature stays invisible with the flag off;
-`tools/ui-check.mjs` covers the page with the endpoints stubbed. **Launching is now one
-env var** (`ENABLE_CLASSROOM=true` in apid's environment) plus the `/privacy/`
-"Classroom mode" paragraph. The original questions follow for the record.
+`tools/ui-check.mjs` covers the page with the endpoints stubbed. Launch still requires
+the choices below, qualified privacy/legal review, retention verification, the
+real-device pass, and a controlled-pilot decision. Keep `ENABLE_CLASSROOM=false`.
 
 1. Student display names — free text, or generated adjective+animal list (+ optional
    filtered edit)? *Recommend: generated + optional edit, profanity-filtered.*
@@ -34,21 +36,21 @@ env var** (`ENABLE_CLASSROOM=true` in apid's environment) plus the `/privacy/`
 3. Retention — auto-delete a class + its data after 90 days idle? *Recommend: yes.*
 4. Caps — students per class (e.g. 60) and classes per teacher (e.g. 20)? *Recommend: yes.*
 
-**Answer:** Approved as recommended — see the resolution above.
+**Answer:** Pending explicit owner approval. The code reflects the recommendations,
+but classroom mode must remain disabled until the launch checklist in
+`PLAN-classroom.md` is complete.
 
 ---
 
-## 🟢 Q2 — Community gallery moderation stance (RESOLVED 2026-09-29 — keep post-moderation)
+## 🟡 Q2 — Community gallery moderation stance
 Owner: kevin. Currently **post-moderation** (sign-in required, delete-your-own,
 caps, name filter) and live. The alternative is **curated/pre-moderation**
 (`status:'pending'` + admin approve + admin identity in `.env`) for a kids-facing
 audience. This is a trust/UX change, not a code gap.
 
-**Answer:** Keep post-moderation as shipped. The public gallery's audience is hobbyists,
-teachers and older students who opted into an account; the *kids-facing* surface is the
-classroom mode's private gallery (Q1), which is where a review queue would belong if a
-school asks for one — a scoped feature later, not a change to the public gallery. This
-answer unblocks the dynamic OG cards for user `?code=`/gallery games (GROWTH-PLAN #1).
+**Answer:** Pending owner decision. Keep the currently shipped post-moderation behavior
+unchanged while this is open; do not treat that operational default as approval for a
+kids-facing launch or as authorization to expand promotion.
 
 ---
 
@@ -67,7 +69,7 @@ change deployment configuration until kevin explicitly performs the go-live.
 
 ---
 
-## 🟢 Q4 — Manual device pass (RESOLVED 2026-09-29 — four must-do entries)
+## 🔴 Q4 — Manual device pass (scope agreed in the plan; results not recorded)
 Owner: kevin. Touch, mobile audio-autoplay, Safari, PWA-install and the APK can only be
 verified on real hardware; the full matrix stays in `docs/TEST-MATRIX.md`. The must-do
 list for any release touching input, audio, the canvas or the service worker is these
@@ -87,20 +89,21 @@ opportunistic. The automatable slice of the touch path is **done** (2026-09-29):
 reach the engine, multitouch (move + fire in one frame) works, and dragging on the pad
 never scrolls. Audio unlock, PWA install, the APK and iPad still need real hardware.
 
-**Answer:** Approved as described above.
+**Answer:** Pending execution on real hardware. Automated touch coverage passed, but it
+does not establish iOS audio/PWA behavior, APK loading, or two-device multiplayer.
+Record dated device/OS/browser results in `TEST-MATRIX.md` before launch.
 
 ---
 
-## 🟢 Q5 — Feedback launch (RESOLVED 2026-09-29 — after classroom ships)
+## 🟡 Q5 — Feedback launch
 Owner: kevin. Copy is written; posting must come from your own accounts (karma /
 captcha / anti-spam gating). Nothing to build until posts land — the recurring feedback
 list feeds docs/GROWTH-PLAN.md.
 
-**Answer:** Hold the launch until classroom mode is live, so the pitch leads with
-teachers (the multiplier) rather than a generic "look at my project". Then one venue per
-day in the plan's order: r/SideProject → Show HN (weekday morning US-Eastern, one
-attempt) → one player sub → Lexaloffle / r/fantasyconsoles → optional education venues,
-replying to every comment for the first few hours.
+**Answer:** Pending owner authorization. The copy and recommended venue order are ready,
+but no post should be made from an external account. Classroom launch is not a valid
+dependency until Q1 and Q4 are closed; feedback on the existing core product can be run
+separately if the owner chooses.
 
 ---
 
@@ -147,7 +150,8 @@ each changes how the project is built rather than what it does:
    assumed is already done via `spec/lang/fc-core.mjs`). Recommend: only worth it
    if you expect more contributors or plan to ship native targets; otherwise the
    single file plus its harness suite is doing its job.
-2. **docs/PLAN-classroom.md** — still blocked on the four privacy decisions (Q1).
+2. **docs/PLAN-classroom.md** — implementation is complete and dark; production launch
+   remains blocked on the four privacy/product decisions and launch checklist (Q1).
 
 The ROADMAP's own "Open design questions" (Q1–Q7 there: multi-word function names,
 `draw <noun>` vs a function call, implicit sprite images, built-in sounds per
@@ -155,8 +159,8 @@ sprite, per-mode update functions, `go to` with no screen, implicit `clear scree
 stay in ROADMAP.md as the record of those tensions — not duplicated here.
 
 **Answer:** Defer modularization; the harnessed single-file architecture is
-acceptable for the current product. Do not begin the classroom implementation
-until Q1 is answered.
+acceptable for the current product. Do not enable or promote the completed classroom
+implementation until Q1 is answered.
 
 ---
 
@@ -174,12 +178,14 @@ send action must preview the exact data and receive a separate privacy decision.
 
 ---
 
-## 🟢 Q7 — Dynamic colors (RESOLVED 2026-09-29 — implemented)
+## 🟢 Q7 — Dynamic colors (RESOLVED 2026-09-30 — parity edge case added)
 `draw … in <var>` resolved only literal color names, so starfield's parallax
 brightness, matrix's fading tail and sand's three grain tones painted flat white.
 Implemented across all four cores (`Runtime.colorOf` in index.html + both
-`spec/*.mjs` copies, `color_of` in the rust core) at every color choke-point; a
-variable wins over a palette name, a non-color value falls back to white.
+`spec/*.mjs` copies, `color_of` in the rust core) at every color choke-point. A
+string-valued variable wins over a palette name; an unrecognized string falls back
+to white. A non-string variable does not shadow the literal palette word. The
+collision case (`yellow is 4` + `in yellow`) is now pinned in `d_dyncolor.fc`.
 
 Verified in the app: starfield now paints black + dark gray + light gray + white,
 matrix black + dark green + green + white, sand black + yellow + orange + gold —
