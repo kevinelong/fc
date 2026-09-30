@@ -141,7 +141,8 @@ and every claim below is checked. The genuinely-open items are collected at the 
   OFF: flipping the default changes the shipped look, so that stays a taste call —
   the measured comparison says the stripes are cleaner and more saturated, while the
   fixed fringe washes the picture toward its dominant colour.
-- **Compiler targets beyond Python/JavaScript** (Lua, Godot, Unity).
+- **A Unity/C# target** — the last unbuilt compile target (the real-code panel
+  shipped Python, JavaScript, Lua and GDScript on 2026-09-29).
 
 ## Discussed but not implemented
 
@@ -171,7 +172,11 @@ set scene to "space"
 The runtime would have a few hand-drawn or procedural backgrounds.
 
 ### "list of 12 trees" auto-naming
-We support `list of N sprites {image: "tree"}`. We discussed but didn't implement: `list of 12 trees` where the noun after `of N` is auto-singularized to set `image: "tree"`. Saves typing but adds magic. TBD.
+We support `list of N sprites {image: "tree"}`. We discussed but didn't implement: `list of 12 trees` where the noun after `of N` is auto-singularized to set `image: "tree"`. Saves typing but adds magic.
+
+**Decided 2026-09-29: yes, when unambiguous** (design decisions, Q3 above): a clean
+plural infers its singular, an irregular one keeps the placeholder, and an explicit
+`image` always wins. Not built yet.
 
 ### Sprite as a true class with inheritance
 Right now sprites are just objects. We could make `sprite` a class users extend:
@@ -182,9 +187,6 @@ class boss extends enemy {hp: 30, size: 16}
 ```
 
 But this adds a class system, which might be too much complexity. Not yet.
-
-### Real subpixel rendering
-Mentioned above; CSS tint columns are a placeholder.
 
 ---
 
