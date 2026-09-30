@@ -1,0 +1,11 @@
+-- inline `else <statement>`: the field audit showed only the indented form was ever
+-- covered, and the wasm parsed this one into an empty else (silently doing nothing)
+a is 1
+b is 0
+c is 0
+if a is 2
+  b is 2
+else b is 3
+if a is 1
+  c is 4
+else c is 5

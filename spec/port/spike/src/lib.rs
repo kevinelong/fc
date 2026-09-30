@@ -187,14 +187,15 @@ enum Expr { Lit(LitVal), Ref(String), Math(String, Box<Expr>, Box<Expr>),
     Load(Box<Expr>), SolidAt(Box<Expr>, Box<Expr>), At(u32, Box<Expr>) }
 #[derive(Clone)]
 enum Cond { Or(Box<Cond>,Box<Cond>), And(Box<Cond>,Box<Cond>), Not(Box<Cond>), NotExpr(Expr),
-    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), InvHas(String,Expr), Bare(Expr), Key(String) }
+    Eq(Expr,Expr), Neq(Expr,Expr), Cmp(String,Expr,Expr), Has(Expr,Expr), In(Expr,Expr), InvHas(String,Expr), Bare(Expr), Key(String),
+    Between(Expr,Expr,Expr) }
 #[derive(Clone)]
 enum Stmt {
     Assign(String, Expr), Add(String, Expr), Remove(String, Expr),
     Simple(&'static str, String), // double/halve/toggle/clear -> {target,type}
     Call(String, Vec<Tok>, Vec<Expr>),
     FuncDef(String, Vec<String>, Vec<Stmt>),
-    If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Vec<Stmt>),
+    If(Cond, Option<Box<Stmt>>, Vec<Stmt>), ElseIf(Cond, Option<Box<Stmt>>, Vec<Stmt>), Else(Option<Box<Stmt>>, Vec<Stmt>),
     RepeatTimes(Expr, Vec<Stmt>), RepeatRange(String, Expr, Expr, Vec<Stmt>),
     RepeatWhile(Cond, Vec<Stmt>), RepeatUntil(Cond, Vec<Stmt>), Forever(Vec<Stmt>), With(Vec<Stmt>),
     Every(f64, String, Vec<Stmt>, u32),
@@ -388,6 +389,14 @@ fn parse_cond(ts: &[Tok]) -> Cond {
     // JS parseCondition); `no X` negates an EXPRESSION (e.g. `no enemies`).
     if !ts.is_empty() && ts[0].is_word("not") { return Cond::Not(Box::new(parse_cond(&ts[1..]))); }
     if !ts.is_empty() && ts[0].is_word("no") { return Cond::NotExpr(parse_expr(&ts[1..])); }
+    // `X is between A and B` must beat the and/or split (the JS parser learned this the
+    // hard way: the split ran first and turned the documented range into a false `and`)
+    if let (Some(bi), Some(ai)) = (find_word(ts, "between"), find_word(ts, "and")) {
+        if bi > 0 && ai > bi {
+            let value = parse_expr(&ts[..bi.saturating_sub(1)]);
+            return Cond::Between(value, parse_expr(&ts[bi+1..ai]), parse_expr(&ts[ai+1..]));
+        }
+    }
     if let Some(k)=find_word(ts,"or") { return Cond::Or(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if let Some(k)=find_word(ts,"and") { return Cond::And(Box::new(parse_cond(&ts[..k])), Box::new(parse_cond(&ts[k+1..]))); }
     if !ts.is_empty() && ts[0].is_word("key") { return Cond::Key(ts.get(1).map(|t| t.sval().to_string()).unwrap_or_default()); }
@@ -471,7 +480,12 @@ fn parse_line(ts: &[Tok]) -> Stmt {
     if first=="if" { return parse_if(&ts[1..], false); }
     if first=="else" {
         if ts.len()>=2 && ts[1].is_word("if") { return parse_if(&ts[2..], true); }
-        return Stmt::Else(Vec::new());
+        // `else <statement>` keeps the action (the JS emits thenStmt); a bare `else`
+        // relies on the indented body attached later
+        if ts.len() > 1 && !ts[1].is_word("if") {
+            return Stmt::Else(Some(Box::new(parse_line(&ts[1..]))), Vec::new());
+        }
+        return Stmt::Else(None, Vec::new());
     }
     if first=="repeat" { return parse_repeat(ts); }
     if first=="every" && ts.len()>=3 {
@@ -862,7 +876,7 @@ fn parse_when(ts: &[Tok]) -> Stmt {
     }
 }
 fn set_body(s: &mut Stmt, body: Vec<Stmt>) {
-    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(b)
+    match s { Stmt::FuncDef(_,_,b)|Stmt::If(_,_,b)|Stmt::ElseIf(_,_,b)|Stmt::Else(_,b)
         |Stmt::RepeatTimes(_,b)|Stmt::RepeatRange(_,_,_,b)|Stmt::RepeatWhile(_,b)|Stmt::RepeatUntil(_,b)
         |Stmt::Forever(b)|Stmt::With(b)|Stmt::Every(_,_,b,_)|Stmt::WhenPickup(_,b)|Stmt::WhenHit(_,b)|Stmt::WhenDefeat(_,b)
         |Stmt::WhenKeyIn(_,_,b)|Stmt::WhenGeneric(_,b)
@@ -991,6 +1005,7 @@ fn emit_cond(c: &Cond, out: &mut String) {
         Cond::Neq(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"neq\"}"); }
         Cond::Cmp(op,l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"op\":"); json_str(op,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"cmp\"}"); }
         Cond::Has(l,r)=>{ out.push_str("{\"left\":"); emit_expr(l,out); out.push_str(",\"right\":"); emit_expr(r,out); out.push_str(",\"type\":\"has\"}"); }
+        Cond::Between(v,lo,hi)=>{ out.push_str("{\"high\":"); emit_expr(hi,out); out.push_str(",\"low\":"); emit_expr(lo,out); out.push_str(",\"type\":\"between\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Cond::InvHas(subject,item)=>{ out.push_str("{\"item\":"); emit_expr(item,out); out.push_str(",\"subject\":"); json_str(subject,out); out.push_str(",\"type\":\"inv_has\"}"); }
         Cond::In(v,l)=>{ out.push_str("{\"list\":"); emit_expr(l,out); out.push_str(",\"type\":\"in\",\"value\":"); emit_expr(v,out); out.push('}'); }
         Cond::Bare(e)=>emit_expr(e,out),
@@ -1038,7 +1053,11 @@ fn emit_stmt(s: &Stmt, out: &mut String) {
         Stmt::FuncDef(n,params,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"name\":"); json_str(n,out); out.push_str(",\"params\":["); for (i,p) in params.iter().enumerate() { if i>0 {out.push(',');} json_str(p,out); } out.push_str("],\"type\":\"funcdef\"}"); }
         Stmt::If(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"if\"}"); }
         Stmt::ElseIf(c,then,body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"thenStmt\":"); emit_then(then,out); out.push_str(",\"type\":\"else_if\"}"); }
-        Stmt::Else(body)=>{ out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"type\":\"else\"}"); }
+        Stmt::Else(then,body)=>{
+            // the JS emits `thenStmt` for an inline else and `body` for a bare one
+            if let Some(t) = then { out.push_str("{\"thenStmt\":"); emit_stmt(t,out); out.push_str(",\"type\":\"else\"}"); }
+            else { out.push_str("{\"body\":"); emit_stmts(body,out); out.push_str(",\"type\":\"else\"}"); }
+        }
         Stmt::RepeatTimes(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"count\":"); emit_expr(c,out); out.push_str(",\"type\":\"repeat_times\"}"); }
         Stmt::RepeatRange(v,f,t,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"from\":"); emit_expr(f,out); out.push_str(",\"to\":"); emit_expr(t,out); out.push_str(",\"type\":\"repeat_range\",\"varName\":"); json_str(v,out); out.push('}'); }
         Stmt::RepeatWhile(c,b)=>{ out.push_str("{\"body\":"); emit_stmts(b,out); out.push_str(",\"condition\":"); emit_cond(c,out); out.push_str(",\"type\":\"repeat_while\"}"); }
@@ -2084,6 +2103,10 @@ impl Rt {
             Cond::Not(c) => !self.eval_cond(c),
             Cond::NotExpr(e) => { let v=self.eval(e); !truthy(&v) }
             Cond::Bare(e) => { let v=self.eval(e); truthy(&v) }
+            Cond::Between(v, lo, hi) => {
+                let a = as_num(&self.eval(v)); let b = as_num(&self.eval(lo)); let c = as_num(&self.eval(hi));
+                a >= b && a <= c
+            }
             Cond::Has(l, r) => {
                 // mirrors JS: a text left side is a case-insensitive substring test, a
                 // list left side is membership (strict, like Array.includes)
@@ -2118,7 +2141,13 @@ impl Rt {
             match s {
                 Stmt::If(c, then, body) => { let r=self.eval_cond(c); last_if=Some(r); if r { self.run_then(then, body); } }
                 Stmt::ElseIf(c, then, body) => { if last_if==Some(false) { let r=self.eval_cond(c); last_if=Some(r); if r { self.run_then(then, body); } } }
-                Stmt::Else(body) => { if last_if==Some(false) { self.exec_block(body); } last_if=None; }
+                Stmt::Else(then, body) => {
+                    if last_if == Some(false) {
+                        if let Some(t) = then { let one = (**t).clone(); self.exec_block(core::slice::from_ref(&one)); }
+                        self.exec_block(body);
+                    }
+                    last_if = None;
+                }
                 _ => { last_if=None; self.exec_one(s); }
             }
         }
@@ -2861,7 +2890,7 @@ impl Rt {
                                 }
                             }
                         }
-                        if !name.is_empty() && !SPRITES.iter().any(|(n, _)| *n == name) {
+                        if !name.is_empty() && !SPRITES.iter().any(|(n, _)| *n == name) && !self.user_sprites.iter().any(|(n, _)| n.as_str() == name) {
                             self.error(&alloc::format!("no sprite called {} — if you meant a function, write {} on its own line", name, name));
                         }
                         blit_sprite(&name, x, y + bounce, &self.user_sprites, &mut self.cmds);

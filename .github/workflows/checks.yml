@@ -1,0 +1,36 @@
+name: checks
+
+# The guards only help if they run. `node tools/checks.mjs` is one command that runs
+# every harness and requires each one's summary line (a silent harness or a 0/0 run is
+# a failure, not a pass), so CI needs no knowledge of the individual suites.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # apid's deps: the classroom, share-page and api guards start the real server.
+      - name: apid dependencies
+        run: cd apid && npm install --no-audit --no-fund
+
+      # The differentials compare against the wasm core, built here (target/ is ignored).
+      - name: wasm core
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cd spec/port/spike && cargo build --release --target wasm32-unknown-unknown
+
+      # Chrome is preinstalled on the runner; the harnesses find it themselves.
+      # Anything whose prerequisite is genuinely missing is reported as a SKIP.
+      - name: every harness
+        run: node tools/checks.mjs

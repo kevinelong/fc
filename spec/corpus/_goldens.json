@@ -813,7 +813,7 @@
         "shield"
       ],
       "inHands": 1,
-      "inRange": 0,
+      "inRange": 1,
       "inWord": 1,
       "notInHands": 0,
       "outOfRange": 0,
@@ -834,6 +834,15 @@
     "say": [],
     "vars": {
       "ticks": 4
+    }
+  },
+  "shapes_inline_else.fc": {
+    "errors": [],
+    "say": [],
+    "vars": {
+      "a": 1,
+      "b": 3,
+      "c": 4
     }
   },
   "shapes_loops.fc": {

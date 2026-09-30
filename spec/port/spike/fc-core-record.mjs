@@ -1802,18 +1802,6 @@ function parse(source) {
       return { type: 'not', expr: parseExpression(tokens.slice(1)) };
     }
 
-    // Look for "and" / "or" logical operators
-    for (let i = 1; i < tokens.length; i++) {
-      if (tokens[i].type === 'word' && tv(tokens[i]) === 'or') {
-        return { type: 'or', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
-      }
-    }
-    for (let i = 1; i < tokens.length; i++) {
-      if (tokens[i].type === 'word' && tv(tokens[i]) === 'and') {
-        return { type: 'and', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
-      }
-    }
-
     // "X is between A and B"
     for (let i = 0; i < tokens.length; i++) {
       if (tokens[i].type === 'word' && tv(tokens[i]) === 'between') {
@@ -1825,6 +1813,18 @@ function parse(source) {
         if (andIdx > 0) {
           return { type: 'between', value: left, low: parseExpression(tokens.slice(i + 1, andIdx)), high: parseExpression(tokens.slice(andIdx + 1)) };
         }
+      }
+    }
+
+    // Look for "and" / "or" logical operators
+    for (let i = 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'or') {
+        return { type: 'or', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
+      }
+    }
+    for (let i = 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'word' && tv(tokens[i]) === 'and') {
+        return { type: 'and', left: parseCondition(tokens.slice(0, i)), right: parseCondition(tokens.slice(i + 1)) };
       }
     }
 

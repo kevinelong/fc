@@ -1,7 +1,18 @@
 {
-  "programs": 141,
+  "programs": 142,
   "declared": 103,
-  "uncovered": [
-    "between"
+  "uncovered": [],
+  "uncoveredFields": [
+    "assign.left",
+    "assign.op",
+    "chain.p",
+    "math.value",
+    "not.list",
+    "not.value",
+    "probability.rest",
+    "pset.value",
+    "say.value",
+    "when_key_in.rest",
+    "write.value"
   ]
 }

@@ -5,6 +5,46 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-09-30 (c) — CI, field-level coverage, semantic cases, and two bugs they found
+
+**(a) The guards now run by themselves.** `.github/workflows/checks.yml` installs apid's
+deps, builds the wasm core, and runs `node tools/checks.mjs` on every push and PR, so the
+whole suite (22 checks) is one command in CI as well as on a workstation. Nothing else in
+the workflow knows about individual harnesses — that is the point of the runner.
+
+**(b) Coverage went one level deeper: fields, not just node types.** `shape-diff` now
+reads the keys each parser literal can emit and compares them with the keys any test
+program produces (`if` always with a body? `every` always in frames? `tween` never with an
+ease? `else` ever inline?). 234/245 fields are exercised; the 11 leftovers are pinned and
+most are the heuristic window capturing a local name next to the literal (labelled as
+such). Its first real find: **an inline `else <statement>` was parsed in the wasm into an
+empty else** — the statement silently did nothing on the default engine. Case first, then
+ported (the JS has two shapes: inline → `thenStmt`, bare → `body`).
+
+**(c) The shape cases now assert values, not just agreement.** Agreement between two
+engines is necessary but not sufficient — a shared mistake passes. Each of the 16 cases
+carries the result the docs promise. That immediately produced three findings:
+
+- **`if score is between 0 and 50` never fired** (LANGUAGE.md line 91). `parseCondition`
+  ran its and/or splitting *before* looking for `between`, so the documented range became
+  `x is 1` AND `5` — false. The wasm mirrored the same bug and, as it turned out, had no
+  `between` condition at all. Fixed in all three JS copies and ported as a real
+  `Cond::Between` in the wasm; **node-type coverage is now 103/103** (the last uncovered
+  node, `between`, was unreachable until this).
+- Two of *my own* cases used the wrong spelling: a bare `face up` (the docs write
+  `face <mover> <direction>`) and an unquoted `draw sprite ball` (the docs quote the name —
+  a bare word is a variable). Corrected in the cases; the engine was right.
+- The wasm's "no sprite called X" check counted only built-in art, so a **user-defined
+  sprite drew correctly and then got a false warning** about itself — a bug in the R1 port
+  from the previous entry, caught within minutes of the semantic case existing.
+
+Suite: tokenize 2348/2348 · ast 101/101 · exec 79/79 · draw 13/13 · examples 22/22 ·
+dump-vars 22/22 · frames 13/13 · shape-diff 16 semantic cases · 103/103 node types ·
+smoke 16/16 · mp-smoke 5/5 · fuzz 2000/2000 · err-diff 15 + 127 sweep ·
+transpile 101/101 ×4 · core-copy OK · mirror OK · visual goldens 22/22 ·
+heal 99/99 corpus · class-e2e 10/10 · share-e2e 6/6 · api-e2e 10/10 · ui-check 82/82 —
+and all of it runs as `node tools/checks.mjs` (22 checks) in CI.
+
 ## 2026-09-30 (b) — the guards around the guards, and the classroom launch
 
 The audit in (a) found gaps because nothing ran the whole suite in one place. This entry

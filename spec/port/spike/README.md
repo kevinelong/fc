@@ -81,7 +81,7 @@ source and re-inlined into index.html — is:
 | `smoke.mjs` / `frames-run.mjs` / `mp-smoke.mjs` | 16/16 · 5/5 · 5/5 |
 | `fuzz.mjs` | 3000/3000 random programs |
 | `err-diff.mjs` | diagnostics: JS == wasm == `err-golden.json` (cases) + a program sweep |
-| `shape-diff.mjs` | coverage: node types no program exercises (pinned) + one cross-engine case per unexercised statement shape |
+| `shape-diff.mjs` | coverage: node types AND fields no program exercises (pinned) + a semantic, cross-engine case per unexercised statement shape |
 
 Rebuild loop after a core change: `cargo build --release --target
 wasm32-unknown-unknown` then `node inline-wasm.mjs` (re-inlines the bytes into
@@ -92,9 +92,9 @@ index.html), then re-run the table above and `node ../../heal/eval.mjs`.
 `shape-diff.mjs` pins the node types no test program exercises and runs a case per
 unexercised *statement* shape. As of 2026-09-30:
 
-- `between` is the one node type no program reaches — the parser's `is between A and B`
-  path sits behind the `and`-splitting that handles condition conjunctions, so the
-  common spellings never produce it. Pinned so it stays visible.
+- (`between` was this list's first entry — the handler sat behind the `and`-split, so the
+  documented range never fired. Fixed 2026-09-30: the node is emitted, ported to the wasm,
+  and node-type coverage is 103/103.)
 - user-defined **songs** (`song "x" is 120 "notes" …`) register in the JS host's audio
   engine; the wasm can only name a sound across the ABI, so a user song plays by name
   only. The *statement* parses and never creates a variable (that part is fixed).
