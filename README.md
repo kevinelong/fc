@@ -93,7 +93,8 @@ not a pass) — it is the guard against the rot that hid a broken `frames-run` f
 A check whose prerequisite is absent (a built wasm, Chrome, apid's `npm install`,
 `playwright-core` for the pixel goldens) reports **SKIP**, never a pass: a clean checkout is
 **22/22** with every prerequisite present and **21 + 1 skip** when only `playwright-core` is
-missing. A failing harness prints its own last lines under the table, not just an exit code.
+missing (CI installs it, so the goldens run there). A failing harness prints its own last
+lines under the table, not just an exit code.
 
 `tools/core-copy-check.mjs` holds the "one program, three homes" invariant: index.html's
 JS core, `spec/lang/fc-core.mjs` and `fc-core-record.mjs` must have identical code for

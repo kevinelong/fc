@@ -29,7 +29,8 @@ Prerequisites, and what happens without them:
 - Chrome (preinstalled on CI, auto-detected locally, `CHROME=` overrides) for the browser
   checks — `tools/chrome-path.cjs` is the single path list every harness shares;
 - `npm i playwright-core` in the repo root for the pixel goldens (`.gitignore` keeps the repo
-  dependency-free); without it `visual-golden` **SKIP**s.
+  dependency-free); without it `visual-golden` **SKIP**s. CI installs it, so the goldens run
+  there too — and Linux software-Skia pixels match the pinned ones (2026-10-11, 22/22).
 
 A missing prerequisite is reported as **SKIP**, never as a pass, and a failing harness now
 prints its own last lines under the table instead of only `exit N`. CI runs the same command
