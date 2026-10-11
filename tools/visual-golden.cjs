@@ -15,19 +15,29 @@
 //   NODE_PATH=/tmp/pw2/node_modules node tools/visual-golden.cjs [--update] [game...]
 // (or install it in the repo root: `npm i playwright-core` — .gitignore covers
 // node_modules/package.json/package-lock.json, so the repo stays dependency-free)
-const { chromium } = require('playwright-core');
+const { chromium } = (() => {
+  // playwright-core is intentionally not a committed dependency (the repo stays
+  // install-free: `npm i playwright-core` in the repo root, or NODE_PATH=…). Say that
+  // plainly and exit 2 (a *missing prerequisite*, distinct from exit 1 = pixel diff).
+  try { return require('playwright-core'); }
+  catch (e) {
+    if (e && e.code === 'MODULE_NOT_FOUND') {
+      console.error('playwright-core is not installed — the browser goldens need it:');
+      console.error('  npm i playwright-core        (repo root; .gitignore keeps it out of git)');
+      console.error('  or NODE_PATH=/path/to/node_modules node tools/visual-golden.cjs');
+      process.exit(2);
+    }
+    throw e;
+  }
+})();
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHOTS = path.join(ROOT, 'spec', 'golden-shots');
-const CHROME = process.env.CHROME || [
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/chromium',
-  '/usr/bin/google-chrome',
-].find(p => fs.existsSync(p));
+const { findChrome } = require('./chrome-path.cjs');
+const CHROME = findChrome();
 if (!CHROME) {
   console.error('No Chrome found — set CHROME=/path/to/chrome');
   process.exit(2);

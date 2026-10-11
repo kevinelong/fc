@@ -16,21 +16,30 @@
 //   node tools/checks.mjs --list
 //
 // Checks that need something this machine may not have (a built wasm, Chrome, apid's
-// node_modules) SKIP loudly rather than pretending.
+// node_modules, playwright-core for the browser goldens) SKIP loudly rather than
+// pretending. A check whose *input* is generated rather than committed declares a
+// `pre` step (ast) — otherwise it fails on every clean checkout, which is how it
+// looked like a parser bug for the three CI runs before this one.
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SPIKE = path.join(ROOT, 'spec', 'port', 'spike');
+const require = createRequire(import.meta.url);
+// The same finder the harnesses use, so a gate and the harness it gates agree.
+const { findChrome } = require('./chrome-path.cjs');
 const N = '(\\d+)';
 const same = re => new RegExp(re, 'm');
 
 const CHECKS = [
   // ---- language cores: the same program must behave identically everywhere ----
   { name: 'tokenize', cwd: SPIKE, run: 'node tokenize-diff.mjs', min: 1000, expect: same(`Lexer differential test: ${N}/${N} lines match, 0 diff`) },
-  { name: 'ast', cwd: SPIKE, run: 'node ast-diff.mjs', min: 40, expect: same(`Parser differential test: (\\d+)/\\1 programs match`) },
+  // The candidate AST is generated from the built wasm and is gitignored (spike/.gitignore),
+  // so it must be produced here: ast-diff compares it against the committed golden.
+  { name: 'ast', cwd: SPIKE, pre: 'node parse-ast.mjs', run: 'node ast-diff.mjs', min: 40, expect: same(`Parser differential test: (\\d+)/\\1 programs match`) },
   { name: 'exec', cwd: SPIKE, run: 'node exec-diff.mjs', min: 40, expect: same(`Runtime exec: (\\d+)/\\1 match`) },
   { name: 'draw', cwd: SPIKE, run: 'node draw-diff.mjs', min: 8, expect: same(`Render cmds: (\\d+)/\\1 match`) },
   { name: 'examples', cwd: SPIKE, run: 'node examples-diff.mjs', min: 15, expect: same(`(\\d+)/\\1 examples render bit-identical`) },
@@ -47,9 +56,9 @@ const CHECKS = [
   { name: 'fuzz', cwd: SPIKE, run: 'node fuzz.mjs 500 1', min: 400, expect: same(`fuzz: (\\d+)/\\1 programs match`) },
   { name: 'heal', cwd: ROOT, run: 'node spec/heal/eval.mjs', min: 0, expect: same(`Phase 3 floor: .*(valid|matches)`) },
   // ---- browser and server surfaces ----
-  { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome'], expect: same(`(\\d+)/\\1 visual goldens match`) },
+  { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
   { name: 'ui-check', cwd: ROOT, run: 'node tools/ui-check.mjs starfield', min: 60, needs: ['chrome'], expect: same(`(\\d+)/\\1 UI checks pass`) },
-  { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
+  { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['chrome', 'apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
   { name: 'share-e2e', cwd: ROOT, run: 'node tools/share-e2e.mjs', min: 4, needs: ['apid'], expect: same(`(\\d+)/\\1 share-page checks pass`) },
   { name: 'api-e2e', cwd: ROOT, run: 'node tools/api-e2e.mjs', min: 6, needs: ['apid'], expect: same(`(\\d+)/\\1 api checks pass`) },
 ];
@@ -60,12 +69,19 @@ const full = argv.includes('--full');
 if (argv.includes('--list')) { for (const c of CHECKS) console.log(c.name.padEnd(14) + (c.needs || []).join(',')); process.exit(0); }
 
 const have = {
-  chrome: !!(process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(p => fs.existsSync(p))),
+  chrome: !!findChrome(),
   apid: fs.existsSync(path.join(ROOT, 'apid', 'node_modules')),
   wasm: fs.existsSync(path.join(SPIKE, 'target', 'wasm32-unknown-unknown', 'release', 'fc_spike.wasm')),
+  // The browser goldens drive Chrome through playwright-core, which is deliberately not
+  // a committed dependency (the repo stays install-free): without it that check has to
+  // SKIP, not die as a MODULE_NOT_FOUND.
+  pw: spawnSync(process.execPath, ['-e', "require.resolve('playwright-core')"], { cwd: ROOT, encoding: 'utf8' }).status === 0,
 };
 
 const results = [];
+// Keep a failing harness's own words: the table has room only for an exit code, and
+// "exit 2" on its own cost a blind CI diagnosis (the cause was a missing generated input).
+const tailOut = r => ((r.stdout || '') + (r.stderr || '')).split(/\r?\n/).filter(l => l.trim()).slice(-12).join('\n');
 for (const c of CHECKS) {
   if (only && !c.name.includes(only)) continue;
   const missing = (c.needs || []).filter(k => !have[k]);
@@ -76,6 +92,15 @@ for (const c of CHECKS) {
   }
   const cmd = full && c.name === 'fuzz' ? 'node fuzz.mjs 2000 1' : c.run;
   const started = Date.now();
+  // A generated input (ast's rust-ast.json) is produced here, before the diff: a missing
+  // candidate file is a harness-setup failure, not a verdict on the parser.
+  if (c.pre) {
+    const p = spawnSync(c.pre, { cwd: c.cwd, shell: true, encoding: 'utf8' });
+    if (p.status !== 0) {
+      results.push({ ...c, status: 'FAIL', why: `prepare failed (exit ${p.status})`, out: tailOut(p), ms: Date.now() - started });
+      continue;
+    }
+  }
   const r = spawnSync(cmd, { cwd: c.cwd, shell: true, encoding: 'utf8' });
   const out = (r.stdout || '') + (r.stderr || '');
   const m = out.match(c.expect);
@@ -84,10 +109,14 @@ for (const c of CHECKS) {
   if (r.status !== 0) { status = 'FAIL'; why = 'exit ' + r.status; }
   else if (!m) { status = 'FAIL'; why = 'no summary line — the harness may have gone silent'; }
   else if (cases !== null && cases < c.min) { status = 'FAIL'; why = `${cases} cases (min ${c.min})`; }
-  results.push({ ...c, status, why, ms: Date.now() - started });
+  results.push({ ...c, status, why, ms: Date.now() - started, out: tailOut(r) });
 }
 
 const pad = (s, n) => String(s).padEnd(n);
+for (const r of results.filter(r => r.status === 'FAIL' && r.out)) {
+  console.log(`\n--- ${r.name} · ${r.why}`);
+  console.log(r.out.split('\n').map(l => '    ' + l).join('\n'));
+}
 console.log('\n' + pad('check', 15) + pad('', 2) + 'detail');
 for (const r of results) {
   const detail = r.status === 'PASS' ? `${(r.ms / 1000).toFixed(1)}s` : (r.why || '');
