@@ -12,6 +12,16 @@ below — your remaining step is the account.
 1. **Direct APK.** `https://codeonline.io/fc.apk` is a signed release build, live now.
    Share the link (or a QR). Users tap it, allow "install from this source," done.
    The **best immediate distribution** — no gatekeeper, no wait.
+   *Status 2026-10-11:* the live file is still the 2026-07-02 build (versionCode 3). A
+   **versionCode 4** build is ready at
+   `fc-app/build/app/outputs/flutter-apk/app-release.apk` — 49,518,572 bytes, sha256
+   `2597d8bb…` — carrying the current web app (23 examples, the September language and
+   engine work, and every linked page now actually bundled). Replacing the live file is a
+   deploy step that has not been done. **Order matters:** publish the APK first, then
+   `fc-version.js` (now advertising 4), because the in-app nudge reads the live file —
+   bumping it first would point v3 installs at the v3 download. Note also that v4 is signed
+   with a **new** key (the July keystore was never recovered), so it cannot install over a
+   v3 copy: existing users uninstall once.
 2. **PWA (installable web app).** `https://codeonline.io` → browser menu →
    **Add to Home Screen** (works on Android *and* iOS). Installs an offline,
    fullscreen app icon. No store, no review, instant updates. Already wired
@@ -24,14 +34,17 @@ post the `fc.apk` link / a QR and the "Add to Home Screen" tip — that's the wh
 
 ## 🟡 Google Play — needs a Play Developer account ($25, one-time)
 
-**Ready:** a signed release build (`fc-app`, versionCode 3), a privacy policy
-(`https://codeonline.io/privacy/`), and draft screenshots (`store/01-home.png`,
+**Ready:** a signed release build (`fc-app`, now **versionCode 4 / 1.0.3**, with an `.aab`),
+a privacy policy (`https://codeonline.io/privacy/`, now also bundled inside the app so it
+works offline), and draft screenshots (`store/01-home.png`,
 `02-play.png`, `03-code.png`).
 
-**One build change to check:** Play now requires an **Android App Bundle (.aab)**, not
-an APK. The current pipeline builds an APK; run `flutter build appbundle --release`
-(same signing config) to produce `app-release.aab` for upload. (The direct-download APK
-stays as-is.)
+**The .aab now exists** (2026-10-11): `flutter build appbundle --release` produces
+`fc-app/build/app/outputs/bundle/release/app-release.aab` — 49,206,706 bytes, sha256
+`2839e8bd…`, same signing config as the APK — so the only remaining Play blocker is the
+account. One thing to check before uploading: `targetSdk` is still **34**, which is below
+Play's current floor for new listings; raising it changes runtime behaviour (edge-to-edge,
+permission prompts) and should follow the device pass in TEST-MATRIX.md.
 
 **Listing copy (paste-ready):**
 - **Title:** `fc — code games in plain English`

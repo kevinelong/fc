@@ -5,6 +5,58 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
+
+**(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
+on all three CI runs since the workflow was added — `node tools/checks.mjs` failed three
+checks, none of them for product reasons. `ast` diffed against `rust-ast.json`, which is
+generated and gitignored, so it exited 2 wherever nobody had run `parse-ast.mjs` first.
+`class-e2e` hardcoded the Windows Chrome path, so it passed locally and died on
+ubuntu-latest, where Chrome is `/usr/bin/google-chrome`. `visual-golden` required
+`playwright-core`, an undeclared local dependency, and its `MODULE_NOT_FOUND` was reported
+as a check failure. Fixed: `ast` declares a `pre` step, every harness shares the new
+`tools/chrome-path.cjs`, `visual-golden` declares `needs:['pw']` and SKIPs loudly, and
+`checks.mjs` now prints a failing harness's own last lines — an exit code alone is what made
+the CI failure blind. CI is green for the first time: 22/22 on Linux, pixel goldens
+included, which meant installing `playwright-core` in the workflow and discovering that
+Linux software-Skia pixels match the Windows-pinned goldens. (144f908)
+
+**(b) Every root-relative link was dead inside the packaged app.** The Flutter wrapper
+serves the bundle from `/assets/www/`, so `/docs/`, `/learn/`, `/teachers/`, `/projects/`,
+`/privacy/`, the hero video `/learn/first-game.mp4`, `/icon-192.png`,
+`/apple-touch-icon.png` and `/manifest.webmanifest` all resolved one directory too high —
+six 404s measured in real Chrome serving the bundle the way the wrapper loops it back.
+Every content link and asset on the root page is relative now, the five sub-pages use `../`
+prefixes, and `/fc.apk` points at `https://codeonline.io/fc.apk`, which is the right target
+from the site and from inside the app. Left absolute on purpose: `/api/...` (needs a server;
+documented as unavailable offline) and the share links built from `location.origin` (a
+hosted-origin decision, not a path rewrite). (d50e7ae)
+
+**(c) fc ships again: versionCode 4, APK + AAB.** The published APK was a 2026-07-02
+snapshot — 17 examples, `index.html` 578 KB, none of the September language work. The
+bundle now carries the current app. Two packaging bugs surfaced only by building and then
+inspecting the artifact: Flutter's asset directory entries are **non-recursive** and
+`teachers/`, `projects/`, `privacy/` and `examples/thumbs/` were never declared, so those
+pages and all 22 launcher thumbnails had been missing from **every** APK built so far; and
+the copy script skipped `map-editor.html` (opened by the editor's forge button) and
+`*.webmanifest`. Bundled web files: 56 → 83. Build host: WSL2 Ubuntu 24.04 with Flutter
+3.47.7 natively (no Docker), which required Gradle 8.9 → 8.14.3, AGP 8.7.0 → 8.11.1, Kotlin
+1.9.22 → 2.2.20 and compileSdk 34 → 36 — current Flutter enforces all four floors, so the
+project's own documented `flutter:stable` Docker image would have failed too. `targetSdk`
+stays 34 (raising it changes runtime behaviour and needs the device pass). `.gitattributes`
+pins `*.sh`/`android/gradlew` to LF: a Windows checkout's `core.autocrlf=true` broke the
+Gradle wrapper before Gradle started. Result: `app-release.apk` 49,518,572 bytes sha256
+`2597d8bb…`, `app-release.aab` 49,206,706 bytes sha256 `2839e8bd…`, signed `CN=fc`, 83
+bundled web files, aapt reports versionCode 4 / versionName 1.0.3. Verified by extracting
+the APK's own assets and loading them the way the wrapper does: the launcher renders and
+every relative resource returns 200, with only `/api/...` failing. (fc-app 4039576)
+
+Signed with a **new** key: the July keystore lived on the old Alpine build host and was
+never copied back, so v4 cannot install over a v3 copy. The new key, its fingerprints and
+the backup warning live in `C:/Users/kevin/fc-signing/`. **Not published** — the live
+`fc.apk` is still v3, and the deploy order is: replace the APK first, then
+`fc-version.js` (it advertises 4, and the in-app nudge reads the live file).
+
 ## 2026-09-30 (c) — CI, field-level coverage, semantic cases, and two bugs they found
 
 **(a) The guards now run by themselves.** `.github/workflows/checks.yml` installs apid's
