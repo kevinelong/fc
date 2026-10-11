@@ -18,10 +18,13 @@ import os from 'os';
 import path from 'path';
 
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DB = path.join(ROOT, 'apid', 'data', 'db.json');
 const API_PORT = 8099, WEB_PORT = 8098, CDP_PORT = 9334;
-const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const { findChrome } = createRequire(import.meta.url)('./chrome-path.cjs');
+const CHROME = findChrome();
+if (!CHROME) { console.error('No Chrome found — set CHROME=/path/to/chrome'); process.exit(2); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SESSION = 'testsession1234567890';
 

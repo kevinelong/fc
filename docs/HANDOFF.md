@@ -14,16 +14,26 @@ node tools/checks.mjs --only ast   # one check (substring)
 node tools/checks.mjs --list       # names + prerequisites
 ```
 
-Local verification on 2026-09-30: `node tools/checks.mjs --full` completed with
-**22 passed, 0 failed, 0 skipped** on Windows, including browser goldens and all
-three real-server end-to-end checks.
+Local verification on a clean Windows checkout (2026-10-11): `node tools/checks.mjs --full`
+→ **22 passed, 0 failed, 0 skipped** with every prerequisite present, and **21 passed, 0
+failed, 1 skipped** with `playwright-core` absent (the skip is `visual-golden`). The
+2026-09-30 "22 passed" reading was taken in a working tree that already had the generated
+Rust AST and `playwright-core`; on a fresh clone three checks failed for harness reasons —
+fixed 2026-10-11 (see the working notes).
 
-Prerequisites, and what happens without them: a built wasm
-(`cd spec/port/spike && cargo build --release --target wasm32-unknown-unknown`) for the
-differentials; `cd apid && npm install` for the class/share/api end-to-end checks; Chrome
-(preinstalled on CI, auto-detected locally) for the browser checks. Missing prerequisites
-are reported as **SKIP**, never as a pass. CI runs the same command
-(`.github/workflows/checks.yml` — GitHub Actions must be enabled on the repo).
+Prerequisites, and what happens without them:
+- a built wasm (`cd spec/port/spike && cargo build --release --target wasm32-unknown-unknown`)
+  for the differentials. `ast` declares a `pre` step that generates its own candidate
+  (`rust-ast.json`, gitignored), so a clean checkout no longer needs a manual dump;
+- `cd apid && npm install` for the class/share/api end-to-end checks;
+- Chrome (preinstalled on CI, auto-detected locally, `CHROME=` overrides) for the browser
+  checks — `tools/chrome-path.cjs` is the single path list every harness shares;
+- `npm i playwright-core` in the repo root for the pixel goldens (`.gitignore` keeps the repo
+  dependency-free); without it `visual-golden` **SKIP**s.
+
+A missing prerequisite is reported as **SKIP**, never as a pass, and a failing harness now
+prints its own last lines under the table instead of only `exit N`. CI runs the same command
+(`.github/workflows/checks.yml`).
 
 ## The guards, and the bug class each one exists for
 
@@ -43,6 +53,8 @@ are reported as **SKIP**, never as a pass. CI runs the same command
   `node spec/lang/run-node.mjs --update` (corpus goldens), `node spec/port/spike/dump-ast.mjs`
   (**JS** AST golden) **and** `parse-ast.mjs` (**Rust** AST golden), `dump-transpile.mjs`,
   `dump-err.mjs`. Both AST dumps are needed — one stale dump looks like a parser bug.
+  (`checks.mjs` regenerates the Rust *candidate* itself; only the committed goldens are
+  manual re-pins: `ast-golden.json` via `dump-ast.mjs`, the rest via their `dump-*`/`--update`.)
 - **Language changes go to four runtimes**: index.html's core, `spec/lang/fc-core.mjs`,
   `spec/port/spike/fc-core-record.mjs`, and `src/lib.rs` — then `core-copy-check` and the
   differentials prove it.

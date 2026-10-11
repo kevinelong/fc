@@ -14,16 +14,13 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GAME = process.argv[2] || 'starfield';
 const PORT = 9222 + (process.pid % 200);
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'fc-ui-'));
-const CHROME = process.env.CHROME || [
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/chromium', '/usr/bin/google-chrome',
-].find(p => fs.existsSync(p));
+const CHROME = createRequire(import.meta.url)('./chrome-path.cjs').findChrome();
 if (!CHROME) { console.error('No Chrome found — set CHROME=/path/to/chrome'); process.exit(2); }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
