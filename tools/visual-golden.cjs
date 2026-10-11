@@ -43,6 +43,8 @@ if (!CHROME) {
   process.exit(2);
 }
 const FRAMES = 24;          // step this many frames before capturing
+// Page load / engine boot budget. FC_GOLDEN_TIMEOUT overrides it (seconds -> ms).
+const LOAD_TIMEOUT = Number(process.env.FC_GOLDEN_TIMEOUT || 90) * 1000;
 const UPDATE = process.argv.includes('--update');
 
 const INIT = `(() => {
@@ -62,12 +64,15 @@ async function capture(browser, game) {
   const url = 'file://' + path.join(ROOT, 'index.html') + '?code=' + encodeURIComponent(Buffer.from(src, 'utf8').toString('base64'));
   const page = await browser.newPage();
   await page.addInitScript(INIT);
-  await page.goto(url, { waitUntil: 'load' });
-  await page.waitForFunction('typeof window.__fcStep === "function"');
+  // Load and boot waits are generous on purpose: the app is one ~850 KB file with the wasm
+  // inlined, and a loaded CI runner has produced a 5x-slower job (ui-check 255 s vs 50 s)
+  // where Playwright's 30 s default surfaced as a timeout, not as a pixel diff.
+  await page.goto(url, { waitUntil: 'load', timeout: LOAD_TIMEOUT });
+  await page.waitForFunction('typeof window.__fcStep === "function"', null, { timeout: LOAD_TIMEOUT });
   // Wait until the engine has actually booted (the wasm loads asynchronously; stepping
   // before the first frame is scheduled silently drops those frames, which used to make
   // this tool produce machine-speed-dependent renders for any game that moves on its own).
-  await page.waitForFunction('window.__fcHasFrame && window.__fcHasFrame()', null, { timeout: 15000 });
+  await page.waitForFunction('window.__fcHasFrame && window.__fcHasFrame()', null, { timeout: LOAD_TIMEOUT });
   // Settle BEFORE stepping and again before reading: the app boots asynchronously
   // (the wasm loads, then paints frame 1), so stepping or reading too early captured
   // whatever happened to be on the canvas — machine-speed-dependent renders. Both
