@@ -1,0 +1,27 @@
+name: Feature or language suggestion
+description: Suggest a verb, a behaviour change, or a way to play
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        fc is deliberately small, and its bias is that a *few* plain-English words should
+        cover a lot. `PHILOSOPHY.md` is the lens; `ROADMAP.md` lists what is already built
+        and what has been discussed. Please check both before suggesting.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you want to be able to write
+      description: Show it as fc code, as if the feature already existed. That is the fastest way to see how it fits.
+      placeholder: |
+        when player talks to "guard"
+          show choice "ask about the key" or "leave"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it belongs in fc
+      description: What does it let a beginner do that they cannot do today?
+    validations:
+      required: true

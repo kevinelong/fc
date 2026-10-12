@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in fc does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks — a small, exact report is worth more than a long one.
+
+        Before filing: `docs/OPEN-QUESTIONS.md` and the "Known gaps" section of
+        `docs/HANDOFF.md` list things that are decisions or documented limits rather than
+        bugs, and `ROADMAP.md` says what is and is not built yet.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you wrote or did, what you expected, and what you saw instead.
+      placeholder: |
+        Program:
+        player is centered sprite
+        ...
+        Expected: ...
+        Got: ...
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Browser and OS, or the fc Android version if it is the app.
+    validations:
+      required: false
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output, if any
+      description: Runtime messages from fc ("Line 4: ...") or errors from the browser console.
+    validations:
+      required: false
