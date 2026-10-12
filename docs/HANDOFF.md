@@ -55,6 +55,13 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
   same applies in `fc-app`. Docs that describe a change belong in that change's commit, and
   CI (`.github/workflows/checks.yml`) is the check that it landed green.
 
+- **The pixel goldens are network-free by construction.** `tools/visual-golden.cjs` aborts
+  every non-file request and stubs `WebSocket` shut (`CONNECTING` forever) in its init script,
+  so a capture depends only on files in this repo. A multiplayer example therefore pins its
+  *offline* pixels; what a real connection changes is `mp-smoke`'s business, not a golden's.
+  (hunt's golden used to depend on whether the live relay handshake beat the capture window,
+  and failed intermittently because of it.)
+
 - **Cases first, then the port.** Adding a corpus/frame/draw/err case *requires* re-pinning:
   `node spec/lang/run-node.mjs --update` (corpus goldens), `node spec/port/spike/dump-ast.mjs`
   (**JS** AST golden) **and** `parse-ast.mjs` (**Rust** AST golden), `dump-transpile.mjs`,

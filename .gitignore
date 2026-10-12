@@ -3,3 +3,7 @@
 /node_modules/
 /package.json
 /package-lock.json
+
+# visual-golden writes <game>.actual.png beside the golden when a capture differs; that file
+# is a diagnostic for a human, never something to commit.
+spec/golden-shots/*.actual.png

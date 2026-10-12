@@ -53,6 +53,18 @@ const INIT = `(() => {
   let cb = null;
   window.requestAnimationFrame = (f) => { cb = f; return 1; };
   window.cancelAnimationFrame = () => {};
+  // Deterministic network state: WebSocket is stubbed shut (CONNECTING forever), because
+  // a multiplayer example's pixels depend on it and page.route cannot intercept WebSockets.
+  // Without this, hunt's golden flipped between "connecting..." and "waiting for another
+  // hunter..." depending on whether the live relay handshake finished inside the capture
+  // window — a pixel check that could fail on network timing.
+  const NoSocket = function () { this.readyState = 0; };
+  NoSocket.CONNECTING = 0; NoSocket.OPEN = 1; NoSocket.CLOSING = 2; NoSocket.CLOSED = 3;
+  NoSocket.prototype.send = function () {};
+  NoSocket.prototype.close = function () {};
+  NoSocket.prototype.addEventListener = function () {};
+  NoSocket.prototype.removeEventListener = function () {};
+  Object.defineProperty(window, 'WebSocket', { value: NoSocket, writable: true, configurable: true });
   window.__fcStep = () => { const f = cb; cb = null; if (f) f(16.7); return !!f; };
   window.__fcHasFrame = () => !!cb;   // false until the engine has booted and scheduled a frame
 })();`;

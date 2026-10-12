@@ -5,6 +5,37 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-10-12 — relicensed to FSL, binaries moved to a public download page, and a golden that depended on the network
+
+**(a) fc is source-available now, not MIT.** The repo, `fc-app` and the new download repo all
+carry the canonical **Functional Source License 1.1** text (`FSL-1.1-MIT`, from
+fsl.software): use, modify and redistribute freely for anything except a product or service
+that competes with fc — internal use, non-commercial education and research, and client work
+are all explicitly permitted — with each version converting irrevocably to MIT two years after
+it is made available. Copies published before today were MIT and stay MIT for their recipients.
+Consequences handled in the same change: `README` says it in plain language; the F-Droid plan
+is now marked ruled out (FSL is not OSI-approved) rather than "there is no LICENSE file"; the
+app footer links to the terms and the copy script bundles `LICENSE` into the packaged build, so
+the Redistribution clause is satisfied with the binary; `apid` and `huntd` declare the license
+in their manifests.
+
+**(b) The download page is a separate public repo.** `kevinelong/fc-releases` holds the release
+(APK, AAB, `SHA256SUMS.txt`), a user-facing README with the banner and install steps, and
+`CHANGELOG.md`; this repository was made public alongside it, `fc-app` stays private. Before
+the flip the whole history (274 commits) was scanned for secrets — clean; the only
+credential-shaped file ever committed is `apid/.env.example`, all placeholders. The APK is now
+fetchable with no token, so deploying it is a `curl` on the box rather than an scp from here.
+
+**(c) One golden was pinned to a network state.** The suite failed once today with
+`hunt.actual.png` written, and the pictures showed why: `hunt.fc` draws "connecting..." until
+the room WebSocket handshake completes and "waiting for another hunter..." after, so the pinned
+pixels depended on whether a real connection to `wss://codeonline.io/relay` beat the capture
+window. Playwright does not route WebSockets, so aborting non-file requests could not fix it;
+the capture now stubs `WebSocket` shut in its init script, which is what "offline" means for the
+app. hunt's golden is re-pinned to that deterministic state (reviewed), the other 21 were
+already network-independent, and `spec/golden-shots/*.actual.png` is gitignored so a failed
+capture can never be committed. Three consecutive full golden runs: 22/22.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
