@@ -50,6 +50,11 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 
 ## Working notes (so the next session does not rediscover them)
 
+- **Commit and push after each change** (owner, 2026-10-12). One change, one commit, pushed
+  to `main` as it lands — don't batch a session's work into a single push at the end. The
+  same applies in `fc-app`. Docs that describe a change belong in that change's commit, and
+  CI (`.github/workflows/checks.yml`) is the check that it landed green.
+
 - **Cases first, then the port.** Adding a corpus/frame/draw/err case *requires* re-pinning:
   `node spec/lang/run-node.mjs --update` (corpus goldens), `node spec/port/spike/dump-ast.mjs`
   (**JS** AST golden) **and** `parse-ast.mjs` (**Rust** AST golden), `dump-transpile.mjs`,
