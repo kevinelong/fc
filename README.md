@@ -135,4 +135,7 @@ re-pin: `node visual-golden.mjs --update`; prove it bites: `node visual-golden.m
 --cvd` (forces the colorblind palette on → the color-affected examples diff).
 
 ## License
-MIT — see [LICENSE](LICENSE). Made by [Kevin Long](https://www.linkedin.com/in/kevinelong/).
+Source-available under the **[Functional Source License 1.1](LICENSE)** (`FSL-1.1-MIT`):
+use, modify and redistribute it for anything except a product or service that competes with
+fc, and every version converts to the MIT license two years after its release.
+Made by [Kevin Long](https://www.linkedin.com/in/kevinelong/).

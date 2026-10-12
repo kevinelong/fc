@@ -88,17 +88,17 @@ Content rating: **Everyone / PEGI 3**.
 
 ---
 
-## 🟡 F-Droid — free, but requires an open-source license (DECISION)
+## 🔴 F-Droid — ruled out by the license (decided 2026-10-12)
 
-**Blocker:** there is **no LICENSE file** in the repo. F-Droid only lists apps under an
-OSI-approved FOSS license.
-- **If fc is open source:** add a `LICENSE` (MIT / Apache-2.0 / GPL-3.0 — your call) and
-  submit an `fdroiddata` metadata merge request. Note for the recipe: the app bundles a
-  copy of the web build; the wasm is version-controlled inline in `index.html` (no build
-  step), which helps reproducibility.
-- **If fc stays proprietary:** skip F-Droid; use the direct APK + Play.
-
-This is a product decision (open-source or not), not a code task — hence flagged, not done.
+**Blocker:** fc is source-available under the **Functional Source License 1.1**
+(`FSL-1.1-MIT`, see [LICENSE](./LICENSE)), which is **not** an OSI-approved FOSS license,
+and F-Droid only lists apps under one. The licence is not a dead end for the project — each
+version converts irrevocably to MIT on the second anniversary of its release — but the
+current version cannot be submitted. Revisit only if fc is relicensed, or once a release
+has aged into its MIT grant and that older version is what gets packaged.
+- Otherwise F-Droid's recipe requirements are already satisfied: the wasm is
+  version-controlled inline in `index.html` and there is no build step, which is exactly
+  what its reproducibility rules want.
 
 ## 🔒 iOS — PWA today; native gated on $99
 
@@ -110,5 +110,6 @@ Developer Program + a Codemagic build — fully scaffolded; see `fc-app/IOS-BUIL
 ## What only you can do
 1. Post the **`fc.apk` link / QR + "Add to Home Screen"** tip — reaches users today.
 2. Create a **Play Developer account** ($25) → I finish the .aab + listing.
-3. Decide **open-source or not** → unlocks (or rules out) F-Droid.
+3. ~~Decide open-source or not~~ — **done 2026-10-12: source-available under FSL-1.1-MIT**
+   (`LICENSE`), which rules F-Droid out for current releases (see above).
 4. The **$99 Apple** decision → native iOS.

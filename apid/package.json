@@ -2,6 +2,7 @@
   "name": "codeonline-apid",
   "version": "0.1.0",
   "private": true,
+  "license": "FSL-1.1-MIT",
   "description": "codeonline.io API: third-party auth + (later) game storage",
   "main": "server.js",
   "type": "commonjs",
