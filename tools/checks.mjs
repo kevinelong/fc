@@ -55,6 +55,9 @@ const CHECKS = [
   { name: 'mirror', cwd: SPIKE, run: 'node transpile-mirror.mjs', min: 1, expect: same('transpile-mirror: .*· OK$') },
   { name: 'fuzz', cwd: SPIKE, run: 'node fuzz.mjs 500 1', min: 400, expect: same(`fuzz: (\\d+)/\\1 programs match`) },
   { name: 'heal', cwd: ROOT, run: 'node spec/heal/eval.mjs', min: 0, expect: same(`Phase 3 floor: .*(valid|matches)`) },
+  // The teaching material is executable, so it gets tested like the engine: every HOW-TO recipe on
+  // the learn page must parse, run and stay quiet (they are the snippets people copy).
+  { name: 'learn-recipes', cwd: ROOT, run: 'node tools/learn-recipes-check.mjs', min: 10, expect: same(`(\\d+)/\\1 learn recipes run clean`) },
   // ---- browser and server surfaces ----
   { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
   // The colourblind-safe palette has its own pinned set (spec/golden-shots/cvd/), because it is

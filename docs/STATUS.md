@@ -76,6 +76,16 @@ row. Two details that made the first attempt lie: apid's `save()` is debounced 5
 rename), so assertions poll the file; and the browser leg's own classroom calls run the purge
 before the assertions start, so the seeded snapshot is taken at seed time.
 
+**(g) The ten forms the audit repaired are taught now — and the teaching is tested.** Ten of the
+forms the 2026-09-30 audit found "documented but never parsed by the wasm" (list `has`, user sprite
+art, `clear` on a list, the toward-forms of `walk`/`face`, the direction forms plus `stop walking`,
+one-line `and` chaining, the probability statements, `restore`, `when key is in [...]`, `forever`)
+worked for nobody before that day and nothing showed them off. They are now ten complete HOW-TO
+recipes on <codeonline.io/learn>: each a whole little program, in the page's own style. Verified by
+running every one of the fourteen recipes on the JS core with five stepped frames, and kept that way
+by a new suite check (`learn-recipes`) — the recipes are the snippets people copy, so they are
+executable content and now tested like the engine's own material.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

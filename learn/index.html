@@ -233,6 +233,123 @@ to draw
   each enemy in enemies draw sprite enemy.image at enemy.x, enemy.y
   draw sprite player.image at player.x, player.y
 run game with update and draw`],
+
+  // ── the plain-English corners that are easy to miss: each of these was broken or
+  //    half-parsed until the 2026-09-30 audit, so they are worth showing off ───────
+  ["Draw your own sprite",
+   "64 hex digits is an 8x8 sprite: each digit picks a colour from the palette. Repeat the last digit to fill it.",
+`sprite "ball" is "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+to draw
+  clear screen to black
+  draw sprite ball at 56, 56
+run game with update and draw`],
+
+  ["Is it in the list?",
+   "<b>has</b> asks whether a list (or a text) contains something — no loop needed.",
+`bag is ["rope", "apple"]
+to draw
+  clear screen to black
+  if bag has "rope" write "you have the rope" at 4, 4 in white
+  if bag has "sword" write "no sword yet" at 4, 14 in red
+run game with update and draw`],
+
+  ["Empty a list",
+   "<b>clear</b> throws everything out of a list in one line.",
+`hands is ["rope", "apple"]
+clear hands
+to draw
+  clear screen to black
+  if hands has "rope" write "still holding rope" at 4, 4 in yellow
+  if hands has "apple" write "still holding an apple" at 4, 14 in yellow
+  write "nothing prints above: hands is empty" at 2, 100 in gray
+run game with update and draw`],
+
+  ["Walk toward something",
+   "Give a sprite a target and it walks there itself — and turns to face it.",
+`player is {x: 20, y: 64, image: "hero"}
+flag is {x: 100, y: 64, image: "coin"}
+to update
+  walk player toward flag
+  face player toward flag
+to draw
+  clear screen to dark blue
+  draw sprite flag.image at flag.x, flag.y
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Walk by direction, and stop",
+   "Directions work too, and <b>stop walking</b> ends it.",
+`player is {x: 64, y: 64, image: "hero"}
+to update
+  if key "left" walk player left
+  if key "right" walk player right
+  if key "up" face player up
+  if key "down" face player down
+  if key "space" stop walking player
+to draw
+  clear screen to dark blue
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Two things on one line",
+   "Join statements with <b>and</b> when they belong together.",
+`score is 0
+to update
+  every 60 frames
+    increase score by 1 and play sound "coin"
+to draw
+  clear screen to black
+  write "score {score}" at 2, 2 in white
+run game with update and draw`],
+
+  ["Sometimes do it",
+   "Start a line with a chance word — <b>maybe</b>, <b>likely</b>, <b>rarely</b> — and it happens that often.",
+`hunter is centered sprite {image: "hero"}
+grabbed is 0
+to update
+  maybe grabbed is 1
+to draw
+  clear screen to black
+  draw sprite hunter.image at hunter.x, hunter.y
+  if grabbed is 1 write "got it!" at 40, 20 in yellow
+  write "reload to roll again (50%)" at 2, 100 in gray
+run game with update and draw`],
+
+  ["Snap back if you go too far",
+   "<b>restore</b> puts a sprite back where it was at the start of the frame.",
+`player is {x: 40, y: 64, image: "hero"}
+to update
+  move player with arrows
+  if player.x > 80 restore player
+to draw
+  clear screen to dark blue
+  write "you cannot pass x = 80" at 2, 100 in gray
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["A group of keys",
+   "<b>when key is in [...]</b> fires once when any key in the list goes down.",
+`player is centered sprite {image: "hero", speed: 1}
+when key is in ["w", "a", "s", "d"]
+  say "WASD works as well as the arrows"
+to update
+  move player with arrows
+to draw
+  clear screen to dark blue
+  draw sprite player.image at player.x, player.y
+run game with update and draw`],
+
+  ["Repeat until you stop it",
+   "<b>forever</b> repeats a block until a <b>stop</b> inside it runs.",
+`turns is 0
+to update
+  forever
+    turns is turns + 1
+    if turns > 60 stop
+to draw
+  clear screen to black
+  write "turns {turns}" at 2, 2 in white
+run game with update and draw`],
 ];
 
 // ── do-it-yourself challenges: each is missing a line; check is source-based ──
