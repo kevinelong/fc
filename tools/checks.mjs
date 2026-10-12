@@ -58,6 +58,9 @@ const CHECKS = [
   // The teaching material is executable, so it gets tested like the engine: every HOW-TO recipe on
   // the learn page must parse, run and stay quiet (they are the snippets people copy).
   { name: 'learn-recipes', cwd: ROOT, run: 'node tools/learn-recipes-check.mjs', min: 10, expect: same(`(\\d+)/\\1 learn recipes run clean`) },
+  // The command reference is where users are sent for "how do I…?"; it is executable content too,
+  // and LINT_VERBS is the definition of the verbs it must cover.
+  { name: 'reference-docs', cwd: ROOT, run: 'node tools/reference-check.mjs', min: 20, expect: same(`(\\d+)/\\1 reference examples run clean`) },
   // ---- browser and server surfaces ----
   { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
   // The colourblind-safe palette has its own pinned set (spec/golden-shots/cvd/), because it is

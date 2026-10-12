@@ -49,6 +49,7 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 | `tools/ui-check.mjs` | browser behaviour: dialogs/a11y, panel, classroom, share, touch, the a11y settings | — |
 | `tools/app-api-e2e.mjs` | the app↔server contract: every `/api` call accounted for, CSRF, caps, auth shapes, and the app's own save transport against a real apid | the `save`-on-wasm gap below |
 | `tools/learn-recipes-check.mjs` | every HOW-TO recipe on the learn page parses, runs, and stays quiet | — |
+| `tools/reference-check.mjs` | every implemented verb appears in an example on the command-reference page, and all of them run | 22 verbs had no example at all, including `walk`, `face`, `tween`, `join`/`broadcast` and `flees`/`shoots` |
 | `spec/port/spike/visual-golden.mjs` | the spike's ops→canvas renderer, pixel-pinned (it had been failing silently: 16/22, six games unpinned) | six generative toys never pinned |
 
 ## Working notes (so the next session does not rediscover them)
@@ -86,6 +87,12 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 
 - `shape-diff`'s 11 pinned "unexercised fields" are heuristic noise (a local name caught
   near the literal) — labelled in the output; nothing real is outstanding there.
+- **Eight words in the healer's vocabulary are not verbs.** `LINT_VERBS` is what the safety net
+  accepts (so a typo is not "corrected" into nonsense), and it includes `start`, `spawn`, `hide`,
+  `push`, `pull`, `set`, `put`, `get` — none of which parses to a statement (each falls through to a
+  bare call that does nothing). `tools/reference-check.mjs` pins them with that reason instead of
+  documenting a verb that does nothing. Either implement them or drop them from the list; until
+  then, do not add a reference entry for one.
 - The panel emits `draw_<shape>(…)` for the runtime-only rules (image inference, mode
   dispatch, the missing-screen placeholder) — recorded in `transpile-mirror.mjs`.
 - `apid` needs `npm install` locally for the three end-to-end guards.

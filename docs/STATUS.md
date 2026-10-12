@@ -119,6 +119,21 @@ three new `app-api-e2e` legs that run the real app on the wasm engine: the `save
 engine. Evidence: `app-api-e2e` 16/16, and the whole suite 26/26 with every differential and both
 pixel sets unchanged (the command buffer is not compared by them; no golden needed re-pinning).
 
+**(j) The command reference is now a guard, and it was hiding 22 undocumented verbs.** The page
+every user is sent to for "how do I…?" had nothing testing it — and the learn page got a check
+precisely because its snippets are copy-paste material. `tools/reference-check.mjs` extracts the
+page's `COMMANDS` array, runs every example on the JS core with stepped frames, and requires every
+verb in `LINT_VERBS` to appear in an *example* (matching prose would have been too weak: "walk with
+the arrows" appears in a description while the `walk` verb itself was undocumented).
+
+It found 22 verbs with no example at all: `say`, `flash`/`shake`, `emit`, `tween`, `restore`/`block`,
+`else`, `walk`/`face`, `flee`/`flees`, `shoot`/`shoots`, `join`/`broadcast`, and `hide`. Ten new
+entries cover the implemented ones (in the page's own categories, with a new "Debugging", "Effects"
+and "Multiplayer" section), verified as they landed: **78/78 examples run clean, 49/49 implemented
+verbs documented in an example**. The remaining eight — `start`, `spawn`, `hide`, `push`, `pull`,
+`set`, `put`, `get` — parse to a bare call and do nothing, so they are *pinned with that reason*
+rather than documented; that vocabulary drift is recorded in HANDOFF's known gaps.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
