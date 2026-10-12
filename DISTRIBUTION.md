@@ -30,13 +30,21 @@ below — your remaining step is the account.
    (classroom 404 as designed, flag off) and the relay upgrades (426).
    The built binaries live in the public download repository,
    **[kevinelong/fc-releases](https://github.com/kevinelong/fc-releases)** — release
-   `v1.0.3+4`, holding the APK, the AAB and `SHA256SUMS.txt` — so downloading them needs no
+   `v1.0.3-4`, holding the APK, the AAB and `SHA256SUMS.txt` — so downloading them needs no
    token anywhere. `/fc.apk` is gitignored by design, so a `git pull` on the box updates the
    web app and `fc-version.js` but will **not** place the APK; that file has to move
-   separately:
-   `curl -sSL -o fc.apk https://github.com/kevinelong/fc-releases/releases/download/v1.0.3+4/app-release.apk`
+   separately — `bash tools/deploy-fc-apk.sh <site-dir> --pull` does it in the right order
+   (fetch, verify the published sha256, install, then pull, then check that the APK's baked
+   versionCode matches `fc-version.js`). By hand it is:
+   `curl -sSL -o fc.apk https://github.com/kevinelong/fc-releases/releases/download/v1.0.3-4/app-release.apk`
    on the box (verified public: HTTP 200, and the bytes hash to the same `088073bb…` as the
    local build), or an scp of the same asset from this workstation.
+   *Tag format gotcha (2026-10-12):* the release was first tagged `v1.0.3+4`, and the raw `+`
+   in the asset path made GitHub's CDN serve a cached 5xx to plain `curl` (Windows curl
+   percent-encoded it, Linux curl 8.5 did not). The tag is `v1.0.3-4` now; **keep the `+` out
+   of future release tags**, and note that `releases/latest/download/…` can serve a stale
+   response for a few minutes after a release is replaced — the deploy script falls back to
+   the API-resolved tag URL for exactly that reason.
 2. **PWA (installable web app).** `https://codeonline.io` → browser menu →
    **Add to Home Screen** (works on Android *and* iOS). Installs an offline,
    fullscreen app icon. No store, no review, instant updates. Already wired
