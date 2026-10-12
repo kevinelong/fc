@@ -35,6 +35,7 @@ const SUB_GAME = 'to draw\n  clear screen to dark blue\n  draw rect at 8, 8 size
 const backup = fs.existsSync(DB) ? fs.readFileSync(DB, 'utf8') : null;
 fs.mkdirSync(path.dirname(DB), { recursive: true });
 const now = Date.now();
+const DAY = 24 * 60 * 60 * 1000;
 fs.writeFileSync(DB, JSON.stringify({
   users: { u1: { id: 'u1', nickname: 'Teach', createdAt: now } },
   nicks: {},
@@ -43,8 +44,17 @@ fs.writeFileSync(DB, JSON.stringify({
   classes: {
     TEST01: { code: 'TEST01', ownerId: 'u1', ownerNick: 'Teach', name: 'Test Class', createdAt: now, lastActive: now,
       students: [], assigned: [{ id: 'a1', title: 'Assigned Game', code: GAME, at: now }], submissions: [] },
+    // fixtures for the retention/deletion checks: one class on each side of the 90-day purge line
+    KEEP89: { code: 'KEEP89', ownerId: 'u1', ownerNick: 'Teach', name: 'Recent Class', createdAt: now - 120 * DAY, lastActive: now - 89 * DAY,
+      students: [], assigned: [], submissions: [] },
+    OLD01: { code: 'OLD01', ownerId: 'u1', ownerNick: 'Teach', name: 'Idle Class', createdAt: now - 200 * DAY, lastActive: now - 91 * DAY,
+      students: [], assigned: [],
+      submissions: [{ id: 'deadbeef', name: 'kid', title: 'Old Thing', code: GAME, at: now - 91 * DAY }] },
   },
 }));
+// The seeded snapshot, taken before any request exists: the browser leg's classroom calls trigger
+// the idle purge, so reading the file later would already show OLD01 gone.
+const seededDb = JSON.parse(fs.readFileSync(DB, 'utf8'));
 
 // ---- 2. apid + static/proxy --------------------------------------------------
 const api = spawn(process.execPath, [path.join(ROOT, 'apid', 'server.js')],
@@ -168,6 +178,50 @@ const teacher = await evaluate(`(function(){
 })()`);
 check('the teacher (signed in) gets assign + delete controls', teacher.assign === true && teacher.deletes >= 2, teacher);
 check('the teacher view names the class as theirs', /Yours/.test(teacher.note || ''), teacher);
+
+// ---- 4b. retention and deletion, at the data level --------------------------
+// HANDOFF's next-action 3 gates the classroom pilot on verified retention/deletion, and the
+// product promises are "teacher-deletable" and "auto-purged after an idle period". A delete
+// button that leaves rows behind would pass the UI checks above, so these read the database.
+// apid's save() is debounced by 50ms (tmp file + rename), so every read here polls.
+const apiReq = (p, method = 'GET', headers = {}) => new Promise((resolve) => {
+  const r = http.request({ host: '127.0.0.1', port: API_PORT, path: p, method,
+    headers: { cookie: `co_sess=${SESSION}`, ...headers } }, res => {
+    const c = []; res.on('data', d => c.push(d));
+    res.on('end', () => { let b = null; try { b = JSON.parse(Buffer.concat(c).toString()); } catch (_) {} resolve({ status: res.statusCode, body: b }); });
+  });
+  r.on('error', () => resolve({ status: 0 })); r.end();
+});
+const dbNow = () => JSON.parse(fs.readFileSync(DB, 'utf8'));
+const waitForDb = async (pred, ms = 2500) => {
+  const t0 = Date.now();
+  for (;;) {
+    if (pred(dbNow())) return true;
+    if (Date.now() - t0 > ms) return false;
+    await sleep(100);
+  }
+};
+const seeded = seededDb;   // taken before apid started; the browser leg purges OLD01 already
+
+await apiReq('/api/class/KEEP89');            // any /api/class* request runs purgeIdleClasses()
+const purged = await waitForDb(d => d.classes.OLD01 === undefined);
+const afterPurge = dbNow();
+check('a class idle for 91 days is purged, and its student work goes with it',
+  seeded.classes.OLD01 !== undefined && purged && !JSON.stringify(afterPurge).includes('deadbeef'),
+  JSON.stringify({ seeded: Object.keys(seeded.classes), now: Object.keys(afterPurge.classes), orphan: JSON.stringify(afterPurge).includes('deadbeef') }));
+check('a class idle for 89 days survives the same purge (the boundary is not off by a mile)',
+  afterPurge.classes.KEEP89 !== undefined && afterPurge.classes.TEST01 !== undefined,
+  Object.keys(afterPurge.classes).join(','));
+
+const refused = await apiReq('/api/class/KEEP89', 'DELETE');   // session, but no X-CO
+await sleep(300);
+check('deleting a class without the CSRF header is refused and changes nothing',
+  refused.status === 403 && dbNow().classes.KEEP89 !== undefined, JSON.stringify(refused));
+
+const deleted = await apiReq('/api/class/KEEP89', 'DELETE', { 'X-CO': '1' });
+const gone = await waitForDb(d => d.classes.KEEP89 === undefined);
+check('a teacher delete removes the class row itself',
+  deleted.status === 200 && gone, JSON.stringify({ status: deleted.status, classes: Object.keys(dbNow().classes) }));
 
 // ---- 5. flag off: nothing appears -------------------------------------------
 console.log('\n--- flag off ---');

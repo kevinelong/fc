@@ -66,6 +66,16 @@ Also added here: `visual-golden-cvd` (the colourblind palette, pinned) and `spik
 spike's pixel harness, which had been failing silently — see below), and `ui-check` grew
 high-contrast + larger-text assertions, 82 → 84 checks.
 
+**(f) Retention and deletion are verified, not just offered.** HANDOFF gates the classroom pilot
+on "verify retention/deletion", and until now the only automated coverage was that delete buttons
+exist in the teacher view. `class-e2e` seeds three classes — one idle 91 days, one idle 89, and
+the live test class — then proves, by reading `db.json`: the 91-day class and its student work are
+purged by the next classroom request (`purgeIdleClasses`), the 89-day one survives, a DELETE
+without the CSRF header is refused and changes nothing, and a teacher DELETE really removes the
+row. Two details that made the first attempt lie: apid's `save()` is debounced 50 ms (tmp file +
+rename), so assertions poll the file; and the browser leg's own classroom calls run the purge
+before the assertions start, so the seeded snapshot is taken at seed time.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
