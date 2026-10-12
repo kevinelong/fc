@@ -708,6 +708,35 @@ const evaluate = (cdp, expr) => cdp.send('Runtime.evaluate', { expression: expr,
     await cdp.send('Emulation.clearDeviceMetricsOverride');
     await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
 
+    // ---- 15. the remaining accessibility settings actually change the page ----
+    // Reduced motion is covered above (it gates flash/shake) and the colourblind palette has a
+    // pinned pixel set of its own (spec/golden-shots/cvd/). These two had no automated check at
+    // all: both are persisted prefs applied at boot, so each is set and then reloaded.
+    const a11yStyles = () => evaluate(cdp, `(function(){
+      var ed = document.getElementById('editor');
+      var wrap = document.getElementById('editor-hl-wrap');
+      return { cls: document.body.className,
+               fontSize: ed ? getComputedStyle(ed).fontSize : null,
+               wrapBg: wrap ? getComputedStyle(wrap).backgroundColor : null };
+    })()`);
+    const a11ySrc = 'to draw\n  clear screen to black\n  draw rect at 10, 10 size 20, 20 in blue\nrun game with update and draw\n';
+    const setA11y = async (prefs) => {
+      const sets = Object.keys(prefs).map(k => `localStorage.setItem('fc:save:a11y:${k}', '${prefs[k]}')`).join('; ');
+      await evaluate(cdp, `(function(){ ${sets}; return 1; })()`);
+      await loadSource(a11ySrc);
+      return a11yStyles();
+    };
+    const a11yOff = await setA11y({ 'big-text': false, 'hi-contrast': false });
+    const a11yBig = await setA11y({ 'big-text': true, 'hi-contrast': false });
+    const a11yHi = await setA11y({ 'big-text': false, 'hi-contrast': true });
+    check('big text enlarges the editor',
+      a11yBig.cls.includes('big-text') && a11yBig.fontSize === '17px' && a11yBig.fontSize !== a11yOff.fontSize,
+      JSON.stringify({ off: a11yOff, big: a11yBig }));
+    check('high contrast darkens the editor surface',
+      a11yHi.cls.includes('hi-contrast') && a11yHi.wrapBg === 'rgb(0, 0, 0)' && a11yHi.wrapBg !== a11yOff.wrapBg,
+      JSON.stringify({ off: a11yOff, hi: a11yHi }));
+    await setA11y({ 'big-text': false, 'hi-contrast': false });
+
   } catch (e) {
     check('ui-check ran without an exception', false, e && e.message);
   } finally {
