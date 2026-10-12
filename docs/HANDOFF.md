@@ -69,6 +69,15 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
   (hunt's golden used to depend on whether the live relay handshake beat the capture window,
   and failed intermittently because of it.)
 
+- **Per-frame cost has a baseline; measure before touching the frame loop.** `node
+  tools/perf-check.mjs` times every frame of the ten heaviest examples on both engines. Baseline
+  2026-10-12 (240 frames, wasm ms/frame): sand 1.67 · chaos 0.88 · langton 0.85 · matrix 0.21 ·
+  space-invaders 0.17 · frogger 0.11 · starfield 0.08 · cycles 0.04 · hunt 0.02 · coin-quest 0.006 —
+  i.e. the worst example uses a tenth of a 60 fps frame, and the wasm is 0.8–1.3× the JS core. It is
+  deliberately **not** in `checks.mjs`: an absolute millisecond budget on a shared CI runner measures
+  the runner, and a flaky perf gate gets ignored. `FC_PERF_BUDGET_MS` / `FC_PERF_RATIO_MAX` tighten
+  it, and an impossible budget exits 1 (so the detector is known to bite).
+
 - **Cases first, then the port.** Adding a corpus/frame/draw/err case *requires* re-pinning:
   `node spec/lang/run-node.mjs --update` (corpus goldens), `node spec/port/spike/dump-ast.mjs`
   (**JS** AST golden) **and** `parse-ast.mjs` (**Rust** AST golden), `dump-transpile.mjs`,

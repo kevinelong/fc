@@ -198,6 +198,22 @@ It found, on the first run:
 Result: **42/42** (six pages × seven checks). CI installs `axe-core` alongside `playwright-core` so
 the engine half runs there too; without axe the structural half still runs and says so.
 
+**(n) A performance baseline, measured rather than assumed.** Nothing noticed a frame-time
+regression: the differentials prove the two engines *agree*, not that they are fast, and a hot path
+can go quadratic without moving a single pixel. `tools/perf-check.mjs` parses each of the ten
+heaviest examples once and then times every frame, on the wasm core (the default) and the JS core.
+
+Baseline, 2026-10-12, 240 frames, wasm ms/frame: `sand` 1.67, `chaos` 0.88, `langton` 0.85,
+`matrix` 0.21, `space-invaders` 0.17, `frogger` 0.11, `starfield` 0.08, `cycles` 0.04, `hunt` 0.02,
+`coin-quest` 0.006 — the worst example uses a tenth of a 60 fps frame, and the wasm runs 0.8–1.3×
+the JS core's cost. Recorded in HANDOFF's working notes so a future session compares against numbers
+instead of a feeling.
+
+It is deliberately **not** in `checks.mjs`: a millisecond budget on a shared CI runner measures the
+runner, and a flaky perf gate is a gate people learn to ignore. The budgets are env-tunable
+(`FC_PERF_BUDGET_MS`, `FC_PERF_RATIO_MAX`), and an impossible budget exits 1 — verified, so the
+detector is known to bite.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
