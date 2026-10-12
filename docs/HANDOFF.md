@@ -81,6 +81,21 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 
 ## Known gaps right now
 
+- **`save` does not persist on the default (wasm) engine.** `save <v> as "k"` writes into the
+  wasm's own in-memory store, and the host's command dispatch (`sound`, `flash`, `shake`,
+  `defsfx`, `net`, draw ops) has no `store` case — so nothing reaches `STORE`: not
+  `localStorage`, not `/api/state`. On the JS core (`?core=js`) the same program persists and
+  mirrors to the cloud correctly, which is exactly why no parity harness caught it: they compare
+  the two engines with *each other*, and both "work" internally. Found 2026-10-12 while building
+  `tools/app-api-e2e.mjs`, whose first version drove the verb and watched `/api/state` stay
+  empty. Reproduce in the browser console: run a program containing `save 1 as "x"`, then
+  `Object.keys(localStorage)` — empty on the wasm engine, populated on `?core=js`. User-visible:
+  the reference page promises saved values "survive closing the page" and ROADMAP lists the cloud
+  mirror. The fix is an ABI change, not a one-liner — emit a host command on `save`, and seed the
+  wasm's store from `STORE` at boot (its store has no exported setter today) so `load` can see a
+  value saved before the reload. `app-api-e2e` currently guards the transport with
+  `STORE.set`/`STORE.get` and says so in a comment, so when this is fixed the verb leg should be
+  restored there as well.
 - `shape-diff`'s 11 pinned "unexercised fields" are heuristic noise (a local name caught
   near the literal) — labelled in the output; nothing real is outstanding there.
 - **User songs** (`song "x" is 120 "notes"`) register in the JS host's audio engine; the

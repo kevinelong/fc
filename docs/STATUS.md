@@ -44,6 +44,28 @@ versionCode 4 (which had not been deployed anywhere, so nothing was invalidated)
 the wrapper serves them: the launcher renders, the footer's license link is present, and every
 request succeeds except `/api/...`.
 
+**(e) The app↔server contract has a guard — and it found a real bug on its first run.**
+`tools/app-api-e2e.mjs` boots the real apid with a seeded db, serves the repo through a proxy so
+the app's relative `/api` calls reach it, and pins the contract: every `/api` literal in
+`index.html` must be accounted for (a new call in the app fails the check until the list is
+updated), an unknown route must answer 404 (the negative control that makes "not 404" mean
+implemented), `/api/state` must refuse a POST without `X-CO` and drop a value over the 4KB cap,
+`/api/auth/me` must answer 200 with the seeded user and 200/`user:null` anonymously, the gallery
+must return `{games:[…]}`, and — in Chrome — `STORE.set` must reach `/api/state` and a fresh load
+must pull it back. 13/13, no skips to hide behind (needs `apid`'s deps and Chrome).
+
+The first version of that last check drove the `save` **verb** instead, which failed and led to a
+finding worth the whole item: on the default (wasm) engine, `save` never reaches `STORE` at all,
+so saved values do not survive a reload and never reach the cloud. The host's command dispatch
+handles `sound`, `flash`, `shake`, `defsfx`, `net` and draw ops — there is no `store` case — and
+the wasm keeps its value in its own `BTreeMap`. On `?core=js` the same program persists and mirrors
+correctly, which is why no parity harness saw it: they compare the engines with each other. Written
+up with a reproduction in HANDOFF's known gaps; the guard now pins the transport (which works)
+and says why in a comment, so the verb leg can be restored when the ABI is fixed.
+Also added here: `visual-golden-cvd` (the colourblind palette, pinned) and `spike-golden` (the
+spike's pixel harness, which had been failing silently — see below), and `ui-check` grew
+high-contrast + larger-text assertions, 82 → 84 checks.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

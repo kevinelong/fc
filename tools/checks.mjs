@@ -67,6 +67,9 @@ const CHECKS = [
   { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['chrome', 'apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
   { name: 'share-e2e', cwd: ROOT, run: 'node tools/share-e2e.mjs', min: 4, needs: ['apid'], expect: same(`(\\d+)/\\1 share-page checks pass`) },
   { name: 'api-e2e', cwd: ROOT, run: 'node tools/api-e2e.mjs', min: 6, needs: ['apid'], expect: same(`(\\d+)/\\1 api checks pass`) },
+  // The app↔server contract: the endpoints the app calls, the CSRF header it sends, the state
+  // round trip a running game performs — none of which ui-check's stubs or class-e2e cover.
+  { name: 'app-api-e2e', cwd: ROOT, run: 'node tools/app-api-e2e.mjs', min: 10, needs: ['chrome', 'apid'], expect: same(`(\\d+)/\\1 app-server contract checks pass`) },
 ];
 
 const argv = process.argv.slice(2);
