@@ -38,7 +38,10 @@ real-device pass, and a controlled-pilot decision. Keep `ENABLE_CLASSROOM=false`
 
 **Answer:** Pending explicit owner approval. The code reflects the recommendations,
 but classroom mode must remain disabled until the launch checklist in
-`PLAN-classroom.md` is complete.
+`PLAN-classroom.md` is complete. The review material is drafted and waiting:
+`CLASSROOM-PILOT-PACK.md` states each of the four decisions against what the code does today,
+drafts the privacy-policy and teacher copy, and lists the enable/rollback steps plus what a
+pilot would measure.
 
 ---
 

@@ -105,7 +105,9 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 1. **Resolve classroom Q1:** owner choices plus qualified privacy/legal review. Keep
    `ENABLE_CLASSROOM=false`; a complete implementation is not launch approval. The automated
    side of the gate is done: `class-e2e` now proves the idle purge and the teacher delete
-   against `db.json` (2026-10-12), so step 3's "verify retention/deletion" is satisfied.
+   against `db.json` (2026-10-12), so step 3's "verify retention/deletion" is satisfied. The review
+   material is `docs/CLASSROOM-PILOT-PACK.md`: the four decisions against what the code does, drafted
+   privacy/teacher copy, the enable-and-rollback steps, and what the pilot would measure.
 2. **Device pass:** run and record the must-do four in [TEST-MATRIX.md](./TEST-MATRIX.md).
    Touch wiring is automated; iOS audio/PWA, APK loading, and two-device multiplayer need real
    hardware. Do it against the **`targetSdk 36`** build (`fc-app` branch `target-sdk-36`,
