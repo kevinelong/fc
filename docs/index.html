@@ -36,7 +36,7 @@
   #search:focus{border-color:#2c6e2c}
   .cat.hide,.cmd.hide{display:none}
   #noresults{display:none;text-align:center;color:#8a8aa8;font-size:13px;padding:24px}
-  footer{text-align:center;color:#6a6a8a;font-size:11px;padding:24px 0}
+  footer{text-align:center;color:#9aa3b2;font-size:11px;padding:24px 0}
   @media (max-width:560px){
     #stage{width:128px;height:128px}
     #stage-wrap{padding:7px;gap:8px;flex-wrap:wrap}
@@ -50,7 +50,7 @@
   <h1>FANTASY COMPUTER · COMMAND REFERENCE</h1>
   <p>Every example is a tiny working program — <b style="color:#9f9">edit it right here</b> and tap <b style="color:#9f9">▶ Run</b> to see your change in the stage above, or <b style="color:#c8a96e">✎ Open in editor</b> to keep building.</p>
   <p class="links"><a href="../">← back to the editor</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/kevinelong/" target="_blank" rel="noopener">by Kevin Long</a></p>
-  <input id="search" placeholder="search commands…  (e.g. sound, score, jump, sprite)" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <input id="search" placeholder="search commands…  (e.g. sound, score, jump, sprite)" aria-label="Search the command reference" autocomplete="off" autocapitalize="off" spellcheck="false">
 </header>
 <div id="stage-wrap">
   <iframe id="stage" title="run stage"></iframe>
@@ -199,6 +199,7 @@ cats.forEach(cat => {
     const ta = document.createElement('textarea');
     ta.className = 'code'; ta.value = code; ta.spellcheck = false; ta.autocapitalize = 'off';
     ta.rows = Math.max(2, code.split('\n').length);
+    ta.setAttribute('aria-label', name + ' — editable fc example');
     card.appendChild(ta);
     const actions = document.createElement('div'); actions.className = 'actions';
     const btn = document.createElement('button'); btn.className = 'run'; btn.textContent = '▶ Run';

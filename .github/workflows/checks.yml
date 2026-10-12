@@ -29,9 +29,10 @@ jobs:
         run: cd huntd && npm install --omit=dev --no-audit --no-fund
 
       # The pixel goldens drive the detected Chrome through playwright-core; without it
-      # that check SKIPs by design, so CI installs it to keep the guard running.
-      - name: visual-golden dependency
-        run: npm install --no-save --no-audit --no-fund playwright-core
+      # that check SKIPs by design, so CI installs it to keep the guard running. axe-core is
+      # the same deal for the accessibility audit (it runs the structural pass without it).
+      - name: browser-guard dependencies
+        run: npm install --no-save --no-audit --no-fund playwright-core axe-core
 
       # The differentials compare against the wasm core, built here (target/ is ignored).
       - name: wasm core

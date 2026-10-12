@@ -64,6 +64,9 @@ const CHECKS = [
   // Deploy safety: the service worker's strategy (a wrong one pins PWA users to a stale build),
   // its precache paths, and fc-version.js against the newest published release.
   { name: 'release-check', cwd: ROOT, run: 'node tools/release-check.mjs', min: 8, expect: same(`(\\d+)/\\1 release checks pass`) },
+  // The pages around the app (reference, tutorial, teachers, projects, privacy) were never audited
+  // for accessibility; axe-core when present, plus a dependency-free structural pass.
+  { name: 'a11y', cwd: ROOT, run: 'node tools/a11y-check.mjs', min: 30, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 accessibility checks pass`) },
   // ---- browser and server surfaces ----
   { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
   // The colourblind-safe palette has its own pinned set (spec/golden-shots/cvd/), because it is

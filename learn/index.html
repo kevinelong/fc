@@ -33,7 +33,7 @@
   .step .run:hover{background:#163a16}
   .step .edit{font:12px 'Share Tech Mono',monospace;background:#161616;border:1px solid #5a4a28;color:#c8a96e;border-radius:4px;padding:6px 12px;cursor:pointer;letter-spacing:.06em;text-decoration:none;display:inline-block}
   .step .edit:hover{border-color:#c8a96e}
-  footer{text-align:center;color:#6a6a8a;font-size:11px;padding:24px 0}
+  footer{text-align:center;color:#9aa3b2;font-size:11px;padding:24px 0}
   @media (max-width:560px){
     #stage{width:128px;height:128px}
     #stage-wrap{padding:7px;gap:8px;flex-wrap:wrap}
@@ -435,6 +435,7 @@ function card(container, prefix, i, title, why, code, doneId){
   const ta = document.createElement('textarea');
   ta.className = 'code'; ta.value = code; ta.spellcheck = false; ta.autocapitalize = 'off';
   ta.rows = Math.max(2, code.split('\n').length);
+  ta.setAttribute('aria-label', title + ' — editable fc code');
   el.appendChild(ta);
   const actions = document.createElement('div'); actions.className = 'actions';
   const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick = () => { run(title, ta.value); if (doneId) mark(doneId, el); }; actions.appendChild(b);
@@ -449,6 +450,7 @@ function challengeCard(container, i, ch){
   const el = document.createElement('div'); el.className = 'step' + (progress.has('c'+i) ? ' done' : '');
   el.innerHTML = `<div class="nm"><span class="badge">🎯 ${i+1}</span>${title}</div><div class="goal">Goal: ${goal}</div>`;
   const ta = document.createElement('textarea'); ta.className='code'; ta.value=code; ta.spellcheck=false; ta.autocapitalize='off'; ta.rows=Math.max(3, code.split('\n').length);
+  ta.setAttribute('aria-label', title + ' — editable fc code');
   el.appendChild(ta);
   const actions = document.createElement('div'); actions.className='actions';
   const b = document.createElement('button'); b.className='run'; b.textContent='▸ Run'; b.onclick=()=>run(title, ta.value); actions.appendChild(b);

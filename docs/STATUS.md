@@ -176,6 +176,28 @@ is now `docs/SECURITY.md`, which lists every control, where it lives, and the de
   (Its first version had a bug of its own: it counted the relay's `join` message as payload, so the
   oversize assertion read a false failure — fixed to count only relayed `state` messages.)
 
+**(m) The pages around the app got an accessibility audit — and needed one.** The app has shipped
+accessibility work with partial guards, but the command reference, the tutorial, the teacher pages,
+the projects and the privacy policy had never been looked at, and they are what a teacher prints and
+a search engine indexes. `tools/a11y-check.mjs` now drives each of the six pages in Chrome with two
+layers: axe-core (serious/critical only) when it is installed, plus a dependency-free structural
+pass — `lang`, exactly one `h1`, no skipped heading levels, `alt` text, labelled controls,
+discernible link and button text.
+
+It found, on the first run:
+
+* **101 unlabelled controls**: the 78 editable example `textarea`s on the reference page and 22 on
+  the tutorial are generated in JS with no accessible name, so a screen reader announced "edit text,
+  blank" for every example; the reference's search box was unlabelled too. Each now carries an
+  `aria-label` built from the example's own title (and "Search the command reference").
+* **Contrast below AA on four pages**: the shared `--muted` brown (`#8a7340`) is 4.13:1 on the page
+  background and 3.92:1 on panels (needs 4.5:1), and the reference/tutorial footers used `#6a6a8a`
+  at 3.79:1. Now `--muted: #a08a55` (5.6:1) and `#9aa3b2` (7.7:1) — the same warm-grey family, so
+  the pages look the same and read better.
+
+Result: **42/42** (six pages × seven checks). CI installs `axe-core` alongside `playwright-core` so
+the engine half runs there too; without axe the structural half still runs and says so.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
