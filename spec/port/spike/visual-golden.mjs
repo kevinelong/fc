@@ -29,6 +29,7 @@
 // run (the transient _vg-ops.js it reads is left in place, gitignored).
 import fs from 'fs'; import path from 'path'; import net from 'net';
 import { spawn, spawnSync } from 'child_process';
+import { createRequire } from 'module';
 import { parse, Runtime, __CMDS, __step, __bindRT } from './fc-core-record.mjs';
 
 const HERE = import.meta.dirname;
@@ -39,7 +40,11 @@ const GOLDEN = path.join(HERE, 'visual-golden.json');
 const HTML_REL = 'spec/port/spike/visual-golden.html';
 const N = 30;                                   // idle frames — same as examples-diff
 const DRAW = new Set(['rect', 'circle', 'line', 'text']);
-const CHROMIUM = '/usr/bin/chromium';
+// Same finder as the other harnesses (CHROME/CHROMIUM env wins), so the browser path lives in
+// one place and this tool can run on CI, whose Chrome is /usr/bin/google-chrome, not chromium.
+const { findChrome } = createRequire(import.meta.url)('../../../tools/chrome-path.cjs');
+const CHROMIUM = process.env.CHROMIUM || findChrome();
+if (!CHROMIUM) { console.error('No Chrome/Chromium found — set CHROME=/path/to/chrome'); process.exit(2); }
 
 const argv = process.argv.slice(2);
 const UPDATE = argv.includes('--update');

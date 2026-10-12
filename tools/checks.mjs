@@ -57,6 +57,12 @@ const CHECKS = [
   { name: 'heal', cwd: ROOT, run: 'node spec/heal/eval.mjs', min: 0, expect: same(`Phase 3 floor: .*(valid|matches)`) },
   // ---- browser and server surfaces ----
   { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
+  // The colourblind-safe palette has its own pinned set (spec/golden-shots/cvd/), because it is
+  // a shipped accessibility feature whose only previous coverage was a "prove it bites" mode.
+  { name: 'visual-golden-cvd', cwd: ROOT, run: 'node tools/visual-golden.cjs --cvd', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
+  // The spike's independent pixel harness (ops replayed onto a real canvas) was never wired into
+  // this runner, so it could rot silently; it needs python3 for its static server.
+  { name: 'spike-golden', cwd: SPIKE, run: 'node visual-golden.mjs', min: 15, needs: ['chrome', 'python'], expect: same(`(\\d+)/\\1 examples pixel-identical`) },
   { name: 'ui-check', cwd: ROOT, run: 'node tools/ui-check.mjs starfield', min: 60, needs: ['chrome'], expect: same(`(\\d+)/\\1 UI checks pass`) },
   { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['chrome', 'apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
   { name: 'share-e2e', cwd: ROOT, run: 'node tools/share-e2e.mjs', min: 4, needs: ['apid'], expect: same(`(\\d+)/\\1 share-page checks pass`) },
@@ -76,6 +82,8 @@ const have = {
   // a committed dependency (the repo stays install-free): without it that check has to
   // SKIP, not die as a MODULE_NOT_FOUND.
   pw: spawnSync(process.execPath, ['-e', "require.resolve('playwright-core')"], { cwd: ROOT, encoding: 'utf8' }).status === 0,
+  // The spike's pixel harness serves the repo with `python3 -m http.server`.
+  python: spawnSync('python3', ['--version'], { encoding: 'utf8' }).status === 0,
 };
 
 const results = [];
@@ -83,7 +91,7 @@ const results = [];
 // "exit 2" on its own cost a blind CI diagnosis (the cause was a missing generated input).
 const tailOut = r => ((r.stdout || '') + (r.stderr || '')).split(/\r?\n/).filter(l => l.trim()).slice(-12).join('\n');
 for (const c of CHECKS) {
-  if (only && !c.name.includes(only)) continue;
+  if (only && !(CHECKS.some(c => c.name === only) ? c.name === only : c.name.includes(only))) continue;
   const missing = (c.needs || []).filter(k => !have[k]);
   if (missing.length) { results.push({ ...c, status: 'SKIP', why: 'needs ' + missing.join('+') }); continue; }
   if (!c.needs) c.needs = [];

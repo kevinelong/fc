@@ -46,6 +46,11 @@ const FRAMES = 24;          // step this many frames before capturing
 // Page load / engine boot budget. FC_GOLDEN_TIMEOUT overrides it (seconds -> ms).
 const LOAD_TIMEOUT = Number(process.env.FC_GOLDEN_TIMEOUT || 90) * 1000;
 const UPDATE = process.argv.includes('--update');
+// --cvd renders with the colourblind-safe palette forced on (window.FC_A11Y.cvd, the same flag
+// the ⚙ settings panel flips) and keeps its own pinned set beside the default one, so the
+// palette is guarded by a real pixel check instead of only by a "prove it bites" mode.
+const CVD = process.argv.includes('--cvd') || process.env.FC_GOLDEN_CVD === '1';
+const SHOT_DIR = CVD ? path.join(SHOTS, 'cvd') : SHOTS;
 
 const INIT = `(() => {
   let s = 0x1234567 >>> 0;
@@ -89,6 +94,8 @@ async function capture(browser, game) {
   // before the first frame is scheduled silently drops those frames, which used to make
   // this tool produce machine-speed-dependent renders for any game that moves on its own).
   await page.waitForFunction('window.__fcHasFrame && window.__fcHasFrame()', null, { timeout: LOAD_TIMEOUT });
+  // Flip the palette before any frame is stepped: cvdMap() consults this flag at every paint.
+  if (CVD) await page.evaluate(() => { window.FC_A11Y.cvd = true; });
   // Settle BEFORE stepping and again before reading: the app boots asynchronously
   // (the wasm loads, then paints frame 1), so stepping or reading too early captured
   // whatever happened to be on the canvas — machine-speed-dependent renders. Both
@@ -101,7 +108,7 @@ async function capture(browser, game) {
   // different IDAT for identical pixels), so the comparison hashes the raw RGBA the
   // canvas holds. The golden is decoded in-page to the same raw form, so a golden
   // stays valid across encoder versions; PNGs are still written for humans.
-  const goldenPath = path.join(SHOTS, `${game}.png`);
+  const goldenPath = path.join(SHOT_DIR, `${game}.png`);
   const goldenB64 = (!UPDATE && fs.existsSync(goldenPath)) ? fs.readFileSync(goldenPath).toString('base64') : null;
   const res = await page.evaluate(async ({ golden }) => {
     const hash = async (bytes) => {
@@ -128,7 +135,7 @@ async function capture(browser, game) {
 }
 
 (async () => {
-  if (!fs.existsSync(SHOTS)) fs.mkdirSync(SHOTS, { recursive: true });
+  if (!fs.existsSync(SHOT_DIR)) fs.mkdirSync(SHOT_DIR, { recursive: true });
   const arg = process.argv.slice(2).filter(a => !a.startsWith('--'));
   const games = (arg.length ? arg : fs.readdirSync(path.join(ROOT, 'examples')).filter(f => f.endsWith('.fc')).map(f => f.replace(/\.fc$/, ''))).sort();
   // `--disable-gpu` matters: GPU rasterization anti-aliases circles/lines differently
@@ -139,12 +146,12 @@ async function capture(browser, game) {
   try {
     for (const g of games) {
       const got = await capture(browser, g);
-      const golden = path.join(SHOTS, `${g}.png`);
+      const golden = path.join(SHOT_DIR, `${g}.png`);
       if (UPDATE || !fs.existsSync(golden)) { fs.writeFileSync(golden, got.png); wrote++; console.log(`WROTE ${g}.png (${got.png.length}b)`); continue; }
       if (got.goldenHash === got.live) { pass++; console.log(`PASS  ${g}`); }
-      else { fail++; const out = path.join(SHOTS, `${g}.actual.png`); fs.writeFileSync(out, got.png); console.log(`FAIL  ${g}  (pixels changed [golden ${String(got.goldenHash).slice(0,10)}… vs live ${got.live.slice(0,10)}…]; wrote ${g}.actual.png)`); }
+      else { fail++; const out = path.join(SHOT_DIR, `${g}.actual.png`); fs.writeFileSync(out, got.png); console.log(`FAIL  ${g}  (pixels changed [golden ${String(got.goldenHash).slice(0,10)}… vs live ${got.live.slice(0,10)}…]; wrote ${g}.actual.png)`); }
     }
   } finally { await browser.close(); }
-  console.log(`\n${wrote ? `wrote ${wrote} golden(s); ` : ''}${pass}/${pass + fail} visual goldens match`);
+  console.log(`\n${wrote ? `wrote ${wrote} golden(s); ` : ''}${pass}/${pass + fail} visual goldens match${CVD ? ' (CVD palette)' : ''}`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
