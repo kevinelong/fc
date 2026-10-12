@@ -64,10 +64,14 @@ async function capture(browser, game) {
   const url = 'file://' + path.join(ROOT, 'index.html') + '?code=' + encodeURIComponent(Buffer.from(src, 'utf8').toString('base64'));
   const page = await browser.newPage();
   await page.addInitScript(INIT);
-  // Load and boot waits are generous on purpose: the app is one ~850 KB file with the wasm
-  // inlined, and a loaded CI runner has produced a 5x-slower job (ui-check 255 s vs 50 s)
-  // where Playwright's 30 s default surfaced as a timeout, not as a pixel diff.
-  await page.goto(url, { waitUntil: 'load', timeout: LOAD_TIMEOUT });
+  // The capture must not depend on anything outside this repo. `waitUntil: 'load'` also
+  // waits on the hero <video> and on the app's update nudge fetching
+  // https://codeonline.io/fc-version.js, either of which can stall on a throttled or
+  // blocked runner — that is the timeout that failed here twice, not a pixel diff. Abort
+  // everything that is not a local file and wait for the *engine* instead: the harness
+  // loads the program from the ?code= URL, so the launcher's own fetches are irrelevant.
+  await page.route('**', route => (route.request().url().startsWith('file:') ? route.continue() : route.abort()));
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT });
   await page.waitForFunction('typeof window.__fcStep === "function"', null, { timeout: LOAD_TIMEOUT });
   // Wait until the engine has actually booted (the wasm loads asynchronously; stepping
   // before the first frame is scheduled silently drops those frames, which used to make
