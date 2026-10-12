@@ -72,6 +72,8 @@ const CHECKS = [
   // The spike's independent pixel harness (ops replayed onto a real canvas) was never wired into
   // this runner, so it could rot silently; it needs python3 for its static server.
   { name: 'spike-golden', cwd: SPIKE, run: 'node visual-golden.mjs', min: 15, needs: ['chrome', 'python'], expect: same(`(\\d+)/\\1 examples pixel-identical`) },
+  // The relay is public and every multiplayer example depends on it; its caps had no guard at all.
+  { name: 'huntd-limits', cwd: ROOT, run: 'node tools/huntd-limits.mjs', min: 5, needs: ['huntd'], expect: same(`(\\d+)/\\1 relay limit checks pass`) },
   { name: 'ui-check', cwd: ROOT, run: 'node tools/ui-check.mjs starfield', min: 60, needs: ['chrome'], expect: same(`(\\d+)/\\1 UI checks pass`) },
   { name: 'class-e2e', cwd: ROOT, run: 'node tools/class-e2e.mjs', min: 8, needs: ['chrome', 'apid'], expect: same(`(\\d+)/\\1 classroom end-to-end checks pass`) },
   { name: 'share-e2e', cwd: ROOT, run: 'node tools/share-e2e.mjs', min: 4, needs: ['apid'], expect: same(`(\\d+)/\\1 share-page checks pass`) },
@@ -89,6 +91,7 @@ if (argv.includes('--list')) { for (const c of CHECKS) console.log(c.name.padEnd
 const have = {
   chrome: !!findChrome(),
   apid: fs.existsSync(path.join(ROOT, 'apid', 'node_modules')),
+  huntd: fs.existsSync(path.join(ROOT, 'huntd', 'node_modules')),
   wasm: fs.existsSync(path.join(SPIKE, 'target', 'wasm32-unknown-unknown', 'release', 'fc_spike.wasm')),
   // The browser goldens drive Chrome through playwright-core, which is deliberately not
   // a committed dependency (the repo stays install-free): without it that check has to

@@ -8,6 +8,6 @@
   "type": "commonjs",
   "dependencies": {
     "jose": "^5.9.6",
-    "nodemailer": "^8.0.10"
+    "nodemailer": "^10.1.0"
   }
 }

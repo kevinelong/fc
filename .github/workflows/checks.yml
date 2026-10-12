@@ -24,6 +24,10 @@ jobs:
       - name: apid dependencies
         run: cd apid && npm install --no-audit --no-fund
 
+      # huntd's deps: the relay-limits guard starts the real relay.
+      - name: huntd dependencies
+        run: cd huntd && npm install --omit=dev --no-audit --no-fund
+
       # The pixel goldens drive the detected Chrome through playwright-core; without it
       # that check SKIPs by design, so CI installs it to keep the guard running.
       - name: visual-golden dependency

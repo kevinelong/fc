@@ -152,6 +152,30 @@ difference between "users get the new build" and "the PWA pinned me to a stale v
 Deliberate choice: an unreachable API is a *failure*, not a skip — the repo's rule is that a check
 which cannot run must not look like it passed.
 
+**(l) A security pass over `apid` and `huntd`, with the findings that mattered.** Both are public
+and kid-facing, and neither had been read as an attack surface. Done by trust boundary (the record
+is now `docs/SECURITY.md`, which lists every control, where it lives, and the deliberate open items):
+
+* **Verified, not assumed:** sessions (32 random bytes, `HttpOnly; Secure; SameSite=Lax`, TTL), the
+  `X-CO` CSRF gate on every write, output encoding on the server-rendered `/s/<id>` page *and* the
+  publish-side name whitelist, the poolroom `cid` path-traversal guard, auth limits (code TTL /
+  attempt cap / resend cooldown, generate daily caps), generic error bodies with details to the log,
+  no user-controlled URL fetched anywhere, and no secrets in 274 commits of history.
+* **Fixed:** `npm audit` found one high-severity advisory on `nodemailer ≤ 10.0.5` (raw-option file
+  read + SSRF, `resolveContent` bypass, addressparser DoS). None of those paths are reachable here
+  (fixed recipient, no raw options, no attachments), but it is a runtime dependency: upgraded to
+  `^10.1.0`, audit clean, and `api-e2e` + `app-api-e2e` re-run green on the new major.
+* **Fixed, and it was a real hole:** the relay capped a *room* but nothing capped *connections* — a
+  client could open sockets until the box ran out of memory or descriptors. `huntd` now enforces a
+  total (400) and a per-address (40, generous enough for a classroom behind one NAT, tunable via
+  `HUNTD_MAX_PER_IP`) cap, and `/healthz` reports clients and the caps in force.
+* **New guard:** `tools/huntd-limits.mjs` spawns the real relay with tiny caps and proves each one —
+  room full (4001), total cap (4002), per-address cap (4002), oversize message dropped, burst rate
+  limited, closed sockets leaving no room or client behind, and healthz reporting the caps. 7/7.
+  CI installs `huntd`'s deps so it runs there too.
+  (Its first version had a bug of its own: it counted the relay's `join` message as payload, so the
+  oversize assertion read a false failure — fixed to count only relayed `state` messages.)
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

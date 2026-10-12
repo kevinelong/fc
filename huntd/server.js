@@ -13,12 +13,20 @@ const ROOM_CAP = parseInt(process.env.HUNTD_ROOM_CAP || "8", 10);
 const MSG_CAP = parseInt(process.env.HUNTD_MSG_CAP || "4096", 10);   // bytes per message
 const RATE = parseInt(process.env.HUNTD_RATE || "60", 10);          // max msgs/sec per socket
 const HEARTBEAT_MS = parseInt(process.env.HUNTD_HEARTBEAT_MS || "15000", 10); // ping interval
+// Connection caps. A room is capped above, but nothing stopped a client from opening sockets
+// until the box ran out of memory or file descriptors. Per-IP is generous because a whole
+// classroom arrives from one NAT address — 40 covers a class, not a swarm.
+const MAX_CLIENTS = parseInt(process.env.HUNTD_MAX_CLIENTS || "400", 10);
+const MAX_PER_IP = parseInt(process.env.HUNTD_MAX_PER_IP || "40", 10);
+const ipCount = new Map();                                   // address -> live sockets
 
 const rooms = new Map();   // "game/room" -> Set<ws>
 let nextId = 1;
 
 const roomKey = (g, r) => `${g || "_"}/${r || "_"}`;
 const clean = s => String(s || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
+// nginx sets x-real-ip; direct connections fall back to the socket address
+const ipOf = req => String(req.headers["x-real-ip"] || req.headers["x-forwarded-for"] || (req.socket && req.socket.remoteAddress) || "unknown").split(",")[0].trim();
 
 function broadcast(peers, except, str) {
   for (const s of peers) if (s !== except && s.readyState === 1) s.send(str);
@@ -26,13 +34,21 @@ function broadcast(peers, except, str) {
 
 // tiny health endpoint so nginx/monitoring can probe it
 const server = http.createServer((req, res) => {
-  if (req.url === "/healthz") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: true, rooms: rooms.size })); return; }
+  if (req.url === "/healthz") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: true, rooms: rooms.size, clients: wss.clients.size, capacity: { maxClients: MAX_CLIENTS, maxPerIp: MAX_PER_IP, roomCap: ROOM_CAP } })); return; }
   res.writeHead(426); res.end("websocket only");
 });
 
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws, req) => {
+  const ip = ipOf(req);
+  if (wss.clients.size > MAX_CLIENTS || (ipCount.get(ip) || 0) >= MAX_PER_IP) {
+    ws.close(4002, "relay busy");
+    return;
+  }
+  ipCount.set(ip, (ipCount.get(ip) || 0) + 1);
+  ws._ip = ip;
+
   const url = new URL(req.url, "http://x");
   const game = clean(url.searchParams.get("game"));
   const room = clean(url.searchParams.get("room"));
@@ -67,6 +83,10 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
+    if (ws._ip) {
+      const n = (ipCount.get(ws._ip) || 1) - 1;
+      if (n > 0) ipCount.set(ws._ip, n); else ipCount.delete(ws._ip);
+    }
     peers.delete(ws);
     broadcast(peers, ws, JSON.stringify({ t: "leave", id: ws.id }));
     if (peers.size === 0) rooms.delete(k);
