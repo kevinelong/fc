@@ -22,6 +22,12 @@ below — your remaining step is the account.
    bumping it first would point v3 installs at the v3 download. Note also that v4 is signed
    with a **new** key (the July keystore was never recovered), so it cannot install over a
    v3 copy: existing users uninstall once.
+   *Wider status checked 2026-10-12:* the deployed **web app** is a 2026-07-08 snapshot of
+   this repository — `https://codeonline.io/` is 652,395 bytes against 849,142 here, the
+   September markers (`show dialog`, `True subpixel`) are absent, and `tools/checks.mjs`
+   404s while `spec/`, `apid/`, `huntd/`, `ROADMAP.md` all serve — so the whole
+   September batch is undeployed, not only the APK. The box itself is healthy: apid answers
+   (classroom 404 as designed, flag off) and the relay upgrades (426).
 2. **PWA (installable web app).** `https://codeonline.io` → browser menu →
    **Add to Home Screen** (works on Android *and* iOS). Installs an offline,
    fullscreen app icon. No store, no review, instant updates. Already wired
