@@ -134,6 +134,24 @@ verbs documented in an example**. The remaining eight — `start`, `spawn`, `hid
 `set`, `put`, `get` — parse to a bare call and do nothing, so they are *pinned with that reason*
 rather than documented; that vocabulary drift is recorded in HANDOFF's known gaps.
 
+**(k) Deploy safety is pinned, because two ways to break a deploy are invisible today.** The next
+deploy is the interesting one — the site is a July snapshot, and the service worker is the
+difference between "users get the new build" and "the PWA pinned me to a stale version" — so
+`tools/release-check.mjs` now holds the parts that fail quietly:
+
+* the worker's strategy: navigations go through `networkFirst`, sub-assets through
+  stale-while-revalidate, caches are versioned, and `/fc.apk` + `/api/*` + non-GET are never
+  intercepted. Every one of those is a one-token edit away from a stale PWA, and none was tested;
+* every path in its precache list still exists (17 of them). The list tolerates misses by design
+  (`.catch(() => {})`), so a renamed example simply stops being precached, silently;
+* `fc-version.js` matches the newest published release, read from the releases API — the tag carries
+  the versionCode the file should advertise. Bumping the version file before the APK is published
+  is exactly the mistake DISTRIBUTION.md hand-warns about, and it now fails a check instead
+  (verified by tampering: versionCode 9 against the published 4 fails).
+
+Deliberate choice: an unreachable API is a *failure*, not a skip — the repo's rule is that a check
+which cannot run must not look like it passed.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

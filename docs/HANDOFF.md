@@ -50,6 +50,7 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 | `tools/app-api-e2e.mjs` | the app↔server contract: every `/api` call accounted for, CSRF, caps, auth shapes, and the app's own save transport against a real apid | the `save`-on-wasm gap below |
 | `tools/learn-recipes-check.mjs` | every HOW-TO recipe on the learn page parses, runs, and stays quiet | — |
 | `tools/reference-check.mjs` | every implemented verb appears in an example on the command-reference page, and all of them run | 22 verbs had no example at all, including `walk`, `face`, `tween`, `join`/`broadcast` and `flees`/`shoots` |
+| `tools/release-check.mjs` | the service worker's strategy (network-first HTML, versioned caches, `/fc.apk` and `/api/*` untouched), its precache paths, and `fc-version.js` against the newest published release | — (its tamper test is in the commit: bumping the version file ahead of the release fails it) |
 | `spec/port/spike/visual-golden.mjs` | the spike's ops→canvas renderer, pixel-pinned (it had been failing silently: 16/22, six games unpinned) | six generative toys never pinned |
 
 ## Working notes (so the next session does not rediscover them)

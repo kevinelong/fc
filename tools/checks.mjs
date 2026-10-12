@@ -61,6 +61,9 @@ const CHECKS = [
   // The command reference is where users are sent for "how do I…?"; it is executable content too,
   // and LINT_VERBS is the definition of the verbs it must cover.
   { name: 'reference-docs', cwd: ROOT, run: 'node tools/reference-check.mjs', min: 20, expect: same(`(\\d+)/\\1 reference examples run clean`) },
+  // Deploy safety: the service worker's strategy (a wrong one pins PWA users to a stale build),
+  // its precache paths, and fc-version.js against the newest published release.
+  { name: 'release-check', cwd: ROOT, run: 'node tools/release-check.mjs', min: 8, expect: same(`(\\d+)/\\1 release checks pass`) },
   // ---- browser and server surfaces ----
   { name: 'visual-golden', cwd: ROOT, run: 'node tools/visual-golden.cjs', min: 15, needs: ['chrome', 'pw'], expect: same(`(\\d+)/\\1 visual goldens match`) },
   // The colourblind-safe palette has its own pinned set (spec/golden-shots/cvd/), because it is
