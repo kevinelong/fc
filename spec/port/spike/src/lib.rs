@@ -1768,11 +1768,22 @@ fn fc_near_miss(word: &str, keys: &[String]) -> Option<String> {
     if best_d <= 2 && best_d > 0 { best } else { None }
 }
 impl Rt {
-    fn new(seed: u32) -> Self { Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
+    fn new(seed: u32) -> Self {
+        let mut rt = Rt { vars: BTreeMap::new(), funcs: BTreeMap::new(), seed, ops: 0, stopped: false, returning: false, cmds: Vec::new(), camera: (0.0,0.0), tick: 0,
         store: BTreeMap::new(), tile_defs: BTreeMap::new(), map_rows: Vec::new(), follow: None,
         tags: BTreeMap::new(), pickup_handlers: BTreeMap::new(), hit_handlers: BTreeMap::new(), defeat_handlers: BTreeMap::new(), every_counts: BTreeMap::new(), run_fs: Vec::new(), behavior_subjects: Vec::new(), key_state: BTreeMap::new(), key_handlers: BTreeMap::new(), time_limit_frames: None, time_left: 0, timeout_fired: false, timeout_handler: None, particles: Vec::new(),
         button_handlers: BTreeMap::new(), mouse_handlers: BTreeMap::new(),
-        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new(), screen_target: None, user_sprites: Vec::new(), key_in_handlers: Vec::new(), prev_player: None } }
+        buttons: Vec::new(), screen_stack: Vec::new(), mouse: (0.0, 0.0, false), says: Vec::new(), has_game: false, flash_frames: 0, flash_color: String::new(), shake_frames: 0, shake_mag: 0.0, emitters: Vec::new(), tweens: Vec::new(), talk_handlers: Vec::new(), choice_labels: Vec::new(), talk_prev: false, ui_text: String::new(), ui_box: (2.0, 92.0), ui_labels: Vec::new(), ui_choice_box: (6.0, 100.0), cur_line: 0, errors: Vec::new(), err_seen: BTreeSet::new(), screen_target: None, user_sprites: Vec::new(), key_in_handlers: Vec::new(), prev_player: None };
+        // Durable `save`/`load` values handed over by the host before the first frame (seed_store):
+        // the host owns the persistent copy, the runtime's `load` reads this store, and every run
+        // gets its own copy of the values.
+        unsafe {
+            if let Some(p) = (*core::ptr::addr_of!(PENDING_STORE)).as_ref() {
+                for (k, v) in p.iter() { rt.store.insert(k.clone(), deep_clone(v)); }
+            }
+        }
+        rt
+    }
 
     // One message per (line, text): a bad `item` inside a loop must not spam the
     // panel every frame. Capped so a broken program cannot flood the host.
@@ -2754,7 +2765,10 @@ impl Rt {
             Stmt::WhenKeyIn(keys, _then, body) => { self.key_in_handlers.push((keys.clone(), body.clone())); }
             Stmt::WhenGeneric(_, _) => { /* the JS parse bucket keeps an unrecognised `when` inert */ }
             Stmt::DefSprite(n, h) => { if h.len() == 64 { self.user_sprites.push((n.clone(), h.clone())); } }
-            Stmt::DefSong(_n, _tempo, _rows) => { /* the song data cannot cross the ABI; the host plays by name */ }
+            Stmt::DefSong(n, tp, rows) => {
+                // hand the notes to the host's audio engine (the JS core calls AUDIO.defineSong)
+                self.cmds.push(Cmd::Song(n.clone(), *tp, rows.clone()));
+            }
             Stmt::Assign(t, v) => {
                 let val = self.eval(v);
                 // `coins is list of 4 sprites` — the list's name says what the sprites
@@ -3102,6 +3116,9 @@ impl Rt {
             Stmt::Save(v, k) => {
                 let key = display(&self.eval(k));
                 let val = self.eval(v);
+                let mut vj = String::new(); emit_val(&val, &mut vj);
+                // the host mirrors this into localStorage and /api/state (JS core calls STORE.set)
+                self.cmds.push(Cmd::Store(key.clone(), vj));
                 self.store.insert(key, deep_clone(&val));
             }
             Stmt::TileDef(ch, props) => {
@@ -3386,7 +3403,11 @@ enum Cmd { Rect(f64,f64,f64,f64,String), Circle(f64,f64,f64,String), Line(f64,f6
     Flash(String), Shake(f64),
     // host-side effects routed through the command buffer (the bridge consumes
     // these and calls the existing JS AUDIO engine — single audio source).
-    Sound(String,String), DefSfx(String,String), Net(String,String,String) }
+    Sound(String,String), DefSfx(String,String), Net(String,String,String),
+    // the `save`/`song` verbs: the wasm keeps its own values, but persistence and audio
+    // synthesis live in the host (STORE writes localStorage + /api/state; AUDIO synthesises),
+    // so both hand their data across the same buffer. Value is already JSON.
+    Store(String,String), Song(String,f64,Vec<String>) }
 
 include!("sprites_gen.rs");
 fn js_floor(x: f64) -> f64 { let t = x as i64 as f64; if t > x { t - 1.0 } else { t } }
@@ -3422,6 +3443,10 @@ fn emit_cmd(c: &Cmd, out: &mut String) {
         Cmd::Flash(color)=>{ out.push_str("{\"color\":"); json_str(color,out); out.push_str(",\"op\":\"flash\"}"); }
         Cmd::Shake(m)=>{ out.push_str("{\"magnitude\":"); json_num(*m,out); out.push_str(",\"op\":\"shake\"}"); }
         Cmd::Net(kind,a,b)=>{ out.push_str("{\"a\":"); json_str(a,out); out.push_str(",\"b\":"); json_str(b,out); out.push_str(",\"kind\":"); json_str(kind,out); out.push_str(",\"op\":\"net\"}"); }
+        Cmd::Store(key,val)=>{ out.push_str("{\"key\":"); json_str(key,out); out.push_str(",\"op\":\"store\",\"value\":"); out.push_str(val); out.push('}'); }
+        Cmd::Song(name,tempo,rows)=>{ out.push_str("{\"name\":"); json_str(name,out); out.push_str(",\"op\":\"song\",\"rows\":[");
+            for (i,r) in rows.iter().enumerate() { if i>0 {out.push(',');} json_str(r,out); }
+            out.push_str("],\"tempo\":"); json_num(*tempo,out); out.push('}'); }
     }
 }
 #[no_mangle] pub extern "C" fn parse_render(len: u32, seed: u32) -> u32 {
@@ -3465,6 +3490,26 @@ static mut LIVE_RT: Option<Rt> = None;
     let s = String::from_utf8_lossy(&bytes);
     rt.vars.insert("peers".to_string(), json_to_val(&s));
     rt.vars.insert("connected".to_string(), Val::Bool(connected != 0));
+}
+// Seed the runtime's `save`/`load` store from the host, so a value saved in an earlier session is
+// readable by `load`: the durable copy lives in the host's STORE (localStorage + /api/state), and
+// this hands it back across the same SRC buffer set_net uses.
+//
+// The values are stashed rather than written here because the host seeds *before* the first
+// `parse_render`, when no runtime exists yet; `Rt::new` applies them to each run. Returns the
+// number of keys taken.
+static mut PENDING_STORE: Option<Vec<(String, Val)>> = None;
+#[no_mangle] pub extern "C" fn seed_store(len: u32) -> u32 {
+    let n = (len as usize).min(SRC_CAP);
+    let bytes = unsafe { core::slice::from_raw_parts(addr_of!(SRC) as *const u8, n) }.to_vec();
+    let s = String::from_utf8_lossy(&bytes);
+    let mut pairs: Vec<(String, Val)> = Vec::new();
+    if let Val::Obj(o) = json_to_val(&s) {
+        for (k, v) in o.borrow().iter() { pairs.push((k.clone(), deep_clone(v))); }
+    }
+    let count = pairs.len() as u32;
+    unsafe { *core::ptr::addr_of_mut!(PENDING_STORE) = Some(pairs); }
+    count
 }
 #[no_mangle] pub extern "C" fn step_frame() -> u32 {
     let rt = match unsafe { (*core::ptr::addr_of_mut!(LIVE_RT)).as_mut() } { Some(r) => r, None => return 0 };

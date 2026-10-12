@@ -95,13 +95,29 @@ delta exactly the edge-to-edge mode Android 15+ applies at 35+. That can push th
 under the navigation bar, so it stays on the branch until TEST-MATRIX's must-do four pass on a real
 device.
 
-**(i) Not started, and why it is not a two-line job.** User songs in the wasm
-(`song "x" is 120 "notes"` still plays by name only) and the `save` bug found above share one
-missing piece of ABI: the wasm cannot hand structured data to the host, and the host cannot seed
-the wasm's store. Doing them separately would mean touching the same boundary twice and re-pinning
-twice; they should land as one focused change (emit a host command on `save`/`song`, and give the
-wasm a way to read `STORE` at boot) with the differentials and goldens re-pinned in the same
-commit. Left undone on purpose rather than half-done.
+**(i) The wasm finally hands structured data to the host, so `save` persists and `song` plays.**
+Both gaps shared one missing piece of ABI, and both are fixed (the earlier note here said it was
+left undone on purpose — this is the same day, done as one change rather than two):
+
+* `save` on the default engine now reaches the host. The wasm emits `{"op":"store",…}` on the
+  same command buffer `sound`/`defsfx`/`net` already used, and the host's dispatch maps it to
+  `STORE.set` — so a game's saved value lands in localStorage and `/api/state`, which it never did
+  before (the value only ever lived in the wasm's own memory and died with the page).
+* `song "x" is 120 "###"` emits `{"op":"song",…}` and the host calls `AUDIO.defineSong`, so user
+  songs carry their notes across the ABI instead of playing by name only. `AUDIO.songs` is exposed
+  so the fact is observable.
+* The other direction needed a new export: the durable copy lives in the host, so `seed_store`
+  takes a JSON snapshot and `Rt::new` applies it to every run — that is what makes `load` see a
+  value saved in an earlier session. The seed carries localStorage as well as `STORE._mem`, since
+  `STORE.get` falls back to localStorage and seeding only memory would have missed the common case.
+
+Parity note: the JS core calls `AUDIO`/`STORE` in process, the wasm emits a command — delivery
+differs by design, so `shape-diff` now filters host-effect ops (`sound`, `defsfx`, `net`, `store`,
+`song`) instead of demanding identical command streams, and the *effect* is pinned instead by
+three new `app-api-e2e` legs that run the real app on the wasm engine: the `save` verb reaching
+`/api/state`, a fresh load's `load` seeing the earlier value, and a `song` reaching the audio
+engine. Evidence: `app-api-e2e` 16/16, and the whole suite 26/26 with every differential and both
+pixel sets unchanged (the command buffer is not compared by them; no golden needed re-pinning).
 
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 

@@ -84,27 +84,8 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 
 ## Known gaps right now
 
-- **`save` does not persist on the default (wasm) engine.** `save <v> as "k"` writes into the
-  wasm's own in-memory store, and the host's command dispatch (`sound`, `flash`, `shake`,
-  `defsfx`, `net`, draw ops) has no `store` case — so nothing reaches `STORE`: not
-  `localStorage`, not `/api/state`. On the JS core (`?core=js`) the same program persists and
-  mirrors to the cloud correctly, which is exactly why no parity harness caught it: they compare
-  the two engines with *each other*, and both "work" internally. Found 2026-10-12 while building
-  `tools/app-api-e2e.mjs`, whose first version drove the verb and watched `/api/state` stay
-  empty. Reproduce in the browser console: run a program containing `save 1 as "x"`, then
-  `Object.keys(localStorage)` — empty on the wasm engine, populated on `?core=js`. User-visible:
-  the reference page promises saved values "survive closing the page" and ROADMAP lists the cloud
-  mirror. The fix is an ABI change, not a one-liner — emit a host command on `save`, and seed the
-  wasm's store from `STORE` at boot (its store has no exported setter today) so `load` can see a
-  value saved before the reload. `app-api-e2e` currently guards the transport with
-  `STORE.set`/`STORE.get` and says so in a comment, so when this is fixed the verb leg should be
-  restored there as well.
 - `shape-diff`'s 11 pinned "unexercised fields" are heuristic noise (a local name caught
   near the literal) — labelled in the output; nothing real is outstanding there.
-- **User songs** (`song "x" is 120 "notes"`) register in the JS host's audio engine; the
-  wasm can only name a sound across the ABI, so they play by name only. Same missing piece of
-  ABI as the `save` gap above — the wasm cannot hand structured data to the host — so the two
-  should be fixed in one change (next actions, item 7).
 - The panel emits `draw_<shape>(…)` for the runtime-only rules (image inference, mode
   dispatch, the missing-screen placeholder) — recorded in `transpile-mirror.mjs`.
 - `apid` needs `npm install` locally for the three end-to-end guards.
@@ -132,10 +113,8 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
    build, so existing installs must uninstall once (the in-app nudge will say so).
 6. **Play:** the $25 account, then upload the `.aab` from the device-passed `target-sdk-36`
    build (bump versionCode and `fc-version.js` with it if the direct-download build moves too).
-7. **The one remaining code item: the wasm↔host store bridge.** Fix `save` (the known gap
-   above — it does not persist on the default engine) and user songs in the same change, since
-   both need the wasm to hand structured data to the host and the host to seed the wasm's
-   store. `app-api-e2e` already pins the transport and says where to restore the `save`-verb
-   leg.
+7. ~~The wasm↔host store bridge~~ **done 2026-10-12** (see STATUS (i)): `save` persists on the
+   default engine and `song` notes reach the audio engine. No code item is outstanding; the
+   remaining work below is owner-gated.
 8. Business gates, both decisions rather than code: a Stripe account for Pro, licensing for
    schools.

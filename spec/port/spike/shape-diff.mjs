@@ -137,7 +137,14 @@ if (fs.existsSync(PIN)) {
 // ---------------------------------------------------------------- divergence table
 const canon = v => Array.isArray(v) ? v.map(canon)
   : (v && typeof v === 'object') ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])])) : v;
-const normCmds = cs => cs.filter(c => c.op !== 'sound').map(c => JSON.stringify({ op: c.op, color: c.color, x: c.x, y: c.y, w: c.w, h: c.h, r: c.r, x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2, text: c.text, magnitude: c.magnitude, kind: c.kind, name: c.name }));
+// Host effects are delivered differently by design: the JS core calls AUDIO / NET / STORE in
+// process, while the wasm cannot, so it emits a command the host dispatches to the same engine.
+// Command *presence* therefore cannot be compared for these ops — their effect is, and that is
+// covered end-to-end instead by tools/app-api-e2e.mjs, which runs the real app on the wasm engine
+// and observes STORE and the audio engine. (Before that guard existed, `sound` was the only op in
+// this set because it was the only one a shape case happened to exercise.)
+const HOST_OPS = new Set(['sound', 'defsfx', 'net', 'store', 'song']);
+const normCmds = cs => cs.filter(c => !HOST_OPS.has(c.op)).map(c => JSON.stringify({ op: c.op, color: c.color, x: c.x, y: c.y, w: c.w, h: c.h, r: c.r, x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2, text: c.text, magnitude: c.magnitude, kind: c.kind, name: c.name }));
 
 function jsRun(src) {
   const rt = new Runtime(); rt.reset(); __bindRT(rt);

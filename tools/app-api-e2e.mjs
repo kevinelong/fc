@@ -156,11 +156,6 @@ try {
     huge.status === 200 && !(afterHuge.body.states || {}).huge, JSON.stringify({ status: huge.status, keys: Object.keys(afterHuge.body.states || {}) }));
 
   // ---- 6. Chrome: the app's own cloud-save transport, end to end --------------
-  // This drives STORE.set — the path the settings and classroom code use, and the one that owns
-  // the localStorage + /api/state mirror — and then reloads to prove pull() brings it back.
-  // Deliberately NOT the `save` verb: on the default (wasm) engine that verb never reaches STORE,
-  // because the host's command dispatch has no `store` case. That is a real defect, recorded in
-  // docs/HANDOFF.md's known gaps with its reproduction; this guard keeps the transport honest.
   const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'fc-api-'));
   chrome = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-gpu', '--window-size=900,700',
     `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${PROFILE}`, 'about:blank'], { stdio: 'ignore' });
@@ -180,6 +175,42 @@ try {
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.clearBrowserCookies');
   await send('Network.setCookie', { name: 'co_sess', value: SESSION, domain: '127.0.0.1', path: '/' });
+
+  // ---- 6a. the store and song bridges, end to end on the wasm engine --------
+  // These are the tests that let shape-diff filter host-effect commands: delivery differs per
+  // engine by design, but the *effect* is observable right here, in the browser, on the default
+  // (wasm) engine. Both legs failed before the store/song bridge existed.
+  const runApp = async (source) => {
+    await loadApp(source);
+    await evaluate(`(function(){ var b = document.getElementById('tool-run'); if (b) b.click(); return 1; })()`);
+    await sleep(900);
+  };
+
+  await runApp('save 42 as "verbcontract"\nto draw\n  clear screen to black\n  write "saving" at 8, 8 in white\nrun game with update and draw\n');
+  let verbSaved = null;
+  for (let i = 0; i < 12; i++) {
+    const r = await get('/api/state');
+    verbSaved = (r.body && r.body.states) || null;
+    if (verbSaved && verbSaved.verbcontract === 42) break;
+    await sleep(500);
+  }
+  check('the `save` verb on the wasm engine reaches /api/state (the store bridge)',
+    !!(verbSaved && verbSaved.verbcontract === 42), JSON.stringify(verbSaved));
+
+  await runApp('best is load "verbcontract"\nto update\n  seen is best\nto draw\n  clear screen to black\n  write "{best}" at 8, 8 in white\nrun game with update and draw\n');
+  let seen = null;
+  for (let i = 0; i < 8; i++) {
+    seen = await evaluate(`(function(){ var v = (typeof WASMCORE !== 'undefined' && WASMCORE.active) ? (WASMCORE.vars() || {}) : ((typeof runtime !== 'undefined' && runtime.vars) || {}); return v.best; })()`);
+    if (seen === 42) break;
+    await sleep(400);
+  }
+  check('a fresh page load seeds the wasm store, so `load` sees the earlier value (the seed bridge)',
+    seen === 42, String(seen));
+
+  await runApp('song "tune" is 120 "###"\nto draw\n  clear screen to black\nrun game with update and draw\n');
+  const songs = await evaluate(`(function(){ try { return Object.keys((typeof AUDIO !== 'undefined' && AUDIO.songs) || {}); } catch (e) { return ['ERR']; } })()`);
+  check('a `song` defined in the program reaches the host audio engine (the same buffer)',
+    Array.isArray(songs) && songs.indexOf('tune') !== -1, JSON.stringify(songs));
 
   // The app's STORE.set queues, then flushes ~800 ms later; poll the server for the value.
   await loadApp('to draw\n  clear screen to black\n  draw rect at 8, 8 size 16, 16 in blue\nrun game with update and draw\n');
