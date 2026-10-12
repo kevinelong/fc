@@ -86,6 +86,23 @@ running every one of the fourteen recipes on the JS core with five stepped frame
 by a new suite check (`learn-recipes`) — the recipes are the snippets people copy, so they are
 executable content and now tested like the engine's own material.
 
+**(h) A Play-uploadable build exists, waiting on hardware.** Play's floor for new listings has
+moved past `targetSdk` 34, so `fc-app`'s `target-sdk-36` branch (commit `4500417`) raises it to 36
+and is built: `aapt` reports targetSdkVersion 36, minSdk 26, versionCode 4, signed with the same
+key, and a `diff -rq` over both APKs' asset trees shows the bundled web app is byte-identical to the
+published v4 — `AndroidManifest.xml` is the only file that differs, which makes the behavioural
+delta exactly the edge-to-edge mode Android 15+ applies at 35+. That can push the on-screen D-pad
+under the navigation bar, so it stays on the branch until TEST-MATRIX's must-do four pass on a real
+device.
+
+**(i) Not started, and why it is not a two-line job.** User songs in the wasm
+(`song "x" is 120 "notes"` still plays by name only) and the `save` bug found above share one
+missing piece of ABI: the wasm cannot hand structured data to the host, and the host cannot seed
+the wasm's store. Doing them separately would mean touching the same boundary twice and re-pinning
+twice; they should land as one focused change (emit a host command on `save`/`song`, and give the
+wasm a way to read `STORE` at boot) with the differentials and goldens re-pinned in the same
+commit. Left undone on purpose rather than half-done.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

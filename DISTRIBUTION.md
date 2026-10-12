@@ -65,9 +65,18 @@ works offline), and draft screenshots (`store/01-home.png`,
 **The .aab now exists** (2026-10-11, rebuilt 2026-10-12): `flutter build appbundle --release` produces
 `fc-app/build/app/outputs/bundle/release/app-release.aab` — 49,214,659 bytes, sha256
 `d565ed89…`, same signing config as the APK — so the only remaining Play blocker is the
-account. One thing to check before uploading: `targetSdk` is still **34**, which is below
-Play's current floor for new listings; raising it changes runtime behaviour (edge-to-edge,
-permission prompts) and should follow the device pass in TEST-MATRIX.md.
+account. The blocker that mattered — `targetSdk` below Play's floor — is now solved on a branch;
+see the next paragraph.
+
+**A `targetSdk 36` candidate is built and waiting on that device pass** (2026-10-12), on the
+`target-sdk-36` branch of `fc-app` (commit `4500417`): `aapt` reports targetSdkVersion 36,
+minSdk 26, versionCode 4, and the only file in the APK that differs from the published v4 is
+`AndroidManifest.xml` — the bundled web app is byte-identical (`diff -rq` over both asset
+trees). That is the whole behavioural delta: on Android 15+ the app will run edge-to-edge, so
+the on-screen D-pad can sit under the navigation bar. Run TEST-MATRIX's must-do four against
+this build before it goes to the store; if it passes, merge the branch and upload its `.aab`.
+It shares versionCode 4 with the direct-download build, so publishing it means bumping to 5
+(or replacing the release), and `fc-version.js` with it.
 
 **Listing copy (paste-ready):**
 - **Title:** `fc — code games in plain English`
