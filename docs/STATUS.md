@@ -214,6 +214,16 @@ runner, and a flaky perf gate is a gate people learn to ignore. The budgets are 
 (`FC_PERF_BUDGET_MS`, `FC_PERF_RATIO_MAX`), and an impossible budget exits 1 — verified, so the
 detector is known to bite.
 
+**State at the end of 2026-10-12, for whoever restarts.** The suite is 30 checks and green in CI
+(the last six runs, including Linux); `main` is clean and pushed; the release `v1.0.3-4` holds the
+APK/AAB/sums in the public `fc-releases` repo; `fc-app` is on `main` with the `targetSdk 36`
+candidate built on branch `target-sdk-36` (`4500417`) and waiting only on a device pass; WSL is shut
+down (the wasm and APK toolchains are installed inside it, and `cargo` lives on the Windows side).
+Locally-installed, gitignored, not committed: `fc/node_modules` (playwright-core, axe-core),
+`apid/node_modules`, `huntd/node_modules`, `spec/port/spike/target/` and `rust-ast.json`. Nothing is
+half-done and nothing is unpushed. What is left splits cleanly: the owner-gated list and the local
+work queue, both in `docs/HANDOFF.md`.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and

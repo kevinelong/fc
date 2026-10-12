@@ -31,6 +31,8 @@ Prerequisites, and what happens without them:
 - `npm i playwright-core` in the repo root for the pixel goldens (`.gitignore` keeps the repo
   dependency-free); without it `visual-golden` **SKIP**s. CI installs it, so the goldens run
   there too — and Linux software-Skia pixels match the pinned ones (2026-10-11, 22/22).
+- `npm i axe-core` in the repo root for the accessibility audit's engine half; without it that check
+  still runs its structural half and says so in its output. CI installs both.
 
 A missing prerequisite is reported as **SKIP**, never as a pass, and a failing harness now
 prints its own last lines under the table instead of only `exit N`. CI runs the same command
@@ -109,6 +111,41 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
   dispatch, the missing-screen placeholder) — recorded in `transpile-mirror.mjs`.
 - `apid` needs `npm install` locally for the three end-to-end guards.
 
+## Local work queue (no decisions and no hardware needed)
+
+Identified at the end of 2026-10-12, in the order I would do them. Every one is verifiable locally;
+the owner-gated list below is separate.
+
+1. **`/api/tpos/inquiry` has no rate limit.** It stores an inquiry (capped at 2000) *and emails the
+   sales inbox*; CSRF is checked and fields are cleaned, but any script that sends the `X-CO` header
+   can flood it — and it is the only write route with no quota (ballot, layouts, generate and publish
+   all have one). Add the same per-IP/day quota, and add the route to `docs/SECURITY.md`, which the
+   security pass missed.
+2. **`spec/WASM.md` is stale and now incomplete.** §3.2 still describes a *binary* command buffer
+   (`[op:u8][payload…]`, little-endian f64) while the core emits JSON records the host parses (line
+   412 even says "the same JSON shape"), and the `store`/`song` commands plus the `seed_store` export
+   added on 2026-10-12 appear nowhere. Reconcile the section, then document them.
+3. **`fc-app`'s bundle is stale again.** The reference page, the tutorial, all five static pages and
+   the docs changed today; `bash scripts/copy-web-assets.sh` has not run since, so the next APK build
+   would ship the old pages. (The build is local too — publishing waits on the device pass.)
+4. **The Play feature graphic was never rendered.** `tools/feature-graphic.html` exists and
+   `store/01-home.png … 03-code.png` are real; a 1024×500 PNG is the last asset `DISTRIBUTION.md`
+   asks for.
+5. **Eight vocabulary words are not verbs** — `start`, `spawn`, `hide`, `push`, `pull`, `set`, `put`,
+   `get` each parse to a bare call and do nothing (pinned with that reason in
+   `tools/reference-check.mjs`). Either implement them or drop them from `LINT_VERBS`, so the safety
+   net suggests a real verb instead of tolerating a dead one. `spec/heal/eval.mjs` pins the healer
+   vocabulary to `LINT_VERBS`, so both move together.
+6. **Q2 prepared both ways**: a pre-moderation variant (`status:'pending'` + admin approve) behind an
+   env flag, with a moderation queue and a minimal admin view — so the decision is a flip rather than
+   a build. The stance stays the owner's.
+7. **Cheap drift check**: regenerate the `/g/` share pages and `sitemap.xml` after today's example and
+   doc changes (22 pages for 22 examples, 24 sitemap URLs as of 2026-10-12) and confirm nothing moved.
+
+Also local, and worth knowing: the packaged-mode **relay** URL (point `wss://` at codeonline.io when
+the app is served from localhost) is a small web change; the sign-in half needs the cookie-domain
+design and is not local-only.
+
 ## Next actions, in order
 
 1. **Resolve classroom Q1:** owner choices plus qualified privacy/legal review. Keep
@@ -135,7 +172,7 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 6. **Play:** the $25 account, then upload the `.aab` from the device-passed `target-sdk-36`
    build (bump versionCode and `fc-version.js` with it if the direct-download build moves too).
 7. ~~The wasm↔host store bridge~~ **done 2026-10-12** (see STATUS (i)): `save` persists on the
-   default engine and `song` notes reach the audio engine. No code item is outstanding; the
-   remaining work below is owner-gated.
+   default engine and `song` notes reach the audio engine. The remaining code items are not
+   owner-gated — they are in the local work queue above.
 8. Business gates, both decisions rather than code: a Stripe account for Pro, licensing for
    schools.
