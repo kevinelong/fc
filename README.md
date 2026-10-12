@@ -58,6 +58,9 @@ as an offline PWA and ships as an Android APK.
 The engine is a **Rust→WASM core** (default) with a JavaScript fallback; the wasm is
 **inlined as base64 in `index.html`**, so a fresh clone runs with no build.
 
+**Android:** install the app from **[fc-releases](https://github.com/kevinelong/fc-releases)**
+(APK, no account needed), or use *Add to Home Screen* on the site — both work offline.
+
 ## Layout
 - `index.html` — the whole app: language, engine, editor, UI (single file).
 - `examples/` — the demo games (`.fc` source + thumbnails).

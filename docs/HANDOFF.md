@@ -102,6 +102,8 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 7. Small follow-ups: showcase the ten newly-working verbs in a starter/lesson (they were
    broken for users until this session); user-song playback in the wasm.
 8. **Publish the versionCode 4 build** (built and verified 2026-10-11, not deployed):
-   replace `codeonline.io/fc.apk`, then update `fc-version.js` — in that order, because the
+   replace `codeonline.io/fc.apk` — the file is public at
+   `https://github.com/kevinelong/fc-releases/releases/download/v1.0.3+4/app-release.apk`, so
+   the box can fetch it with no token — then update `fc-version.js`; in that order, because the
    in-app nudge reads the live file. v4 is signed with a new key, so existing v3 installs
    must uninstall once (see DISTRIBUTION.md).

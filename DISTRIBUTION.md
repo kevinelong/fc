@@ -28,11 +28,15 @@ below — your remaining step is the account.
    404s while `spec/`, `apid/`, `huntd/`, `ROADMAP.md` all serve — so the whole
    September batch is undeployed, not only the APK. The box itself is healthy: apid answers
    (classroom 404 as designed, flag off) and the relay upgrades (426).
-   The built binaries live in this repository's release **`v1.0.3+4`** (APK + AAB +
-   `SHA256SUMS.txt`). `/fc.apk` is gitignored by design, so a `git pull` on the box updates
-   the web app and `fc-version.js` but will **not** place the APK — that file has to move
-   separately, either `gh release download v1.0.3+4 -R kevinelong/fc -p app-release.apk` on
-   the box (needs a token there) or an scp of the same asset from this workstation.
+   The built binaries live in the public download repository,
+   **[kevinelong/fc-releases](https://github.com/kevinelong/fc-releases)** — release
+   `v1.0.3+4`, holding the APK, the AAB and `SHA256SUMS.txt` — so downloading them needs no
+   token anywhere. `/fc.apk` is gitignored by design, so a `git pull` on the box updates the
+   web app and `fc-version.js` but will **not** place the APK; that file has to move
+   separately:
+   `curl -sSL -o fc.apk https://github.com/kevinelong/fc-releases/releases/download/v1.0.3+4/app-release.apk`
+   on the box (verified public: HTTP 200, and the bytes hash to the same `2597d8bb…` as the
+   local build), or an scp of the same asset from this workstation.
 2. **PWA (installable web app).** `https://codeonline.io` → browser menu →
    **Add to Home Screen** (works on Android *and* iOS). Installs an offline,
    fullscreen app icon. No store, no review, instant updates. Already wired

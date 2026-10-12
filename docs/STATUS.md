@@ -57,6 +57,15 @@ the backup warning live in `C:/Users/kevin/fc-signing/`. **Not published** — t
 `fc.apk` is still v3, and the deploy order is: replace the APK first, then
 `fc-version.js` (it advertises 4, and the in-app nudge reads the live file).
 
+*2026-10-12:* the binaries moved out of this repository into the public download repo
+**`kevinelong/fc-releases`** (release `v1.0.3+4`: APK, AAB, `SHA256SUMS.txt`), verified
+downloadable with no token, and **this repository was made public** — the server can now
+fetch the APK straight from that URL. `fc-app` (the Flutter wrapper) stays private. Before
+the flip, the whole history was scanned for secrets (none: the only credential-shaped file
+ever added is `apid/.env.example`, all placeholders) — but note that the internal working
+documents are public now: `docs/STATUS.md`, `HANDOFF.md`, `OPEN-QUESTIONS.md`,
+`GROWTH-PLAN.md`, `FEEDBACK-PLAN.md`, `DISTRIBUTION.md` and the plan files.
+
 ## 2026-09-30 (c) — CI, field-level coverage, semantic cases, and two bugs they found
 
 **(a) The guards now run by themselves.** `.github/workflows/checks.yml` installs apid's
