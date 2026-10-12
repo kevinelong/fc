@@ -36,6 +36,14 @@ app. hunt's golden is re-pinned to that deterministic state (reviewed), the othe
 already network-independent, and `spec/golden-shots/*.actual.png` is gitignored so a failed
 capture can never be committed. Three consecutive full golden runs: 22/22.
 
+**(d) The v4 artifacts were rebuilt so the terms travel with the app.** `LICENSE` is now inside
+the package and the app footer links to the terms; the release was republished under the same
+versionCode 4 (which had not been deployed anywhere, so nothing was invalidated):
+`app-release.apk` 49,526,430 bytes sha256 `088073bb…`, `app-release.aab` 49,214,659 bytes sha256
+`d565ed89…`, 84 bundled web files. Verified by loading the APK's own extracted assets the way
+the wrapper serves them: the launcher renders, the footer's license link is present, and every
+request succeeds except `/api/...`.
+
 ## 2026-10-11 — the guard suite runs green, and fc ships as an APK again
 
 **(a) The guard suite had been lying about its own prerequisites.** On a fresh clone — and
@@ -78,7 +86,9 @@ stays 34 (raising it changes runtime behaviour and needs the device pass). `.git
 pins `*.sh`/`android/gradlew` to LF: a Windows checkout's `core.autocrlf=true` broke the
 Gradle wrapper before Gradle started. Result: `app-release.apk` 49,518,572 bytes sha256
 `2597d8bb…`, `app-release.aab` 49,206,706 bytes sha256 `2839e8bd…`, signed `CN=fc`, 83
-bundled web files, aapt reports versionCode 4 / versionName 1.0.3. Verified by extracting
+bundled web files, aapt reports versionCode 4 / versionName 1.0.3. *(Both artifacts were
+rebuilt on 2026-10-12 so the package carries the license — see the entry above for the current
+sizes and hashes.)* Verified by extracting
 the APK's own assets and loading them the way the wrapper does: the launcher renders and
 every relative resource returns 200, with only `/api/...` failing. (fc-app 4039576)
 

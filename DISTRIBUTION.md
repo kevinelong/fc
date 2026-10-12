@@ -12,12 +12,12 @@ below — your remaining step is the account.
 1. **Direct APK.** `https://codeonline.io/fc.apk` is a signed release build, live now.
    Share the link (or a QR). Users tap it, allow "install from this source," done.
    The **best immediate distribution** — no gatekeeper, no wait.
-   *Status 2026-10-11:* the live file is still the 2026-07-02 build (versionCode 3). A
+   *Status 2026-10-12:* the live file is still the 2026-07-02 build (versionCode 3). A
    **versionCode 4** build is ready at
-   `fc-app/build/app/outputs/flutter-apk/app-release.apk` — 49,518,572 bytes, sha256
-   `2597d8bb…` — carrying the current web app (23 examples, the September language and
-   engine work, and every linked page now actually bundled). Replacing the live file is a
-   deploy step that has not been done. **Order matters:** publish the APK first, then
+   `fc-app/build/app/outputs/flutter-apk/app-release.apk` — 49,526,430 bytes, sha256
+   `088073bb…` — carrying the current web app (23 examples, the September language and
+   engine work, every linked page bundled, and `LICENSE` inside the package with a link to it
+   in the app footer). Replacing the live file is a deploy step that has not been done. **Order matters:** publish the APK first, then
    `fc-version.js` (now advertising 4), because the in-app nudge reads the live file —
    bumping it first would point v3 installs at the v3 download. Note also that v4 is signed
    with a **new** key (the July keystore was never recovered), so it cannot install over a
@@ -35,7 +35,7 @@ below — your remaining step is the account.
    web app and `fc-version.js` but will **not** place the APK; that file has to move
    separately:
    `curl -sSL -o fc.apk https://github.com/kevinelong/fc-releases/releases/download/v1.0.3+4/app-release.apk`
-   on the box (verified public: HTTP 200, and the bytes hash to the same `2597d8bb…` as the
+   on the box (verified public: HTTP 200, and the bytes hash to the same `088073bb…` as the
    local build), or an scp of the same asset from this workstation.
 2. **PWA (installable web app).** `https://codeonline.io` → browser menu →
    **Add to Home Screen** (works on Android *and* iOS). Installs an offline,
@@ -54,9 +54,9 @@ a privacy policy (`https://codeonline.io/privacy/`, now also bundled inside the 
 works offline), and draft screenshots (`store/01-home.png`,
 `02-play.png`, `03-code.png`).
 
-**The .aab now exists** (2026-10-11): `flutter build appbundle --release` produces
-`fc-app/build/app/outputs/bundle/release/app-release.aab` — 49,206,706 bytes, sha256
-`2839e8bd…`, same signing config as the APK — so the only remaining Play blocker is the
+**The .aab now exists** (2026-10-11, rebuilt 2026-10-12): `flutter build appbundle --release` produces
+`fc-app/build/app/outputs/bundle/release/app-release.aab` — 49,214,659 bytes, sha256
+`d565ed89…`, same signing config as the APK — so the only remaining Play blocker is the
 account. One thing to check before uploading: `targetSdk` is still **34**, which is below
 Play's current floor for new listings; raising it changes runtime behaviour (edge-to-edge,
 permission prompts) and should follow the device pass in TEST-MATRIX.md.
