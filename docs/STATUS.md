@@ -5,6 +5,50 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-10-14 — a test-and-infrastructure pass: the audit found the holes, the guards close them
+
+**(a) The audit, against the repo's own documentation.** HANDOFF's guard table names fourteen
+guards and the bug class each one exists for; all fourteen are wired into `tools/checks.mjs`, and
+none is skipped in CI — every `needs` key (Chrome, playwright-core, apid, huntd, `python3`, the
+built wasm) is installed by `.github/workflows/checks.yml`. Two real holes were found and closed,
+and one documented path turned out to be exercised nowhere.
+
+**(b) The three editor pages were audited by nothing.** `tools/a11y-check.mjs` covered six pages;
+`map-editor.html`, `sound-studio.html` and `sprite-editor.html` are shipped pages too (the app's
+forge buttons open them) and had no coverage at all. Adding them turned the guard red on its first
+run: each editor had no `h1`, `map-editor` had two unlabelled `<select>`s, `sound-studio` an
+unlabelled tempo range (axe: critical `label`), plus a title-only label and a sub-AA `#hint`. Fixed
+in the pages; 42 → 63 checks, green. (a9ef990)
+
+**(c) The `/api` literal list was one page wide.** `tools/app-api-e2e.mjs` pins the app↔server
+contract by scanning for `/api/...` literals, but only in `index.html` — so a call added to any
+other page was unaccounted for, and `tpos/index.html` already calls `/api/tpos/inquiry`, which the
+list did not hold. The scan now covers all eleven shipped pages. Planting a literal in
+`sprite-editor.html` turns it red (`unaccounted: /api/not-a-real-route`), verified and reverted.
+(002a567)
+
+**(d) `spec/WASM.md` has a guard now.** The ABI doc drifted from the core once (it specified a binary
+command buffer the core never emitted, and `store`/`song`/`seed_store` appeared nowhere); the
+2026-10-12 fix was a hand-reconciliation with nothing keeping it honest. `tools/wasm-doc-check.mjs`
+checks both machine-readable directions — the `op` set emitted by `emit_cmd` equals the §3.2 table,
+and every export the host calls is named — and it found one real omission on its first run
+(`src_ptr`). Three falsifications bite (a doc-only op, a renamed export, an injected emitted op).
+(d5faf0a)
+
+**(e) A SKIP can no longer be green in CI, and `--full` is covered.** `checks.mjs` exits 0 on SKIP
+by design, because a workstation legitimately lacks `playwright-core`/`apid`/`huntd`; CI installs
+every prerequisite deliberately, so the workflow now runs `--strict` (a SKIP fails and names the
+missing prerequisite) and adds a `--full --only fuzz` step, since the documented 2000-program path
+was exercised nowhere. (9c91b6c, d462741)
+
+Full suite after all of it: `node tools/checks.mjs --strict` → **31 passed, 0 failed, 0 skipped** —
+the strict run is what makes that "0 skipped" mean no guard quietly stopped guarding.
+
+Deliberately left alone: `tools/perf-check.mjs` (HANDOFF's rule — an absolute millisecond budget on
+a shared runner measures the runner, so it stays out of the suite); the `tpos/` sub-project's own 20
+pages (a separate product with its own docs, not covered by the page checks); and
+`/.well-known/assetlinks.json` (a server-side nginx change, not a repo one).
+
 ## 2026-10-12 — relicensed to FSL, binaries moved to a public download page, and a golden that depended on the network
 
 **(a) fc is source-available now, not MIT.** The repo, `fc-app` and the new download repo all
