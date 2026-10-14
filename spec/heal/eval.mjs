@@ -8,7 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { heal, lint, VERBS, COLORS, DISPATCH, STRUCTURAL, BEHAVIOR_WORDS } from './healer.mjs';
+import { heal, lint, VERBS, COLORS, DISPATCH, STRUCTURAL, BEHAVIOR_WORDS, NON_VERBS } from './healer.mjs';
 import { validate } from './validate.mjs';
 import { CASES } from './cases.mjs';
 import { STARTERS, scaffold, scaffoldFor } from './scaffold.mjs';
@@ -40,6 +40,11 @@ function driftCheck() {
   cmp('DISPATCH(index FC_DISPATCH vs healer)', inlineArr('FC_DISPATCH'), DISPATCH);
   cmp('STRUCTURAL(index FC_STRUCTURAL vs healer)', inlineArr('FC_STRUCTURAL'), STRUCTURAL);
   cmp('BEHAVIOR(index FC_BEHAVIOR vs healer)', [...(html.match(/FC_BEHAVIOR = new Set\(\[([^\]]*)\]/)?.[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean) || [])], BEHAVIOR_WORDS);
+  // The non-verbs must stay in the vocabulary: heal() rewrites a leading word once lint()
+  // finds a near candidate, so dropping one is not free (see healer.mjs NON_VERBS) — e.g.
+  // a dropped `set` makes `set x to 99` lintable as `pset`.
+  for (const w of NON_VERBS.keys()) if (!VERBS.includes(w))
+    problems.push(`NON_VERBS word dropped from VERBS: ${w} — it must stay so heal() tolerates it instead of rewriting it`);
   return problems;
 }
 
@@ -164,5 +169,10 @@ console.log(`Validation gate: ${gate.n} programs accepted, ${gate.bad.length ? '
 if (gate.bad.length) console.log('\nGate problems:\n' + gate.bad.join('\n'));
 if (drift.length) console.log('\nVOCAB DRIFT:\n  ' + drift.join('\n  '));
 console.log(`Phase 3 floor: ${STARTERS.length} starters + ${floor.length ? 'FAILURES below' : 'scaffolds gate-valid, inlined copy matches'}`);
+// State the pinned vocabulary in the output, so "why is `set` a verb here?" has an answer
+// next to the guard rather than only in a commit message (see healer.mjs NON_VERBS).
+console.log(`Healer vocabulary: ${NON_VERBS.size} words are in LINT_VERBS but not implemented as statements —`
+  + ` kept so heal() tolerates them instead of rewriting them:`);
+for (const [w, why] of NON_VERBS) console.log(`  • ${w} — ${why}`);
 if (floor.length) console.log('\nFloor problems:\n' + floor.join('\n'));
 process.exit(fail || safety.bad.length || gate.bad.length || drift.length || floor.length ? 1 : 0);

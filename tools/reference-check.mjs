@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parse, Runtime, __step, __bindRT } from '../spec/port/spike/fc-core-record.mjs';
+import { NON_VERBS } from '../spec/heal/healer.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const page = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8');
@@ -55,21 +56,14 @@ const examples = commands.filter(e => typeof e[3] === 'string' && e[3].trim()).l
 // while the `walk` verb itself went undocumented. So the verbs are matched against the example
 // *code* on the page, which is the thing a reader can copy.
 //
-// Two words in the healer's vocabulary are deliberately not documented, because neither engine
-// implements them as statements — `start music "theme"` and `spawn explosion at 60, 60` both fall
-// through the parser to a bare call and do nothing at runtime (checked by parsing them: the node
-// type is `call`). Documenting a verb that does nothing would be worse than the silence, so they
-// are pinned here with that reason instead of being quietly absent.
-const NOT_IMPLEMENTED = new Map([
-  ['start', 'parses to a bare call: no handler in index.html or src/lib.rs (`start music "x"`)'],
-  ['spawn', 'parses to a bare call: no handler in either engine (`spawn explosion at 60, 60`)'],
-  ['hide', 'parses to a bare call: no handler in either engine (`hide button "start"`)'],
-  ['push', 'not a verb here — it is prose on the page ("Push onto and pull out of a list")'],
-  ['pull', 'not a verb here — prose on the page ("… and pull out of a list")'],
-  ['set', 'not a verb here — prose on the page ("set it once")'],
-  ['put', 'not a verb here — prose on the page ("Put a {variable} in the string")'],
-  ['get', 'not a verb here — prose on the page ("Get the Nth item")'],
-]);
+// Eight words in the healer's vocabulary are deliberately not documented, because neither engine
+// implements them as statements — they fall through the parser to a bare call and do nothing
+// (checked by parsing them: the node type is `call`). Documenting a verb that does nothing would
+// be worse than the silence, so they are pinned with their reason instead of being quietly absent.
+// The list and the reasons live in `spec/heal/healer.mjs` `NON_VERBS` (one source, so the guard
+// and the healer cannot drift), and `spec/heal/eval.mjs` fails if one is dropped from LINT_VERBS —
+// dropping one is not free, because heal() would then start rewriting it (e.g. `set` -> `pset`).
+const NOT_IMPLEMENTED = NON_VERBS;
 const snippetText = commands.map(e => (typeof e[3] === 'string' ? e[3] : '')).join('\n');
 const missing = verbs.filter(v => !NOT_IMPLEMENTED.has(v)
   && !new RegExp('\\b' + v + '\\b', 'i').test(snippetText));
@@ -79,6 +73,10 @@ if (failures.length) console.log(failures.join('\n'));
 if (missing.length) {
   bad++;
   console.log(`  FAIL  undocumented verbs (${missing.length}): ${missing.join(', ')}`);
+}
+if (pinned.length) {
+  console.log(`\nPinned — in LINT_VERBS but not implemented as statements (${pinned.length}):`);
+  for (const v of pinned) console.log(`  • ${v} — ${NOT_IMPLEMENTED.get(v)}`);
 }
 console.log(`\n${examples - failures.length}/${examples} reference examples run clean · ` +
   `${verbs.length - missing.length - pinned.length}/${verbs.length - pinned.length} verbs documented ` +

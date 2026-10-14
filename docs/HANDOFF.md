@@ -101,12 +101,12 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 
 - `shape-diff`'s 11 pinned "unexercised fields" are heuristic noise (a local name caught
   near the literal) — labelled in the output; nothing real is outstanding there.
-- **Eight words in the healer's vocabulary are not verbs.** `LINT_VERBS` is what the safety net
-  accepts (so a typo is not "corrected" into nonsense), and it includes `start`, `spawn`, `hide`,
-  `push`, `pull`, `set`, `put`, `get` — none of which parses to a statement (each falls through to a
-  bare call that does nothing). `tools/reference-check.mjs` pins them with that reason instead of
-  documenting a verb that does nothing. Either implement them or drop them from the list; until
-  then, do not add a reference entry for one.
+- **Eight words in the healer's vocabulary are not verbs** — `start`, `spawn`, `hide`, `push`,
+  `pull`, `set`, `put`, `get` each fall through to a bare call that does nothing. They stay in
+  `LINT_VERBS` on purpose: dropping one lets `heal()` rewrite it (`set` → `pset`, decided
+  2026-10-14). The reason list is `NON_VERBS` in `spec/heal/healer.mjs`, printed by
+  `tools/reference-check.mjs` and `spec/heal/eval.mjs`. Do not add a reference entry for one unless
+  it is implemented for real in all four runtimes.
 - The panel emits `draw_<shape>(…)` for the runtime-only rules (image inference, mode
   dispatch, the missing-screen placeholder) — recorded in `transpile-mirror.mjs`.
 - `apid` needs `npm install` locally for the three end-to-end guards.
@@ -132,11 +132,14 @@ the owner-gated list below is separate.
    is its generator. The queue was wrong here, and `DISTRIBUTION.md:97` ("Assets still to make:
    feature graphic 1024×500") was stale too — both corrected 2026-10-14. What genuinely remains on
    that line is the `store/` screenshots: they are drafts and want framing before upload.
-5. **Eight vocabulary words are not verbs** — `start`, `spawn`, `hide`, `push`, `pull`, `set`, `put`,
-   `get` each parse to a bare call and do nothing (pinned with that reason in
-   `tools/reference-check.mjs`). Either implement them or drop them from `LINT_VERBS`, so the safety
-   net suggests a real verb instead of tolerating a dead one. `spec/heal/eval.mjs` pins the healer
-   vocabulary to `LINT_VERBS`, so both move together.
+5. ~~**Eight vocabulary words are not verbs.**~~ **Decided 2026-10-14 — keep them listed, with the
+   reason in the guards.** `start`, `spawn`, `hide`, `push`, `pull`, `set`, `put`, `get` each parse to
+   a bare call and do nothing, but dropping them is **not** safe: `heal()` rewrites a leading word
+   once `lint()` finds a near candidate (pass B), so a dropped `set` turns `set x to 99` into
+   `pset` — a tolerated dead word becomes a silent mis-edit. They stay in `LINT_VERBS`; the single
+   reason list is `NON_VERBS` in `spec/heal/healer.mjs`, printed by both `tools/reference-check.mjs`
+   and `spec/heal/eval.mjs`, and `eval.mjs` fails if one is ever dropped. (Implementing them for
+   real is the other option — but that is a language change across four runtimes, not a cleanup.)
 6. **Q2 is a decision, not a prepared build.** The pre-moderation variant (`status:'pending'` + admin
    approve) behind an env flag, with a moderation queue and a minimal admin view — the "prepared both
    ways" this item used to claim — **does not exist**: there is no `ENABLE_MODERATION`, no

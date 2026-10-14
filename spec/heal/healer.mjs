@@ -20,6 +20,25 @@
 // VERBS mirrors index.html's LINT_VERBS exactly (drift-checked by eval.mjs).
 export const VERBS = ['draw','write','say','add','remove','increase','decrease','clear','toggle','play','move','flash','shake','stop','start','show','hide','emit','double','halve','damage','heal','push','pull','set','put','get','load','save','pset','reverse','spawn','jump','join','broadcast','if','repeat','each','every','return','restore','block','knock','follow','when','else','to','go','face','walk', 'flee', 'flees', 'tween', 'shoot', 'shoots', 'sprite', 'song'];
 
+// Words that STAY in VERBS/LINT_VERBS even though neither engine implements them as
+// statements — each parses to a bare call that does nothing. They are kept on purpose:
+// the safety net *tolerates* a leading word it has no better suggestion for, but `heal()`
+// REWRITES a leading word once `lint()` finds a near candidate (pass B below), so dropping
+// one converts a dead-but-harmless line into a silent mis-edit — removing `set`, for
+// instance, makes `lint("set x to 99")` suggest `pset` (edit distance 1 at length 3).
+// The reasons are printed by `tools/reference-check.mjs` and `spec/heal/eval.mjs`, and
+// eval.mjs fails if one of these is dropped from LINT_VERBS without this list moving.
+export const NON_VERBS = new Map([
+  ['start', 'parses to a bare call: no handler in index.html or src/lib.rs (`start music "x"`)'],
+  ['spawn', 'parses to a bare call: no handler in either engine (`spawn explosion at 60, 60`)'],
+  ['hide', 'parses to a bare call: no handler in either engine (`hide button "start"`)'],
+  ['push', 'not a verb here — prose on the reference page ("Push onto and pull out of a list")'],
+  ['pull', 'not a verb here — prose on the reference page ("… and pull out of a list")'],
+  ['set', 'not a verb here — prose on the reference page ("set it once"); dropping it makes heal rewrite `set x to 99` as `pset`'],
+  ['put', 'not a verb here — prose on the reference page ("Put a {variable} in the string")'],
+  ['get', 'not a verb here — prose on the reference page ("Get the Nth item")'],
+]);
+
 export const COLORS = ['black','dark blue','dark purple','dark green','brown','dark gray','dark grey','light gray','light grey','white','red','orange','yellow','green','blue','indigo','pink','peach','gray','grey','gold','cyan','magenta','purple','lime','sky','coral'];
 
 // Extra leading words the parser dispatches on (parse_line in src/lib.rs) that
