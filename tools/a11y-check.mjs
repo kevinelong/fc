@@ -35,7 +35,10 @@ let chromium = null, axeSource = null;
 try { ({ chromium } = require('playwright-core')); } catch (_) {}
 try { axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (_) {}
 
-const PAGES = ['docs/index.html', 'learn/index.html', 'teachers/index.html', 'teachers/cheatsheet.html', 'projects/index.html', 'privacy/index.html'];
+const PAGES = ['docs/index.html', 'learn/index.html', 'teachers/index.html', 'teachers/cheatsheet.html', 'projects/index.html', 'privacy/index.html',
+  // The three editors are shipped pages too (opened from the app's forge/editor buttons), each a
+  // form-heavy page that a screen reader has to name — and none of them was covered by anything.
+  'map-editor.html', 'sound-studio.html', 'sprite-editor.html'];
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.mp4': 'video/mp4' };
 
 const results = [];
