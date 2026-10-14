@@ -93,6 +93,11 @@ const CHECKS = [
 const argv = process.argv.slice(2);
 const only = argv.includes('--only') ? argv[argv.indexOf('--only') + 1] : null;
 const full = argv.includes('--full');
+// CI installs every prerequisite on purpose, so there a SKIP means the environment silently
+// changed (a runner dropped Chrome, `python3` was renamed, a deps step was skipped) and the
+// guard that needed it has quietly stopped guarding. `--strict` turns that into a failure;
+// a workstation keeps the tolerant default because it legitimately lacks pw/apid/huntd.
+const strict = argv.includes('--strict');
 if (argv.includes('--list')) { for (const c of CHECKS) console.log(c.name.padEnd(14) + (c.needs || []).join(',')); process.exit(0); }
 
 const have = {
@@ -155,5 +160,9 @@ for (const r of results) {
 const pass = results.filter(r => r.status === 'PASS').length;
 const fail = results.filter(r => r.status === 'FAIL').length;
 const skip = results.filter(r => r.status === 'SKIP').length;
+if (strict && skip) {
+  console.log(`\n--strict: ${skip} check(s) SKIPPED, which is a failure here — this environment must have every prerequisite:`);
+  for (const r of results.filter(r => r.status === 'SKIP')) console.log(`  ${r.name}: ${r.why}`);
+}
 console.log(`\n${pass} passed · ${fail} failed · ${skip} skipped of ${results.length}`);
-process.exit(fail ? 1 : 0);
+process.exit(fail || (strict && skip) ? 1 : 0);

@@ -8,11 +8,16 @@ next. Keep it short — detail belongs in STATUS.
 ## One command runs everything
 
 ```
-node tools/checks.mjs              # 22 checks, ~90 s; fails on a silent or 0/0 harness
+node tools/checks.mjs              # 31 checks, ~2 min; fails on a silent or 0/0 harness
+node tools/checks.mjs --strict     # also fail on a SKIP — this is what CI runs
 node tools/checks.mjs --full       # fuzz 2000 instead of 500
 node tools/checks.mjs --only ast   # one check (substring)
 node tools/checks.mjs --list       # names + prerequisites
 ```
+
+`--strict` exists because a workstation legitimately lacks `playwright-core`/`apid`/`huntd`
+(those checks SKIP), but CI installs every prerequisite on purpose — so there a SKIP means the
+environment changed under a guard and the guard silently stopped guarding. CI runs `--strict`.
 
 Local verification on a clean Windows checkout (2026-10-11): `node tools/checks.mjs --full`
 → **22 passed, 0 failed, 0 skipped** with every prerequisite present, and **21 passed, 0
@@ -36,7 +41,8 @@ Prerequisites, and what happens without them:
 
 A missing prerequisite is reported as **SKIP**, never as a pass, and a failing harness now
 prints its own last lines under the table instead of only `exit N`. CI runs the same command
-(`.github/workflows/checks.yml`).
+with `--strict` (`.github/workflows/checks.yml`), so on the runner — where every prerequisite
+is installed deliberately — a SKIP fails the build rather than reporting green.
 
 ## The guards, and the bug class each one exists for
 
