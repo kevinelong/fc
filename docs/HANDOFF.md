@@ -128,23 +128,32 @@ the owner-gated list below is separate.
 3. **`fc-app`'s bundle is stale again.** The reference page, the tutorial, all five static pages and
    the docs changed today; `bash scripts/copy-web-assets.sh` has not run since, so the next APK build
    would ship the old pages. (The build is local too — publishing waits on the device pass.)
-4. **The Play feature graphic was never rendered.** `tools/feature-graphic.html` exists and
-   `store/01-home.png … 03-code.png` are real; a 1024×500 PNG is the last asset `DISTRIBUTION.md`
-   asks for.
+4. ~~**The Play feature graphic was never rendered.**~~ **Done — it exists.** `store/feature-graphic.png`
+   is a tracked 1024×500 PNG and has been since `35dcff7` (2026-07-03); `tools/feature-graphic.html`
+   is its generator. The queue was wrong here, and `DISTRIBUTION.md:97` ("Assets still to make:
+   feature graphic 1024×500") was stale too — both corrected 2026-10-14. What genuinely remains on
+   that line is the `store/` screenshots: they are drafts and want framing before upload.
 5. **Eight vocabulary words are not verbs** — `start`, `spawn`, `hide`, `push`, `pull`, `set`, `put`,
    `get` each parse to a bare call and do nothing (pinned with that reason in
    `tools/reference-check.mjs`). Either implement them or drop them from `LINT_VERBS`, so the safety
    net suggests a real verb instead of tolerating a dead one. `spec/heal/eval.mjs` pins the healer
    vocabulary to `LINT_VERBS`, so both move together.
-6. **Q2 prepared both ways**: a pre-moderation variant (`status:'pending'` + admin approve) behind an
-   env flag, with a moderation queue and a minimal admin view — so the decision is a flip rather than
-   a build. The stance stays the owner's.
-7. **Cheap drift check**: regenerate the `/g/` share pages and `sitemap.xml` after today's example and
-   doc changes (22 pages for 22 examples, 24 sitemap URLs as of 2026-10-12) and confirm nothing moved.
+6. **Q2 is a decision, not a prepared build.** The pre-moderation variant (`status:'pending'` + admin
+   approve) behind an env flag, with a moderation queue and a minimal admin view — the "prepared both
+   ways" this item used to claim — **does not exist**: there is no `ENABLE_MODERATION`, no
+   `status:'pending'` gallery gate and no admin-approve route anywhere in `apid/`, and
+   `apid/.env.example` declares no such flag (only `ENABLE_CLASSROOM` and `ENABLE_GENERATE` do). So
+   the decision is **not** a flip; it is a build. Corrected 2026-10-14. The stance stays the owner's
+   (`docs/OPEN-QUESTIONS.md` Q2): keep the shipped post-moderation behaviour unchanged while it is open.
+7. ~~**Cheap drift check**~~ **Done — and it was a no-op.** Verified 2026-10-14: all 22 `/g/` pages
+   decode (`location.replace('/?code=' + …)`) byte-identical to the 22 `examples/*.fc`, and
+   `sitemap.xml` carries 24 `<loc>` (root + `/docs/` + 22 `/g/…`). Nothing had moved since
+   `015c9c9` (2026-09-29), so `tools/gen-share-pages.cjs` did not need a re-run.
 
-Also local, and worth knowing: the packaged-mode **relay** URL (point `wss://` at codeonline.io when
-the app is served from localhost) is a small web change; the sign-in half needs the cookie-domain
-design and is not local-only.
+Also worth knowing: the packaged-mode **relay** URL is **already implemented** — `index.html:1695-1701`
+points `wss://codeonline.io/relay` whenever the page is served from `localhost`/`127.0.0.1`/`file:`
+(commit `f93a19c`, 2026-06-07). The remaining half is the sign-in cookie-domain design, which needs a
+hosted-origin decision and is not local-only.
 
 ## Next actions, in order
 

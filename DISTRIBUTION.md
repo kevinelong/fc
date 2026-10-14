@@ -94,9 +94,9 @@ It shares versionCode 4 with the direct-download build, so publishing it means b
   >
   > Free. Made for beginners, kids, and classrooms.
 
-**Assets still to make:** feature graphic 1024×500 (I can generate one like the OG
-card); the 512×512 icon exists as the adaptive icon; screenshots in `store/` are drafts
-— refine framing before upload.
+**Assets:** the feature graphic exists — `store/feature-graphic.png`, 1024×500, tracked since
+`35dcff7` (`tools/feature-graphic.html` generates it); the 512×512 icon exists as the adaptive icon;
+screenshots in `store/` are drafts — refine framing before upload.
 
 **Data-safety form (answers, from the privacy policy):** No data collected or shared is
 *required*. Optional account collects **email** (account management) + user content
