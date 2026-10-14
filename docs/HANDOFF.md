@@ -56,6 +56,7 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 | `tools/huntd-limits.mjs` | the relay's caps: room, total connections, per-address connections, message size, per-socket rate, and that a closed socket leaves nothing behind | the connection caps did not exist at all |
 | `tools/a11y-check.mjs` | every shipped page that is not the app — reference, tutorial, teachers, cheat sheet, projects, privacy, **and the three editor pages** (map/sound/sprite forge): axe-core serious/critical when installed, plus lang, one h1, heading order, alt text, labelled controls, discernible links | 79 unlabelled example textareas on the reference page, 22 on the tutorial, an unlabelled search box, and four pages of sub-AA contrast; then (2026-10-14) the editors' missing `h1`, two unlabelled `<select>`s and an unlabelled tempo range, a title-only label, and a sub-AA hint |
 | `spec/port/spike/visual-golden.mjs` | the spike's ops→canvas renderer, pixel-pinned (it had been failing silently: 16/22, six games unpinned) | six generative toys never pinned |
+| `tools/wasm-doc-check.mjs` | `spec/WASM.md` describes the core that ships: the emitted `op` set equals the §3.2 table, and every export the host calls is named | §3.2 specified a binary command buffer the core never emitted; `store`/`song`/`seed_store` appeared nowhere (2026-10-12) |
 
 ## Working notes (so the next session does not rediscover them)
 

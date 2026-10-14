@@ -303,9 +303,10 @@ shipped core's `#[no_mangle]` exports in `spec/port/spike/src/lib.rs` are: `pars
 (len, seed)` and `step_frame()` (each runs one frame, writes the §3.2 JSON into `RES`, and
 returns its byte length; the host reads `res_ptr()` for that many bytes), `parse_exec_to_json
 (len, seed)` (the exec / `{say, errors, vars}` capture the differential uses), `set_key
-(code, on)`, `set_mouse(x, y, down)`, `set_net(len, connected)`, `seed_store(len)`, and the
-read-only accessors `dump_say()`, `dump_vars()`, `errors_json()`, `has_game()`
-(`spec/port/spike/src/lib.rs:3452`, `:3514`, `:3308`, `:3472`, `:3479`, `:3486`, `:3502`,
+`(code, on)`, `set_mouse(x, y, down)`, `set_net(len, connected)`, `seed_store(len)`, `src_ptr()`
+(the staging pointer every host→core payload is written through — program text, peers JSON, the
+seed), and the read-only accessors `dump_say()`, `dump_vars()`, `errors_json()`, `has_game()`
+(`spec/port/spike/src/lib.rs:3452`, `:3514`, `:3308`, `:3472`, `:3479`, `:3486`, `:3502`, `:1226`,
 `:3531`, `:3555`, `:3545`, `:3540`, `:3307`). There is **no** `load` / `step` / `cmd_ptr` /
 `input_ptr` / `alloc`: input arrives as `set_*` calls rather than a fixed struct the host
 writes, and the command buffer is a length-returning JSON write, not a `count` read.

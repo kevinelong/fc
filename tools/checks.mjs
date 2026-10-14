@@ -55,6 +55,10 @@ const CHECKS = [
   { name: 'mirror', cwd: SPIKE, run: 'node transpile-mirror.mjs', min: 1, expect: same('transpile-mirror: .*· OK$') },
   { name: 'fuzz', cwd: SPIKE, run: 'node fuzz.mjs 500 1', min: 400, expect: same(`fuzz: (\\d+)/\\1 programs match`) },
   { name: 'heal', cwd: ROOT, run: 'node spec/heal/eval.mjs', min: 0, expect: same(`Phase 3 floor: .*(valid|matches)`) },
+  // The WASM ABI doc drifted from the core once (a binary buffer it never emitted), and both
+  // sides are machine-readable — the emitted `op` set and the exports the host calls — so the
+  // mismatch is checked rather than trusted.
+  { name: 'wasm-doc', cwd: ROOT, run: 'node tools/wasm-doc-check.mjs', min: 0, expect: same('wasm-doc-check: .*· OK$') },
   // The teaching material is executable, so it gets tested like the engine: every HOW-TO recipe on
   // the learn page must parse, run and stay quiet (they are the snippets people copy).
   { name: 'learn-recipes', cwd: ROOT, run: 'node tools/learn-recipes-check.mjs', min: 10, expect: same(`(\\d+)/\\1 learn recipes run clean`) },
