@@ -102,16 +102,24 @@ const loadApp = async (source) => {
 
 try {
   // ---- 3. the app's API surface is an accounted-for list ----------------------
-  // Every /api/... literal in index.html has to appear here, so a new call in the app cannot be
-  // added without this guard being updated — which is exactly how app/server drift starts.
+  // Every /api/... literal in every *shipped page* has to appear here, so a new call cannot be
+  // added without this guard being updated — which is exactly how app/server drift starts. This
+  // used to read index.html alone, so a call added to any other page (the editors, the sub-pages,
+  // the trailer portal) was silently unaccounted for; the list is the pages the site serves.
+  const PAGES = [
+    'index.html', 'map-editor.html', 'sound-studio.html', 'sprite-editor.html',
+    'docs/index.html', 'learn/index.html', 'teachers/index.html', 'teachers/cheatsheet.html',
+    'projects/index.html', 'privacy/index.html', 'tpos/index.html',
+  ];
   const KNOWN = [
     '/api/state', '/api/games/community', '/api/games/community/', '/api/games/publish',
     '/api/games/gist', '/api/auth/', '/api/class', '/api/class/enabled', '/api/generate',
+    '/api/tpos/inquiry',
   ];
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const literals = [...new Set([...html.matchAll(/['"](\/api\/[^'"]*)['"]/g)].map(m => m[1]))].sort();
+  const literals = [...new Set(PAGES.flatMap(rel =>
+    [...fs.readFileSync(path.join(ROOT, rel), 'utf8').matchAll(/['"](\/api\/[^'"]*)['"]/g)].map(m => m[1])))].sort();
   const unaccounted = literals.filter(l => !KNOWN.includes(l) && !KNOWN.some(k => k.endsWith('/') && l.startsWith(k)));
-  check(`every /api literal in the app is accounted for (${literals.length} found)`,
+  check(`every /api literal in every shipped page is accounted for (${literals.length} found across ${PAGES.length} pages)`,
     unaccounted.length === 0, `unaccounted: ${unaccounted.join(', ') || 'none'}`);
 
   // ---- 4. route contract: the endpoints the app calls exist on the real apid --

@@ -49,7 +49,7 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 | `spec/port/spike/transpile-mirror.mjs` | the panel mirrors the runtime's decided rules | (the panel had drifted on `draw title` once) |
 | `spec/heal/eval.mjs` drift checks | healer vocab == `LINT_VERBS` in index.html | the healer was rewriting `sprite "x" is "<hex>"` into `write …` |
 | `tools/ui-check.mjs` | browser behaviour: dialogs/a11y, panel, classroom, share, touch, the a11y settings | — |
-| `tools/app-api-e2e.mjs` | the app↔server contract: every `/api` call accounted for, CSRF, caps, auth shapes, and the app's own save transport against a real apid | the `save`-on-wasm gap below |
+| `tools/app-api-e2e.mjs` | the app↔server contract: every `/api` literal in **every shipped page** accounted for (11 across 11 pages, not just `index.html`), CSRF, caps, auth shapes, and the app's own save transport against a real apid | the `save`-on-wasm gap below; then (2026-10-14) the literal scan read `index.html` alone, so a call added to any other page was unaccounted for |
 | `tools/learn-recipes-check.mjs` | every HOW-TO recipe on the learn page parses, runs, and stays quiet | — |
 | `tools/reference-check.mjs` | every implemented verb appears in an example on the command-reference page, and all of them run | 22 verbs had no example at all, including `walk`, `face`, `tween`, `join`/`broadcast` and `flees`/`shoots` |
 | `tools/release-check.mjs` | the service worker's strategy (network-first HTML, versioned caches, `/fc.apk` and `/api/*` untouched), its precache paths, and `fc-version.js` against the newest published release | — (its tamper test is in the commit: bumping the version file ahead of the release fails it) |
