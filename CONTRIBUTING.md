@@ -14,13 +14,15 @@ The Android wrapper lives in a separate repository (`kevinelong/fc-app`).
 ## Before you open a pull request
 
 ```
-node tools/checks.mjs          # every harness the project has (~90 s with prerequisites)
+node tools/checks.mjs          # every harness the project has (31 checks, ~2 min)
+node tools/checks.mjs --strict # also fail on a SKIP — what CI runs
 node tools/checks.mjs --list   # names + what each one needs
 ```
 
 A prerequisite you don't have (a built wasm, Chrome, apid's `npm install`,
 `playwright-core`) is reported as **SKIP**, never as a pass. `docs/HANDOFF.md` lists the
-prerequisites, and what each guard exists to catch.
+prerequisites, and what each guard exists to catch. CI runs the suite with `--strict`, so on
+the runner — where every prerequisite is installed deliberately — a SKIP fails the build.
 
 ## The rules that keep the engine trustworthy
 

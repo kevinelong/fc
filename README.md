@@ -94,10 +94,17 @@ without the server, stubbed.
 producing its summary line (a harness that dies silently or runs zero cases is a FAIL,
 not a pass) — it is the guard against the rot that hid a broken `frames-run` for a while.
 A check whose prerequisite is absent (a built wasm, Chrome, apid's `npm install`,
-`playwright-core` for the pixel goldens) reports **SKIP**, never a pass: a clean checkout is
-**22/22** with every prerequisite present and **21 + 1 skip** when only `playwright-core` is
-missing (CI installs it, so the goldens run there). A failing harness prints its own last
-lines under the table, not just an exit code.
+`playwright-core` for the pixel goldens) reports **SKIP**, never a pass: **31/31** with every
+prerequisite present. CI installs them all and runs `node tools/checks.mjs --strict`, where a
+SKIP is a failure — a runner that quietly lost a prerequisite would otherwise leave the guard
+green and unguarding. A failing harness prints its own last lines under the table, not just an
+exit code.
+
+The pages and the docs have guards too: `tools/a11y-check.mjs` audits every shipped page that is
+not the app (the reference, the tutorial, the teacher pages, the projects, the privacy policy,
+and the three editors) with axe-core plus a dependency-free structural pass, and
+`tools/wasm-doc-check.mjs` holds `spec/WASM.md` to the core it describes (the emitted `op` set
+and the exports the host calls).
 
 `tools/core-copy-check.mjs` holds the "one program, three homes" invariant: index.html's
 JS core, `spec/lang/fc-core.mjs` and `fc-core-record.mjs` must have identical code for

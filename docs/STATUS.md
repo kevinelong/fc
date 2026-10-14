@@ -41,6 +41,12 @@ every prerequisite deliberately, so the workflow now runs `--strict` (a SKIP fai
 missing prerequisite) and adds a `--full --only fuzz` step, since the documented 2000-program path
 was exercised nowhere. (9c91b6c, d462741)
 
+**(f) README and CONTRIBUTING caught up with the suite.** Both still advertised the old size —
+README said a clean checkout is "22/22", CONTRIBUTING "~90 s" — and neither mentioned
+`--strict`; they now say 31 checks (~2 min), document `--strict` and that CI runs it, and
+README also names the two new guards (page a11y, `spec/WASM.md`). No code changed: this is the
+documentation half of the turn. (this commit)
+
 Full suite after all of it: `node tools/checks.mjs --strict` → **31 passed, 0 failed, 0 skipped** —
 the strict run is what makes that "0 skipped" mean no guard quietly stopped guarding.
 
