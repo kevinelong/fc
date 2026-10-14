@@ -32,7 +32,8 @@ fs.writeFileSync(DB, JSON.stringify({
   states: {}, codes: {}, community: [], classes: {},
 }));
 
-const api = spawn(process.execPath, [path.join(ROOT, 'apid', 'server.js')], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
+// A tiny per-IP cap so the unthrottled-form check needs four requests, not eleven.
+const api = spawn(process.execPath, [path.join(ROOT, 'apid', 'server.js')], { env: { ...process.env, PORT: String(PORT), TPOS_INQUIRY_PER_IP_PER_DAY: '3' }, stdio: 'ignore' });
 await sleep(900);
 
 const results = [];
@@ -77,6 +78,18 @@ try {
   const del = await fetch(url('/api/games/community/' + publishedId), { method: 'DELETE', headers: Object.assign({ 'X-CO': '1' }, jsonHeaders) });
   const after = await (await fetch(url('/api/games/community'), { headers: cookie })).json();
   check('deleting removes it from the gallery', del.status === 200 && !(after.games || []).some(g => g.id === publishedId), { status: del.status, left: (after.games || []).length });
+
+  // ---- the trailer-inquiry form is bounded (it stores + emails a real inbox) --
+  // A public, no-login write route: CSRF and field cleaning are not enough, it needs
+  // its own cap or a script with the header can flood the sales inbox. Cap is 3 here.
+  const inquiry = i => fetch(url('/api/tpos/inquiry'), {
+    method: 'POST', headers: Object.assign({ 'X-CO': '1' }, jsonHeaders),
+    body: JSON.stringify({ name: 'Buyer ' + i, email: 'buyer' + i + '@example.com', subject: 'Trailer', message: 'hello' }),
+  });
+  const inquiries = [];
+  for (let i = 0; i < 4; i++) inquiries.push(await inquiry(i));
+  check('the trailer-inquiry form accepts up to its per-IP/day cap', inquiries.slice(0, 3).every(r => r.status === 200), inquiries.map(r => r.status));
+  check('the trailer-inquiry form is refused past the cap (429)', inquiries[3].status === 429, inquiries[3].status);
 
   // ---- the classroom flag stays off by default ----------------------------
   const dark = await fetch(url('/api/class/enabled'));

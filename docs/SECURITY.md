@@ -25,6 +25,7 @@ it is verified, and what is deliberately left open. Keep it current when a contr
 | No secrets in the tree | the whole history (274 commits) scanned — the only credential-shaped file ever added is `apid/.env.example`, all placeholders | `docs/STATUS.md` 2026-10-12 |
 | Auth limits | verification codes: TTL, `MAX_ATTEMPTS`, resend cooldown; generate: per-user and global daily caps | `apid` `EMAIL`/`GEN` caps |
 | Path safety | poolroom layouts are keyed by a validated hex `cid` (path-traversal guard), 64 KB cap, per-IP + global write quotas, and no IP or PII stored with them | `apid` layout route |
+| Form quotas | the trailer-inquiry form (`/api/tpos/inquiry`) requires the `X-CO` header and cleaned fields, and is capped per-IP/day and globally/day — it stores the inquiry *and* emails a fixed sales inbox, so it needs a flood bound the other write routes already had | `apid` inquiry route + `inquiryQuota`; `tools/api-e2e.mjs` (429 past the cap) |
 | Relay limits | per-room 8, per-message 4 KB, per-socket 60/s, **total 400 and per-address 40** (new), heartbeat reaps half-open sockets, a room is freed when its last peer leaves | `huntd/server.js`; `tools/huntd-limits.mjs` (7/7) |
 | Error hygiene | users get generic bodies (`server error`); details go to the server log only | `apid` top-level catch |
 | SSRF | the only outbound calls are fixed hosts; the gist upload uses the user's own token and a sanitized filename, so no user-controlled URL is fetched | `apid` gist route |
@@ -33,7 +34,7 @@ it is verified, and what is deliberately left open. Keep it current when a contr
 
 ## Open items, on purpose
 
-- **In-memory rate limiters** (ballot, layouts, relay) assume one process. Run `apid` or `huntd`
+- **In-memory rate limiters** (ballot, layouts, trailer inquiries, relay) assume one process. Run `apid` or `huntd`
   twice and each limit becomes `max × instances`; move them to a shared store before scaling out.
   The relay's per-address cap counts a whole classroom NAT as one address — tune with
   `HUNTD_MAX_PER_IP` if a class ever hits it.

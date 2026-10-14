@@ -116,11 +116,10 @@ prints its own last lines under the table instead of only `exit N`. CI runs the 
 Identified at the end of 2026-10-12, in the order I would do them. Every one is verifiable locally;
 the owner-gated list below is separate.
 
-1. **`/api/tpos/inquiry` has no rate limit.** It stores an inquiry (capped at 2000) *and emails the
-   sales inbox*; CSRF is checked and fields are cleaned, but any script that sends the `X-CO` header
-   can flood it — and it is the only write route with no quota (ballot, layouts, generate and publish
-   all have one). Add the same per-IP/day quota, and add the route to `docs/SECURITY.md`, which the
-   security pass missed.
+1. ~~**`/api/tpos/inquiry` has no rate limit.**~~ **Done (2026-10-14).** The route now carries a
+   per-IP/day and a global/day cap in the same shape as the pool-room limiters (`inquiryQuota`), and
+   `docs/SECURITY.md` has the row the security pass missed. Proven by `tools/api-e2e.mjs`, which pins
+   3 accepted then a 429 (the case fails against the pre-change route).
 2. **`spec/WASM.md` is stale and now incomplete.** §3.2 still describes a *binary* command buffer
    (`[op:u8][payload…]`, little-endian f64) while the core emits JSON records the host parses (line
    412 even says "the same JSON shape"), and the `store`/`song` commands plus the `seed_store` export

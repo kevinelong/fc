@@ -85,6 +85,22 @@ function layoutWriteQuota(ip) {
   layoutLimit.perIp[ip] = (layoutLimit.perIp[ip] || 0) + 1; layoutLimit.global++;
   return true;
 }
+// TPOS trailer inquiries: a public, no-login form that stores the inquiry AND emails
+// the sales inbox. CSRF + field cleaning are not a flood bound — any script that sends
+// the X-CO header could fill the store and the inbox — so it carries the same shape as
+// the pool-room limiters above: a per-IP/day cap and a global/day cap, in memory,
+// reset at UTC midnight. Tunable (like HUNTD_MAX_PER_IP) so the guard can use a small cap.
+const TPOS_INQUIRY_PER_IP = Number(ENV.TPOS_INQUIRY_PER_IP_PER_DAY || process.env.TPOS_INQUIRY_PER_IP_PER_DAY || 10);
+const TPOS_INQUIRY_GLOBAL = Number(ENV.TPOS_INQUIRY_GLOBAL_PER_DAY || process.env.TPOS_INQUIRY_GLOBAL_PER_DAY || 300);
+const inquiryLimit = { day: '', global: 0, perIp: {} };
+function inquiryQuota(ip) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (inquiryLimit.day !== today) { inquiryLimit.day = today; inquiryLimit.global = 0; inquiryLimit.perIp = {}; }
+  if (inquiryLimit.global >= TPOS_INQUIRY_GLOBAL) return false;                 // global daily cap
+  if ((inquiryLimit.perIp[ip] || 0) >= TPOS_INQUIRY_PER_IP) return false;       // per-IP daily cap
+  inquiryLimit.perIp[ip] = (inquiryLimit.perIp[ip] || 0) + 1; inquiryLimit.global++;
+  return true;
+}
 const COOKIE = 'co_sess';
 const STATE_COOKIE = 'co_ghstate';
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 60; // 60 days
@@ -705,6 +721,8 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tpos/inquiry' && method === 'POST') {
       if (!csrfOk) return json(res, 403, { error: 'bad request' });
+      const ip = req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || '';
+      if (!inquiryQuota(ip)) return json(res, 429, { error: 'rate limited' });
       const body = await readBody(req);
       const clean = (v, n) => String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, n);
       const name = clean(body.name, 80);
