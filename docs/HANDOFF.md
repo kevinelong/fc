@@ -120,10 +120,10 @@ the owner-gated list below is separate.
    per-IP/day and a global/day cap in the same shape as the pool-room limiters (`inquiryQuota`), and
    `docs/SECURITY.md` has the row the security pass missed. Proven by `tools/api-e2e.mjs`, which pins
    3 accepted then a 429 (the case fails against the pre-change route).
-2. **`spec/WASM.md` is stale and now incomplete.** §3.2 still describes a *binary* command buffer
-   (`[op:u8][payload…]`, little-endian f64) while the core emits JSON records the host parses (line
-   412 even says "the same JSON shape"), and the `store`/`song` commands plus the `seed_store` export
-   added on 2026-10-12 appear nowhere. Reconcile the section, then document them.
+2. ~~**`spec/WASM.md` is stale and now incomplete.**~~ **Done (2026-10-14).** §3.2 now describes the
+   JSON record stream the core actually emits, with the record table and a file:line for each claim;
+   §4 gained an "as built" export list and the `seed_store` contract; §2's byte table is marked as the
+   design sketch; §8/§9 point at the shipped names. `store`/`song` are documented in the §3.2 table.
 3. **`fc-app`'s bundle is stale again.** The reference page, the tutorial, all five static pages and
    the docs changed today; `bash scripts/copy-web-assets.sh` has not run since, so the next APK build
    would ship the old pages. (The build is local too — publishing waits on the device pass.)

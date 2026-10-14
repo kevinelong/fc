@@ -102,6 +102,13 @@ Grounding for each (the JS `execDraw` switch is ~L3386–3520; clearscreen
 (L422–435) plus the definition/registration ops the `Host` trait carries
 (L405–408).
 
+> **As built, the payload is JSON, not these bytes.** The byte numbers below are the
+> *design sketch*. The core that actually ships (`spec/port/spike/src/lib.rs`) emits the
+> frame's commands as JSON records keyed by `op` — see §3.2, `emit_cmd` at
+> `spec/port/spike/src/lib.rs:3435`. The *semantics* stated here still hold (color by
+> name, uppercase-at-render, defaults baked at emit time, screen-space coordinates); only
+> the encoding differs. Treat this table as the op *inventory* and §3.2 as the wire format.
+
 | Op | byte | Payload (after the op byte) | Reference |
 |----|------|------------------------------|-----------|
 | `CLEAR`   | `0x01` | color | clearscreen ~L3341–3344 |
@@ -201,26 +208,56 @@ tracks separately (~L3648 vs ~L3669).
 
 ### 3.2 Command buffer (core writes, host reads)
 
-A tightly packed byte stream the core fills during `step()` and JS decodes
-once per frame. Each record:
+**As built: a JSON record stream, not the byte stream this section used to describe.**
+One static buffer holds the frame's commands as JSON text, and the host `JSON.parse`s it
+once per frame. Both frame entry points build the same text:
 
-```
-[op:u8][payload...]
-```
+- `parse_render(len, seed)` — parse, run frame 1, stash the runtime in `LIVE_RT`, return
+  the command array (`spec/port/spike/src/lib.rs:3452-3467`).
+- `step_frame()` — advance one more frame off the stashed runtime and rebuild the array
+  (`spec/port/spike/src/lib.rs:3514-3528`).
 
-Encoding rules:
-- Coordinates / sizes / r / tempo: little-endian **f64** (8 bytes).
-- Strings (color name, text, sprite name, sfx recipe): `[len:u16][utf8 bytes]`,
-  written inline in the buffer. No interning, no separate string table —
-  keeps the decoder a single linear pass and keeps the buffer self-contained
-  for hashing/diffing.
-- Records are variable length; the decoder switches on the op byte to know how
-  many fields follow (the table in §2 is the schema).
+Each writes into `RES` (`RES_CAP = 1 MiB`, `spec/port/spike/src/lib.rs:3306`) and returns
+the byte length; the host reads `res_ptr()` for that many bytes and parses it — `readJson`
+at `index.html:7237`, called as `paint(readJson(w.step_frame()))` at `index.html:7263` /
+`:7280` and `paint(readJson(w.parse_render(len, 0)))` at `index.html:7330`. That is the §1
+win (one crossing per frame) made concrete; only the payload's encoding changed.
 
-The buffer is preallocated to a cap (e.g. 64 KiB — far above the op budget's
-realistic per-frame output at 128×128). On overflow the core emits a final
-`ERROR` record and stops appending for that frame (defensive; should never
-fire under the 100k op budget).
+A record is `{"op": …}` plus the fields its op needs (`emit_cmd`,
+`spec/port/spike/src/lib.rs:3435-3448`):
+
+| op | fields | source |
+|---|---|---|
+| `rect` | color, x, y, w, h | `draw rect` (defaults baked at emit time, §2) |
+| `circle` | color, x, y, r | `draw circle` |
+| `line` | color, x1, y1, x2, y2 | `draw line` |
+| `text` | color, x, y, text | `write` / `draw text` (case preserved, §2) |
+| `sound` | kind, name | `play …`; `kind` is `music` / `stopmusic` / (empty) |
+| `defsfx` | name, recipe | `define sound`; `recipe` is emitted JSON (tone or notes) |
+| `flash` | color | `flash screen` |
+| `shake` | magnitude | `shake camera` |
+| `net` | kind, a, b | `join game … room …` / `broadcast …` |
+| `store` | key, value | `save v as "k"` — **new 2026-10-12** |
+| `song` | name, tempo, rows | `song "x" is <tempo> "<notes>"` — **new 2026-10-12** |
+
+[QUIRK] **Overflow truncates; it does not error.** Every writer copies `min(len, RES_CAP)`
+bytes (`spec/port/spike/src/lib.rs:3464`, `:3519`, `:3525`), so a frame whose JSON exceeds
+1 MiB is silently cut — the earlier sketch's "emit an `ERROR` record and stop" was never
+implemented. It has not fired (the op budget keeps a 128×128 frame far under the cap), but
+a decoder must not assume the array is well-formed if it ever does.
+
+**The host does more than blit — seven ops are effects, not draw calls.** `index.html`'s
+`paint()` routes them before the canvas (`index.html:7241-7247`): `sound`→`AUDIO`,
+`flash`→`fcFlash`, `shake`→`fcShake`, `defsfx`→`AUDIO.defineSfx`, `net`→`NET`,
+`store`→`STORE.set`, `song`→`AUDIO.defineSong`. Everything else falls through to the `ctx`
+draw path.
+
+**Delivery differs by design, and the guards say so.** The JS reference calls
+`AUDIO`/`STORE`/`NET` in process; the wasm cannot, so it emits a command the host applies.
+`spec/port/spike/shape-diff.mjs:146` therefore filters the host-effect ops
+(`sound`, `defsfx`, `net`, `store`, `song`) out of the cross-engine command comparison — the
+engines must agree on *what the program means*, and the *effect* is pinned separately by
+`tools/app-api-e2e.mjs` (the real app on the wasm engine). See `docs/STATUS.md` (i).
 
 ### 3.3 Source staging
 
@@ -261,6 +298,18 @@ err_ptr()   -> ptr ; err_len()   -> u32   // located errors (~L2693, finally wir
 vars_json_ptr() -> ptr ; vars_json_len() -> u32  // scalar var snapshot for diffing
 ```
 
+**As built (2026-07-…2026-10-12) — the sketch above is the design, not the artifact.** The
+shipped core's `#[no_mangle]` exports in `spec/port/spike/src/lib.rs` are: `parse_render
+(len, seed)` and `step_frame()` (each runs one frame, writes the §3.2 JSON into `RES`, and
+returns its byte length; the host reads `res_ptr()` for that many bytes), `parse_exec_to_json
+(len, seed)` (the exec / `{say, errors, vars}` capture the differential uses), `set_key
+(code, on)`, `set_mouse(x, y, down)`, `set_net(len, connected)`, `seed_store(len)`, and the
+read-only accessors `dump_say()`, `dump_vars()`, `errors_json()`, `has_game()`
+(`spec/port/spike/src/lib.rs:3452`, `:3514`, `:3308`, `:3472`, `:3479`, `:3486`, `:3502`,
+`:3531`, `:3555`, `:3545`, `:3540`, `:3307`). There is **no** `load` / `step` / `cmd_ptr` /
+`input_ptr` / `alloc`: input arrives as `set_*` calls rather than a fixed struct the host
+writes, and the command buffer is a length-returning JSON write, not a `count` read.
+
 The **load/step contract**:
 
 - `load(ptr,len)` is called once per program edit. It does tokenize + parse
@@ -279,6 +328,18 @@ The **load/step contract**:
 This is intentionally a *count-returning* `step()` rather than a callback-per-
 op design: one crossing in (`step`), one crossing out (the count), then a bulk
 memory read. That is the §1 win made concrete.
+
+**`seed_store(len)` — the durable `save`/`load` values, fed in before the first frame
+(added 2026-10-12).** The payload is the `store` op (§3.2) in reverse. A `save` the core
+emits is applied by the host into `STORE` (localStorage + `/api/state`), but `load` reads
+the *core's own* store, so on a fresh page the durable copy must be handed back: the host
+streams a JSON object of `key → value` through the source buffer and `seed_store` parses
+it and stashes the pairs in `PENDING_STORE` for `Rt::new` to apply to every run
+(`spec/port/spike/src/lib.rs:3499-3512`; `Rt::new` applies them at `:1777`). The host side
+is `index.html`'s `seedStore()` (`index.html:7308-7321`), which seeds both `STORE._mem`
+and the `fc:save:` localStorage keys — `STORE.get` falls back to localStorage, so seeding
+only memory would miss a value saved before this page load. It is called once, before
+`parse_render` (`index.html:7329`).
 
 ---
 
@@ -408,8 +469,10 @@ golden output and CONFORMANCE.md already defines the vector shape
 2. **Two runners, one harness.**
    - JS: the seam-extracted `fcRun(src, seed)` returning
      `{say, errors, vars, commands}` (CONFORMANCE.md L107–109).
-   - WASM: `load()` the same source, set the input buffer, `step()` the same
-     fixed number of frames, drain `cmd_ptr()` into the same JSON shape.
+   - WASM: `parse_render()` the same source, drive input with `set_key`/`set_mouse`/
+     `set_net`, `step_frame()` the same fixed number of frames, and read each frame's JSON
+     command array from `res_ptr()` (the plan's `load`/`step`/`cmd_ptr` names, as built —
+     §4).
 3. **Diff.** Byte/string-exact on `say` (case-preserved, L124), ordered
    equality on `commands`, scalar equality on `vars`, and located-error
    equality on `errors`. Any mismatch is a port bug *or* a newly-discovered
@@ -433,6 +496,10 @@ inside loop bodies (`execList` runs `else` unconditionally, ~L3003, vs correct
 ---
 
 ## 9. Concrete Rust → WASM SPIKE plan
+
+> *(Historical plan, kept as written. Its `load()`/`step()`/`cmd_ptr()` names are the
+> pre-implementation sketch; the exports that shipped are §4's "As built" list, and the
+> JS-side decoder it asks for is the `JSON.parse` in `index.html`'s `readJson`, §3.2.)*
 
 Goal: prove the boundary end-to-end on the **smallest useful subset**, behind a
 page flag, and collect measurements before committing to a full port. Keep it
