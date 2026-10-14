@@ -45,3 +45,8 @@ jobs:
       # guarding (a dropped dependency, a renamed binary), and that is a failure, not a pass.
       - name: every harness
         run: node tools/checks.mjs --strict
+
+      # `--full` (fuzz 2000 instead of 500) is a documented path the default run never takes.
+      # It only changes the fuzz check, and that one is cheap, so run just it in full here.
+      - name: fuzz, full corpus
+        run: node tools/checks.mjs --full --only fuzz
