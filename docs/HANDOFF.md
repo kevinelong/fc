@@ -202,6 +202,18 @@ hosted-origin decision and is not local-only.
    2026-10-12 bundle, so a tree-only pull would leave every download that far behind the site
    (`fc-app`'s README calls this "a rebuild, not just a deploy"); the in-app nudge reads the live
    `fc-version.js`, which is why the APK must still land before the tree.
+   **Held by Kevin, 2026-10-15.** Nothing was published from here. The re-verification he asked for first is
+   worth keeping because it found more than a stale file: `codeonline.io` is `168.231.66.87`
+   (`srv919932.hstgr.cloud`) and refuses every key of his from this workstation (`kevin`, `root`, `ubuntu`;
+   ports 22 and 8001). `dev.bblcht.com` — which `~/.ssh/config` also mapped `kevin.bblcht.com` to — now
+   resolves to a different VPS (`31.220.50.38`, `srv1066549`) whose ED25519 host key has changed
+   (known_hosts `SHA256:D+3znd1E…`, presented `SHA256:ktmAN/mdNu9IRsnoyfl7UUXjc/Mmqj+172+gaDdLlaA`) and
+   which refuses the key too; it serves `/static/index.html`, not this site. The one box that does accept
+   the key (`148.230.88.52`, `srv936626`) holds no `codeonline` or `15ball` checkout. The `kevin.bblcht.com`
+   entry was corrected to that address and its host key pinned by address (the pinned fingerprint equals the
+   trusted `[bblcht.net]:8001` entry's); `dev.bblcht.com` still fails closed rather than trusting the new
+   key, so the change is Kevin's to verify out of band. Live evidence of the staleness: `fc-version.js`
+   serves `versionCode 3 / 1.0.2` and `/.well-known/assetlinks.json` is a 404.
 6. **Play:** the $25 account, then upload the `.aab` built from `fc-app`'s `target-sdk-36` branch
    after the device pass. That branch is `main` + the `targetSdk` 36 bump, so a build there carries
    both the current bundle and the manifest Play accepts; the `main` artifacts are `targetSdk 34` and
