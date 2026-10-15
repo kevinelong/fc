@@ -111,9 +111,22 @@ const results = [];
 const check = (name, ok, detail) => { results.push(ok); console.log((ok ? 'PASS  ' : 'FAIL  ') + name + (ok ? '' : '  — ' + JSON.stringify(detail))); };
 
 // ---- 4. UI walk --------------------------------------------------------------
-check('entry hidden before the probe answers', await evaluate(`(function(){
-  return new Promise(function(res){ setTimeout(function(){ res(getComputedStyle(document.getElementById('lr-class')).display); }, 500); });
-})()`) !== 'none', 'the launcher entry should appear when the flag is on');
+// The launcher entry is display:none until the flag-on probe answers, and the probe only runs
+// after the page has booted a 660 KB app; sampling once at a fixed moment was load-flaky (it
+// failed inside the full suite, where 30 checks have just run, and passed on its own). Poll for
+// the answer with a budget instead of guessing a moment — it still fails if the entry never
+// appears, and the clicks below then always act on a revealed entry.
+const entryDisplay = await evaluate(`(function(){
+  return new Promise(function(res){
+    var el = document.getElementById('lr-class'), t0 = Date.now();
+    (function poll(){
+      var d = getComputedStyle(el).display;
+      if (d !== 'none' || Date.now() - t0 > 10000) return res(d);
+      setTimeout(poll, 100);
+    })();
+  });
+})()`);
+check('the launcher entry appears once the flag-on probe answers', entryDisplay !== 'none', 'entry display = ' + entryDisplay);
 
 await evaluate(`document.getElementById('lr-class').click()`);
 await sleep(300);
