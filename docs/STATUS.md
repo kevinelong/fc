@@ -5,6 +5,59 @@ and the commit. Plans are marked in place (`✅ SHIPPED` / `⬜ remaining`) as t
 complete; this file tracks the cross-plan view. Blocking decisions live in
 [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md).
 
+## 2026-10-15 — the gaps this log still called open were already closed; a flaky classroom case fixed
+
+**(a) Both "known gaps found (not yet fixed)" from the 2026-09-29 audit had been fixed already, and
+this log was the only place still saying otherwise.** The two bullets are struck through in place,
+with the date each one closed and the evidence behind it; the conclusions did not change, the record
+did.
+
+* **Dynamic colours (`draw … in shade`) resolve.** Q7 was answered on 2026-09-30 (🟢 in
+  OPEN-QUESTIONS.md) and the implementation is in all four runtimes: a colour *variable* wins over the
+  palette at every choke-point (`Runtime.colorOf` in `index.html`, `color_of` in the Rust core), and
+  an unrecognised string falls back to white. Re-checked this turn **by value, not by parity** —
+  `shade is dark green` + `draw rect … in shade` → `#008751` on *both* engines, `lit is "#ffec27"` →
+  `#ffec27`, and the non-palette literal `dark orange` → the documented white fallback. No engine
+  behaviour changed, because none needed to.
+* **The pixel goldens cover all 22 examples, toys included.** `spec/golden-shots/` holds 22 pins and
+  `tools/visual-golden.cjs` enumerates `examples/*.fc` — there is no hand-kept list that can fall
+  behind — with `spec/golden-shots/cvd/` holding the matching 22 for the colourblind palette.
+
+**(b) `class-e2e`'s first case was guessing when the launcher entry appears, and the full suite is
+what caught it.** The case sampled `#lr-class`'s computed display 500 ms after a 1600 ms
+post-navigation wait and required it to be visible; the app boots a 660 KB single file and only then
+answers the flag-on probe, so under load the sample landed too early. It was the only red in a
+`--strict` run (class-e2e 13/14, exit 1) while the same harness run on its own was 14/14 — a
+load-flaky gate, the kind this repo refuses to keep. It now polls for the reveal with a 10 s budget
+and still fails if the entry never appears, so the assertion keeps its teeth, and it is named for
+what it asserts. Nothing else was red, so nothing else changed. (a182096)
+
+**(c) `node tools/checks.mjs --strict` → 31 passed, 0 failed, 0 skipped.** Every prerequisite this
+machine needs is present — built wasm, Chrome, `apid` and `huntd` `node_modules`, `playwright-core`,
+`axe-core`, `python3` — so the local run says what CI's run says: no guard has quietly stopped
+guarding. `.github/workflows/checks.yml` still installs exactly the set the checks declare in
+`needs:`, which is what makes `--strict` mean something on the runner.
+
+**(d) `fc-app`: the Play build's branch now carries `main` — it had been about to ship an old web
+app.** The store build comes from `target-sdk-36` (STATUS (h): `main` plus the `targetSdk` 36 bump,
+kept off `main` because Android 15+ edge-to-edge is a device-pass question), and that branch trailed
+`main` by **13 commits**, so a build from it would have carried the 2026-10-12 bundle through the
+device pass and on to Play. `main` is merged into the branch; `fc-app`'s README now says where the
+store build comes from and how to keep the branch current (`git merge main`, then
+`scripts/verify.sh`, with `scripts/bundle-check.sh` for freshness), and `DISTRIBUTION.md` says the
+same in one paragraph. `fc-app`'s bundle was refreshed against this checkout in the same turn and its
+APK/AAB rebuilt, because a refreshed tree makes the old artifacts stale by that repo's own rule —
+`scripts/verify.sh`'s `diff -rq` over the artifact's asset tree is the check that says so.
+
+**(e) The queues were re-read; nothing local is left both unblocked and undone.** Local work queue
+items 1, 2, 4 and 7 were already closed, 3 closed here, 5 is a decision (keep the eight
+non-verbs, with the reason pinned in `NON_VERBS`), and 6 is a decision rather than the prepared
+build the item once claimed. Publishing the v4 build (Next actions 5) waits on access, not on a
+decision — checked 2026-10-15: the served clone is `/home/kevin/codeonline` **on the codeonline.io
+box** and no host on this workstation reaches it, so that command runs there; and the published v4
+asset still embeds the 2026-10-12 bundle, so the artifact wants a rebuild rather than only a
+`git pull` of the tree.
+
 ## 2026-10-14 — a test-and-infrastructure pass: the audit found the holes, the guards close them
 
 **(a) The audit, against the repo's own documentation.** HANDOFF's guard table names fourteen
@@ -1041,14 +1094,21 @@ Rebuilt wasm re-inlined into `index.html` (`inline-wasm.mjs`) after each core
 change; the app was checked in headless Chrome (matrix still renders digits; the
 inspect panel now reports `shade: "light gray"`, i.e. the color-word fix is live).
 
-### Known gaps found (not yet fixed)
+### Known gaps found here, and where each one went (both closed — reconciled 2026-10-15)
 
-1. **Dynamic colors (`draw … in shade`) never resolve** in *either* engine —
-   `resolveColor()` only maps literal names. Every "fading tail" / "brighter stars" /
-   3-tone sand effect renders flat white. Product decision: Q7.
-2. The visual-golden tool's pinned set (`spec/golden-shots/`) covers the 16 classic
-   games but not the 6 generative toys (matrix, sand, starfield, life, langton,
-   chaos) — running `tools/visual-golden.cjs` would add them (needs playwright-core).
+1. ~~**Dynamic colors (`draw … in shade`) never resolve** in *either* engine —
+   `resolveColor()` only maps literal names.~~ **Closed 2026-09-30 (Q7 — answered, not
+   pending; see OPEN-QUESTIONS.md).** A colour *variable* now wins over the palette at every
+   choke-point (`Runtime.colorOf` in `index.html`, `color_of` in the Rust core), and an
+   unrecognised string falls back to white. Re-observed 2026-10-15 **by value, not by parity**:
+   `shade is dark green` + `draw rect … in shade` → `#008751` on both engines, `lit is "#ffec27"`
+   → `#ffec27`, and the non-palette literal `dark orange` → the documented white fallback.
+   Guard: `spec/port/spike/draw-tests/d_dyncolor.fc` (with `d_meter.fc`, `spec/corpus/meter_forms.fc`).
+2. ~~The visual-golden tool's pinned set (`spec/golden-shots/`) covers the 16 classic games but
+   not the 6 generative toys.~~ **Closed 2026-10-12.** `spec/golden-shots/` holds **22** goldens
+   and `tools/visual-golden.cjs` enumerates `examples/*.fc`, so the six toys (chaos, langton,
+   life, matrix, sand, starfield) are pinned like the classics — there is no hand-kept list to
+   fall behind. `spec/golden-shots/cvd/` holds the matching 22 for the colourblind palette.
 
 ## Plan state at audit
 

@@ -78,6 +78,14 @@ this build before it goes to the store; if it passes, merge the branch and uploa
 It shares versionCode 4 with the direct-download build, so publishing it means bumping to 5
 (or replacing the release), and `fc-version.js` with it.
 
+**2026-10-15 — the branch now carries `main`, so the store build is a rebuild.** `target-sdk-36`
+had trailed `main` by 13 commits, which meant a build from it would have shipped the 2026-10-12 web
+bundle (the byte-identical-to-v4 sentence above describes the artifact built that day, not a fresh
+build). `main` is merged into the branch; `fc-app`'s README says where the store build comes from
+and how to keep the branch current (`git merge main`, then `bash scripts/verify.sh`, with
+`scripts/bundle-check.sh` — exit 1 = stale, exit 2 = cannot compare). `main` itself stays on
+`targetSdk 34`: the bump is signed off by the device pass, not by the build.
+
 **Listing copy (paste-ready):**
 - **Title:** `fc — code games in plain English`
 - **Short description (≤80):** `Make games by writing plain English. Play on your phone. Multiplayer built in.`

@@ -59,7 +59,10 @@ The engine is a **Rust→WASM core** (default) with a JavaScript fallback; the w
 **inlined as base64 in `index.html`**, so a fresh clone runs with no build.
 
 **Android:** install the app from **[fc-releases](https://github.com/kevinelong/fc-releases)**
-(APK, no account needed), or use *Add to Home Screen* on the site — both work offline.
+(APK, no account needed), or use *Add to Home Screen* on the site — both work offline. The
+Play-facing build needs `targetSdk 36` and lives on `fc-app`'s `target-sdk-36` branch: `main` stays
+on `targetSdk 34` on purpose, because 35+ is Android 15+ edge-to-edge and that is a device-pass
+question ([DISTRIBUTION.md](./DISTRIBUTION.md) has the order of operations).
 
 ## Layout
 - `index.html` — the whole app: language, engine, editor, UI (single file).

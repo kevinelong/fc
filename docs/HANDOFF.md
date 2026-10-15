@@ -131,9 +131,11 @@ the owner-gated list below is separate.
    JSON record stream the core actually emits, with the record table and a file:line for each claim;
    §4 gained an "as built" export list and the `seed_store` contract; §2's byte table is marked as the
    design sketch; §8/§9 point at the shipped names. `store`/`song` are documented in the §3.2 table.
-3. **`fc-app`'s bundle is stale again.** The reference page, the tutorial, all five static pages and
-   the docs changed today; `bash scripts/copy-web-assets.sh` has not run since, so the next APK build
-   would ship the old pages. (The build is local too — publishing waits on the device pass.)
+3. ~~**`fc-app`'s bundle is stale again.**~~ **Done (2026-10-14, refreshed again 2026-10-15).**
+   `fc-app`'s `assets/www/` is refreshed against this checkout, and `scripts/verify.sh` is the gate
+   that says so: bundle freshness, version identity, and a `diff -rq` of every built artifact against
+   the tree. The 2026-10-15 refresh rebuilt the APK/AAB too, because a refreshed tree makes the old
+   artifacts stale by that repo's own rule. Publishing still waits on the device pass.
 4. ~~**The Play feature graphic was never rendered.**~~ **Done — it exists.** `store/feature-graphic.png`
    is a tracked 1024×500 PNG and has been since `35dcff7` (2026-07-03); `tools/feature-graphic.html`
    is its generator. The queue was wrong here, and `DISTRIBUTION.md:97` ("Assets still to make:
@@ -174,9 +176,14 @@ hosted-origin decision and is not local-only.
    privacy/teacher copy, the enable-and-rollback steps, and what the pilot would measure.
 2. **Device pass:** run and record the must-do four in [TEST-MATRIX.md](./TEST-MATRIX.md).
    Touch wiring is automated; iOS audio/PWA, APK loading, and two-device multiplayer need real
-   hardware. Do it against the **`targetSdk 36`** build (`fc-app` branch `target-sdk-36`,
-   commit `4500417`) — that is the one Play will accept, and its only behavioural delta is
-   Android 15+ edge-to-edge, which can push the on-screen D-pad under the navigation bar.
+   hardware. Do it against the **`targetSdk 36`** build (`fc-app` branch `target-sdk-36`) — that is
+   the one Play will accept, and its only behavioural delta is Android 15+ edge-to-edge, which can
+   push the on-screen D-pad under the navigation bar.
+   **That branch now carries `main`** (merged 2026-10-15): it had trailed `main` by 13 commits, so a
+   build from it would have put the 2026-10-12 web bundle through the device pass. Keep it that way —
+   `git merge main` on the branch before a build, and let `bash scripts/bundle-check.sh` (exit 1 =
+   stale, exit 2 = cannot compare) answer whether the merge was enough. `main` itself stays on
+   `targetSdk 34` on purpose: the bump is a device-passed decision, not a build one.
 3. **Controlled classroom pilot:** only after steps 1–2, review the final privacy/teacher copy,
    then decide whether to enable the flag for a small pilot.
 4. **Q5 feedback decision:** the owner chooses whether and where to post. No external
@@ -187,8 +194,19 @@ hosted-origin decision and is not local-only.
    `fc-version.js`. The site is a 2026-07-08 snapshot of this repository, so the pull is also
    what puts the September/October work live. The APK is signed with a key from after the July
    build, so existing installs must uninstall once (the in-app nudge will say so).
-6. **Play:** the $25 account, then upload the `.aab` from the device-passed `target-sdk-36`
-   build (bump versionCode and `fc-version.js` with it if the direct-download build moves too).
+   **What is missing here, checked 2026-10-15** (this is the whole gap — no decision is pending):
+   the served clone is `/home/kevin/codeonline` **on the codeonline.io box** (nginx serves it; the
+   script's default `SITE` and `FC_SITE` override), and nothing on this workstation reaches it —
+   `~/.ssh/config` has no host for it and there is no local site clone — so the command runs *there*,
+   not here. Also decide the artifact while you are at it: the published v4 asset embeds the
+   2026-10-12 bundle, so a tree-only pull would leave every download that far behind the site
+   (`fc-app`'s README calls this "a rebuild, not just a deploy"); the in-app nudge reads the live
+   `fc-version.js`, which is why the APK must still land before the tree.
+6. **Play:** the $25 account, then upload the `.aab` built from `fc-app`'s `target-sdk-36` branch
+   after the device pass. That branch is `main` + the `targetSdk` 36 bump, so a build there carries
+   both the current bundle and the manifest Play accepts; the `main` artifacts are `targetSdk 34` and
+   cannot be uploaded. Bump versionCode and `fc-version.js` together if the direct-download build
+   moves too (they must not disagree — `tools/release-check.mjs` fails CI when they do).
 7. ~~The wasm↔host store bridge~~ **done 2026-10-12** (see STATUS (i)): `save` persists on the
    default engine and `song` notes reach the audio engine. The remaining code items are not
    owner-gated — they are in the local work queue above.
